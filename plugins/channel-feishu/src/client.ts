@@ -1,4 +1,4 @@
-import type { PluginAPI } from "@yonder/sdk";
+import { type PluginAPI, parseRef, type Ref } from "@yonder/sdk";
 import { type Config, type ObjectValue, object, string } from "./protocol.js";
 import { scopeHint } from "./scopes.js";
 
@@ -181,6 +181,30 @@ export class FeishuApi {
 		} catch (error) {
 			if (error instanceof FeishuRequestError) throw error;
 			throw new FeishuRequestError(this.safe(error), method !== "GET");
+		}
+	}
+	async describeConversation(instance: string, target: Ref, signal?: AbortSignal) {
+		let ref: ReturnType<typeof parseRef>;
+		try {
+			ref = parseRef(target);
+		} catch {
+			return undefined;
+		}
+		if (ref.kind !== "conv" || ref.channel !== instance || !ref.id.startsWith("oc_")) return undefined;
+		try {
+			const result = object(
+				(await this.request(`/im/v1/chats/${encodeURIComponent(ref.id)}`, "GET", undefined, signal)).data,
+			);
+			const displayName = string(result.name).trim();
+			if (!displayName) return undefined;
+			const mode = string(result.chat_mode);
+			return {
+				displayName,
+				...(mode === "group" ? { kind: "group" as const } : mode === "p2p" ? { kind: "dm" as const } : {}),
+				basis: "platform-exact" as const,
+			};
+		} catch {
+			return undefined;
 		}
 	}
 	async raw(path: string, method = "GET", body?: object | FormData, signal?: AbortSignal): Promise<Response> {

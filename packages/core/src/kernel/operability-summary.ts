@@ -73,6 +73,7 @@ function summaryFact(item: SessionOperabilityFact, includeManagement: boolean, i
 	const result = {
 		status: item.status,
 		...(item.reason !== undefined ? { reason: item.reason } : {}),
+		...(item.conversationLabel ? { conversationLabel: item.conversationLabel } : {}),
 		...(includeManagement && item.management ? { management: item.management } : {}),
 		...(item.selector?.conv !== undefined ? { conv: item.selector.conv } : {}),
 		...(item.selector?.eventId !== undefined ? { eventId: item.selector.eventId } : {}),
@@ -206,7 +207,11 @@ export function summarizeAgentOperability(agent: string, report: AgentOperabilit
 	let omitted = Math.max(0, facts.length - conversations.length);
 	let summary = {
 		agent,
-		scope: { basis: "current-agent-exact-binding-conversations", globalMembershipDirectory: false },
+		scope: {
+			basis: "current-agent-exact-binding-conversations",
+			globalMembershipDirectory: false,
+			platformLabels: "display only; not membership or access evidence",
+		},
 		status: report.status,
 		limit: conversationLimit,
 		truncated: report.truncated || omitted > 0,
@@ -224,7 +229,11 @@ export function summarizeAgentOperability(agent: string, report: AgentOperabilit
 	if (size(summary) > characterLimit) {
 		return {
 			agent,
-			scope: { basis: "current-agent-exact-binding-conversations", globalMembershipDirectory: false },
+			scope: {
+				basis: "current-agent-exact-binding-conversations",
+				globalMembershipDirectory: false,
+				platformLabels: "display only; not membership or access evidence",
+			},
 			status: "unknown" as const,
 			limit: conversationLimit,
 			truncated: true,

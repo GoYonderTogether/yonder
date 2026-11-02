@@ -6,6 +6,7 @@ import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
 import { projectAgentOperability } from "./agent-operability.js";
 import { projectConversationOperability } from "./operability.js";
+import { agentOperabilityProjector, ownerAgentOperabilityProjector } from "./operability-adapters.js";
 import { socialPluginHooks } from "./social-plugin.test-support.js";
 import { batchPreflightData } from "./social-preflight.js";
 
@@ -248,6 +249,53 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 		});
 		expect(feishuFact?.sample).not.toHaveProperty("senderIsBot");
 		expect(JSON.stringify(report)).not.toContain("private body");
+		const described: Array<{ conv: string; signal?: AbortSignal }> = [];
+		const labeledChannel: Channel = {
+			...channel,
+			async describeConversation(target, signal) {
+				described.push({ conv: target, ...(signal ? { signal } : {}) });
+				return { displayName: "Exact platform group", kind: "group", basis: "platform-exact" };
+			},
+		};
+		const projectorOptions = {
+			agents,
+			store,
+			loaded: { channels: new Map([["qq", labeledChannel]]), hooks },
+			configStatus: async () => ({ agent: { state: "accepted", revision: "rev-1", acceptedRevision: "rev-1" } }),
+		};
+		const signal = new AbortController().signal;
+		const ownerReport = await ownerAgentOperabilityProjector(projectorOptions)(agent.id, signal);
+		expect(ownerReport.conversations.find((item) => item.selector.conv === conv)?.conversationLabel).toEqual({
+			status: "observed",
+			displayName: "Exact platform group",
+			kind: "group",
+			basis: "platform-exact",
+		});
+		expect(described).toEqual([{ conv, signal }]);
+		await agentOperabilityProjector(projectorOptions)(agent.id);
+		expect(described).toHaveLength(1);
+		const mismatchedChannel: Channel = {
+			...channel,
+			async describeConversation() {
+				return { displayName: "Unexpected direct chat", kind: "dm", basis: "platform-exact" };
+			},
+		};
+		const mismatchedReport = await ownerAgentOperabilityProjector({
+			...projectorOptions,
+			loaded: { channels: new Map([["qq", mismatchedChannel]]), hooks },
+		})(agent.id, signal);
+		expect(mismatchedReport.conversations.find((item) => item.selector.conv === conv)?.conversationLabel).toEqual({
+			status: "unknown",
+			reason: "platform kind does not match observed conversation kind",
+		});
+		const unsupportedReport = await ownerAgentOperabilityProjector({
+			...projectorOptions,
+			loaded: { channels: new Map([["qq", channel]]), hooks },
+		})(agent.id, signal);
+		expect(unsupportedReport.conversations.find((item) => item.selector.conv === conv)?.conversationLabel).toEqual({
+			status: "unknown",
+			reason: "platform description unsupported",
+		});
 		const qqOutsideScopeAgent = parseAgentConfig(
 			JSON.stringify({
 				...agent,

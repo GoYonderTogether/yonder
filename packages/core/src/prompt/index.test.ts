@@ -430,6 +430,13 @@ test("owner, parent, and late tool inputs keep distinct host contexts", async ()
 			conv: "conv:agent:helper",
 			data: { kind: "parent-request", text: "parent input" },
 		});
+		const ownerParent = newEvent({
+			type: "message.in",
+			from: "acct:agent:helper",
+			conv: "conv:agent:helper",
+			data: { kind: "parent-request", text: "Do not repeat the announcement." },
+		});
+		const ownerText = `OWNER-BEGIN ${"完整约束".repeat(2200)} OWNER-END`;
 		const tool = newEvent({
 			type: "runtime.tool-result",
 			conv: "conv:qq:group",
@@ -449,11 +456,32 @@ test("owner, parent, and late tool inputs keep distinct host contexts", async ()
 				if (event.id === owner.id) return JSON.stringify({ source: owner.id, conv: owner.conv, contextOnly: true });
 				if (event.id === parent.id)
 					return JSON.stringify({ source: parent.id, conv: parent.conv, verifiedParent: true });
+				if (event.id === ownerParent.id)
+					return {
+						context: JSON.stringify({ self: "helper", verified: true, operability: { status: "observed" } }),
+						ownerTask: {
+							sources: [
+								{
+									id: "original-owner-event",
+									conv: "conv:feishu:target",
+									from: "acct:feishu:owner",
+									relation: "owner",
+									at: "2026-11-03T00:00:00.000Z",
+									mentions: { bot: true },
+									text: ownerText,
+								},
+							],
+							limit: 8,
+							truncated: false,
+							omitted: 0,
+						},
+					};
 				return undefined;
 			},
 		};
 		const ownerPrepared = await prepareInput(row, session, owner, "run", options);
 		const parentPrepared = await prepareInput(row, session, parent, "run", options);
+		const ownerParentPrepared = await prepareInput(row, session, ownerParent, "run", options);
 		const toolPrepared = await prepareInput(row, session, tool, "run", options);
 		expect(ownerPrepared.text).toContain(owner.id);
 		expect(ownerPrepared.text).toContain("conv:feishu:private");
@@ -461,6 +489,15 @@ test("owner, parent, and late tool inputs keep distinct host contexts", async ()
 		expect(parentPrepared.text).toContain(parent.id);
 		expect(parentPrepared.text).toContain("conv:agent:helper");
 		expect(parentPrepared.text).not.toContain("conv:feishu:private");
+		expect(ownerParentPrepared.text).toContain("Do not repeat the announcement.");
+		expect(ownerParentPrepared.text).toContain('"role":"supporting coordination note');
+		expect(ownerParentPrepared.text).toContain('"role":"primary goal from verified owner originals');
+		expect(ownerParentPrepared.text).toContain("original-owner-event");
+		expect(ownerParentPrepared.text).toContain("conv:feishu:target");
+		expect(ownerParentPrepared.text).toContain('"mentions":{"bot":true}');
+		expect(ownerParentPrepared.text).toContain("OWNER-END");
+		expect(ownerParentPrepared.text).not.toContain('conversation: {"id":"original-owner-event"');
+		expect(ownerParentPrepared.text.split(ownerText)).toHaveLength(2);
 		expect(toolPrepared.text).not.toContain("conversation:");
 		expect(toolPrepared.text).toContain("late result");
 	} finally {

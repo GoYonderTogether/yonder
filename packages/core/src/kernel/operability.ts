@@ -10,6 +10,9 @@ export type OperabilitySelector = { conv?: string; eventId?: string };
 export type SessionOperabilityFact = {
 	status: "observed" | "unknown";
 	selector: OperabilitySelector;
+	conversationLabel?:
+		| { status: "observed"; displayName: string; kind?: "dm" | "group" | "channel"; basis: "platform-exact" }
+		| { status: "unknown"; reason: string };
 	reason?: string;
 	sample?: {
 		eventId: string;

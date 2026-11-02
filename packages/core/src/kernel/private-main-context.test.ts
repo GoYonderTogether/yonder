@@ -20,6 +20,13 @@ const agent = (id: string, name: string) =>
 		id,
 	);
 
+const serializedContext = (value: unknown): string => {
+	if (typeof value === "string") return value;
+	if (value && typeof value === "object" && "context" in value && typeof value.context === "string")
+		return value.context;
+	throw new Error("serialized conversation context is unavailable");
+};
+
 test("private main context is per-agent, same-origin, owner-only, and keeps operability separate", async () => {
 	const db = await openDatabase(":memory:");
 	try {
@@ -43,6 +50,11 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 			],
 		});
 		const project = async (id: string) => fact(id);
+		const describedSignals: Array<AbortSignal | undefined> = [];
+		const describe = async (id: string, signal?: AbortSignal) => {
+			describedSignals.push(signal);
+			return fact(id);
+		};
 		const options = conversationPromptOptions(
 			store,
 			agents,
@@ -51,11 +63,13 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 			},
 			undefined,
 			project,
+			describe,
 		);
-		const contextFor = async (event: import("@yonder/sdk").YEvent, agentId: string) => {
+		const contextFor = async (event: import("@yonder/sdk").YEvent, agentId: string, signal?: AbortSignal) => {
 			if (!options.conversationContext) throw new Error("conversation context is unavailable");
-			return options.conversationContext(event, agentId);
+			return options.conversationContext(event, agentId, signal);
 		};
+		const signal = new AbortController().signal;
 
 		for (const [id, profile] of [
 			["luna", "default"],
@@ -122,9 +136,10 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 				{ type: "message.in", from: "acct:feishu:owner", conv, data: { kind: "dm", text: "current request" } },
 				route,
 			);
-			const serialized = await contextFor(current, id);
+			const serialized = await contextFor(current, id, signal);
+			expect(describedSignals.at(-1)).toBe(signal);
 			if (!serialized) throw new Error("owner private context was not produced");
-			const value = JSON.parse(serialized);
+			const value = JSON.parse(serializedContext(serialized));
 			expect(value.scope).toBe("owner-private-main");
 			expect(value.identity).toMatchObject({
 				agent: id,
@@ -165,9 +180,20 @@ test("visitors, group messages, non-main sessions, and missing projection do not
 		await store.identity().createPerson({ id: "owner", name: "Owner" });
 		await store.identity().link("acct:feishu:owner", "person:owner");
 		const agents = new Map([["helper", agent("helper", "Helper")]]);
-		const options = conversationPromptOptions(store, agents, () => {
-			throw new Error("runtime not needed");
-		});
+		let descriptionCalls = 0;
+		const options = conversationPromptOptions(
+			store,
+			agents,
+			() => {
+				throw new Error("runtime not needed");
+			},
+			undefined,
+			undefined,
+			async () => {
+				descriptionCalls++;
+				return { status: "observed", limit: 20, truncated: false, conversations: [] };
+			},
+		);
 		const contextFor = async (event: import("@yonder/sdk").YEvent, agentId: string) => {
 			if (!options.conversationContext) throw new Error("conversation context is unavailable");
 			return options.conversationContext(event, agentId);
@@ -191,15 +217,18 @@ test("visitors, group messages, non-main sessions, and missing projection do not
 			opened: new Date().toISOString(),
 		});
 		expect(await contextFor(owner, "helper")).toBeDefined();
+		expect(descriptionCalls).toBe(1);
 		const visitor = { ...owner, id: "visitor", from: "acct:feishu:visitor" };
 		expect(await contextFor(visitor, "helper")).toBeUndefined();
+		expect(descriptionCalls).toBe(1);
 		const group = { ...owner, id: "group", conv: "conv:feishu:group", data: { kind: "group", text: "public" } };
 		const groupContext = await contextFor(group, "helper");
+		expect(descriptionCalls).toBe(1);
 		expect(groupContext).toBeDefined();
-		expect(groupContext).not.toContain("owner-private-main");
-		expect(groupContext).not.toContain('"current request"');
-		if (!groupContext) throw new Error("group context was not produced");
-		expect(JSON.parse(groupContext).self).toMatchObject({
+		const groupText = serializedContext(groupContext);
+		expect(groupText).not.toContain("owner-private-main");
+		expect(groupText).not.toContain('"current request"');
+		expect(JSON.parse(groupText).self).toMatchObject({
 			agent: "helper",
 			identityBasis: "agent-id",
 			profileChangesIdentity: false,
@@ -212,8 +241,9 @@ test("visitors, group messages, non-main sessions, and missing projection do not
 			data: { kind: "parent-request", target: "helper", text: "delegated request" },
 		});
 		const parentContext = await contextFor(parent, "helper");
-		if (!parentContext) throw new Error("parent context was not produced");
-		expect(JSON.parse(parentContext).self).toMatchObject({
+		expect(descriptionCalls).toBe(1);
+		const parentText = serializedContext(parentContext);
+		expect(JSON.parse(parentText).self).toMatchObject({
 			agent: "helper",
 			identityBasis: "agent-id",
 			profileChangesIdentity: false,
@@ -238,6 +268,7 @@ test("visitors, group messages, non-main sessions, and missing projection do not
 			opened: new Date().toISOString(),
 		});
 		expect(await contextFor(nonMain, "helper")).toBeUndefined();
+		expect(descriptionCalls).toBe(1);
 		const unavailable = conversationPromptOptions(
 			store,
 			agents,
@@ -251,8 +282,7 @@ test("visitors, group messages, non-main sessions, and missing projection do not
 		);
 		if (!unavailable.conversationContext) throw new Error("conversation context is unavailable");
 		const serialized = await unavailable.conversationContext(owner, "helper");
-		if (!serialized) throw new Error("owner context was not produced");
-		const context = JSON.parse(serialized);
+		const context = JSON.parse(serializedContext(serialized));
 		expect(context.operability.status).toBe("unknown");
 	} finally {
 		await db.close();

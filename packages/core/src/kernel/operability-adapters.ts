@@ -1,4 +1,4 @@
-import type { Channel, Hook } from "@yonder/sdk";
+import { type Channel, type Hook, parseRef } from "@yonder/sdk";
 import type { AgentConfig } from "../config/index.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
 import type { Store } from "../store/index.js";
@@ -153,6 +153,52 @@ export function agentOperabilityProjector(options: {
 				state: status?.agent?.state ?? "unknown",
 			},
 		});
+	};
+}
+
+/** Owner-main-only wrapper: enriches at most the eight summary-visible, observed group bindings. */
+export function ownerAgentOperabilityProjector(options: {
+	agents: Map<string, AgentConfig>;
+	store: Store;
+	loaded: { channels: Map<string, Channel>; hooks: ReadonlyMap<string, readonly Hook[]> };
+	configStatus(
+		agentId: string,
+	): Promise<{ agent?: { state: string; revision?: string; acceptedRevision?: string } } | undefined>;
+}) {
+	const project = agentOperabilityProjector(options);
+	return async (agentId: string, signal?: AbortSignal): Promise<AgentOperabilityFact> => {
+		const report = await project(agentId);
+		await Promise.all(
+			(report.conversations ?? []).slice(0, 8).map(async (fact) => {
+				if (fact.sample?.kind !== "group" || !fact.selector.conv) return;
+				let reason = "platform description unsupported";
+				try {
+					const ref = parseRef(fact.selector.conv);
+					const channel = ref.kind === "conv" ? options.loaded.channels.get(ref.channel) : undefined;
+					if (!channel) reason = "channel instance unavailable";
+					else if (!channel.describeConversation) reason = "platform description unsupported";
+					else {
+						const label = await channel.describeConversation(fact.selector.conv, signal);
+						fact.conversationLabel =
+							label?.kind && label.kind !== fact.sample.kind
+								? { status: "unknown", reason: "platform kind does not match observed conversation kind" }
+								: label?.displayName.trim()
+									? {
+											status: "observed",
+											displayName: label.displayName.trim(),
+											...(label.kind ? { kind: label.kind } : {}),
+											basis: "platform-exact",
+										}
+									: { status: "unknown", reason: signal?.aborted ? "request aborted" : "platform label unavailable" };
+						return;
+					}
+				} catch {
+					reason = signal?.aborted ? "request aborted" : "platform description failed";
+				}
+				fact.conversationLabel = { status: "unknown", reason };
+			}),
+		);
+		return report;
 	};
 }
 

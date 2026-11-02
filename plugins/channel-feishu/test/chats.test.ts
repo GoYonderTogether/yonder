@@ -14,7 +14,7 @@ async function setup(capabilities = ["read", "network", "admin"], channelInstanc
 		paths: { data },
 		credentials: { get: async () => ({ type: "api_key", key: "local-test-secret" }) },
 	} as unknown as PluginAPI);
-	registrations.channels[0]?.create("a", { appId: "cli_test", secret: "slot" });
+	const channel = await registrations.channels[0]?.create("a", { appId: "cli_test", secret: "slot" });
 	const calls: string[] = [];
 	vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
 		const path = new URL(url).pathname;
@@ -30,8 +30,94 @@ async function setup(capabilities = ["read", "network", "admin"], channelInstanc
 	} as unknown as ToolContext;
 	const tool = registrations.tools.find((item) => item.name === "channel-feishu_chats");
 	if (!tool) throw new Error("Feishu chats tool was not registered");
-	return { calls, ctx, tool };
+	return { calls, ctx, tool, channel };
 }
+
+test("describes one exact group conversation without listing chats or reading members", async () => {
+	const { channel, calls } = await setup();
+	if (!channel?.describeConversation) throw new Error("Feishu channel description is unavailable");
+	vi.stubGlobal("fetch", async (url: string) => {
+		const path = new URL(url).pathname;
+		calls.push(path);
+		return path.endsWith("tenant_access_token/internal")
+			? response({ code: 0, tenant_access_token: "tenant-token", expire: 7200 })
+			: response({ code: 0, data: { name: "P1 acceptance", chat_mode: "group" } });
+	});
+	const signal = new AbortController().signal;
+	expect(await channel.describeConversation("conv:a:oc_p1", signal)).toEqual({
+		displayName: "P1 acceptance",
+		kind: "group",
+		basis: "platform-exact",
+	});
+	expect(calls).toContain("/open-apis/im/v1/chats/oc_p1");
+	expect(calls.some((path) => path.includes("/members") || path.includes("/messages") || path.endsWith("/chats"))).toBe(
+		false,
+	);
+	const before = calls.length;
+	expect(await channel.describeConversation("conv:other:oc_p1", signal)).toBeUndefined();
+	expect(calls).toHaveLength(before);
+});
+
+test("unknown Feishu labels and aborted exact lookups remain undefined", async () => {
+	const { channel, calls } = await setup();
+	if (!channel?.describeConversation) throw new Error("Feishu channel description is unavailable");
+	vi.stubGlobal("fetch", async (url: string) => {
+		const path = new URL(url).pathname;
+		calls.push(path);
+		return path.endsWith("tenant_access_token/internal")
+			? response({ code: 0, tenant_access_token: "tenant-token", expire: 7200 })
+			: response({ code: 0, data: { chat_mode: "group" } });
+	});
+	expect(await channel.describeConversation("conv:a:oc_no_name")).toBeUndefined();
+	const before = calls.length;
+	const controller = new AbortController();
+	controller.abort();
+	expect(await channel.describeConversation("conv:a:oc_aborted", controller.signal)).toBeUndefined();
+	expect(calls).toHaveLength(before);
+});
+
+test("passes cancellation into the exact metadata request and returns unknown", async () => {
+	const { channel, calls } = await setup();
+	if (!channel?.describeConversation) throw new Error("Feishu channel description is unavailable");
+	let begin!: () => void;
+	const requestStarted = new Promise<void>((resolve) => {
+		begin = resolve;
+	});
+	vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+		const path = new URL(url).pathname;
+		calls.push(path);
+		if (path.endsWith("tenant_access_token/internal"))
+			return response({ code: 0, tenant_access_token: "tenant-token", expire: 7200 });
+		begin();
+		return new Promise<Response>((_resolve, reject) => {
+			init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+		});
+	});
+	const controller = new AbortController();
+	const pending = channel.describeConversation("conv:a:oc_slow", controller.signal);
+	await requestStarted;
+	controller.abort();
+	expect(await pending).toBeUndefined();
+	expect(calls).toContain("/open-apis/im/v1/chats/oc_slow");
+});
+
+test("returns unknown when the existing request timeout expires", async () => {
+	const { channel } = await setup();
+	if (!channel?.describeConversation) throw new Error("Feishu channel description is unavailable");
+	vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+		if (init?.signal?.aborted) throw new Error("timed out");
+		return new URL(url).pathname.endsWith("tenant_access_token/internal")
+			? response({ code: 0, tenant_access_token: "tenant-token", expire: 7200 })
+			: response({ code: 0, data: { name: "Known group", chat_mode: "group" } });
+	});
+	expect(await channel.describeConversation("conv:a:oc_cached")).toMatchObject({ displayName: "Known group" });
+	vi.spyOn(AbortSignal, "timeout").mockImplementation(() => {
+		const controller = new AbortController();
+		controller.abort();
+		return controller.signal;
+	});
+	expect(await channel.describeConversation("conv:a:oc_timed_out")).toBeUndefined();
+});
 
 test("lists only groups in one bounded page and maps natural names to complete refs", async () => {
 	const { tool, ctx, calls } = await setup();

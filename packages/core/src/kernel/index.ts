@@ -38,6 +38,7 @@ import {
 	conversationOperabilityProjector,
 	extendKernelInspection,
 	managementOperabilityProjector,
+	ownerAgentOperabilityProjector,
 } from "./operability-adapters.js";
 import { pluginAgentManagement } from "./plugin-bindings.js";
 import { quotaWire } from "./quota-wire.js";
@@ -205,6 +206,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			packageVersion,
 			conversationOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
 			agentOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
+			ownerAgentOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
 		);
 		const { completeRun, finishIdle } = createRunCompletion({
 			store,

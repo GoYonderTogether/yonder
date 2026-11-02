@@ -73,6 +73,15 @@ function inbound(from: string, msgId: string): YEvent {
 	};
 }
 
+async function conversationContextFor(store: Awaited<ReturnType<typeof setup>>["store"], event: YEvent) {
+	const { conversationPromptOptions } = await import("./conversation.js");
+	const project = conversationPromptOptions(store, new Map(), () => {
+		throw Error("No runtime needed");
+	}).conversationContext;
+	if (!project) throw new Error("Conversation context projector is unavailable");
+	return project(event, "main");
+}
+
 test("访客第 4 轮被拒并发登录提示，同时留下结构化拒绝事件", async () => {
 	const ctx = await setup();
 	try {
@@ -224,22 +233,37 @@ test.each(["qq", "card"])(
 	async (channel) => {
 		const ctx = await setup({ outsiders: { ownerShareDailyTokens: 1 } });
 		try {
-			await ctx.store.identity().createPerson({ id: "owner", name: "Owner" });
+			await ctx.store.identity().createPerson({ id: "owner", name: "owner" });
 			await ctx.store.identity().link(`acct:${channel}:owner`, "person:owner");
 			const guest = await ctx.store.events.record(inbound("acct:feishu:visitor", "exhaust"));
 			await settle(ctx, run([guest.id], 1));
-			const { event, originals } = await handoff(ctx, channel, ["owner"]);
+			const { event, originals } = await handoff(ctx, channel, ["owner", "owner"]);
+			const [first, second] = originals;
+			if (!first || !second) throw new Error("Owner originals are missing");
 			expect(await ctx.wire.command(ctx.session, event)).toBeUndefined();
 			await settle(ctx, run([event.id], 500));
 			const { parentOrigins } = await import("../tools/parent-origin.js");
 			expect(await parentOrigins(ctx.store, event, "main")).toEqual(originals);
-			const { conversationPromptOptions } = await import("./conversation.js");
-			const context = await conversationPromptOptions(ctx.store, new Map(), () => {
-				throw Error("No runtime needed");
-			}).conversationContext!(event, "main");
-			expect(context).toContain('"verified":true');
-			expect(context).toContain('"relation":"owner"');
-			expect(context).toContain("owner: original 0");
+			const context = await conversationContextFor(ctx.store, event);
+			if (!context || typeof context === "string") throw new Error("Verified owner request was not structured");
+			expect(context.context).toContain('"verified":true');
+			expect(context.context).not.toContain("owner: original 0");
+			expect(context.ownerTask?.sources).toMatchObject([
+				{
+					id: first.id,
+					conv: first.conv,
+					from: first.from,
+					relation: "owner",
+					text: "owner: original 0",
+				},
+				{
+					id: second.id,
+					conv: second.conv,
+					from: second.from,
+					relation: "owner",
+					text: "owner: original 1",
+				},
+			]);
 		} finally {
 			await ctx.db.close();
 		}
@@ -258,6 +282,13 @@ test("mixed owner and outsider handoff checks the outsider and charges the origi
 		await settle(ctx, run([event.id], 100));
 		expect((await ctx.wire.command(ctx.session, event))?.text).toContain("额度");
 		expect(await ctx.wire.command(ctx.session, inbound("acct:card:owner", "owner-after"))).toBeUndefined();
+		const context = await conversationContextFor(ctx.store, event);
+		expect(typeof context).toBe("string");
+		if (typeof context !== "string") throw new Error("Mixed-source request gained owner task semantics");
+		expect(context).toContain('"relation":"owner"');
+		expect(context).toContain('"relation":"known"');
+		expect(context).toContain("owner: original 0");
+		expect(context).toContain("friend: original 1");
 	} finally {
 		await ctx.db.close();
 	}
@@ -269,6 +300,11 @@ test("guest handoff keeps the original group/source and never trusts copied owne
 		const { event, originals } = await handoff(ctx, "qq", ["guest"]);
 		expect(await ctx.wire.command(ctx.session, event)).toBeUndefined();
 		expect((await ctx.wire.command(ctx.session, originals[0]!))?.text).toContain("登录");
+		const context = await conversationContextFor(ctx.store, event);
+		expect(typeof context).toBe("string");
+		if (typeof context !== "string") throw new Error("Guest request gained owner task semantics");
+		expect(context).toContain('"relation":"stranger"');
+		expect(context).toContain("guest: original 0");
 	} finally {
 		await ctx.db.close();
 	}
@@ -304,6 +340,10 @@ test("forged, cross-session and incomplete legacy origin references cannot inher
 			reason: "parent-origin-unverified",
 			text: expect.stringContaining("无法核验"),
 		});
+		const context = await conversationContextFor(ctx.store, forged);
+		expect(typeof context).toBe("string");
+		if (typeof context !== "string") throw new Error("Forged origin gained owner task semantics");
+		expect(context).toContain('"verified":false');
 	} finally {
 		await ctx.db.close();
 	}

@@ -158,7 +158,10 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 		if (!sent) throw Error("No owner handoff");
 		const verifiedOwner = await prepareInput({ ...session, mode: "main" }, config, sent, "run", options);
 		expect(verifiedOwner.text).toContain("owner original");
-		expect(verifiedOwner.text).toContain("&quot;relation&quot;:&quot;owner&quot;");
+		expect(verifiedOwner.text).toContain('"relation":"owner"');
+		expect(verifiedOwner.text).toContain('"role":"supporting coordination note');
+		expect(verifiedOwner.text).toContain('"role":"primary goal from verified owner originals');
+		expect(verifiedOwner.text.split('"text":"owner original"')).toHaveLength(2);
 		expect(verifiedOwner.text).toContain("acct:card:gpt");
 		expect(verifiedOwner.text).toContain("target-question");
 		expect(verifiedOwner.text).toContain("GPT负责");
@@ -261,21 +264,23 @@ test("parent conversation projects only verified owner source samples", async ()
 		if (!contextOptions.conversationContext) throw new Error("Missing conversation context callback");
 		const context = await contextOptions.conversationContext(handoff, "main");
 		if (!context) throw new Error("Missing parent conversation context");
+		if (typeof context === "string") throw new Error("Verified owner sources were not structured");
 		expect(calls).toHaveLength(8);
 		expect(calls.map((call) => call.selector.eventId)).toEqual(ownerSources.slice(0, 8).map((source) => source.id));
 		expect(calls.every((call) => call.agent === "main" && call.selector.conv === conv)).toBe(true);
-		const parsed = JSON.parse(context) as {
-			originals: Array<{ text: string }>;
-			operability: { limit: number; truncated: boolean; omitted: number; facts: SessionOperabilityFact[] };
-		};
-		expect(parsed.originals.map((item) => item.text)).toEqual(ownerSources.map((_, i) => `owner request ${i}`));
-		expect(parsed.operability).toMatchObject({ limit: 8, truncated: true, omitted: 2 });
-		expect(JSON.stringify(parsed.operability.facts)).not.toContain("unrelated history body");
-		expect(JSON.stringify(parsed.operability.facts)).not.toContain("thinking");
-		expect(parsed.operability.facts.map((fact) => fact.selector.eventId)).toEqual(
-			ownerSources.slice(0, 8).map((source) => source.id),
-		);
-		expect(parsed.operability.facts[0]?.prediction?.capabilities?.values).toEqual(["read"]);
+		const framed = context.ownerTask;
+		if (!framed) throw new Error("Verified owner task frame is missing");
+		const sources = framed.sources as Array<{
+			id: string;
+			text: string;
+			operability?: Omit<SessionOperabilityFact, "selector">;
+		}>;
+		expect(sources.map((item) => item.text)).toEqual(ownerSources.map((_, i) => `owner request ${i}`));
+		expect(JSON.parse(context.context).operability).toMatchObject({ limit: 8, truncated: true, omitted: 2 });
+		expect(JSON.stringify(sources)).not.toContain("unrelated history body");
+		expect(JSON.stringify(sources)).not.toContain("thinking");
+		expect(sources.slice(0, 8).map((source) => source.id)).toEqual(ownerSources.slice(0, 8).map((source) => source.id));
+		expect(sources[0]?.operability?.prediction?.capabilities?.values).toEqual(["read"]);
 		expect((await store.sessions.get(session.id))?.profile).toBe("group-readonly");
 		const noProjectorOptions = conversationPromptOptions(
 			store,
@@ -284,18 +289,20 @@ test("parent conversation projects only verified owner source samples", async ()
 		);
 		if (!noProjectorOptions.conversationContext) throw new Error("Missing conversation context callback");
 		const withoutProjector = await noProjectorOptions.conversationContext(handoff, "main");
-		const unknown = JSON.parse(withoutProjector ?? "{}") as {
-			operability?: { limit: number; truncated: boolean; omitted: number; facts: SessionOperabilityFact[] };
-		};
-		expect(unknown.operability).toMatchObject({
+		if (!withoutProjector || typeof withoutProjector === "string" || !withoutProjector.ownerTask)
+			throw new Error("Verified owner sources were not structured without projector");
+		expect(JSON.parse(withoutProjector.context).operability).toMatchObject({
 			limit: 8,
 			truncated: true,
 			omitted: 2,
 		});
-		expect(unknown.operability?.facts).toHaveLength(8);
-		expect(unknown.operability?.facts[0]).toMatchObject({
+		const withoutFacts = withoutProjector.ownerTask.sources as Array<{
+			operability?: Omit<SessionOperabilityFact, "selector">;
+		}>;
+		expect(withoutFacts.slice(0, 8)).toHaveLength(8);
+		expect(withoutFacts[0]?.operability).toMatchObject({
 			status: "unknown",
-			selector: { conv, eventId: ownerSources[0]?.id },
+			reason: "shared projection unavailable",
 		});
 
 		const visitor = await store.events.record(

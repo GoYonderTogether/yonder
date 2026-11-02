@@ -241,6 +241,11 @@ export interface Channel {
 	kinds: string[];
 	output: { stream: boolean; attachments: boolean };
 	features?: ChannelFeatures;
+	/** Read a platform label for this exact conversation when supported. This does not prove membership or access. */
+	describeConversation?(
+		conv: Ref,
+		signal?: AbortSignal,
+	): Promise<{ displayName: string; kind?: "dm" | "group" | "channel"; basis: "platform-exact" } | undefined>;
 	login?(
 		action: "start" | "poll",
 		signal: AbortSignal,

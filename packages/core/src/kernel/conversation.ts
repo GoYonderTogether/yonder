@@ -33,6 +33,8 @@ async function ownerPrivateMainContext(
 	agent: string,
 	event: import("@yonder/sdk").YEvent,
 	projectAgentOperability?: (agentId: string) => Promise<AgentOperabilityFact>,
+	describeOwnerOperability?: (agentId: string, signal?: AbortSignal) => Promise<AgentOperabilityFact>,
+	signal?: AbortSignal,
 ) {
 	const data = event.data as { kind?: unknown; text?: unknown };
 	if (!agents.has(agent) || event.type !== "message.in" || data.kind !== "dm" || !event.conv || !event.from)
@@ -105,9 +107,17 @@ async function ownerPrivateMainContext(
 	}
 	let operability: AgentOperabilityFact;
 	try {
-		operability = projectAgentOperability
-			? await projectAgentOperability(agent)
-			: { status: "unknown", limit: 20, truncated: false, reason: "shared projection unavailable", conversations: [] };
+		operability = describeOwnerOperability
+			? await describeOwnerOperability(agent, signal)
+			: projectAgentOperability
+				? await projectAgentOperability(agent)
+				: {
+						status: "unknown",
+						limit: 20,
+						truncated: false,
+						reason: "shared projection unavailable",
+						conversations: [],
+					};
 	} catch {
 		operability = {
 			status: "unknown",
@@ -138,6 +148,7 @@ export function conversationPromptOptions(
 	runtime: () => Runtime,
 	projectOperability?: (agentId: string, selector: OperabilitySelector) => Promise<SessionOperabilityFact>,
 	projectAgentOperability?: (agentId: string) => Promise<AgentOperabilityFact>,
+	describeOwnerOperability?: (agentId: string, signal?: AbortSignal) => Promise<AgentOperabilityFact>,
 ): Pick<PromptOptions, "offeredTools" | "deliveryPolicy" | "conversationContext"> {
 	return {
 		offeredTools: (session) =>
@@ -161,7 +172,15 @@ export function conversationPromptOptions(
 		conversationContext: async (event, agent, signal) => {
 			const self = agent ? agentIdentity(agent, agents.get(agent)?.name) : undefined;
 			if (agent && (event.data as { kind?: unknown }).kind === "dm")
-				return ownerPrivateMainContext(store, agents, agent, event, projectAgentOperability);
+				return ownerPrivateMainContext(
+					store,
+					agents,
+					agent,
+					event,
+					projectAgentOperability,
+					describeOwnerOperability,
+					signal,
+				);
 			if ((event.data as { kind?: string }).kind === "parent-request") {
 				const sources = agent ? await parentOrigins(store, event, agent) : undefined;
 				const originals = await Promise.all(
@@ -201,20 +220,34 @@ export function conversationPromptOptions(
 						}
 					}),
 				);
+				const operabilityBySource = new Map<string, Omit<SessionOperabilityFact, "selector">>();
+				for (const [index, fact] of operability.entries()) {
+					const source = ownerSources[index];
+					if (!source) continue;
+					const { selector: _selector, ...details } = fact;
+					operabilityBySource.set(source.id, details);
+				}
+				const allOwner = originals.length > 0 && originals.every((source) => source.relation === "owner");
+				const operabilitySummary = {
+					limit: operabilityLimit,
+					truncated: ownerSources.length > operabilityLimit,
+					omitted: Math.max(0, ownerSources.length - operabilityLimit),
+				};
+				if (allOwner)
+					return {
+						context: JSON.stringify({ self, verified: true, operability: operabilitySummary }),
+						ownerTask: {
+							sources: originals.map((source) => ({
+								...source,
+								...(operabilityBySource.has(source.id) ? { operability: operabilityBySource.get(source.id) } : {}),
+							})),
+						},
+					};
 				return JSON.stringify({
 					self,
 					verified: !!sources,
 					originals,
-					...(ownerSources.length
-						? {
-								operability: {
-									limit: operabilityLimit,
-									truncated: ownerSources.length > operabilityLimit,
-									omitted: Math.max(0, ownerSources.length - operabilityLimit),
-									facts: operability,
-								},
-							}
-						: {}),
+					...(ownerSources.length ? { operability: { ...operabilitySummary, facts: operability } } : {}),
 				});
 			}
 			if (!event.conv) return undefined;
@@ -281,9 +314,17 @@ export function kernelPromptOptions(
 	version: string,
 	projectOperability?: (agentId: string, selector: OperabilitySelector) => Promise<SessionOperabilityFact>,
 	projectAgentOperability?: (agentId: string) => Promise<AgentOperabilityFact>,
+	describeOwnerOperability?: (agentId: string, signal?: AbortSignal) => Promise<AgentOperabilityFact>,
 ): PromptOptions {
 	return {
-		...conversationPromptOptions(store, agents, runtime, projectOperability, projectAgentOperability),
+		...conversationPromptOptions(
+			store,
+			agents,
+			runtime,
+			projectOperability,
+			projectAgentOperability,
+			describeOwnerOperability,
+		),
 		home,
 		version,
 		locale: config.locale ?? "zh-CN",

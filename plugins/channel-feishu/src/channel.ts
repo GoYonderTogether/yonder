@@ -14,6 +14,7 @@ import {
 	type OutMessage,
 	type OutputPart,
 	type PluginAPI,
+	type Ref,
 	type YEvent,
 } from "@yonder/sdk";
 import { FeishuApi } from "./client.js";
@@ -247,6 +248,9 @@ export class FeishuChannel implements Channel {
 	}
 	async history(query: HistoryQuery, signal: AbortSignal): Promise<{ items: object[]; next?: string }> {
 		return this.recovery.history(query, signal);
+	}
+	async describeConversation(target: Ref, signal?: AbortSignal) {
+		return this.client.describeConversation(this.id, target, signal);
 	}
 	private catchup(): Promise<void> {
 		return this.recovery.catchup();

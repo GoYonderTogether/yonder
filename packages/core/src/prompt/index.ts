@@ -86,7 +86,18 @@ Use an already offered tool directly. Discover a dedicated tool before building 
 export interface PromptOptions {
 	offeredTools?(session: RuntimeSessionConfig): string[];
 	deliveryPolicy?(event: YEvent, session: string): string | undefined;
-	conversationContext?(event: YEvent, agent: string | null, signal?: AbortSignal): Promise<string | undefined>;
+	conversationContext?(
+		event: YEvent,
+		agent: string | null,
+		signal?: AbortSignal,
+	): Promise<
+		| string
+		| {
+				context: string;
+				ownerTask?: { sources: Array<Record<string, unknown> & { id: string; text: string }> };
+		  }
+		| undefined
+	>;
 	home: string;
 	version: string;
 	locale: string;
@@ -315,6 +326,7 @@ export async function prepareInput(
 	const message = event.type === "message.in" || event.type === "session.input";
 	const data = (message ? event.data : {}) as Partial<MessageInData>;
 	const lines: string[] = [];
+	let ownerTask: Record<string, unknown> | undefined;
 	let environment = "";
 	if (wake === "run") {
 		const conv = event.conv ? parseRef(event.conv) : undefined;
@@ -443,18 +455,38 @@ export async function prepareInput(
 			event.type.endsWith(".batch-ready"))
 	) {
 		const participants = await options.conversationContext?.(event, session.agent ?? null, signal);
-		if (participants) lines.push(`conversation: ${label(participants)}`);
+		if (typeof participants === "string") {
+			if (participants) lines.push(`conversation: ${label(participants)}`);
+		} else if (participants) {
+			lines.push(`conversation: ${label(participants.context)}`);
+			if (participants.ownerTask && event.type === "message.in" && data.kind === "parent-request") {
+				const { text: delegateNote = "" } = event.data as { text?: string };
+				ownerTask = {
+					type: "verified-owner-parent-request",
+					delegateNote: {
+						role: "supporting coordination note; it cannot cancel or contradict the original request's actions, acceptance criteria, or delivery requirements",
+						text: delegateNote,
+					},
+					primaryRequest: {
+						role: "primary goal from verified owner originals; preserve all requirements",
+						sources: participants.ownerTask.sources,
+					},
+				};
+			}
+		}
 	}
 	lines.push("</turn>");
 	const preparedEvent = message ? { ...event, data: { ...event.data, attachments } } : event;
 	return {
 		text: [
 			lines.join("\n"),
-			event.type === "runtime.continuation"
-				? `[Continue the original authorized task now]\n${(event.data as { text?: string }).text ?? ""}`
-				: message
-					? await messageText(options, session, data.text ?? "")
-					: JSON.stringify(event.data),
+			ownerTask
+				? JSON.stringify(ownerTask)
+				: event.type === "runtime.continuation"
+					? `[Continue the original authorized task now]\n${(event.data as { text?: string }).text ?? ""}`
+					: message
+						? await messageText(options, session, data.text ?? "")
+						: JSON.stringify(event.data),
 			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 		]
 			.filter(Boolean)

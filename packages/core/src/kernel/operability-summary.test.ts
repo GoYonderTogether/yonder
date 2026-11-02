@@ -11,6 +11,7 @@ test("summarizes exact current-Agent evidence without turning it into membership
 			{
 				status: "observed",
 				selector: { conv: "conv:qq:group:sample", eventId: "sample-event" },
+				conversationLabel: { status: "unknown", reason: "platform description unsupported" },
 				sample: {
 					eventId: "sample-event",
 					conv: "conv:qq:group:sample",
@@ -51,10 +52,15 @@ test("summarizes exact current-Agent evidence without turning it into membership
 	expect(json.length).toBeLessThanOrEqual(8000);
 	expect(summary).toMatchObject({
 		agent: "helper",
-		scope: { basis: "current-agent-exact-binding-conversations", globalMembershipDirectory: false },
+		scope: {
+			basis: "current-agent-exact-binding-conversations",
+			globalMembershipDirectory: false,
+			platformLabels: "display only; not membership or access evidence",
+		},
 		conversations: [
 			{
 				conv: "conv:qq:group:sample",
+				conversationLabel: { status: "unknown", reason: "platform description unsupported" },
 				eventId: "sample-event",
 				sample: { from: "acct:qq:owner", relation: "owner", senderIsBot: false },
 				history: { route: { profile: "default", wake: "write" }, execution: { state: "not-observed" } },
@@ -71,6 +77,59 @@ test("summarizes exact current-Agent evidence without turning it into membership
 	expect(json).not.toContain("secret-plugin");
 	expect(json).not.toContain("secret-conv");
 	expect(summary.conversations[0]).not.toHaveProperty("selector");
+});
+
+test("keeps exact platform labels within the same whole-fact summary budget", () => {
+	const summary = summarizeAgentOperability("agent", {
+		status: "observed",
+		limit: 8,
+		truncated: false,
+		conversations: [
+			{
+				status: "observed",
+				selector: { conv: "conv:feishu:p1" },
+				conversationLabel: {
+					status: "observed",
+					displayName: "P1 acceptance",
+					kind: "group",
+					basis: "platform-exact",
+				},
+				sample: { eventId: "event-1", conv: "conv:feishu:p1", kind: "group" },
+			},
+			{
+				status: "observed",
+				selector: { conv: "conv:qq:unsupported" },
+				conversationLabel: { status: "unknown", reason: "platform description unsupported" },
+				sample: { eventId: "event-2", conv: "conv:qq:unsupported", kind: "group" },
+			},
+		],
+	});
+	expect(summary.conversations).toMatchObject([
+		{ conv: "conv:feishu:p1", conversationLabel: { displayName: "P1 acceptance", basis: "platform-exact" } },
+		{ conv: "conv:qq:unsupported", conversationLabel: { status: "unknown" } },
+	]);
+	expect(JSON.stringify(summary).length).toBeLessThanOrEqual(8000);
+
+	const oversized = summarizeAgentOperability("agent", {
+		status: "observed",
+		limit: 8,
+		truncated: false,
+		conversations: [
+			{
+				status: "observed",
+				selector: { conv: "conv:feishu:long-name" },
+				conversationLabel: {
+					status: "observed",
+					displayName: "x".repeat(9000),
+					basis: "platform-exact",
+				},
+				sample: { eventId: "event-long", conv: "conv:feishu:long-name", kind: "group" },
+			},
+		],
+	});
+	expect(oversized.omitted).toBe(1);
+	expect(oversized.conversations).toEqual([]);
+	expect(JSON.stringify(oversized)).not.toContain("x".repeat(100));
 });
 
 test("omits whole facts when the summary budget is exceeded and reports omissions", () => {
