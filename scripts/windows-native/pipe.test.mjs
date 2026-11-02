@@ -88,8 +88,18 @@ test("actual DACL is protected and grants only current SID and SYSTEM, including
 	const handle = native.create(path);
 	const descriptor = native.describe(handle);
 	assert.match(descriptor, /^D:P/);
-	const aces = [...descriptor.matchAll(/\(A;;[^;]*;;;([^)]+)\)/g)].map((match) => match[1]);
-	assert.deepEqual(aces.sort(), [sid, "SY"].sort());
+	// Windows can serialize the built-in local administrator as LA, not its full SID.
+	// Resolve through Windows itself rather than treating an alias as any current user.
+	const decodeAcl = `$sddl = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(descriptor).toString("base64")}')); @(([System.Security.AccessControl.RawSecurityDescriptor]::new($sddl)).DiscretionaryAcl | ForEach-Object { $_.SecurityIdentifier.Value }) | ConvertTo-Json -Compress`;
+	const aces = JSON.parse(
+		execFileSync(
+			"powershell.exe",
+			["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(decodeAcl, "utf16le").toString("base64")],
+			{ encoding: "utf8" },
+		),
+	);
+	assert.deepEqual(aces.sort(), [sid, "S-1-5-18"].sort());
+	assert.equal([...descriptor.matchAll(/\(A;;[^;]*;;;([^)]+)\)/g)].length, 2);
 	assert.equal((descriptor.match(/\(/g) ?? []).length, 2);
 	console.log(JSON.stringify({ arch: process.arch, node: process.versions.node, descriptor }));
 	try {
