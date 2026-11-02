@@ -4,17 +4,18 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
-## 共享 Bot 核心重构（2026-11-02–03，阶段1–11完成）
+## 共享 Bot 核心修复轮（2026-11-03）
 
-维护者授权目标见[22](spec/22-shared-bot-core.md)。本机与云端共用createBot/唯一Runtime及提示词装配；定义/工作区、运行状态和插件数据使用真实FS/SQLite或租户隔离PG实现。本机零环境组合与PG单进程Worker已验证，旧core兼容导出保留。Worker按消息激活、20实例LRU和唯一持久deadline调度；原Docker/安装/发版路径未改。
+按独立review完成修复；两次merge保留main截至4e58ceb8的75条提交，主分支未写入。core兼容门面、九个短转发壳及两个单实现port已删除，调用方直连真实包；共享createBot/唯一Runtime/FS与PG两实现保持。PG按需记录/文档读取，不激活回放全历史；模型绑定复用现WeakMap、timeout按Bot隔离。真实idle释放、在线turn超时唯一error、提交后HTTP防重复与关闭时观察排空均有回归。
 
-最终完整build/typecheck/lint通过；默认**2733通过/0失败/112跳过**，515files通过/67skip，106.11秒；size930/layer109、基线0，相对固定a6a6c0b5无新增失败。Cloud根/server build/typecheck通过，后端207通过/0失败/0取消/0跳过。既有1322 lint warning/34 info保留，真实gpt-6-luna缺规约凭据仍未测。
+最终完整build/typecheck/lint通过；全部Vitest（--maxWorkers=4，不删测试/放宽断言）**2764通过/0失败/113跳过**，518文件通过/67跳过，167.20秒；全部Node83/0。size656/layer107共享模块与761 workspace生产文件、基线0。Cloud根/server build/typecheck通过，真实PG/Redis后端208/0，deploy19/0、market13/0、SSR3/0；无lint脚本。真实gpt-6-luna仍缺本仓规约凭据未测，skip不当作通过。
 
-真实GLM证明两租户PG SOUL生效、最终卡片/connect与/download，以及本机临时设备官方memory插件读取。worker/server错误唯一结果、后续prompt排除、红色气泡外UI和真实Chrome路由已有证据；reply:none不堵队列。设备通过原work-bridge与原生program ToolTask执行，按真实owner DM/可核程序refs授权，per-run/per-task名单和资源冻结，离线移除工具；cron继承及逐次HTTP目录一致性用明确transport回环独立验证。默认cloud不新增exec，不据memory往返宣称物理grant、硬件或所有设备组合已测。
+最终真实GLM证明两租户PG SOUL、两按钮卡片、独立临时设备官方memory经原work bridge/program ToolTask往返，离线下轮目录为空。A7的超时/503/空答/反射/提前send失败/reply:none/中断以真实服务+明确故障transport验证，不冒称真实上游制造错误。没有生产部署、截图或安装日常设备。
 
-新版100Bot+1暖轮：idle139.362MB、50ms采样peak318.996MB，active/highWater20、101完成/pending0；PG2/TCP3/Timeout2不随Bot增长。cold Worker Client.query168–169（mean168.8），warm90，不含server SQL。另有新版3run真实GLM及其独立RSS记录；无强制GC。数据来自本机macOS，不等于2核2GB生产共存/长期驻留验收。
+A12最终100 Bot各500条至少4096B的durable归档历史（共50000条）及各10文档delta，101轮完成/pending0，active/highWater20。idle141.328MB、50ms采样peak300.548MB，PG2/TCP3/Timeout2；归档正文读取0，707次modelsFor只202个Models。cold worker查询473–477（mean474.62）、warm341，不含server/seed SQL。此前361.267MB/350.454MB失败完整保留；修真实重复分配，不调高预算或手动GC。真实idle74257ms释放后可再激活。
 
-证据：[阶段总账](verification/shared-bot-core-20261102.md)、[包边界](verification/shared-bot-boundaries-20261103.md)、[Worker](verification/shared-bot-worker-20261103.md)、[客户端](verification/shared-bot-app-20261103.md)、[卡片](verification/shared-bot-card-20261103.md)、[设备工具与最终gate](verification/shared-bot-device-tools-20261103.md)。各阶段哈希、A1–A12、未测与部署草案在根目录未提交REFACTOR-REPORT.md。未推送、部署、连接生产或操作桌面。
+证据与所有原始失败：[本轮总账](verification/fix-round/verification.md)、[75条main保留](verification/fix-round/main-content-audit.md)、[最终结构化汇总](verification/fix-round/verified-results.json)。逐审查项提交/kept理由、未测与部署/凭据轮换草案在根目录未提交REFACTOR-REPORT.md。源码验收完成，仍待维护者审阅集成；本机RSS不等于2核2GB生产长期共存验收。
+
 ## 多端工作台（2026-11-02）
 
 运行位置与资源工作区已分开实现：会话选择实际云端或设备Harness，工作区可指定多设备/多目录、仅设备或沿用Bot授权集合。供应商/模型/effort合并选择，模型来源限云端及运行宿主；主人工作台权限覆盖、运行快照、文件图片上传与持久查看/下载已接通，普通渠道不继承主人bypass。设计见[19 §7](spec/19-device-workbench.md#7-运行位置资源工作区与模型2026-11-02-主人批准实施)。

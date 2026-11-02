@@ -1,0 +1,211 @@
+{
+	"history": {
+		"bots": 100,
+		"messagesPerBot": 500,
+		"messages": 50000,
+		"documentChangesPerBot": 10,
+		"minimumMessageTextBytes": 4096,
+		"archivedConversations": true
+	},
+	"idleBytes": 141328384,
+	"peakBytes": 300548096,
+	"final": {
+		"active": 20,
+		"highWater": 20,
+		"activeIds": [
+			"26ebfec7-fdc2-4898-8b82-8b4cb6e16b67",
+			"05c3f0dc-70e4-420e-89cd-d9e065f45286",
+			"ec41b60b-4489-4eac-9e24-d7232f074c71",
+			"fe81309d-6cab-4fe2-bfce-9d77fc69ac15",
+			"e09a0c4f-817b-4b8c-aaf1-6e9cda32da1b",
+			"3c945576-ebd5-4464-b3b1-e35855244c7c",
+			"b0dec1d6-f3ed-485e-9408-8d7e64bbd966",
+			"83d49300-36dd-473d-9a60-12d89124273a",
+			"3a010091-84bf-429e-a7ea-321ad7d31088",
+			"e0ae104b-58da-4393-b447-beedb48aa9ab",
+			"30e9612b-999a-4661-b718-4fac7906314c",
+			"41fe7399-8a75-4d44-a1e0-ccb635efc511",
+			"d2700039-4c36-48a2-9c37-ee6e50c5f63d",
+			"8f60fca4-63fe-44ef-9722-871c28717c2e",
+			"01442c0d-b301-45de-a11b-01de2428453a",
+			"f4f5a7f2-2848-44d2-bc95-fa50ead59a1b",
+			"13c4ca7a-a1a2-450e-9773-34a8c0172a58",
+			"00460f34-3e9a-45a3-b238-ac0e9b397ec5",
+			"f3bb1c6c-bf67-491f-9ea1-2f4685644083",
+			"7c3a3bec-f1f2-40db-b962-1d1df25bdfab"
+		],
+		"databaseConnections": 2,
+		"busy": 0,
+		"completed": 101,
+		"pendingSources": 0,
+		"rss": 300056576,
+		"queries": 47812,
+		"memory": {
+			"rss": 300056576,
+			"heapTotal": 297598976,
+			"heapUsed": 210378240,
+			"external": 30316957,
+			"arrayBuffers": 26188028
+		},
+		"diagnostics": {
+			"opened": 100,
+			"closed": 80,
+			"modelsForCalls": 707,
+			"modelsBuilt": 202,
+			"archivedEntriesRead": 0,
+			"archivedEntryBytesRead": 0
+		},
+		"resources": {
+			"PipeWrap": 2,
+			"TCPSocketWrap": 3,
+			"Timeout": 2
+		}
+	},
+	"completedRounds": 101,
+	"coldQueries": {
+		"min": 473,
+		"max": 477,
+		"mean": 474.62
+	},
+	"warmQueries": 341,
+	"isolation": {
+		"tenants": 2,
+		"virtualFiles": true,
+		"sessionGetAndFind": true,
+		"pluginFiles": true
+	},
+	"lifecycle": {
+		"slowActivationDoesNotBlockOtherTenant": true,
+		"bots": 2,
+		"beforeIdle": {
+			"active": 2,
+			"highWater": 2,
+			"activeIds": ["e4337ea9-3cab-43e2-9201-ef38bd7333ea", "8054ea1a-323a-4580-a419-33002f11a712"],
+			"databaseConnections": 5,
+			"busy": 0,
+			"completed": 2,
+			"pendingSources": 0,
+			"rss": 264060928
+		},
+		"idleReleaseMs": 74257,
+		"idleReleasedBelowLruCapacity": true,
+		"reactivatedAfterRelease": true,
+		"final": {
+			"active": 1,
+			"highWater": 2,
+			"activeIds": ["8054ea1a-323a-4580-a419-33002f11a712"],
+			"databaseConnections": 2,
+			"busy": 0,
+			"completed": 3,
+			"pendingSources": 0,
+			"rss": 118554624
+		}
+	},
+	"A6": {
+		"mode": "real-glm-5.3-flash",
+		"results": [
+			{
+				"bot": 1,
+				"type": "markdown",
+				"reply": "PG-SOUL-396fc596-4fec-4a73-88a8-662506027a47",
+				"soulTokenMatched": true
+			},
+			{
+				"bot": 2,
+				"type": "markdown",
+				"reply": "PG-SOUL-355a5aec-8b41-4769-938b-5a18e30a15d5",
+				"soulTokenMatched": true
+			}
+		],
+		"keyAbsentFromLogsAndTranscript": true
+	},
+	"A8": {
+		"mode": "real-glm-5.3-flash",
+		"card": {
+			"content": {
+				"body": "点击下方按钮即可继续：先接入你的设备，再安装客户端，之后我就能直接在你的设备上帮你处理文件和任务了。",
+				"type": "interactive",
+				"state": "pending",
+				"title": "接入设备与安装客户端",
+				"actions": [
+					{
+						"id": "connect-device",
+						"link": "/connect",
+						"label": "接入设备"
+					},
+					{
+						"id": "download-client",
+						"link": "/download",
+						"label": "下载客户端"
+					}
+				]
+			},
+			"toolInNativeTranscript": true,
+			"uniqueResult": true,
+			"intentClearedAfterAttempt": true,
+			"emptyFinal": false
+		},
+		"keyAbsentFromLogsAndTranscript": true
+	},
+	"A9": {
+		"mode": "real-glm-5.3-flash",
+		"temporaryHome": true,
+		"independentOfficialMemoryRoot": true,
+		"realCardLoginAndMapping": true,
+		"workProtocolBridge": "tools.catalog + tools.call through openKernel/workControl",
+		"onlineProgramTool": "official memory plugin",
+		"ownerDmSource": true,
+		"offlineNextRunDoesNotReadDeviceMemory": true,
+		"providerDeviceTools": {
+			"online": ["device_6a9f8e963e1172fc_memory_read", "device_7da301060afa99da_memory_search"],
+			"offline": []
+		},
+		"providerRunDocs": {
+			"online": {
+				"matched": true,
+				"runCount": 1,
+				"kind": "yonder.run",
+				"keys": [
+					"agent",
+					"bindings",
+					"cwd",
+					"hostFacts",
+					"hostToolInputs",
+					"hostTools",
+					"owner",
+					"profile",
+					"protectedFiles",
+					"resolved",
+					"sessionId",
+					"sessionMode"
+				],
+				"started": 1793660102026,
+				"tools": ["device_6a9f8e963e1172fc_memory_read", "device_7da301060afa99da_memory_search"]
+			},
+			"offline": {
+				"matched": true,
+				"runCount": 1,
+				"kind": "yonder.run",
+				"keys": [
+					"agent",
+					"bindings",
+					"cwd",
+					"hostFacts",
+					"hostToolInputs",
+					"hostTools",
+					"owner",
+					"profile",
+					"protectedFiles",
+					"resolved",
+					"sessionId",
+					"sessionMode"
+				],
+				"started": 1793660172495,
+				"tools": []
+			}
+		},
+		"workerCredentialAbsentFromPersistedCommits": true,
+		"modelCredentialAbsentFromPersistedCommits": true,
+		"modelCredentialAbsentFromWorkerLogs": true
+	}
+}
