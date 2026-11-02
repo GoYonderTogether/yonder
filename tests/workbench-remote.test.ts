@@ -150,7 +150,7 @@ test("two real TLS executors support native remote files/process and enforce sel
 			randomUUID(),
 			"fs.read",
 			{ path: join(roots[1]!, "two.txt") },
-			{ ...ctx, resources: [ctx.resources![0]!] },
+			{ ...ctx, signal: AbortSignal.timeout(20000), resources: [ctx.resources![0]!] },
 		),
 	).rejects.toThrow("grant");
 	let output = "";
