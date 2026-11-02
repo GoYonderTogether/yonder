@@ -1,0 +1,2785 @@
+{"phase":"worker-ready","pid":70927,"state":{"active":0,"highWater":0,"activeIds":[],"databaseConnections":2,"busy":0,"completed":0,"pendingSources":0,"rss":141328384,"queries":8,"memory":{"rss":141328384,"heapTotal":104660992,"heapUsed":32695200,"external":3168871,"arrayBuffers":378228},"diagnostics":{"opened":0,"closed":0,"modelsForCalls":0,"modelsBuilt":0,"archivedEntriesRead":0,"archivedEntryBytesRead":0},"resources":{"PipeWrap":1,"TCPSocketWrap":3,"Timeout":2}}}
+{"phase":"source-diagnostic","measurement":{"bot":"0e0b66f5-9148-4128-ad81-38599e9b7639","queries":473,"active":1,"rss":198311936,"memory":{"rss":198311936,"heapTotal":111067136,"heapUsed":48761920,"external":5422899,"arrayBuffers":1293970},"diagnostics":{"opened":1,"closed":0,"modelsForCalls":7,"modelsBuilt":2,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":1,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"0e0b66f5-9148-4128-ad81-38599e9b7639","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"af69ba19-11af-4c8e-a179-89cf2e278ec4","queries":473,"active":2,"rss":208879616,"memory":{"rss":208879616,"heapTotal":115441664,"heapUsed":71081216,"external":8233579,"arrayBuffers":4104650},"diagnostics":{"opened":2,"closed":0,"modelsForCalls":14,"modelsBuilt":4,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":2,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"af69ba19-11af-4c8e-a179-89cf2e278ec4","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"46d02091-9b9f-4dd7-8ca4-8976dcb9c76f","queries":473,"active":3,"rss":216137728,"memory":{"rss":216137728,"heapTotal":120553472,"heapUsed":69192216,"external":7873272,"arrayBuffers":3744343},"diagnostics":{"opened":3,"closed":0,"modelsForCalls":21,"modelsBuilt":6,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":3,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"46d02091-9b9f-4dd7-8ca4-8976dcb9c76f","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"c771bf78-f0fd-4250-9f2b-823657075e50","queries":473,"active":4,"rss":218808320,"memory":{"rss":218808320,"heapTotal":122830848,"heapUsed":63940328,"external":7756037,"arrayBuffers":3627108},"diagnostics":{"opened":4,"closed":0,"modelsForCalls":28,"modelsBuilt":8,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":4,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"c771bf78-f0fd-4250-9f2b-823657075e50","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"a0d4f6f2-98a6-44d5-8f90-07554b2aa298","queries":473,"active":5,"rss":220135424,"memory":{"rss":220135424,"heapTotal":123535360,"heapUsed":56816520,"external":5617719,"arrayBuffers":1488790},"diagnostics":{"opened":5,"closed":0,"modelsForCalls":35,"modelsBuilt":10,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":5,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"a0d4f6f2-98a6-44d5-8f90-07554b2aa298","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"9def0fdf-9a67-41a1-b1f2-544b42b7890f","queries":473,"active":6,"rss":222396416,"memory":{"rss":222396416,"heapTotal":126615552,"heapUsed":77114032,"external":8447583,"arrayBuffers":4318654},"diagnostics":{"opened":6,"closed":0,"modelsForCalls":42,"modelsBuilt":12,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":6,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"9def0fdf-9a67-41a1-b1f2-544b42b7890f","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"af4fb6b9-d5dc-43d5-abf7-8a51e7a9531a","queries":473,"active":7,"rss":224772096,"memory":{"rss":224772096,"heapTotal":129155072,"heapUsed":71293064,"external":8466000,"arrayBuffers":4337071},"diagnostics":{"opened":7,"closed":0,"modelsForCalls":49,"modelsBuilt":14,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":7,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"af4fb6b9-d5dc-43d5-abf7-8a51e7a9531a","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"4142acf2-60cb-443c-8f20-4efc32f2069e","queries":473,"active":8,"rss":229654528,"memory":{"rss":229654528,"heapTotal":196968448,"heapUsed":62837160,"external":6168021,"arrayBuffers":2039092},"diagnostics":{"opened":8,"closed":0,"modelsForCalls":56,"modelsBuilt":16,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":8,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"4142acf2-60cb-443c-8f20-4efc32f2069e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"b3e50e13-a661-4e43-8e80-1f4e11672610","queries":473,"active":9,"rss":221839360,"memory":{"rss":221839360,"heapTotal":201080832,"heapUsed":83332632,"external":8999765,"arrayBuffers":4870836},"diagnostics":{"opened":9,"closed":0,"modelsForCalls":63,"modelsBuilt":18,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":9,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"b3e50e13-a661-4e43-8e80-1f4e11672610","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"b4088c1f-5806-4232-9084-765106d8431f","queries":473,"active":10,"rss":229572608,"memory":{"rss":229572608,"heapTotal":204144640,"heapUsed":102479416,"external":11832121,"arrayBuffers":7703192},"diagnostics":{"opened":10,"closed":0,"modelsForCalls":70,"modelsBuilt":20,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":10,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"b4088c1f-5806-4232-9084-765106d8431f","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"74a03ec8-b755-4ff0-8585-3bcbf9daef95","queries":473,"active":11,"rss":240812032,"memory":{"rss":240812032,"heapTotal":207486976,"heapUsed":122120544,"external":14665121,"arrayBuffers":10536192},"diagnostics":{"opened":11,"closed":0,"modelsForCalls":77,"modelsBuilt":22,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":11,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"74a03ec8-b755-4ff0-8585-3bcbf9daef95","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"bddd0168-02fc-40ad-ac69-3a96b042fe5e","queries":473,"active":12,"rss":243105792,"memory":{"rss":243105792,"heapTotal":205832192,"heapUsed":85846984,"external":9501982,"arrayBuffers":5373053},"diagnostics":{"opened":12,"closed":0,"modelsForCalls":84,"modelsBuilt":24,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":12,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"bddd0168-02fc-40ad-ac69-3a96b042fe5e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"d645a473-560f-4732-beb4-b9afafa36c0d","queries":473,"active":13,"rss":251068416,"memory":{"rss":251068416,"heapTotal":208633856,"heapUsed":104732536,"external":12336230,"arrayBuffers":8207301},"diagnostics":{"opened":13,"closed":0,"modelsForCalls":91,"modelsBuilt":26,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":13,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"d645a473-560f-4732-beb4-b9afafa36c0d","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"0228c0e3-3f3e-482d-85af-0236f303bb96","queries":473,"active":14,"rss":269287424,"memory":{"rss":269303808,"heapTotal":211435520,"heapUsed":123616336,"external":15171084,"arrayBuffers":11042155},"diagnostics":{"opened":14,"closed":0,"modelsForCalls":98,"modelsBuilt":28,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":14,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"0228c0e3-3f3e-482d-85af-0236f303bb96","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"a8d3815f-6700-4122-a242-fcbd44bbadac","queries":473,"active":15,"rss":271482880,"memory":{"rss":271482880,"heapTotal":211877888,"heapUsed":89152192,"external":9899025,"arrayBuffers":5770096},"diagnostics":{"opened":15,"closed":0,"modelsForCalls":105,"modelsBuilt":30,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":15,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"a8d3815f-6700-4122-a242-fcbd44bbadac","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"1cc66a0d-1bbb-479b-86bd-e55c2c5b3db1","queries":473,"active":16,"rss":274235392,"memory":{"rss":274235392,"heapTotal":214941696,"heapUsed":107840624,"external":12735135,"arrayBuffers":8606206},"diagnostics":{"opened":16,"closed":0,"modelsForCalls":112,"modelsBuilt":32,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":16,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"1cc66a0d-1bbb-479b-86bd-e55c2c5b3db1","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"ce7c3349-0934-41ef-a758-1710def62e74","queries":473,"active":17,"rss":277987328,"memory":{"rss":277987328,"heapTotal":217743360,"heapUsed":126567600,"external":15571859,"arrayBuffers":11442930},"diagnostics":{"opened":17,"closed":0,"modelsForCalls":119,"modelsBuilt":34,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":17,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"ce7c3349-0934-41ef-a758-1710def62e74","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"ad9a67b0-7438-44e0-9d41-77eb1ad5dbff","queries":473,"active":18,"rss":277938176,"memory":{"rss":277938176,"heapTotal":217661440,"heapUsed":92143360,"external":10339885,"arrayBuffers":6210956},"diagnostics":{"opened":18,"closed":0,"modelsForCalls":126,"modelsBuilt":36,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":18,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"ad9a67b0-7438-44e0-9d41-77eb1ad5dbff","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"2d90c87c-01d0-4c4f-8696-f15f952df049","queries":473,"active":19,"rss":280592384,"memory":{"rss":280592384,"heapTotal":220725248,"heapUsed":110951192,"external":13177867,"arrayBuffers":9048938},"diagnostics":{"opened":19,"closed":0,"modelsForCalls":133,"modelsBuilt":38,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":19,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"2d90c87c-01d0-4c4f-8696-f15f952df049","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"3d412641-64be-488f-bf90-846be8d94e5e","queries":473,"active":20,"rss":283459584,"memory":{"rss":283459584,"heapTotal":224051200,"heapUsed":129401400,"external":16016481,"arrayBuffers":11887552},"diagnostics":{"opened":20,"closed":0,"modelsForCalls":140,"modelsBuilt":40,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":20,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"3d412641-64be-488f-bf90-846be8d94e5e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"1ad8685f-ebb0-4d06-8aa3-edcf8574924e","queries":475,"active":20,"rss":276185088,"memory":{"rss":276185088,"heapTotal":209108992,"heapUsed":64656800,"external":6131883,"arrayBuffers":2002954},"diagnostics":{"opened":21,"closed":1,"modelsForCalls":147,"modelsBuilt":42,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":21,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"1ad8685f-ebb0-4d06-8aa3-edcf8574924e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"aa8c0ceb-aa54-45b4-85a0-8c6f256f3bc7","queries":475,"active":20,"rss":278151168,"memory":{"rss":278151168,"heapTotal":211910656,"heapUsed":83522928,"external":8971877,"arrayBuffers":4842948},"diagnostics":{"opened":22,"closed":2,"modelsForCalls":154,"modelsBuilt":44,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":22,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"aa8c0ceb-aa54-45b4-85a0-8c6f256f3bc7","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"2c1e1626-1d49-4acf-885c-ae06433b6948","queries":475,"active":20,"rss":282279936,"memory":{"rss":282279936,"heapTotal":215777280,"heapUsed":103284784,"external":11812479,"arrayBuffers":7683550},"diagnostics":{"opened":23,"closed":3,"modelsForCalls":161,"modelsBuilt":46,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":23,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"2c1e1626-1d49-4acf-885c-ae06433b6948","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"29c62861-0ca0-40a5-b059-600c1f5de566","queries":475,"active":20,"rss":285212672,"memory":{"rss":285212672,"heapTotal":218578944,"heapUsed":121842680,"external":14653683,"arrayBuffers":10524754},"diagnostics":{"opened":24,"closed":4,"modelsForCalls":168,"modelsBuilt":48,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":24,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"29c62861-0ca0-40a5-b059-600c1f5de566","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"ba444a5a-3958-435c-8556-1235d5a04ae3","queries":475,"active":20,"rss":280313856,"memory":{"rss":280313856,"heapTotal":213467136,"heapUsed":82080232,"external":8830976,"arrayBuffers":4702047},"diagnostics":{"opened":25,"closed":5,"modelsForCalls":175,"modelsBuilt":50,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":25,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"ba444a5a-3958-435c-8556-1235d5a04ae3","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"790564c4-57dd-47a7-bab5-c9052dd333da","queries":475,"active":20,"rss":283295744,"memory":{"rss":283295744,"heapTotal":216268800,"heapUsed":100674480,"external":11673458,"arrayBuffers":7544529},"diagnostics":{"opened":26,"closed":6,"modelsForCalls":182,"modelsBuilt":52,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":26,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"790564c4-57dd-47a7-bab5-c9052dd333da","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"3b3f8347-5cc6-44f4-816c-7b09455b4346","queries":475,"active":20,"rss":280150016,"memory":{"rss":280150016,"heapTotal":219070464,"heapUsed":119221256,"external":14516556,"arrayBuffers":10387627},"diagnostics":{"opened":27,"closed":7,"modelsForCalls":189,"modelsBuilt":54,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":27,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"3b3f8347-5cc6-44f4-816c-7b09455b4346","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"a7529a89-d535-4e0d-8bf7-a4ee06dda9b6","queries":475,"active":20,"rss":276709376,"memory":{"rss":276709376,"heapTotal":214204416,"heapUsed":81825352,"external":9128399,"arrayBuffers":4999470},"diagnostics":{"opened":28,"closed":8,"modelsForCalls":196,"modelsBuilt":56,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":28,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"a7529a89-d535-4e0d-8bf7-a4ee06dda9b6","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"87c681ff-fa8a-4973-b51d-54edf534f5fc","queries":475,"active":20,"rss":279265280,"memory":{"rss":279265280,"heapTotal":217006080,"heapUsed":100400792,"external":11972743,"arrayBuffers":7843814},"diagnostics":{"opened":29,"closed":9,"modelsForCalls":203,"modelsBuilt":58,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":29,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"87c681ff-fa8a-4973-b51d-54edf534f5fc","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"24aea8c7-d4d3-46de-bfcb-66f00c5cae75","queries":475,"active":20,"rss":281772032,"memory":{"rss":281772032,"heapTotal":219807744,"heapUsed":118909904,"external":14817715,"arrayBuffers":10688786},"diagnostics":{"opened":30,"closed":10,"modelsForCalls":210,"modelsBuilt":60,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":30,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"24aea8c7-d4d3-46de-bfcb-66f00c5cae75","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"462dd8ee-18b7-443a-9987-c962434b89d2","queries":475,"active":20,"rss":277266432,"memory":{"rss":277266432,"heapTotal":214614016,"heapUsed":79314992,"external":8425465,"arrayBuffers":4296536},"diagnostics":{"opened":31,"closed":11,"modelsForCalls":217,"modelsBuilt":62,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":31,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"462dd8ee-18b7-443a-9987-c962434b89d2","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"cd818f6a-2157-42d3-934f-0e0cd5f925b3","queries":475,"active":20,"rss":280281088,"memory":{"rss":280281088,"heapTotal":217939968,"heapUsed":97898280,"external":11271673,"arrayBuffers":7142744},"diagnostics":{"opened":32,"closed":12,"modelsForCalls":224,"modelsBuilt":64,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":32,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"cd818f6a-2157-42d3-934f-0e0cd5f925b3","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"0b0d6bc4-5de2-460c-a8d9-91fda00dec9f","queries":475,"active":20,"rss":283049984,"memory":{"rss":283049984,"heapTotal":220741632,"heapUsed":116442072,"external":14118515,"arrayBuffers":9989586},"diagnostics":{"opened":33,"closed":13,"modelsForCalls":231,"modelsBuilt":66,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":33,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"0b0d6bc4-5de2-460c-a8d9-91fda00dec9f","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"6793878c-cdfa-45f3-b349-a076bb039d43","queries":475,"active":20,"rss":286179328,"memory":{"rss":286179328,"heapTotal":223543296,"heapUsed":134979008,"external":16965983,"arrayBuffers":12837054},"diagnostics":{"opened":34,"closed":14,"modelsForCalls":238,"modelsBuilt":68,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":34,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"6793878c-cdfa-45f3-b349-a076bb039d43","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"425bd9b7-c207-4a54-bcad-631da76ad964","queries":475,"active":20,"rss":282116096,"memory":{"rss":282116096,"heapTotal":217759744,"heapUsed":95246160,"external":10746288,"arrayBuffers":6617359},"diagnostics":{"opened":35,"closed":15,"modelsForCalls":245,"modelsBuilt":70,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":35,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"425bd9b7-c207-4a54-bcad-631da76ad964","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"e1abe7d7-4c94-4414-9115-150b3d27180b","queries":475,"active":20,"rss":284983296,"memory":{"rss":284983296,"heapTotal":220561408,"heapUsed":113741416,"external":13595002,"arrayBuffers":9466073},"diagnostics":{"opened":36,"closed":16,"modelsForCalls":252,"modelsBuilt":72,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":36,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"e1abe7d7-4c94-4414-9115-150b3d27180b","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"51a0a96d-4f1b-449f-997b-bcb4b8d55317","queries":475,"active":20,"rss":288489472,"memory":{"rss":288489472,"heapTotal":223625216,"heapUsed":132285864,"external":16444364,"arrayBuffers":12315435},"diagnostics":{"opened":37,"closed":17,"modelsForCalls":259,"modelsBuilt":74,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":37,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"51a0a96d-4f1b-449f-997b-bcb4b8d55317","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"43d5414d-8a24-4245-8cac-1f87e188d49b","queries":475,"active":20,"rss":285278208,"memory":{"rss":285278208,"heapTotal":219283456,"heapUsed":94159840,"external":11076797,"arrayBuffers":6947868},"diagnostics":{"opened":38,"closed":18,"modelsForCalls":266,"modelsBuilt":76,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":38,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"43d5414d-8a24-4245-8cac-1f87e188d49b","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"4122e3c0-93ab-4aca-8607-4d58b2d84aec","queries":475,"active":20,"rss":288129024,"memory":{"rss":288129024,"heapTotal":222085120,"heapUsed":112415696,"external":13927391,"arrayBuffers":9798462},"diagnostics":{"opened":39,"closed":19,"modelsForCalls":273,"modelsBuilt":78,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":39,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"4122e3c0-93ab-4aca-8607-4d58b2d84aec","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"7b8dffe6-bcde-4a6a-b9d5-8eb0f0888c5f","queries":475,"active":20,"rss":291012608,"memory":{"rss":291012608,"heapTotal":224886784,"heapUsed":130687872,"external":16778593,"arrayBuffers":12649664},"diagnostics":{"opened":40,"closed":20,"modelsForCalls":280,"modelsBuilt":80,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":40,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"7b8dffe6-bcde-4a6a-b9d5-8eb0f0888c5f","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"52b82f38-71fb-44cd-b42c-266a54fbb7cd","queries":475,"active":20,"rss":287850496,"memory":{"rss":287850496,"heapTotal":222380032,"heapUsed":93225360,"external":11498068,"arrayBuffers":7369139},"diagnostics":{"opened":41,"closed":21,"modelsForCalls":287,"modelsBuilt":82,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":41,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"52b82f38-71fb-44cd-b42c-266a54fbb7cd","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"656386ca-a7a5-46fa-90e3-49011e6982f1","queries":475,"active":20,"rss":290750464,"memory":{"rss":290750464,"heapTotal":225181696,"heapUsed":111493536,"external":14350516,"arrayBuffers":10221587},"diagnostics":{"opened":42,"closed":22,"modelsForCalls":294,"modelsBuilt":84,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":42,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"656386ca-a7a5-46fa-90e3-49011e6982f1","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"dd7b9acd-8af8-4a0f-86ee-7923cfde7d30","queries":475,"active":20,"rss":293863424,"memory":{"rss":293863424,"heapTotal":227983360,"heapUsed":129814808,"external":17203600,"arrayBuffers":13074671},"diagnostics":{"opened":43,"closed":23,"modelsForCalls":301,"modelsBuilt":86,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":43,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"dd7b9acd-8af8-4a0f-86ee-7923cfde7d30","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"4c56763a-252c-41df-867f-e9597d53a57f","queries":475,"active":20,"rss":289652736,"memory":{"rss":289652736,"heapTotal":222920704,"heapUsed":89387648,"external":9755062,"arrayBuffers":5626133},"diagnostics":{"opened":44,"closed":24,"modelsForCalls":308,"modelsBuilt":88,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":44,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"4c56763a-252c-41df-867f-e9597d53a57f","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"4a62404f-1588-4716-9b34-47439085a722","queries":475,"active":20,"rss":294748160,"memory":{"rss":294748160,"heapTotal":227835904,"heapUsed":109700208,"external":12609382,"arrayBuffers":8480453},"diagnostics":{"opened":45,"closed":25,"modelsForCalls":315,"modelsBuilt":90,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":45,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"4a62404f-1588-4716-9b34-47439085a722","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"1b544537-a113-4b49-8fd8-716eecbf0f78","queries":475,"active":20,"rss":297762816,"memory":{"rss":297762816,"heapTotal":230637568,"heapUsed":127945168,"external":15464326,"arrayBuffers":11335397},"diagnostics":{"opened":46,"closed":26,"modelsForCalls":322,"modelsBuilt":92,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":46,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"1b544537-a113-4b49-8fd8-716eecbf0f78","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"71d5eb3f-f3b4-483e-9ecb-f013b8b68b0e","queries":475,"active":20,"rss":300548096,"memory":{"rss":300548096,"heapTotal":233439232,"heapUsed":146228328,"external":18319902,"arrayBuffers":14190973},"diagnostics":{"opened":47,"closed":27,"modelsForCalls":329,"modelsBuilt":94,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":47,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"71d5eb3f-f3b4-483e-9ecb-f013b8b68b0e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"8af5c4aa-9afc-406f-b859-16364bada030","queries":475,"active":20,"rss":297140224,"memory":{"rss":297140224,"heapTotal":230932480,"heapUsed":108276992,"external":13086550,"arrayBuffers":8957621},"diagnostics":{"opened":48,"closed":28,"modelsForCalls":336,"modelsBuilt":96,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":48,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"8af5c4aa-9afc-406f-b859-16364bada030","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"64e99588-81d1-4f2e-b0fe-15fcd550d864","queries":475,"active":20,"rss":296812544,"memory":{"rss":296812544,"heapTotal":233734144,"heapUsed":126532056,"external":15943386,"arrayBuffers":11814457},"diagnostics":{"opened":49,"closed":29,"modelsForCalls":343,"modelsBuilt":98,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":49,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"64e99588-81d1-4f2e-b0fe-15fcd550d864","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"a5210611-c67e-4ba5-b3d7-ff3e787014d3","queries":475,"active":20,"rss":298549248,"memory":{"rss":298549248,"heapTotal":236535808,"heapUsed":144758712,"external":18800828,"arrayBuffers":14671899},"diagnostics":{"opened":50,"closed":30,"modelsForCalls":350,"modelsBuilt":100,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":50,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"a5210611-c67e-4ba5-b3d7-ff3e787014d3","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"7d25d5e3-f40c-45a3-b8fc-2859273623a9","queries":475,"active":20,"rss":296583168,"memory":{"rss":296583168,"heapTotal":234553344,"heapUsed":106517144,"external":13355796,"arrayBuffers":9226867},"diagnostics":{"opened":51,"closed":31,"modelsForCalls":357,"modelsBuilt":102,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":51,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"7d25d5e3-f40c-45a3-b8fc-2859273623a9","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"43e9f33e-3c08-458c-b6c2-5b17ca39ff02","queries":475,"active":20,"rss":292438016,"memory":{"rss":292438016,"heapTotal":237355008,"heapUsed":124782192,"external":16214516,"arrayBuffers":12085587},"diagnostics":{"opened":52,"closed":32,"modelsForCalls":364,"modelsBuilt":104,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":52,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"43e9f33e-3c08-458c-b6c2-5b17ca39ff02","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"d33b259e-1ca8-4f82-9cd3-bac391e1a126","queries":475,"active":20,"rss":290734080,"memory":{"rss":290734080,"heapTotal":240156672,"heapUsed":143048992,"external":19073846,"arrayBuffers":14944917},"diagnostics":{"opened":53,"closed":33,"modelsForCalls":371,"modelsBuilt":106,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":53,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"d33b259e-1ca8-4f82-9cd3-bac391e1a126","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"0bf5aded-5091-477c-b2db-375511c674e0","queries":475,"active":20,"rss":290471936,"memory":{"rss":290471936,"heapTotal":235356160,"heapUsed":102311992,"external":11613297,"arrayBuffers":7484368},"diagnostics":{"opened":54,"closed":34,"modelsForCalls":378,"modelsBuilt":108,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":54,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"0bf5aded-5091-477c-b2db-375511c674e0","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"c7ce498b-32c1-4798-9735-57ecac8c4b41","queries":475,"active":20,"rss":293568512,"memory":{"rss":293568512,"heapTotal":238157824,"heapUsed":120558256,"external":14473865,"arrayBuffers":10344936},"diagnostics":{"opened":55,"closed":35,"modelsForCalls":385,"modelsBuilt":110,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":55,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"c7ce498b-32c1-4798-9735-57ecac8c4b41","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"aa29ebb0-ea2a-4281-9cf6-989892562034","queries":475,"active":20,"rss":288948224,"memory":{"rss":288948224,"heapTotal":240959488,"heapUsed":138808352,"external":17335075,"arrayBuffers":13206146},"diagnostics":{"opened":56,"closed":36,"modelsForCalls":392,"modelsBuilt":112,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":56,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"aa29ebb0-ea2a-4281-9cf6-989892562034","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"88fc8049-5884-4d98-aabf-79e5257f81f6","queries":475,"active":20,"rss":218398720,"memory":{"rss":218398720,"heapTotal":243761152,"heapUsed":157097088,"external":20229312,"arrayBuffers":16100383},"diagnostics":{"opened":57,"closed":37,"modelsForCalls":399,"modelsBuilt":114,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":57,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"88fc8049-5884-4d98-aabf-79e5257f81f6","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"ed09590c-c787-4856-8672-89c216705318","queries":475,"active":20,"rss":240746496,"memory":{"rss":240746496,"heapTotal":241778688,"heapUsed":119138368,"external":14967736,"arrayBuffers":10838807},"diagnostics":{"opened":58,"closed":38,"modelsForCalls":406,"modelsBuilt":116,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":58,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"ed09590c-c787-4856-8672-89c216705318","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"3274715b-af17-49fd-8a7a-189424aa020e","queries":475,"active":20,"rss":251265024,"memory":{"rss":251265024,"heapTotal":244580352,"heapUsed":137400640,"external":17830820,"arrayBuffers":13701891},"diagnostics":{"opened":59,"closed":39,"modelsForCalls":413,"modelsBuilt":118,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":59,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"3274715b-af17-49fd-8a7a-189424aa020e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"0886e8e0-104a-4413-a0f6-e6def6474bdd","queries":475,"active":20,"rss":257245184,"memory":{"rss":257245184,"heapTotal":247382016,"heapUsed":155654816,"external":20726864,"arrayBuffers":16597935},"diagnostics":{"opened":60,"closed":40,"modelsForCalls":420,"modelsBuilt":120,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":60,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"0886e8e0-104a-4413-a0f6-e6def6474bdd","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"b442404b-d5ab-44cc-a6f3-d1fc37fed0c5","queries":475,"active":20,"rss":256196608,"memory":{"rss":256196608,"heapTotal":244875264,"heapUsed":117077056,"external":15209662,"arrayBuffers":11080733},"diagnostics":{"opened":61,"closed":41,"modelsForCalls":427,"modelsBuilt":122,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":61,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"b442404b-d5ab-44cc-a6f3-d1fc37fed0c5","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"96943e4e-2a7f-4e4c-ba33-e6ab5bb8cd7c","queries":475,"active":20,"rss":269434880,"memory":{"rss":269434880,"heapTotal":248463360,"heapUsed":135348320,"external":18074590,"arrayBuffers":13945661},"diagnostics":{"opened":62,"closed":42,"modelsForCalls":434,"modelsBuilt":124,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":62,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"96943e4e-2a7f-4e4c-ba33-e6ab5bb8cd7c","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"a1f88063-66d9-428f-b8c9-1d7ec70b134f","queries":475,"active":20,"rss":264847360,"memory":{"rss":264847360,"heapTotal":251265024,"heapUsed":153591136,"external":20940162,"arrayBuffers":16811233},"diagnostics":{"opened":63,"closed":43,"modelsForCalls":441,"modelsBuilt":126,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":63,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"a1f88063-66d9-428f-b8c9-1d7ec70b134f","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"f837bfb7-59cd-4b3b-a263-adcb04abf155","queries":475,"active":20,"rss":270417920,"memory":{"rss":270417920,"heapTotal":246726656,"heapUsed":112837944,"external":13464064,"arrayBuffers":9335135},"diagnostics":{"opened":64,"closed":44,"modelsForCalls":448,"modelsBuilt":128,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":64,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"f837bfb7-59cd-4b3b-a263-adcb04abf155","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"b217099a-8c82-43a7-84d4-12e157135396","queries":475,"active":20,"rss":273793024,"memory":{"rss":273793024,"heapTotal":249528320,"heapUsed":130881008,"external":16330882,"arrayBuffers":12201953},"diagnostics":{"opened":65,"closed":45,"modelsForCalls":455,"modelsBuilt":130,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":65,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"b217099a-8c82-43a7-84d4-12e157135396","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"a0af7d42-bf5e-4dbc-b93a-e05c7c986299","queries":475,"active":20,"rss":276791296,"memory":{"rss":276791296,"heapTotal":252329984,"heapUsed":149173392,"external":19198320,"arrayBuffers":15069391},"diagnostics":{"opened":66,"closed":46,"modelsForCalls":462,"modelsBuilt":132,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":66,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"a0af7d42-bf5e-4dbc-b93a-e05c7c986299","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"d5ae0125-75c8-4eb0-affc-7205709150bb","queries":475,"active":20,"rss":276889600,"memory":{"rss":276889600,"heapTotal":255131648,"heapUsed":167431448,"external":22066394,"arrayBuffers":17937465},"diagnostics":{"opened":67,"closed":47,"modelsForCalls":469,"modelsBuilt":134,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":67,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"d5ae0125-75c8-4eb0-affc-7205709150bb","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"f2f01e06-4333-43db-af46-4c0f2455fc53","queries":475,"active":20,"rss":271908864,"memory":{"rss":271908864,"heapTotal":252887040,"heapUsed":129453248,"external":16797912,"arrayBuffers":12668983},"diagnostics":{"opened":68,"closed":48,"modelsForCalls":476,"modelsBuilt":136,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":68,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"f2f01e06-4333-43db-af46-4c0f2455fc53","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"1eb88df4-ad95-471f-8285-d1346fcde4ec","queries":475,"active":20,"rss":273022976,"memory":{"rss":273022976,"heapTotal":255688704,"heapUsed":147712640,"external":19667226,"arrayBuffers":15538297},"diagnostics":{"opened":69,"closed":49,"modelsForCalls":483,"modelsBuilt":138,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":69,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"1eb88df4-ad95-471f-8285-d1346fcde4ec","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"2da52804-f2b7-4b02-9583-266815edb4b8","queries":475,"active":20,"rss":275349504,"memory":{"rss":275349504,"heapTotal":258490368,"heapUsed":165965248,"external":22700380,"arrayBuffers":18571451},"diagnostics":{"opened":70,"closed":50,"modelsForCalls":490,"modelsBuilt":140,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":70,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"2da52804-f2b7-4b02-9583-266815edb4b8","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"902a2dc6-3caf-4ab3-93bb-f537676f24fb","queries":475,"active":20,"rss":272252928,"memory":{"rss":272252928,"heapTotal":255983616,"heapUsed":127180832,"external":17059670,"arrayBuffers":12930741},"diagnostics":{"opened":71,"closed":51,"modelsForCalls":497,"modelsBuilt":142,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":71,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"902a2dc6-3caf-4ab3-93bb-f537676f24fb","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"5f39d982-66bf-40f7-ab9b-80406fe336f3","queries":475,"active":20,"rss":267517952,"memory":{"rss":267517952,"heapTotal":259047424,"heapUsed":145442392,"external":19930864,"arrayBuffers":15801935},"diagnostics":{"opened":72,"closed":52,"modelsForCalls":504,"modelsBuilt":144,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":72,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"5f39d982-66bf-40f7-ab9b-80406fe336f3","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"d6220b54-fb9f-46a1-a91d-9a0fc6956686","queries":475,"active":20,"rss":271220736,"memory":{"rss":271220736,"heapTotal":261849088,"heapUsed":163760112,"external":22802666,"arrayBuffers":18673737},"diagnostics":{"opened":73,"closed":53,"modelsForCalls":511,"modelsBuilt":146,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":73,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"d6220b54-fb9f-46a1-a91d-9a0fc6956686","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"7438ede7-1f7c-4dbe-acf5-775c77af9b20","queries":475,"active":20,"rss":276430848,"memory":{"rss":276430848,"heapTotal":264912896,"heapUsed":182043544,"external":25675090,"arrayBuffers":21546161},"diagnostics":{"opened":74,"closed":54,"modelsForCalls":518,"modelsBuilt":148,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":74,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"7438ede7-1f7c-4dbe-acf5-775c77af9b20","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"0b6d27ad-54ca-4355-8fdb-96f4f44b9590","queries":475,"active":20,"rss":272924672,"memory":{"rss":272924672,"heapTotal":259850240,"heapUsed":140293904,"external":18187714,"arrayBuffers":14058785},"diagnostics":{"opened":75,"closed":55,"modelsForCalls":525,"modelsBuilt":150,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":75,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"0b6d27ad-54ca-4355-8fdb-96f4f44b9590","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"6285e527-ba03-40c3-b677-00cf0bcfaffb","queries":475,"active":20,"rss":275955712,"memory":{"rss":275955712,"heapTotal":262651904,"heapUsed":158518288,"external":21061398,"arrayBuffers":16932469},"diagnostics":{"opened":76,"closed":56,"modelsForCalls":532,"modelsBuilt":152,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":76,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"6285e527-ba03-40c3-b677-00cf0bcfaffb","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"e4f1ce77-1354-4d27-95e1-455596a472b4","queries":475,"active":20,"rss":276496384,"memory":{"rss":276496384,"heapTotal":265453568,"heapUsed":176772896,"external":23935696,"arrayBuffers":19806767},"diagnostics":{"opened":77,"closed":57,"modelsForCalls":539,"modelsBuilt":154,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":77,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"e4f1ce77-1354-4d27-95e1-455596a472b4","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"5bc49c1b-5bfc-4dca-985a-ee1b43d9aa8e","queries":475,"active":20,"rss":273842176,"memory":{"rss":273842176,"heapTotal":263733248,"heapUsed":138540240,"external":18491929,"arrayBuffers":14363000},"diagnostics":{"opened":78,"closed":58,"modelsForCalls":546,"modelsBuilt":156,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":78,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"5bc49c1b-5bfc-4dca-985a-ee1b43d9aa8e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"91a2ad29-2902-4d35-9115-756a36d00a8e","queries":475,"active":20,"rss":276856832,"memory":{"rss":276856832,"heapTotal":266534912,"heapUsed":156805896,"external":21367475,"arrayBuffers":17238546},"diagnostics":{"opened":79,"closed":59,"modelsForCalls":553,"modelsBuilt":158,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":79,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"91a2ad29-2902-4d35-9115-756a36d00a8e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"c1e41b86-3f08-484c-97bc-07939320b086","queries":475,"active":20,"rss":280018944,"memory":{"rss":280018944,"heapTotal":269336576,"heapUsed":175036704,"external":24243637,"arrayBuffers":20114708},"diagnostics":{"opened":80,"closed":60,"modelsForCalls":560,"modelsBuilt":160,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":80,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"c1e41b86-3f08-484c-97bc-07939320b086","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"26ebfec7-fdc2-4898-8b82-8b4cb6e16b67","queries":475,"active":20,"rss":277331968,"memory":{"rss":277331968,"heapTotal":266436608,"heapUsed":135600784,"external":18192381,"arrayBuffers":14063452},"diagnostics":{"opened":81,"closed":61,"modelsForCalls":567,"modelsBuilt":162,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":81,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"26ebfec7-fdc2-4898-8b82-8b4cb6e16b67","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"05c3f0dc-70e4-420e-89cd-d9e065f45286","queries":475,"active":20,"rss":272220160,"memory":{"rss":272220160,"heapTotal":269238272,"heapUsed":153846968,"external":21069823,"arrayBuffers":16940894},"diagnostics":{"opened":82,"closed":62,"modelsForCalls":574,"modelsBuilt":164,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":82,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"05c3f0dc-70e4-420e-89cd-d9e065f45286","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"ec41b60b-4489-4eac-9e24-d7232f074c71","queries":475,"active":20,"rss":264978432,"memory":{"rss":264978432,"heapTotal":272039936,"heapUsed":172099392,"external":23947889,"arrayBuffers":19818960},"diagnostics":{"opened":83,"closed":63,"modelsForCalls":581,"modelsBuilt":166,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":83,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"ec41b60b-4489-4eac-9e24-d7232f074c71","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"fe81309d-6cab-4fe2-bfce-9d77fc69ac15","queries":475,"active":20,"rss":265535488,"memory":{"rss":265535488,"heapTotal":274841600,"heapUsed":190344472,"external":26826553,"arrayBuffers":22697624},"diagnostics":{"opened":84,"closed":64,"modelsForCalls":588,"modelsBuilt":168,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":84,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"fe81309d-6cab-4fe2-bfce-9d77fc69ac15","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"e09a0c4f-817b-4b8c-aaf1-6e9cda32da1b","queries":475,"active":20,"rss":266059776,"memory":{"rss":266059776,"heapTotal":270696448,"heapUsed":150263824,"external":20046838,"arrayBuffers":15917909},"diagnostics":{"opened":85,"closed":65,"modelsForCalls":595,"modelsBuilt":170,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":85,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"e09a0c4f-817b-4b8c-aaf1-6e9cda32da1b","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"3c945576-ebd5-4464-b3b1-e35855244c7c","queries":475,"active":20,"rss":269615104,"memory":{"rss":269615104,"heapTotal":273498112,"heapUsed":168603928,"external":22926754,"arrayBuffers":18797825},"diagnostics":{"opened":86,"closed":66,"modelsForCalls":602,"modelsBuilt":172,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":86,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"3c945576-ebd5-4464-b3b1-e35855244c7c","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"b0dec1d6-f3ed-485e-9408-8d7e64bbd966","queries":475,"active":20,"rss":272957440,"memory":{"rss":272957440,"heapTotal":276299776,"heapUsed":186844784,"external":25807284,"arrayBuffers":21678355},"diagnostics":{"opened":87,"closed":67,"modelsForCalls":609,"modelsBuilt":174,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":87,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"b0dec1d6-f3ed-485e-9408-8d7e64bbd966","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"83d49300-36dd-473d-9a60-12d89124273a","queries":475,"active":20,"rss":286769152,"memory":{"rss":286769152,"heapTotal":278528000,"heapUsed":152599240,"external":20331847,"arrayBuffers":16202918},"diagnostics":{"opened":88,"closed":68,"modelsForCalls":616,"modelsBuilt":176,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":88,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"83d49300-36dd-473d-9a60-12d89124273a","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"3a010091-84bf-429e-a7ea-321ad7d31088","queries":475,"active":20,"rss":289701888,"memory":{"rss":289701888,"heapTotal":281329664,"heapUsed":170852336,"external":23196937,"arrayBuffers":19068008},"diagnostics":{"opened":89,"closed":69,"modelsForCalls":623,"modelsBuilt":178,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":89,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"3a010091-84bf-429e-a7ea-321ad7d31088","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"e0ae104b-58da-4393-b447-beedb48aa9ab","queries":475,"active":20,"rss":292274176,"memory":{"rss":292274176,"heapTotal":284131328,"heapUsed":189094600,"external":26079396,"arrayBuffers":21950467},"diagnostics":{"opened":90,"closed":70,"modelsForCalls":630,"modelsBuilt":180,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":90,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"e0ae104b-58da-4393-b447-beedb48aa9ab","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"30e9612b-999a-4661-b718-4fac7906314c","queries":475,"active":20,"rss":289914880,"memory":{"rss":289914880,"heapTotal":280002560,"heapUsed":149254288,"external":19431668,"arrayBuffers":15302739},"diagnostics":{"opened":91,"closed":71,"modelsForCalls":637,"modelsBuilt":182,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":91,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"30e9612b-999a-4661-b718-4fac7906314c","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"41fe7399-8a75-4d44-a1e0-ccb635efc511","queries":475,"active":20,"rss":292683776,"memory":{"rss":292683776,"heapTotal":282804224,"heapUsed":167497832,"external":22413224,"arrayBuffers":18284295},"diagnostics":{"opened":92,"closed":72,"modelsForCalls":644,"modelsBuilt":184,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":92,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"41fe7399-8a75-4d44-a1e0-ccb635efc511","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"d2700039-4c36-48a2-9c37-ee6e50c5f63d","queries":475,"active":20,"rss":292536320,"memory":{"rss":292536320,"heapTotal":285605888,"heapUsed":185749736,"external":25297514,"arrayBuffers":21168585},"diagnostics":{"opened":93,"closed":73,"modelsForCalls":651,"modelsBuilt":186,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":93,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"d2700039-4c36-48a2-9c37-ee6e50c5f63d","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"8f60fca4-63fe-44ef-9722-871c28717c2e","queries":475,"active":20,"rss":288423936,"memory":{"rss":288423936,"heapTotal":288407552,"heapUsed":203998776,"external":28182410,"arrayBuffers":24053481},"diagnostics":{"opened":94,"closed":74,"modelsForCalls":658,"modelsBuilt":188,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":94,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"8f60fca4-63fe-44ef-9722-871c28717c2e","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"01442c0d-b301-45de-a11b-01de2428453a","queries":475,"active":20,"rss":285081600,"memory":{"rss":285081600,"heapTotal":285491200,"heapUsed":164429128,"external":22021620,"arrayBuffers":17892691},"diagnostics":{"opened":95,"closed":75,"modelsForCalls":665,"modelsBuilt":190,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":95,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"01442c0d-b301-45de-a11b-01de2428453a","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"f4f5a7f2-2848-44d2-bc95-fa50ead59a1b","queries":475,"active":20,"rss":288161792,"memory":{"rss":288161792,"heapTotal":288292864,"heapUsed":182671736,"external":24940134,"arrayBuffers":20811205},"diagnostics":{"opened":96,"closed":76,"modelsForCalls":672,"modelsBuilt":192,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":96,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"f4f5a7f2-2848-44d2-bc95-fa50ead59a1b","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"13c4ca7a-a1a2-450e-9773-34a8c0172a58","queries":475,"active":20,"rss":288817152,"memory":{"rss":288817152,"heapTotal":291094528,"heapUsed":200905760,"external":27826944,"arrayBuffers":23698015},"diagnostics":{"opened":97,"closed":77,"modelsForCalls":679,"modelsBuilt":194,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":97,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"13c4ca7a-a1a2-450e-9773-34a8c0172a58","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"00460f34-3e9a-45a3-b238-ac0e9b397ec5","queries":475,"active":20,"rss":287064064,"memory":{"rss":287064064,"heapTotal":289112064,"heapUsed":162614472,"external":22180909,"arrayBuffers":18051980},"diagnostics":{"opened":98,"closed":78,"modelsForCalls":686,"modelsBuilt":196,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":98,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"00460f34-3e9a-45a3-b238-ac0e9b397ec5","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"f3bb1c6c-bf67-491f-9ea1-2f4685644083","queries":477,"active":20,"rss":290684928,"memory":{"rss":290684928,"heapTotal":291913728,"heapUsed":180967864,"external":25079467,"arrayBuffers":20950538},"diagnostics":{"opened":99,"closed":79,"modelsForCalls":693,"modelsBuilt":198,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":99,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"f3bb1c6c-bf67-491f-9ea1-2f4685644083","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{"phase":"source-diagnostic","measurement":{"bot":"7c3a3bec-f1f2-40db-b962-1d1df25bdfab","queries":475,"active":20,"rss":294092800,"memory":{"rss":294092800,"heapTotal":294715392,"heapUsed":199155592,"external":27968131,"arrayBuffers":23839202},"diagnostics":{"opened":100,"closed":80,"modelsForCalls":700,"modelsBuilt":200,"archivedEntriesRead":0,"archivedEntryBytesRead":0}},"bot":100,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"7c3a3bec-f1f2-40db-b962-1d1df25bdfab","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}]}
+{
+  "mode": "loopback-transport",
+  "scenario": "reply",
+  "results": [
+    {
+      "bot": 1,
+      "type": "markdown"
+    },
+    {
+      "bot": 2,
+      "type": "markdown"
+    },
+    {
+      "bot": 3,
+      "type": "markdown"
+    },
+    {
+      "bot": 4,
+      "type": "markdown"
+    },
+    {
+      "bot": 5,
+      "type": "markdown"
+    },
+    {
+      "bot": 6,
+      "type": "markdown"
+    },
+    {
+      "bot": 7,
+      "type": "markdown"
+    },
+    {
+      "bot": 8,
+      "type": "markdown"
+    },
+    {
+      "bot": 9,
+      "type": "markdown"
+    },
+    {
+      "bot": 10,
+      "type": "markdown"
+    },
+    {
+      "bot": 11,
+      "type": "markdown"
+    },
+    {
+      "bot": 12,
+      "type": "markdown"
+    },
+    {
+      "bot": 13,
+      "type": "markdown"
+    },
+    {
+      "bot": 14,
+      "type": "markdown"
+    },
+    {
+      "bot": 15,
+      "type": "markdown"
+    },
+    {
+      "bot": 16,
+      "type": "markdown"
+    },
+    {
+      "bot": 17,
+      "type": "markdown"
+    },
+    {
+      "bot": 18,
+      "type": "markdown"
+    },
+    {
+      "bot": 19,
+      "type": "markdown"
+    },
+    {
+      "bot": 20,
+      "type": "markdown"
+    },
+    {
+      "bot": 21,
+      "type": "markdown"
+    },
+    {
+      "bot": 22,
+      "type": "markdown"
+    },
+    {
+      "bot": 23,
+      "type": "markdown"
+    },
+    {
+      "bot": 24,
+      "type": "markdown"
+    },
+    {
+      "bot": 25,
+      "type": "markdown"
+    },
+    {
+      "bot": 26,
+      "type": "markdown"
+    },
+    {
+      "bot": 27,
+      "type": "markdown"
+    },
+    {
+      "bot": 28,
+      "type": "markdown"
+    },
+    {
+      "bot": 29,
+      "type": "markdown"
+    },
+    {
+      "bot": 30,
+      "type": "markdown"
+    },
+    {
+      "bot": 31,
+      "type": "markdown"
+    },
+    {
+      "bot": 32,
+      "type": "markdown"
+    },
+    {
+      "bot": 33,
+      "type": "markdown"
+    },
+    {
+      "bot": 34,
+      "type": "markdown"
+    },
+    {
+      "bot": 35,
+      "type": "markdown"
+    },
+    {
+      "bot": 36,
+      "type": "markdown"
+    },
+    {
+      "bot": 37,
+      "type": "markdown"
+    },
+    {
+      "bot": 38,
+      "type": "markdown"
+    },
+    {
+      "bot": 39,
+      "type": "markdown"
+    },
+    {
+      "bot": 40,
+      "type": "markdown"
+    },
+    {
+      "bot": 41,
+      "type": "markdown"
+    },
+    {
+      "bot": 42,
+      "type": "markdown"
+    },
+    {
+      "bot": 43,
+      "type": "markdown"
+    },
+    {
+      "bot": 44,
+      "type": "markdown"
+    },
+    {
+      "bot": 45,
+      "type": "markdown"
+    },
+    {
+      "bot": 46,
+      "type": "markdown"
+    },
+    {
+      "bot": 47,
+      "type": "markdown"
+    },
+    {
+      "bot": 48,
+      "type": "markdown"
+    },
+    {
+      "bot": 49,
+      "type": "markdown"
+    },
+    {
+      "bot": 50,
+      "type": "markdown"
+    },
+    {
+      "bot": 51,
+      "type": "markdown"
+    },
+    {
+      "bot": 52,
+      "type": "markdown"
+    },
+    {
+      "bot": 53,
+      "type": "markdown"
+    },
+    {
+      "bot": 54,
+      "type": "markdown"
+    },
+    {
+      "bot": 55,
+      "type": "markdown"
+    },
+    {
+      "bot": 56,
+      "type": "markdown"
+    },
+    {
+      "bot": 57,
+      "type": "markdown"
+    },
+    {
+      "bot": 58,
+      "type": "markdown"
+    },
+    {
+      "bot": 59,
+      "type": "markdown"
+    },
+    {
+      "bot": 60,
+      "type": "markdown"
+    },
+    {
+      "bot": 61,
+      "type": "markdown"
+    },
+    {
+      "bot": 62,
+      "type": "markdown"
+    },
+    {
+      "bot": 63,
+      "type": "markdown"
+    },
+    {
+      "bot": 64,
+      "type": "markdown"
+    },
+    {
+      "bot": 65,
+      "type": "markdown"
+    },
+    {
+      "bot": 66,
+      "type": "markdown"
+    },
+    {
+      "bot": 67,
+      "type": "markdown"
+    },
+    {
+      "bot": 68,
+      "type": "markdown"
+    },
+    {
+      "bot": 69,
+      "type": "markdown"
+    },
+    {
+      "bot": 70,
+      "type": "markdown"
+    },
+    {
+      "bot": 71,
+      "type": "markdown"
+    },
+    {
+      "bot": 72,
+      "type": "markdown"
+    },
+    {
+      "bot": 73,
+      "type": "markdown"
+    },
+    {
+      "bot": 74,
+      "type": "markdown"
+    },
+    {
+      "bot": 75,
+      "type": "markdown"
+    },
+    {
+      "bot": 76,
+      "type": "markdown"
+    },
+    {
+      "bot": 77,
+      "type": "markdown"
+    },
+    {
+      "bot": 78,
+      "type": "markdown"
+    },
+    {
+      "bot": 79,
+      "type": "markdown"
+    },
+    {
+      "bot": 80,
+      "type": "markdown"
+    },
+    {
+      "bot": 81,
+      "type": "markdown"
+    },
+    {
+      "bot": 82,
+      "type": "markdown"
+    },
+    {
+      "bot": 83,
+      "type": "markdown"
+    },
+    {
+      "bot": 84,
+      "type": "markdown"
+    },
+    {
+      "bot": 85,
+      "type": "markdown"
+    },
+    {
+      "bot": 86,
+      "type": "markdown"
+    },
+    {
+      "bot": 87,
+      "type": "markdown"
+    },
+    {
+      "bot": 88,
+      "type": "markdown"
+    },
+    {
+      "bot": 89,
+      "type": "markdown"
+    },
+    {
+      "bot": 90,
+      "type": "markdown"
+    },
+    {
+      "bot": 91,
+      "type": "markdown"
+    },
+    {
+      "bot": 92,
+      "type": "markdown"
+    },
+    {
+      "bot": 93,
+      "type": "markdown"
+    },
+    {
+      "bot": 94,
+      "type": "markdown"
+    },
+    {
+      "bot": 95,
+      "type": "markdown"
+    },
+    {
+      "bot": 96,
+      "type": "markdown"
+    },
+    {
+      "bot": 97,
+      "type": "markdown"
+    },
+    {
+      "bot": 98,
+      "type": "markdown"
+    },
+    {
+      "bot": 99,
+      "type": "markdown"
+    },
+    {
+      "bot": 100,
+      "type": "markdown"
+    }
+  ],
+  "rounds": [
+    {
+      "bot": "0e0b66f5-9148-4128-ad81-38599e9b7639",
+      "queries": 473,
+      "active": 1,
+      "rss": 198311936,
+      "memory": {
+        "rss": 198311936,
+        "heapTotal": 111067136,
+        "heapUsed": 48761920,
+        "external": 5422899,
+        "arrayBuffers": 1293970
+      },
+      "diagnostics": {
+        "opened": 1,
+        "closed": 0,
+        "modelsForCalls": 7,
+        "modelsBuilt": 2,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "af69ba19-11af-4c8e-a179-89cf2e278ec4",
+      "queries": 473,
+      "active": 2,
+      "rss": 208879616,
+      "memory": {
+        "rss": 208879616,
+        "heapTotal": 115441664,
+        "heapUsed": 71081216,
+        "external": 8233579,
+        "arrayBuffers": 4104650
+      },
+      "diagnostics": {
+        "opened": 2,
+        "closed": 0,
+        "modelsForCalls": 14,
+        "modelsBuilt": 4,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "46d02091-9b9f-4dd7-8ca4-8976dcb9c76f",
+      "queries": 473,
+      "active": 3,
+      "rss": 216137728,
+      "memory": {
+        "rss": 216137728,
+        "heapTotal": 120553472,
+        "heapUsed": 69192216,
+        "external": 7873272,
+        "arrayBuffers": 3744343
+      },
+      "diagnostics": {
+        "opened": 3,
+        "closed": 0,
+        "modelsForCalls": 21,
+        "modelsBuilt": 6,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "c771bf78-f0fd-4250-9f2b-823657075e50",
+      "queries": 473,
+      "active": 4,
+      "rss": 218808320,
+      "memory": {
+        "rss": 218808320,
+        "heapTotal": 122830848,
+        "heapUsed": 63940328,
+        "external": 7756037,
+        "arrayBuffers": 3627108
+      },
+      "diagnostics": {
+        "opened": 4,
+        "closed": 0,
+        "modelsForCalls": 28,
+        "modelsBuilt": 8,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "a0d4f6f2-98a6-44d5-8f90-07554b2aa298",
+      "queries": 473,
+      "active": 5,
+      "rss": 220135424,
+      "memory": {
+        "rss": 220135424,
+        "heapTotal": 123535360,
+        "heapUsed": 56816520,
+        "external": 5617719,
+        "arrayBuffers": 1488790
+      },
+      "diagnostics": {
+        "opened": 5,
+        "closed": 0,
+        "modelsForCalls": 35,
+        "modelsBuilt": 10,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "9def0fdf-9a67-41a1-b1f2-544b42b7890f",
+      "queries": 473,
+      "active": 6,
+      "rss": 222396416,
+      "memory": {
+        "rss": 222396416,
+        "heapTotal": 126615552,
+        "heapUsed": 77114032,
+        "external": 8447583,
+        "arrayBuffers": 4318654
+      },
+      "diagnostics": {
+        "opened": 6,
+        "closed": 0,
+        "modelsForCalls": 42,
+        "modelsBuilt": 12,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "af4fb6b9-d5dc-43d5-abf7-8a51e7a9531a",
+      "queries": 473,
+      "active": 7,
+      "rss": 224772096,
+      "memory": {
+        "rss": 224772096,
+        "heapTotal": 129155072,
+        "heapUsed": 71293064,
+        "external": 8466000,
+        "arrayBuffers": 4337071
+      },
+      "diagnostics": {
+        "opened": 7,
+        "closed": 0,
+        "modelsForCalls": 49,
+        "modelsBuilt": 14,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "4142acf2-60cb-443c-8f20-4efc32f2069e",
+      "queries": 473,
+      "active": 8,
+      "rss": 229654528,
+      "memory": {
+        "rss": 229654528,
+        "heapTotal": 196968448,
+        "heapUsed": 62837160,
+        "external": 6168021,
+        "arrayBuffers": 2039092
+      },
+      "diagnostics": {
+        "opened": 8,
+        "closed": 0,
+        "modelsForCalls": 56,
+        "modelsBuilt": 16,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "b3e50e13-a661-4e43-8e80-1f4e11672610",
+      "queries": 473,
+      "active": 9,
+      "rss": 221839360,
+      "memory": {
+        "rss": 221839360,
+        "heapTotal": 201080832,
+        "heapUsed": 83332632,
+        "external": 8999765,
+        "arrayBuffers": 4870836
+      },
+      "diagnostics": {
+        "opened": 9,
+        "closed": 0,
+        "modelsForCalls": 63,
+        "modelsBuilt": 18,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "b4088c1f-5806-4232-9084-765106d8431f",
+      "queries": 473,
+      "active": 10,
+      "rss": 229572608,
+      "memory": {
+        "rss": 229572608,
+        "heapTotal": 204144640,
+        "heapUsed": 102479416,
+        "external": 11832121,
+        "arrayBuffers": 7703192
+      },
+      "diagnostics": {
+        "opened": 10,
+        "closed": 0,
+        "modelsForCalls": 70,
+        "modelsBuilt": 20,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "74a03ec8-b755-4ff0-8585-3bcbf9daef95",
+      "queries": 473,
+      "active": 11,
+      "rss": 240812032,
+      "memory": {
+        "rss": 240812032,
+        "heapTotal": 207486976,
+        "heapUsed": 122120544,
+        "external": 14665121,
+        "arrayBuffers": 10536192
+      },
+      "diagnostics": {
+        "opened": 11,
+        "closed": 0,
+        "modelsForCalls": 77,
+        "modelsBuilt": 22,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "bddd0168-02fc-40ad-ac69-3a96b042fe5e",
+      "queries": 473,
+      "active": 12,
+      "rss": 243105792,
+      "memory": {
+        "rss": 243105792,
+        "heapTotal": 205832192,
+        "heapUsed": 85846984,
+        "external": 9501982,
+        "arrayBuffers": 5373053
+      },
+      "diagnostics": {
+        "opened": 12,
+        "closed": 0,
+        "modelsForCalls": 84,
+        "modelsBuilt": 24,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "d645a473-560f-4732-beb4-b9afafa36c0d",
+      "queries": 473,
+      "active": 13,
+      "rss": 251068416,
+      "memory": {
+        "rss": 251068416,
+        "heapTotal": 208633856,
+        "heapUsed": 104732536,
+        "external": 12336230,
+        "arrayBuffers": 8207301
+      },
+      "diagnostics": {
+        "opened": 13,
+        "closed": 0,
+        "modelsForCalls": 91,
+        "modelsBuilt": 26,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "0228c0e3-3f3e-482d-85af-0236f303bb96",
+      "queries": 473,
+      "active": 14,
+      "rss": 269287424,
+      "memory": {
+        "rss": 269303808,
+        "heapTotal": 211435520,
+        "heapUsed": 123616336,
+        "external": 15171084,
+        "arrayBuffers": 11042155
+      },
+      "diagnostics": {
+        "opened": 14,
+        "closed": 0,
+        "modelsForCalls": 98,
+        "modelsBuilt": 28,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "a8d3815f-6700-4122-a242-fcbd44bbadac",
+      "queries": 473,
+      "active": 15,
+      "rss": 271482880,
+      "memory": {
+        "rss": 271482880,
+        "heapTotal": 211877888,
+        "heapUsed": 89152192,
+        "external": 9899025,
+        "arrayBuffers": 5770096
+      },
+      "diagnostics": {
+        "opened": 15,
+        "closed": 0,
+        "modelsForCalls": 105,
+        "modelsBuilt": 30,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "1cc66a0d-1bbb-479b-86bd-e55c2c5b3db1",
+      "queries": 473,
+      "active": 16,
+      "rss": 274235392,
+      "memory": {
+        "rss": 274235392,
+        "heapTotal": 214941696,
+        "heapUsed": 107840624,
+        "external": 12735135,
+        "arrayBuffers": 8606206
+      },
+      "diagnostics": {
+        "opened": 16,
+        "closed": 0,
+        "modelsForCalls": 112,
+        "modelsBuilt": 32,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "ce7c3349-0934-41ef-a758-1710def62e74",
+      "queries": 473,
+      "active": 17,
+      "rss": 277987328,
+      "memory": {
+        "rss": 277987328,
+        "heapTotal": 217743360,
+        "heapUsed": 126567600,
+        "external": 15571859,
+        "arrayBuffers": 11442930
+      },
+      "diagnostics": {
+        "opened": 17,
+        "closed": 0,
+        "modelsForCalls": 119,
+        "modelsBuilt": 34,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "ad9a67b0-7438-44e0-9d41-77eb1ad5dbff",
+      "queries": 473,
+      "active": 18,
+      "rss": 277938176,
+      "memory": {
+        "rss": 277938176,
+        "heapTotal": 217661440,
+        "heapUsed": 92143360,
+        "external": 10339885,
+        "arrayBuffers": 6210956
+      },
+      "diagnostics": {
+        "opened": 18,
+        "closed": 0,
+        "modelsForCalls": 126,
+        "modelsBuilt": 36,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "2d90c87c-01d0-4c4f-8696-f15f952df049",
+      "queries": 473,
+      "active": 19,
+      "rss": 280592384,
+      "memory": {
+        "rss": 280592384,
+        "heapTotal": 220725248,
+        "heapUsed": 110951192,
+        "external": 13177867,
+        "arrayBuffers": 9048938
+      },
+      "diagnostics": {
+        "opened": 19,
+        "closed": 0,
+        "modelsForCalls": 133,
+        "modelsBuilt": 38,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "3d412641-64be-488f-bf90-846be8d94e5e",
+      "queries": 473,
+      "active": 20,
+      "rss": 283459584,
+      "memory": {
+        "rss": 283459584,
+        "heapTotal": 224051200,
+        "heapUsed": 129401400,
+        "external": 16016481,
+        "arrayBuffers": 11887552
+      },
+      "diagnostics": {
+        "opened": 20,
+        "closed": 0,
+        "modelsForCalls": 140,
+        "modelsBuilt": 40,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "1ad8685f-ebb0-4d06-8aa3-edcf8574924e",
+      "queries": 475,
+      "active": 20,
+      "rss": 276185088,
+      "memory": {
+        "rss": 276185088,
+        "heapTotal": 209108992,
+        "heapUsed": 64656800,
+        "external": 6131883,
+        "arrayBuffers": 2002954
+      },
+      "diagnostics": {
+        "opened": 21,
+        "closed": 1,
+        "modelsForCalls": 147,
+        "modelsBuilt": 42,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "aa8c0ceb-aa54-45b4-85a0-8c6f256f3bc7",
+      "queries": 475,
+      "active": 20,
+      "rss": 278151168,
+      "memory": {
+        "rss": 278151168,
+        "heapTotal": 211910656,
+        "heapUsed": 83522928,
+        "external": 8971877,
+        "arrayBuffers": 4842948
+      },
+      "diagnostics": {
+        "opened": 22,
+        "closed": 2,
+        "modelsForCalls": 154,
+        "modelsBuilt": 44,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "2c1e1626-1d49-4acf-885c-ae06433b6948",
+      "queries": 475,
+      "active": 20,
+      "rss": 282279936,
+      "memory": {
+        "rss": 282279936,
+        "heapTotal": 215777280,
+        "heapUsed": 103284784,
+        "external": 11812479,
+        "arrayBuffers": 7683550
+      },
+      "diagnostics": {
+        "opened": 23,
+        "closed": 3,
+        "modelsForCalls": 161,
+        "modelsBuilt": 46,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "29c62861-0ca0-40a5-b059-600c1f5de566",
+      "queries": 475,
+      "active": 20,
+      "rss": 285212672,
+      "memory": {
+        "rss": 285212672,
+        "heapTotal": 218578944,
+        "heapUsed": 121842680,
+        "external": 14653683,
+        "arrayBuffers": 10524754
+      },
+      "diagnostics": {
+        "opened": 24,
+        "closed": 4,
+        "modelsForCalls": 168,
+        "modelsBuilt": 48,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "ba444a5a-3958-435c-8556-1235d5a04ae3",
+      "queries": 475,
+      "active": 20,
+      "rss": 280313856,
+      "memory": {
+        "rss": 280313856,
+        "heapTotal": 213467136,
+        "heapUsed": 82080232,
+        "external": 8830976,
+        "arrayBuffers": 4702047
+      },
+      "diagnostics": {
+        "opened": 25,
+        "closed": 5,
+        "modelsForCalls": 175,
+        "modelsBuilt": 50,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "790564c4-57dd-47a7-bab5-c9052dd333da",
+      "queries": 475,
+      "active": 20,
+      "rss": 283295744,
+      "memory": {
+        "rss": 283295744,
+        "heapTotal": 216268800,
+        "heapUsed": 100674480,
+        "external": 11673458,
+        "arrayBuffers": 7544529
+      },
+      "diagnostics": {
+        "opened": 26,
+        "closed": 6,
+        "modelsForCalls": 182,
+        "modelsBuilt": 52,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "3b3f8347-5cc6-44f4-816c-7b09455b4346",
+      "queries": 475,
+      "active": 20,
+      "rss": 280150016,
+      "memory": {
+        "rss": 280150016,
+        "heapTotal": 219070464,
+        "heapUsed": 119221256,
+        "external": 14516556,
+        "arrayBuffers": 10387627
+      },
+      "diagnostics": {
+        "opened": 27,
+        "closed": 7,
+        "modelsForCalls": 189,
+        "modelsBuilt": 54,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "a7529a89-d535-4e0d-8bf7-a4ee06dda9b6",
+      "queries": 475,
+      "active": 20,
+      "rss": 276709376,
+      "memory": {
+        "rss": 276709376,
+        "heapTotal": 214204416,
+        "heapUsed": 81825352,
+        "external": 9128399,
+        "arrayBuffers": 4999470
+      },
+      "diagnostics": {
+        "opened": 28,
+        "closed": 8,
+        "modelsForCalls": 196,
+        "modelsBuilt": 56,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "87c681ff-fa8a-4973-b51d-54edf534f5fc",
+      "queries": 475,
+      "active": 20,
+      "rss": 279265280,
+      "memory": {
+        "rss": 279265280,
+        "heapTotal": 217006080,
+        "heapUsed": 100400792,
+        "external": 11972743,
+        "arrayBuffers": 7843814
+      },
+      "diagnostics": {
+        "opened": 29,
+        "closed": 9,
+        "modelsForCalls": 203,
+        "modelsBuilt": 58,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "24aea8c7-d4d3-46de-bfcb-66f00c5cae75",
+      "queries": 475,
+      "active": 20,
+      "rss": 281772032,
+      "memory": {
+        "rss": 281772032,
+        "heapTotal": 219807744,
+        "heapUsed": 118909904,
+        "external": 14817715,
+        "arrayBuffers": 10688786
+      },
+      "diagnostics": {
+        "opened": 30,
+        "closed": 10,
+        "modelsForCalls": 210,
+        "modelsBuilt": 60,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "462dd8ee-18b7-443a-9987-c962434b89d2",
+      "queries": 475,
+      "active": 20,
+      "rss": 277266432,
+      "memory": {
+        "rss": 277266432,
+        "heapTotal": 214614016,
+        "heapUsed": 79314992,
+        "external": 8425465,
+        "arrayBuffers": 4296536
+      },
+      "diagnostics": {
+        "opened": 31,
+        "closed": 11,
+        "modelsForCalls": 217,
+        "modelsBuilt": 62,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "cd818f6a-2157-42d3-934f-0e0cd5f925b3",
+      "queries": 475,
+      "active": 20,
+      "rss": 280281088,
+      "memory": {
+        "rss": 280281088,
+        "heapTotal": 217939968,
+        "heapUsed": 97898280,
+        "external": 11271673,
+        "arrayBuffers": 7142744
+      },
+      "diagnostics": {
+        "opened": 32,
+        "closed": 12,
+        "modelsForCalls": 224,
+        "modelsBuilt": 64,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "0b0d6bc4-5de2-460c-a8d9-91fda00dec9f",
+      "queries": 475,
+      "active": 20,
+      "rss": 283049984,
+      "memory": {
+        "rss": 283049984,
+        "heapTotal": 220741632,
+        "heapUsed": 116442072,
+        "external": 14118515,
+        "arrayBuffers": 9989586
+      },
+      "diagnostics": {
+        "opened": 33,
+        "closed": 13,
+        "modelsForCalls": 231,
+        "modelsBuilt": 66,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "6793878c-cdfa-45f3-b349-a076bb039d43",
+      "queries": 475,
+      "active": 20,
+      "rss": 286179328,
+      "memory": {
+        "rss": 286179328,
+        "heapTotal": 223543296,
+        "heapUsed": 134979008,
+        "external": 16965983,
+        "arrayBuffers": 12837054
+      },
+      "diagnostics": {
+        "opened": 34,
+        "closed": 14,
+        "modelsForCalls": 238,
+        "modelsBuilt": 68,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "425bd9b7-c207-4a54-bcad-631da76ad964",
+      "queries": 475,
+      "active": 20,
+      "rss": 282116096,
+      "memory": {
+        "rss": 282116096,
+        "heapTotal": 217759744,
+        "heapUsed": 95246160,
+        "external": 10746288,
+        "arrayBuffers": 6617359
+      },
+      "diagnostics": {
+        "opened": 35,
+        "closed": 15,
+        "modelsForCalls": 245,
+        "modelsBuilt": 70,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "e1abe7d7-4c94-4414-9115-150b3d27180b",
+      "queries": 475,
+      "active": 20,
+      "rss": 284983296,
+      "memory": {
+        "rss": 284983296,
+        "heapTotal": 220561408,
+        "heapUsed": 113741416,
+        "external": 13595002,
+        "arrayBuffers": 9466073
+      },
+      "diagnostics": {
+        "opened": 36,
+        "closed": 16,
+        "modelsForCalls": 252,
+        "modelsBuilt": 72,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "51a0a96d-4f1b-449f-997b-bcb4b8d55317",
+      "queries": 475,
+      "active": 20,
+      "rss": 288489472,
+      "memory": {
+        "rss": 288489472,
+        "heapTotal": 223625216,
+        "heapUsed": 132285864,
+        "external": 16444364,
+        "arrayBuffers": 12315435
+      },
+      "diagnostics": {
+        "opened": 37,
+        "closed": 17,
+        "modelsForCalls": 259,
+        "modelsBuilt": 74,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "43d5414d-8a24-4245-8cac-1f87e188d49b",
+      "queries": 475,
+      "active": 20,
+      "rss": 285278208,
+      "memory": {
+        "rss": 285278208,
+        "heapTotal": 219283456,
+        "heapUsed": 94159840,
+        "external": 11076797,
+        "arrayBuffers": 6947868
+      },
+      "diagnostics": {
+        "opened": 38,
+        "closed": 18,
+        "modelsForCalls": 266,
+        "modelsBuilt": 76,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "4122e3c0-93ab-4aca-8607-4d58b2d84aec",
+      "queries": 475,
+      "active": 20,
+      "rss": 288129024,
+      "memory": {
+        "rss": 288129024,
+        "heapTotal": 222085120,
+        "heapUsed": 112415696,
+        "external": 13927391,
+        "arrayBuffers": 9798462
+      },
+      "diagnostics": {
+        "opened": 39,
+        "closed": 19,
+        "modelsForCalls": 273,
+        "modelsBuilt": 78,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "7b8dffe6-bcde-4a6a-b9d5-8eb0f0888c5f",
+      "queries": 475,
+      "active": 20,
+      "rss": 291012608,
+      "memory": {
+        "rss": 291012608,
+        "heapTotal": 224886784,
+        "heapUsed": 130687872,
+        "external": 16778593,
+        "arrayBuffers": 12649664
+      },
+      "diagnostics": {
+        "opened": 40,
+        "closed": 20,
+        "modelsForCalls": 280,
+        "modelsBuilt": 80,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "52b82f38-71fb-44cd-b42c-266a54fbb7cd",
+      "queries": 475,
+      "active": 20,
+      "rss": 287850496,
+      "memory": {
+        "rss": 287850496,
+        "heapTotal": 222380032,
+        "heapUsed": 93225360,
+        "external": 11498068,
+        "arrayBuffers": 7369139
+      },
+      "diagnostics": {
+        "opened": 41,
+        "closed": 21,
+        "modelsForCalls": 287,
+        "modelsBuilt": 82,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "656386ca-a7a5-46fa-90e3-49011e6982f1",
+      "queries": 475,
+      "active": 20,
+      "rss": 290750464,
+      "memory": {
+        "rss": 290750464,
+        "heapTotal": 225181696,
+        "heapUsed": 111493536,
+        "external": 14350516,
+        "arrayBuffers": 10221587
+      },
+      "diagnostics": {
+        "opened": 42,
+        "closed": 22,
+        "modelsForCalls": 294,
+        "modelsBuilt": 84,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "dd7b9acd-8af8-4a0f-86ee-7923cfde7d30",
+      "queries": 475,
+      "active": 20,
+      "rss": 293863424,
+      "memory": {
+        "rss": 293863424,
+        "heapTotal": 227983360,
+        "heapUsed": 129814808,
+        "external": 17203600,
+        "arrayBuffers": 13074671
+      },
+      "diagnostics": {
+        "opened": 43,
+        "closed": 23,
+        "modelsForCalls": 301,
+        "modelsBuilt": 86,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "4c56763a-252c-41df-867f-e9597d53a57f",
+      "queries": 475,
+      "active": 20,
+      "rss": 289652736,
+      "memory": {
+        "rss": 289652736,
+        "heapTotal": 222920704,
+        "heapUsed": 89387648,
+        "external": 9755062,
+        "arrayBuffers": 5626133
+      },
+      "diagnostics": {
+        "opened": 44,
+        "closed": 24,
+        "modelsForCalls": 308,
+        "modelsBuilt": 88,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "4a62404f-1588-4716-9b34-47439085a722",
+      "queries": 475,
+      "active": 20,
+      "rss": 294748160,
+      "memory": {
+        "rss": 294748160,
+        "heapTotal": 227835904,
+        "heapUsed": 109700208,
+        "external": 12609382,
+        "arrayBuffers": 8480453
+      },
+      "diagnostics": {
+        "opened": 45,
+        "closed": 25,
+        "modelsForCalls": 315,
+        "modelsBuilt": 90,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "1b544537-a113-4b49-8fd8-716eecbf0f78",
+      "queries": 475,
+      "active": 20,
+      "rss": 297762816,
+      "memory": {
+        "rss": 297762816,
+        "heapTotal": 230637568,
+        "heapUsed": 127945168,
+        "external": 15464326,
+        "arrayBuffers": 11335397
+      },
+      "diagnostics": {
+        "opened": 46,
+        "closed": 26,
+        "modelsForCalls": 322,
+        "modelsBuilt": 92,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "71d5eb3f-f3b4-483e-9ecb-f013b8b68b0e",
+      "queries": 475,
+      "active": 20,
+      "rss": 300548096,
+      "memory": {
+        "rss": 300548096,
+        "heapTotal": 233439232,
+        "heapUsed": 146228328,
+        "external": 18319902,
+        "arrayBuffers": 14190973
+      },
+      "diagnostics": {
+        "opened": 47,
+        "closed": 27,
+        "modelsForCalls": 329,
+        "modelsBuilt": 94,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "8af5c4aa-9afc-406f-b859-16364bada030",
+      "queries": 475,
+      "active": 20,
+      "rss": 297140224,
+      "memory": {
+        "rss": 297140224,
+        "heapTotal": 230932480,
+        "heapUsed": 108276992,
+        "external": 13086550,
+        "arrayBuffers": 8957621
+      },
+      "diagnostics": {
+        "opened": 48,
+        "closed": 28,
+        "modelsForCalls": 336,
+        "modelsBuilt": 96,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "64e99588-81d1-4f2e-b0fe-15fcd550d864",
+      "queries": 475,
+      "active": 20,
+      "rss": 296812544,
+      "memory": {
+        "rss": 296812544,
+        "heapTotal": 233734144,
+        "heapUsed": 126532056,
+        "external": 15943386,
+        "arrayBuffers": 11814457
+      },
+      "diagnostics": {
+        "opened": 49,
+        "closed": 29,
+        "modelsForCalls": 343,
+        "modelsBuilt": 98,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "a5210611-c67e-4ba5-b3d7-ff3e787014d3",
+      "queries": 475,
+      "active": 20,
+      "rss": 298549248,
+      "memory": {
+        "rss": 298549248,
+        "heapTotal": 236535808,
+        "heapUsed": 144758712,
+        "external": 18800828,
+        "arrayBuffers": 14671899
+      },
+      "diagnostics": {
+        "opened": 50,
+        "closed": 30,
+        "modelsForCalls": 350,
+        "modelsBuilt": 100,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "7d25d5e3-f40c-45a3-b8fc-2859273623a9",
+      "queries": 475,
+      "active": 20,
+      "rss": 296583168,
+      "memory": {
+        "rss": 296583168,
+        "heapTotal": 234553344,
+        "heapUsed": 106517144,
+        "external": 13355796,
+        "arrayBuffers": 9226867
+      },
+      "diagnostics": {
+        "opened": 51,
+        "closed": 31,
+        "modelsForCalls": 357,
+        "modelsBuilt": 102,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "43e9f33e-3c08-458c-b6c2-5b17ca39ff02",
+      "queries": 475,
+      "active": 20,
+      "rss": 292438016,
+      "memory": {
+        "rss": 292438016,
+        "heapTotal": 237355008,
+        "heapUsed": 124782192,
+        "external": 16214516,
+        "arrayBuffers": 12085587
+      },
+      "diagnostics": {
+        "opened": 52,
+        "closed": 32,
+        "modelsForCalls": 364,
+        "modelsBuilt": 104,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "d33b259e-1ca8-4f82-9cd3-bac391e1a126",
+      "queries": 475,
+      "active": 20,
+      "rss": 290734080,
+      "memory": {
+        "rss": 290734080,
+        "heapTotal": 240156672,
+        "heapUsed": 143048992,
+        "external": 19073846,
+        "arrayBuffers": 14944917
+      },
+      "diagnostics": {
+        "opened": 53,
+        "closed": 33,
+        "modelsForCalls": 371,
+        "modelsBuilt": 106,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "0bf5aded-5091-477c-b2db-375511c674e0",
+      "queries": 475,
+      "active": 20,
+      "rss": 290471936,
+      "memory": {
+        "rss": 290471936,
+        "heapTotal": 235356160,
+        "heapUsed": 102311992,
+        "external": 11613297,
+        "arrayBuffers": 7484368
+      },
+      "diagnostics": {
+        "opened": 54,
+        "closed": 34,
+        "modelsForCalls": 378,
+        "modelsBuilt": 108,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "c7ce498b-32c1-4798-9735-57ecac8c4b41",
+      "queries": 475,
+      "active": 20,
+      "rss": 293568512,
+      "memory": {
+        "rss": 293568512,
+        "heapTotal": 238157824,
+        "heapUsed": 120558256,
+        "external": 14473865,
+        "arrayBuffers": 10344936
+      },
+      "diagnostics": {
+        "opened": 55,
+        "closed": 35,
+        "modelsForCalls": 385,
+        "modelsBuilt": 110,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "aa29ebb0-ea2a-4281-9cf6-989892562034",
+      "queries": 475,
+      "active": 20,
+      "rss": 288948224,
+      "memory": {
+        "rss": 288948224,
+        "heapTotal": 240959488,
+        "heapUsed": 138808352,
+        "external": 17335075,
+        "arrayBuffers": 13206146
+      },
+      "diagnostics": {
+        "opened": 56,
+        "closed": 36,
+        "modelsForCalls": 392,
+        "modelsBuilt": 112,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "88fc8049-5884-4d98-aabf-79e5257f81f6",
+      "queries": 475,
+      "active": 20,
+      "rss": 218398720,
+      "memory": {
+        "rss": 218398720,
+        "heapTotal": 243761152,
+        "heapUsed": 157097088,
+        "external": 20229312,
+        "arrayBuffers": 16100383
+      },
+      "diagnostics": {
+        "opened": 57,
+        "closed": 37,
+        "modelsForCalls": 399,
+        "modelsBuilt": 114,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "ed09590c-c787-4856-8672-89c216705318",
+      "queries": 475,
+      "active": 20,
+      "rss": 240746496,
+      "memory": {
+        "rss": 240746496,
+        "heapTotal": 241778688,
+        "heapUsed": 119138368,
+        "external": 14967736,
+        "arrayBuffers": 10838807
+      },
+      "diagnostics": {
+        "opened": 58,
+        "closed": 38,
+        "modelsForCalls": 406,
+        "modelsBuilt": 116,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "3274715b-af17-49fd-8a7a-189424aa020e",
+      "queries": 475,
+      "active": 20,
+      "rss": 251265024,
+      "memory": {
+        "rss": 251265024,
+        "heapTotal": 244580352,
+        "heapUsed": 137400640,
+        "external": 17830820,
+        "arrayBuffers": 13701891
+      },
+      "diagnostics": {
+        "opened": 59,
+        "closed": 39,
+        "modelsForCalls": 413,
+        "modelsBuilt": 118,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "0886e8e0-104a-4413-a0f6-e6def6474bdd",
+      "queries": 475,
+      "active": 20,
+      "rss": 257245184,
+      "memory": {
+        "rss": 257245184,
+        "heapTotal": 247382016,
+        "heapUsed": 155654816,
+        "external": 20726864,
+        "arrayBuffers": 16597935
+      },
+      "diagnostics": {
+        "opened": 60,
+        "closed": 40,
+        "modelsForCalls": 420,
+        "modelsBuilt": 120,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "b442404b-d5ab-44cc-a6f3-d1fc37fed0c5",
+      "queries": 475,
+      "active": 20,
+      "rss": 256196608,
+      "memory": {
+        "rss": 256196608,
+        "heapTotal": 244875264,
+        "heapUsed": 117077056,
+        "external": 15209662,
+        "arrayBuffers": 11080733
+      },
+      "diagnostics": {
+        "opened": 61,
+        "closed": 41,
+        "modelsForCalls": 427,
+        "modelsBuilt": 122,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "96943e4e-2a7f-4e4c-ba33-e6ab5bb8cd7c",
+      "queries": 475,
+      "active": 20,
+      "rss": 269434880,
+      "memory": {
+        "rss": 269434880,
+        "heapTotal": 248463360,
+        "heapUsed": 135348320,
+        "external": 18074590,
+        "arrayBuffers": 13945661
+      },
+      "diagnostics": {
+        "opened": 62,
+        "closed": 42,
+        "modelsForCalls": 434,
+        "modelsBuilt": 124,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "a1f88063-66d9-428f-b8c9-1d7ec70b134f",
+      "queries": 475,
+      "active": 20,
+      "rss": 264847360,
+      "memory": {
+        "rss": 264847360,
+        "heapTotal": 251265024,
+        "heapUsed": 153591136,
+        "external": 20940162,
+        "arrayBuffers": 16811233
+      },
+      "diagnostics": {
+        "opened": 63,
+        "closed": 43,
+        "modelsForCalls": 441,
+        "modelsBuilt": 126,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "f837bfb7-59cd-4b3b-a263-adcb04abf155",
+      "queries": 475,
+      "active": 20,
+      "rss": 270417920,
+      "memory": {
+        "rss": 270417920,
+        "heapTotal": 246726656,
+        "heapUsed": 112837944,
+        "external": 13464064,
+        "arrayBuffers": 9335135
+      },
+      "diagnostics": {
+        "opened": 64,
+        "closed": 44,
+        "modelsForCalls": 448,
+        "modelsBuilt": 128,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "b217099a-8c82-43a7-84d4-12e157135396",
+      "queries": 475,
+      "active": 20,
+      "rss": 273793024,
+      "memory": {
+        "rss": 273793024,
+        "heapTotal": 249528320,
+        "heapUsed": 130881008,
+        "external": 16330882,
+        "arrayBuffers": 12201953
+      },
+      "diagnostics": {
+        "opened": 65,
+        "closed": 45,
+        "modelsForCalls": 455,
+        "modelsBuilt": 130,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "a0af7d42-bf5e-4dbc-b93a-e05c7c986299",
+      "queries": 475,
+      "active": 20,
+      "rss": 276791296,
+      "memory": {
+        "rss": 276791296,
+        "heapTotal": 252329984,
+        "heapUsed": 149173392,
+        "external": 19198320,
+        "arrayBuffers": 15069391
+      },
+      "diagnostics": {
+        "opened": 66,
+        "closed": 46,
+        "modelsForCalls": 462,
+        "modelsBuilt": 132,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "d5ae0125-75c8-4eb0-affc-7205709150bb",
+      "queries": 475,
+      "active": 20,
+      "rss": 276889600,
+      "memory": {
+        "rss": 276889600,
+        "heapTotal": 255131648,
+        "heapUsed": 167431448,
+        "external": 22066394,
+        "arrayBuffers": 17937465
+      },
+      "diagnostics": {
+        "opened": 67,
+        "closed": 47,
+        "modelsForCalls": 469,
+        "modelsBuilt": 134,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "f2f01e06-4333-43db-af46-4c0f2455fc53",
+      "queries": 475,
+      "active": 20,
+      "rss": 271908864,
+      "memory": {
+        "rss": 271908864,
+        "heapTotal": 252887040,
+        "heapUsed": 129453248,
+        "external": 16797912,
+        "arrayBuffers": 12668983
+      },
+      "diagnostics": {
+        "opened": 68,
+        "closed": 48,
+        "modelsForCalls": 476,
+        "modelsBuilt": 136,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "1eb88df4-ad95-471f-8285-d1346fcde4ec",
+      "queries": 475,
+      "active": 20,
+      "rss": 273022976,
+      "memory": {
+        "rss": 273022976,
+        "heapTotal": 255688704,
+        "heapUsed": 147712640,
+        "external": 19667226,
+        "arrayBuffers": 15538297
+      },
+      "diagnostics": {
+        "opened": 69,
+        "closed": 49,
+        "modelsForCalls": 483,
+        "modelsBuilt": 138,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "2da52804-f2b7-4b02-9583-266815edb4b8",
+      "queries": 475,
+      "active": 20,
+      "rss": 275349504,
+      "memory": {
+        "rss": 275349504,
+        "heapTotal": 258490368,
+        "heapUsed": 165965248,
+        "external": 22700380,
+        "arrayBuffers": 18571451
+      },
+      "diagnostics": {
+        "opened": 70,
+        "closed": 50,
+        "modelsForCalls": 490,
+        "modelsBuilt": 140,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "902a2dc6-3caf-4ab3-93bb-f537676f24fb",
+      "queries": 475,
+      "active": 20,
+      "rss": 272252928,
+      "memory": {
+        "rss": 272252928,
+        "heapTotal": 255983616,
+        "heapUsed": 127180832,
+        "external": 17059670,
+        "arrayBuffers": 12930741
+      },
+      "diagnostics": {
+        "opened": 71,
+        "closed": 51,
+        "modelsForCalls": 497,
+        "modelsBuilt": 142,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "5f39d982-66bf-40f7-ab9b-80406fe336f3",
+      "queries": 475,
+      "active": 20,
+      "rss": 267517952,
+      "memory": {
+        "rss": 267517952,
+        "heapTotal": 259047424,
+        "heapUsed": 145442392,
+        "external": 19930864,
+        "arrayBuffers": 15801935
+      },
+      "diagnostics": {
+        "opened": 72,
+        "closed": 52,
+        "modelsForCalls": 504,
+        "modelsBuilt": 144,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "d6220b54-fb9f-46a1-a91d-9a0fc6956686",
+      "queries": 475,
+      "active": 20,
+      "rss": 271220736,
+      "memory": {
+        "rss": 271220736,
+        "heapTotal": 261849088,
+        "heapUsed": 163760112,
+        "external": 22802666,
+        "arrayBuffers": 18673737
+      },
+      "diagnostics": {
+        "opened": 73,
+        "closed": 53,
+        "modelsForCalls": 511,
+        "modelsBuilt": 146,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "7438ede7-1f7c-4dbe-acf5-775c77af9b20",
+      "queries": 475,
+      "active": 20,
+      "rss": 276430848,
+      "memory": {
+        "rss": 276430848,
+        "heapTotal": 264912896,
+        "heapUsed": 182043544,
+        "external": 25675090,
+        "arrayBuffers": 21546161
+      },
+      "diagnostics": {
+        "opened": 74,
+        "closed": 54,
+        "modelsForCalls": 518,
+        "modelsBuilt": 148,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "0b6d27ad-54ca-4355-8fdb-96f4f44b9590",
+      "queries": 475,
+      "active": 20,
+      "rss": 272924672,
+      "memory": {
+        "rss": 272924672,
+        "heapTotal": 259850240,
+        "heapUsed": 140293904,
+        "external": 18187714,
+        "arrayBuffers": 14058785
+      },
+      "diagnostics": {
+        "opened": 75,
+        "closed": 55,
+        "modelsForCalls": 525,
+        "modelsBuilt": 150,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "6285e527-ba03-40c3-b677-00cf0bcfaffb",
+      "queries": 475,
+      "active": 20,
+      "rss": 275955712,
+      "memory": {
+        "rss": 275955712,
+        "heapTotal": 262651904,
+        "heapUsed": 158518288,
+        "external": 21061398,
+        "arrayBuffers": 16932469
+      },
+      "diagnostics": {
+        "opened": 76,
+        "closed": 56,
+        "modelsForCalls": 532,
+        "modelsBuilt": 152,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "e4f1ce77-1354-4d27-95e1-455596a472b4",
+      "queries": 475,
+      "active": 20,
+      "rss": 276496384,
+      "memory": {
+        "rss": 276496384,
+        "heapTotal": 265453568,
+        "heapUsed": 176772896,
+        "external": 23935696,
+        "arrayBuffers": 19806767
+      },
+      "diagnostics": {
+        "opened": 77,
+        "closed": 57,
+        "modelsForCalls": 539,
+        "modelsBuilt": 154,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "5bc49c1b-5bfc-4dca-985a-ee1b43d9aa8e",
+      "queries": 475,
+      "active": 20,
+      "rss": 273842176,
+      "memory": {
+        "rss": 273842176,
+        "heapTotal": 263733248,
+        "heapUsed": 138540240,
+        "external": 18491929,
+        "arrayBuffers": 14363000
+      },
+      "diagnostics": {
+        "opened": 78,
+        "closed": 58,
+        "modelsForCalls": 546,
+        "modelsBuilt": 156,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "91a2ad29-2902-4d35-9115-756a36d00a8e",
+      "queries": 475,
+      "active": 20,
+      "rss": 276856832,
+      "memory": {
+        "rss": 276856832,
+        "heapTotal": 266534912,
+        "heapUsed": 156805896,
+        "external": 21367475,
+        "arrayBuffers": 17238546
+      },
+      "diagnostics": {
+        "opened": 79,
+        "closed": 59,
+        "modelsForCalls": 553,
+        "modelsBuilt": 158,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "c1e41b86-3f08-484c-97bc-07939320b086",
+      "queries": 475,
+      "active": 20,
+      "rss": 280018944,
+      "memory": {
+        "rss": 280018944,
+        "heapTotal": 269336576,
+        "heapUsed": 175036704,
+        "external": 24243637,
+        "arrayBuffers": 20114708
+      },
+      "diagnostics": {
+        "opened": 80,
+        "closed": 60,
+        "modelsForCalls": 560,
+        "modelsBuilt": 160,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "26ebfec7-fdc2-4898-8b82-8b4cb6e16b67",
+      "queries": 475,
+      "active": 20,
+      "rss": 277331968,
+      "memory": {
+        "rss": 277331968,
+        "heapTotal": 266436608,
+        "heapUsed": 135600784,
+        "external": 18192381,
+        "arrayBuffers": 14063452
+      },
+      "diagnostics": {
+        "opened": 81,
+        "closed": 61,
+        "modelsForCalls": 567,
+        "modelsBuilt": 162,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "05c3f0dc-70e4-420e-89cd-d9e065f45286",
+      "queries": 475,
+      "active": 20,
+      "rss": 272220160,
+      "memory": {
+        "rss": 272220160,
+        "heapTotal": 269238272,
+        "heapUsed": 153846968,
+        "external": 21069823,
+        "arrayBuffers": 16940894
+      },
+      "diagnostics": {
+        "opened": 82,
+        "closed": 62,
+        "modelsForCalls": 574,
+        "modelsBuilt": 164,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "ec41b60b-4489-4eac-9e24-d7232f074c71",
+      "queries": 475,
+      "active": 20,
+      "rss": 264978432,
+      "memory": {
+        "rss": 264978432,
+        "heapTotal": 272039936,
+        "heapUsed": 172099392,
+        "external": 23947889,
+        "arrayBuffers": 19818960
+      },
+      "diagnostics": {
+        "opened": 83,
+        "closed": 63,
+        "modelsForCalls": 581,
+        "modelsBuilt": 166,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "fe81309d-6cab-4fe2-bfce-9d77fc69ac15",
+      "queries": 475,
+      "active": 20,
+      "rss": 265535488,
+      "memory": {
+        "rss": 265535488,
+        "heapTotal": 274841600,
+        "heapUsed": 190344472,
+        "external": 26826553,
+        "arrayBuffers": 22697624
+      },
+      "diagnostics": {
+        "opened": 84,
+        "closed": 64,
+        "modelsForCalls": 588,
+        "modelsBuilt": 168,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "e09a0c4f-817b-4b8c-aaf1-6e9cda32da1b",
+      "queries": 475,
+      "active": 20,
+      "rss": 266059776,
+      "memory": {
+        "rss": 266059776,
+        "heapTotal": 270696448,
+        "heapUsed": 150263824,
+        "external": 20046838,
+        "arrayBuffers": 15917909
+      },
+      "diagnostics": {
+        "opened": 85,
+        "closed": 65,
+        "modelsForCalls": 595,
+        "modelsBuilt": 170,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "3c945576-ebd5-4464-b3b1-e35855244c7c",
+      "queries": 475,
+      "active": 20,
+      "rss": 269615104,
+      "memory": {
+        "rss": 269615104,
+        "heapTotal": 273498112,
+        "heapUsed": 168603928,
+        "external": 22926754,
+        "arrayBuffers": 18797825
+      },
+      "diagnostics": {
+        "opened": 86,
+        "closed": 66,
+        "modelsForCalls": 602,
+        "modelsBuilt": 172,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "b0dec1d6-f3ed-485e-9408-8d7e64bbd966",
+      "queries": 475,
+      "active": 20,
+      "rss": 272957440,
+      "memory": {
+        "rss": 272957440,
+        "heapTotal": 276299776,
+        "heapUsed": 186844784,
+        "external": 25807284,
+        "arrayBuffers": 21678355
+      },
+      "diagnostics": {
+        "opened": 87,
+        "closed": 67,
+        "modelsForCalls": 609,
+        "modelsBuilt": 174,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "83d49300-36dd-473d-9a60-12d89124273a",
+      "queries": 475,
+      "active": 20,
+      "rss": 286769152,
+      "memory": {
+        "rss": 286769152,
+        "heapTotal": 278528000,
+        "heapUsed": 152599240,
+        "external": 20331847,
+        "arrayBuffers": 16202918
+      },
+      "diagnostics": {
+        "opened": 88,
+        "closed": 68,
+        "modelsForCalls": 616,
+        "modelsBuilt": 176,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "3a010091-84bf-429e-a7ea-321ad7d31088",
+      "queries": 475,
+      "active": 20,
+      "rss": 289701888,
+      "memory": {
+        "rss": 289701888,
+        "heapTotal": 281329664,
+        "heapUsed": 170852336,
+        "external": 23196937,
+        "arrayBuffers": 19068008
+      },
+      "diagnostics": {
+        "opened": 89,
+        "closed": 69,
+        "modelsForCalls": 623,
+        "modelsBuilt": 178,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "e0ae104b-58da-4393-b447-beedb48aa9ab",
+      "queries": 475,
+      "active": 20,
+      "rss": 292274176,
+      "memory": {
+        "rss": 292274176,
+        "heapTotal": 284131328,
+        "heapUsed": 189094600,
+        "external": 26079396,
+        "arrayBuffers": 21950467
+      },
+      "diagnostics": {
+        "opened": 90,
+        "closed": 70,
+        "modelsForCalls": 630,
+        "modelsBuilt": 180,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "30e9612b-999a-4661-b718-4fac7906314c",
+      "queries": 475,
+      "active": 20,
+      "rss": 289914880,
+      "memory": {
+        "rss": 289914880,
+        "heapTotal": 280002560,
+        "heapUsed": 149254288,
+        "external": 19431668,
+        "arrayBuffers": 15302739
+      },
+      "diagnostics": {
+        "opened": 91,
+        "closed": 71,
+        "modelsForCalls": 637,
+        "modelsBuilt": 182,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "41fe7399-8a75-4d44-a1e0-ccb635efc511",
+      "queries": 475,
+      "active": 20,
+      "rss": 292683776,
+      "memory": {
+        "rss": 292683776,
+        "heapTotal": 282804224,
+        "heapUsed": 167497832,
+        "external": 22413224,
+        "arrayBuffers": 18284295
+      },
+      "diagnostics": {
+        "opened": 92,
+        "closed": 72,
+        "modelsForCalls": 644,
+        "modelsBuilt": 184,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "d2700039-4c36-48a2-9c37-ee6e50c5f63d",
+      "queries": 475,
+      "active": 20,
+      "rss": 292536320,
+      "memory": {
+        "rss": 292536320,
+        "heapTotal": 285605888,
+        "heapUsed": 185749736,
+        "external": 25297514,
+        "arrayBuffers": 21168585
+      },
+      "diagnostics": {
+        "opened": 93,
+        "closed": 73,
+        "modelsForCalls": 651,
+        "modelsBuilt": 186,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "8f60fca4-63fe-44ef-9722-871c28717c2e",
+      "queries": 475,
+      "active": 20,
+      "rss": 288423936,
+      "memory": {
+        "rss": 288423936,
+        "heapTotal": 288407552,
+        "heapUsed": 203998776,
+        "external": 28182410,
+        "arrayBuffers": 24053481
+      },
+      "diagnostics": {
+        "opened": 94,
+        "closed": 74,
+        "modelsForCalls": 658,
+        "modelsBuilt": 188,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "01442c0d-b301-45de-a11b-01de2428453a",
+      "queries": 475,
+      "active": 20,
+      "rss": 285081600,
+      "memory": {
+        "rss": 285081600,
+        "heapTotal": 285491200,
+        "heapUsed": 164429128,
+        "external": 22021620,
+        "arrayBuffers": 17892691
+      },
+      "diagnostics": {
+        "opened": 95,
+        "closed": 75,
+        "modelsForCalls": 665,
+        "modelsBuilt": 190,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "f4f5a7f2-2848-44d2-bc95-fa50ead59a1b",
+      "queries": 475,
+      "active": 20,
+      "rss": 288161792,
+      "memory": {
+        "rss": 288161792,
+        "heapTotal": 288292864,
+        "heapUsed": 182671736,
+        "external": 24940134,
+        "arrayBuffers": 20811205
+      },
+      "diagnostics": {
+        "opened": 96,
+        "closed": 76,
+        "modelsForCalls": 672,
+        "modelsBuilt": 192,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "13c4ca7a-a1a2-450e-9773-34a8c0172a58",
+      "queries": 475,
+      "active": 20,
+      "rss": 288817152,
+      "memory": {
+        "rss": 288817152,
+        "heapTotal": 291094528,
+        "heapUsed": 200905760,
+        "external": 27826944,
+        "arrayBuffers": 23698015
+      },
+      "diagnostics": {
+        "opened": 97,
+        "closed": 77,
+        "modelsForCalls": 679,
+        "modelsBuilt": 194,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "00460f34-3e9a-45a3-b238-ac0e9b397ec5",
+      "queries": 475,
+      "active": 20,
+      "rss": 287064064,
+      "memory": {
+        "rss": 287064064,
+        "heapTotal": 289112064,
+        "heapUsed": 162614472,
+        "external": 22180909,
+        "arrayBuffers": 18051980
+      },
+      "diagnostics": {
+        "opened": 98,
+        "closed": 78,
+        "modelsForCalls": 686,
+        "modelsBuilt": 196,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "f3bb1c6c-bf67-491f-9ea1-2f4685644083",
+      "queries": 477,
+      "active": 20,
+      "rss": 290684928,
+      "memory": {
+        "rss": 290684928,
+        "heapTotal": 291913728,
+        "heapUsed": 180967864,
+        "external": 25079467,
+        "arrayBuffers": 20950538
+      },
+      "diagnostics": {
+        "opened": 99,
+        "closed": 79,
+        "modelsForCalls": 693,
+        "modelsBuilt": 198,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "7c3a3bec-f1f2-40db-b962-1d1df25bdfab",
+      "queries": 475,
+      "active": 20,
+      "rss": 294092800,
+      "memory": {
+        "rss": 294092800,
+        "heapTotal": 294715392,
+        "heapUsed": 199155592,
+        "external": 27968131,
+        "arrayBuffers": 23839202
+      },
+      "diagnostics": {
+        "opened": 100,
+        "closed": 80,
+        "modelsForCalls": 700,
+        "modelsBuilt": 200,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "7c3a3bec-f1f2-40db-b962-1d1df25bdfab",
+      "queries": 341,
+      "active": 20,
+      "rss": 300335104,
+      "memory": {
+        "rss": 300335104,
+        "heapTotal": 297598976,
+        "heapUsed": 210308816,
+        "external": 30316869,
+        "arrayBuffers": 26187940
+      },
+      "diagnostics": {
+        "opened": 100,
+        "closed": 80,
+        "modelsForCalls": 707,
+        "modelsBuilt": 202,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    }
+  ],
+  "history": {
+    "bots": 100,
+    "messagesPerBot": 500,
+    "messages": 50000,
+    "documentChangesPerBot": 10,
+    "minimumMessageTextBytes": 4096,
+    "archivedConversations": true
+  },
+  "idle": {
+    "active": 0,
+    "highWater": 0,
+    "activeIds": [],
+    "databaseConnections": 2,
+    "busy": 0,
+    "completed": 0,
+    "pendingSources": 0,
+    "rss": 141328384,
+    "queries": 8,
+    "memory": {
+      "rss": 141328384,
+      "heapTotal": 104660992,
+      "heapUsed": 32695200,
+      "external": 3168871,
+      "arrayBuffers": 378228
+    },
+    "diagnostics": {
+      "opened": 0,
+      "closed": 0,
+      "modelsForCalls": 0,
+      "modelsBuilt": 0,
+      "archivedEntriesRead": 0,
+      "archivedEntryBytesRead": 0
+    },
+    "resources": {
+      "PipeWrap": 1,
+      "TCPSocketWrap": 3,
+      "Timeout": 2
+    }
+  },
+  "warm": {
+    "type": "markdown",
+    "queries": 341
+  },
+  "final": {
+    "active": 20,
+    "highWater": 20,
+    "activeIds": [
+      "26ebfec7-fdc2-4898-8b82-8b4cb6e16b67",
+      "05c3f0dc-70e4-420e-89cd-d9e065f45286",
+      "ec41b60b-4489-4eac-9e24-d7232f074c71",
+      "fe81309d-6cab-4fe2-bfce-9d77fc69ac15",
+      "e09a0c4f-817b-4b8c-aaf1-6e9cda32da1b",
+      "3c945576-ebd5-4464-b3b1-e35855244c7c",
+      "b0dec1d6-f3ed-485e-9408-8d7e64bbd966",
+      "83d49300-36dd-473d-9a60-12d89124273a",
+      "3a010091-84bf-429e-a7ea-321ad7d31088",
+      "e0ae104b-58da-4393-b447-beedb48aa9ab",
+      "30e9612b-999a-4661-b718-4fac7906314c",
+      "41fe7399-8a75-4d44-a1e0-ccb635efc511",
+      "d2700039-4c36-48a2-9c37-ee6e50c5f63d",
+      "8f60fca4-63fe-44ef-9722-871c28717c2e",
+      "01442c0d-b301-45de-a11b-01de2428453a",
+      "f4f5a7f2-2848-44d2-bc95-fa50ead59a1b",
+      "13c4ca7a-a1a2-450e-9773-34a8c0172a58",
+      "00460f34-3e9a-45a3-b238-ac0e9b397ec5",
+      "f3bb1c6c-bf67-491f-9ea1-2f4685644083",
+      "7c3a3bec-f1f2-40db-b962-1d1df25bdfab"
+    ],
+    "databaseConnections": 2,
+    "busy": 0,
+    "completed": 101,
+    "pendingSources": 0,
+    "rss": 300056576,
+    "queries": 47812,
+    "memory": {
+      "rss": 300056576,
+      "heapTotal": 297598976,
+      "heapUsed": 210378240,
+      "external": 30316957,
+      "arrayBuffers": 26188028
+    },
+    "diagnostics": {
+      "opened": 100,
+      "closed": 80,
+      "modelsForCalls": 707,
+      "modelsBuilt": 202,
+      "archivedEntriesRead": 0,
+      "archivedEntryBytesRead": 0
+    },
+    "resources": {
+      "PipeWrap": 2,
+      "TCPSocketWrap": 3,
+      "Timeout": 2
+    }
+  },
+  "rssPeakBytes": 300548096,
+  "rssPeakMB": 300.548096,
+  "rssPeakState": {
+    "active": 20,
+    "highWater": 20,
+    "activeIds": [
+      "a7529a89-d535-4e0d-8bf7-a4ee06dda9b6",
+      "87c681ff-fa8a-4973-b51d-54edf534f5fc",
+      "24aea8c7-d4d3-46de-bfcb-66f00c5cae75",
+      "462dd8ee-18b7-443a-9987-c962434b89d2",
+      "cd818f6a-2157-42d3-934f-0e0cd5f925b3",
+      "0b0d6bc4-5de2-460c-a8d9-91fda00dec9f",
+      "6793878c-cdfa-45f3-b349-a076bb039d43",
+      "425bd9b7-c207-4a54-bcad-631da76ad964",
+      "e1abe7d7-4c94-4414-9115-150b3d27180b",
+      "51a0a96d-4f1b-449f-997b-bcb4b8d55317",
+      "43d5414d-8a24-4245-8cac-1f87e188d49b",
+      "4122e3c0-93ab-4aca-8607-4d58b2d84aec",
+      "7b8dffe6-bcde-4a6a-b9d5-8eb0f0888c5f",
+      "52b82f38-71fb-44cd-b42c-266a54fbb7cd",
+      "656386ca-a7a5-46fa-90e3-49011e6982f1",
+      "dd7b9acd-8af8-4a0f-86ee-7923cfde7d30",
+      "4c56763a-252c-41df-867f-e9597d53a57f",
+      "4a62404f-1588-4716-9b34-47439085a722",
+      "1b544537-a113-4b49-8fd8-716eecbf0f78",
+      "71d5eb3f-f3b4-483e-9ecb-f013b8b68b0e"
+    ],
+    "databaseConnections": 2,
+    "busy": 0,
+    "completed": 47,
+    "pendingSources": 0,
+    "rss": 300548096,
+    "queries": 22294,
+    "memory": {
+      "rss": 300548096,
+      "heapTotal": 233439232,
+      "heapUsed": 146204880,
+      "external": 18319868,
+      "arrayBuffers": 14190939
+    },
+    "diagnostics": {
+      "opened": 47,
+      "closed": 27,
+      "modelsForCalls": 329,
+      "modelsBuilt": 94,
+      "archivedEntriesRead": 0,
+      "archivedEntryBytesRead": 0
+    },
+    "resources": {
+      "PipeWrap": 2,
+      "TCPSocketWrap": 3,
+      "Timeout": 1
+    }
+  },
+  "isolation": {
+    "tenants": 2,
+    "virtualFiles": true,
+    "sessionGetAndFind": true,
+    "pluginFiles": true
+  }
+}

@@ -1,0 +1,197 @@
+{"phase":"worker-ready","pid":64023,"state":{"active":0,"highWater":0,"activeIds":[],"databaseConnections":2,"busy":0,"completed":0,"pendingSources":0,"rss":144031744,"queries":8,"memory":{"rss":144031744,"heapTotal":103612416,"heapUsed":55049768,"external":5716473,"arrayBuffers":1755127},"diagnostics":{"opened":0,"closed":0,"modelsForCalls":0,"modelsBuilt":0,"archivedEntriesRead":0,"archivedEntryBytesRead":0},"resources":{"PipeWrap":1,"TCPSocketWrap":3,"Timeout":2}}}
+{"phase":"source-diagnostic","bot":1,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"7ddddb7f-3758-470c-9517-c5d910fa38d2","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true},{"type":"model-input","agent":"7ddddb7f-3758-470c-9517-c5d910fa38d2","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}],"reply":"[长串]"}
+{"phase":"source-diagnostic","bot":2,"profiles":[{"profile":"default","mode":"main"}],"modelInputs":[{"type":"model-input","agent":"c97f7829-b1da-4037-bfdb-6678d8279cc3","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true},{"type":"model-input","agent":"c97f7829-b1da-4037-bfdb-6678d8279cc3","profile":"default","model":"rightapi-glm/glm-5.3-flash","markerPresent":true}],"reply":"[长串]"}
+{
+  "mode": "real-glm-5.3-flash",
+  "scenario": "reply",
+  "results": [
+    {
+      "bot": 1,
+      "type": "markdown",
+      "reply": "PG-SOUL-396fc596-4fec-4a73-88a8-662506027a47",
+      "soulTokenMatched": true
+    },
+    {
+      "bot": 2,
+      "type": "markdown",
+      "reply": "PG-SOUL-355a5aec-8b41-4769-938b-5a18e30a15d5",
+      "soulTokenMatched": true
+    }
+  ],
+  "rounds": [
+    {
+      "bot": "7ddddb7f-3758-470c-9517-c5d910fa38d2",
+      "queries": 656,
+      "active": 1,
+      "rss": 102957056,
+      "memory": {
+        "rss": 102957056,
+        "heapTotal": 84115456,
+        "heapUsed": 55789960,
+        "external": 6230454,
+        "arrayBuffers": 2097888
+      },
+      "diagnostics": {
+        "opened": 1,
+        "closed": 0,
+        "modelsForCalls": 9,
+        "modelsBuilt": 2,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "c97f7829-b1da-4037-bfdb-6678d8279cc3",
+      "queries": 683,
+      "active": 2,
+      "rss": 99303424,
+      "memory": {
+        "rss": 99303424,
+        "heapTotal": 51494912,
+        "heapUsed": 47689416,
+        "external": 5118511,
+        "arrayBuffers": 989582
+      },
+      "diagnostics": {
+        "opened": 2,
+        "closed": 0,
+        "modelsForCalls": 18,
+        "modelsBuilt": 4,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    },
+    {
+      "bot": "c97f7829-b1da-4037-bfdb-6678d8279cc3",
+      "queries": 401,
+      "active": 2,
+      "rss": 97091584,
+      "memory": {
+        "rss": 97091584,
+        "heapTotal": 54886400,
+        "heapUsed": 50662840,
+        "external": 5601731,
+        "arrayBuffers": 1472802
+      },
+      "diagnostics": {
+        "opened": 2,
+        "closed": 0,
+        "modelsForCalls": 25,
+        "modelsBuilt": 6,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    }
+  ],
+  "idle": {
+    "active": 0,
+    "highWater": 0,
+    "activeIds": [],
+    "databaseConnections": 2,
+    "busy": 0,
+    "completed": 0,
+    "pendingSources": 0,
+    "rss": 144031744,
+    "queries": 8,
+    "memory": {
+      "rss": 144031744,
+      "heapTotal": 103612416,
+      "heapUsed": 55049768,
+      "external": 5716473,
+      "arrayBuffers": 1755127
+    },
+    "diagnostics": {
+      "opened": 0,
+      "closed": 0,
+      "modelsForCalls": 0,
+      "modelsBuilt": 0,
+      "archivedEntriesRead": 0,
+      "archivedEntryBytesRead": 0
+    },
+    "resources": {
+      "PipeWrap": 1,
+      "TCPSocketWrap": 3,
+      "Timeout": 2
+    }
+  },
+  "warm": {
+    "type": "markdown",
+    "queries": 401
+  },
+  "final": {
+    "active": 2,
+    "highWater": 2,
+    "activeIds": [
+      "7ddddb7f-3758-470c-9517-c5d910fa38d2",
+      "c97f7829-b1da-4037-bfdb-6678d8279cc3"
+    ],
+    "databaseConnections": 2,
+    "busy": 0,
+    "completed": 3,
+    "pendingSources": 0,
+    "rss": 93863936,
+    "queries": 1749,
+    "memory": {
+      "rss": 93863936,
+      "heapTotal": 54886400,
+      "heapUsed": 50735880,
+      "external": 5601819,
+      "arrayBuffers": 1472890
+    },
+    "diagnostics": {
+      "opened": 2,
+      "closed": 0,
+      "modelsForCalls": 25,
+      "modelsBuilt": 6,
+      "archivedEntriesRead": 0,
+      "archivedEntryBytesRead": 0
+    },
+    "resources": {
+      "PipeWrap": 2,
+      "TCPSocketWrap": 3,
+      "Timeout": 2
+    }
+  },
+  "rssPeakBytes": 210468864,
+  "rssPeakMB": 210.468864,
+  "rssPeakState": {
+    "active": 1,
+    "highWater": 1,
+    "activeIds": [
+      "7ddddb7f-3758-470c-9517-c5d910fa38d2"
+    ],
+    "databaseConnections": 2,
+    "busy": 1,
+    "completed": 0,
+    "pendingSources": 1,
+    "rss": 210468864,
+    "queries": 392,
+    "memory": {
+      "rss": 210468864,
+      "heapTotal": 114540544,
+      "heapUsed": 70095824,
+      "external": 8230424,
+      "arrayBuffers": 4112876
+    },
+    "diagnostics": {
+      "opened": 1,
+      "closed": 0,
+      "modelsForCalls": 7,
+      "modelsBuilt": 2,
+      "archivedEntriesRead": 0,
+      "archivedEntryBytesRead": 0
+    },
+    "resources": {
+      "PipeWrap": 2,
+      "TCPSocketWrap": 4,
+      "Timeout": 5
+    }
+  },
+  "isolation": {
+    "tenants": 2,
+    "virtualFiles": true,
+    "sessionGetAndFind": true,
+    "pluginFiles": true
+  },
+  "keyAbsentFromLogsAndTranscript": true
+}

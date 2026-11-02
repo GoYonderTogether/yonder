@@ -1,0 +1,85 @@
+{"phase":"worker-ready","pid":69279,"state":{"active":0,"highWater":0,"activeIds":[],"databaseConnections":2,"busy":0,"completed":0,"pendingSources":0,"rss":135659520,"queries":8,"memory":{"rss":135659520,"heapTotal":103612416,"heapUsed":55031048,"external":5650756,"arrayBuffers":1689410},"diagnostics":{"opened":0,"closed":0,"modelsForCalls":0,"modelsBuilt":0,"archivedEntriesRead":0,"archivedEntryBytesRead":0},"resources":{"PipeWrap":1,"TCPSocketWrap":3,"Timeout":2}}}
+{
+  "mode": "real-glm-5.3-flash",
+  "scenario": "reply",
+  "results": [],
+  "rounds": [
+    {
+      "bot": "3e9defbb-d3e1-4d18-ae1f-4bf80f39f8a8",
+      "queries": 1259,
+      "active": 1,
+      "rss": 120373248,
+      "memory": {
+        "rss": 120373248,
+        "heapTotal": 52559872,
+        "heapUsed": 46854232,
+        "external": 4947166,
+        "arrayBuffers": 818237
+      },
+      "diagnostics": {
+        "opened": 1,
+        "closed": 0,
+        "modelsForCalls": 21,
+        "modelsBuilt": 5,
+        "archivedEntriesRead": 0,
+        "archivedEntryBytesRead": 0
+      }
+    }
+  ],
+  "idle": {
+    "active": 0,
+    "highWater": 0,
+    "activeIds": [],
+    "databaseConnections": 2,
+    "busy": 0,
+    "completed": 0,
+    "pendingSources": 0,
+    "rss": 135659520,
+    "queries": 8,
+    "memory": {
+      "rss": 135659520,
+      "heapTotal": 103612416,
+      "heapUsed": 55031048,
+      "external": 5650756,
+      "arrayBuffers": 1689410
+    },
+    "diagnostics": {
+      "opened": 0,
+      "closed": 0,
+      "modelsForCalls": 0,
+      "modelsBuilt": 0,
+      "archivedEntriesRead": 0,
+      "archivedEntryBytesRead": 0
+    },
+    "resources": {
+      "PipeWrap": 1,
+      "TCPSocketWrap": 3,
+      "Timeout": 2
+    }
+  },
+  "card": {
+    "content": {
+      "body": "点击下方按钮即可继续：先接入你的设备，再安装客户端，之后我就能直接在你的设备上帮你处理文件和任务了。",
+      "type": "interactive",
+      "state": "pending",
+      "title": "接入设备与安装客户端",
+      "actions": [
+        {
+          "id": "connect-device",
+          "link": "/connect",
+          "label": "接入设备"
+        },
+        {
+          "id": "download-client",
+          "link": "/download",
+          "label": "下载客户端"
+        }
+      ]
+    },
+    "toolInNativeTranscript": true,
+    "uniqueResult": true,
+    "intentClearedAfterAttempt": true,
+    "emptyFinal": false
+  },
+  "keyAbsentFromLogsAndTranscript": true
+}

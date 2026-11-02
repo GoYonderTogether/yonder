@@ -1,0 +1,284 @@
+
+> yonder@0.3.26110214 lint
+> biome check . && node scripts/check-file-size.mjs && node scripts/check-layers.mjs
+
+tests/workbench-remote.test.ts:115:79 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    113 │ 		env: { id: "test", cwd: home } as ToolContext["env"],
+    114 │ 		signal: AbortSignal.timeout(20000),
+  > 115 │ 		resources: configs.map((device, i) => ({ deviceId: device.deviceId, paths: [roots[i]!] })),
+        │ 		                                                                            ^^^^^^^^^
+    116 │ 	};
+    117 │ 	const first = configs[0]!.deviceId,
+  
+
+tests/workbench-remote.test.ts:117:16 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    115 │ 		resources: configs.map((device, i) => ({ deviceId: device.deviceId, paths: [roots[i]!] })),
+    116 │ 	};
+  > 117 │ 	const first = configs[0]!.deviceId,
+        │ 	              ^^^^^^^^^^^
+    118 │ 		second = configs[1]!.deviceId;
+    119 │ 	const environment = (deviceId = first, context = ctx) =>
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
+  
+    115 115 │       resources: configs.map((device, i) => ({ deviceId: device.deviceId, paths: [roots[i]!] })),
+    116 116 │     };
+    117     │ - → const·first·=·configs[0]!.deviceId,
+        117 │ + → const·first·=·configs[0]?.deviceId,
+    118 118 │       second = configs[1]!.deviceId;
+    119 119 │     const environment = (deviceId = first, context = ctx) =>
+  
+
+tests/workbench-remote.test.ts:118:12 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    116 │ 	};
+    117 │ 	const first = configs[0]!.deviceId,
+  > 118 │ 		second = configs[1]!.deviceId;
+        │ 		         ^^^^^^^^^^^
+    119 │ 	const environment = (deviceId = first, context = ctx) =>
+    120 │ 		createRemoteEnvironment(deviceId, deviceId === first ? roots[0]! : roots[1]!, (action, args, chord) =>
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
+  
+    116 116 │     };
+    117 117 │     const first = configs[0]!.deviceId,
+    118     │ - → → second·=·configs[1]!.deviceId;
+        118 │ + → → second·=·configs[1]?.deviceId;
+    119 119 │     const environment = (deviceId = first, context = ctx) =>
+    120 120 │       createRemoteEnvironment(deviceId, deviceId === first ? roots[0]! : roots[1]!, (action, args, chord) =>
+  
+
+tests/workbench-remote.test.ts:120:58 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    118 │ 		second = configs[1]!.deviceId;
+    119 │ 	const environment = (deviceId = first, context = ctx) =>
+  > 120 │ 		createRemoteEnvironment(deviceId, deviceId === first ? roots[0]! : roots[1]!, (action, args, chord) =>
+        │ 		                                                       ^^^^^^^^^
+    121 │ 			controller.operation(deviceId, randomUUID(), action, args, {
+    122 │ 				...context,
+  
+
+tests/workbench-remote.test.ts:120:70 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    118 │ 		second = configs[1]!.deviceId;
+    119 │ 	const environment = (deviceId = first, context = ctx) =>
+  > 120 │ 		createRemoteEnvironment(deviceId, deviceId === first ? roots[0]! : roots[1]!, (action, args, chord) =>
+        │ 		                                                                   ^^^^^^^^^
+    121 │ 			controller.operation(deviceId, randomUUID(), action, args, {
+    122 │ 				...context,
+  
+
+tests/workbench-remote.test.ts:145:48 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    143 │ 	expect((await readonly.exec("pwd", {}, c)).ok).toBe(false);
+    144 │ 	await writeFile(join(home, "outside.txt"), "private");
+  > 145 │ 	await symlink(join(home, "outside.txt"), join(roots[0]!, "escape"));
+        │ 	                                              ^^^^^^^^^
+    146 │ 	expect((await a.readTextFile("escape", c)).ok).toBe(false);
+    147 │ 	await expect(
+  
+
+tests/workbench-remote.test.ts:152:17 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    150 │ 			randomUUID(),
+    151 │ 			"fs.read",
+  > 152 │ 			{ path: join(roots[1]!, "two.txt") },
+        │ 			             ^^^^^^^^^
+    153 │ 			{ ...ctx, resources: [ctx.resources![0]!] },
+    154 │ 		),
+  
+
+tests/workbench-remote.test.ts:153:26 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    151 │ 			"fs.read",
+    152 │ 			{ path: join(roots[1]!, "two.txt") },
+  > 153 │ 			{ ...ctx, resources: [ctx.resources![0]!] },
+        │ 			                      ^^^^^^^^^^^^^^
+    154 │ 		),
+    155 │ 	).rejects.toThrow("grant");
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
+  
+    151 151 │         "fs.read",
+    152 152 │         { path: join(roots[1]!, "two.txt") },
+    153     │ - → → → {·...ctx,·resources:·[ctx.resources![0]!]·},
+        153 │ + → → → {·...ctx,·resources:·[ctx.resources?.[0]!]·},
+    154 154 │       ),
+    155 155 │     ).rejects.toThrow("grant");
+  
+
+tests/workbench-remote.test.ts:153:26 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    151 │ 			"fs.read",
+    152 │ 			{ path: join(roots[1]!, "two.txt") },
+  > 153 │ 			{ ...ctx, resources: [ctx.resources![0]!] },
+        │ 			                      ^^^^^^^^^^^^^^^^^^
+    154 │ 		),
+    155 │ 	).rejects.toThrow("grant");
+  
+
+tests/workbench-remote.test.ts:179:23 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    177 │ 	expect(JSON.stringify(bashResult)).toContain("native-remote-bash");
+    178 │ 	const commandId = randomUUID(),
+  > 179 │ 		args = { path: join(roots[0]!, "once.txt"), dataBase64: "eA==", append: true };
+        │ 		                    ^^^^^^^^^
+    180 │ 	await controller.operation(first, commandId, "fs.write", args, ctx);
+    181 │ 	await new DeviceController(data, discovery.registry).operation(first, commandId, "fs.write", args, ctx);
+  
+
+tests/workbench-remote.test.ts:188:15 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    186 │ 	const { environment, roots } = await setup();
+    187 │ 	const abort = new AbortController(),
+  > 188 │ 		late = join(roots[0]!, "late");
+        │ 		            ^^^^^^^^^
+    189 │ 	const pending = environment().exec(
+    190 │ 		[
+  
+
+tests/workbench-remote.test.ts:212:24 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    210 │ 		const fixture = await setup();
+    211 │ 		const { home, first, second, roots, ctx, controller } = fixture;
+  > 212 │ 		await writeFile(join(roots[0]!, "package.json"), await readFile(resolve("package.json")));
+        │ 		                     ^^^^^^^^^
+    213 │ 		await writeFile(join(roots[1]!, "package.json"), await readFile(resolve("packages/device/package.json")));
+    214 │ 		const { api, registrations } = createRegistrationCollector();
+  
+
+tests/workbench-remote.test.ts:213:24 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    211 │ 		const { home, first, second, roots, ctx, controller } = fixture;
+    212 │ 		await writeFile(join(roots[0]!, "package.json"), await readFile(resolve("package.json")));
+  > 213 │ 		await writeFile(join(roots[1]!, "package.json"), await readFile(resolve("packages/device/package.json")));
+        │ 		                     ^^^^^^^^^
+    214 │ 		const { api, registrations } = createRegistrationCollector();
+    215 │ 		createDevicesPlugin(fixture.discovery.registry).setup({
+  
+
+tests/workbench-remote.test.ts:239:10 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    237 │ 				agent: null,
+    238 │ 				profile: "integration",
+  > 239 │ 				cwd: roots[0]!,
+        │ 				     ^^^^^^^^^
+    240 │ 				resources: ctx.resources!,
+    241 │ 				resolved: resolveProfile({
+  
+
+tests/workbench-remote.test.ts:240:16 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    238 │ 				profile: "integration",
+    239 │ 				cwd: roots[0]!,
+  > 240 │ 				resources: ctx.resources!,
+        │ 				           ^^^^^^^^^^^^^^
+    241 │ 				resolved: resolveProfile({
+    242 │ 					level: "readonly",
+  
+
+tests/workbench-remote.test.ts:251:78 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    249 │ 		});
+    250 │ 		close.push(() => runtime.close());
+  > 251 │ 		session = await runtime.create({ agent: null, profile: "integration", cwd: roots[0]! });
+        │ 		                                                                           ^^^^^^^^^
+    252 │ 		const result = await runtime.submit(session, {
+    253 │ 			text: `Read package.json on your default device using read. Then use devices_operation action fs.read with arguments {path:"${roots[1]}/package.json"}, deviceId ${second}, commandId a new UUID to read the second selected device. Report both actual package names. Do not run shell commands.`,
+  
+
+tests/workbench-remote.test.ts:293:24 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    291 │ 		agent.defaults.contexts.push("task-general");
+    292 │ 		await writeFile(agentPath, stringify(agent));
+  > 293 │ 		await writeFile(join(fixture.roots[0]!, "package.json"), await readFile(resolve("packages/device/package.json")));
+        │ 		                     ^^^^^^^^^^^^^^^^^
+    294 │ 		await writeFile(
+    295 │ 			join(fixture.roots[0]!, "AGENTS.md"),
+  
+
+tests/workbench-remote.test.ts:295:9 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    293 │ 		await writeFile(join(fixture.roots[0]!, "package.json"), await readFile(resolve("packages/device/package.json")));
+    294 │ 		await writeFile(
+  > 295 │ 			join(fixture.roots[0]!, "AGENTS.md"),
+        │ 			     ^^^^^^^^^^^^^^^^^
+    296 │ 			"When reporting a completed task in this directory, include REMOTE_RULES_LOADED. This is the integration workspace's instruction.\n",
+    297 │ 		);
+  
+
+tests/workbench-remote.test.ts:313:11 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    311 │ 				)
+    312 │ 				.toBe(true);
+  > 313 │ 			return result!;
+        │ 			       ^^^^^^^
+    314 │ 		};
+    315 │ 		const first = await kernel.bots.send("main", "Reply READY without using tools.");
+  
+
+tests/workbench-remote.test.ts:319:75 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    317 │ 		await kernel.workbench.set(
+    318 │ 			first.session,
+  > 319 │ 			{ permission: "bypass", resources: [{ deviceId: fixture.first, paths: [fixture.roots[0]!] }] },
+        │ 			                                                                       ^^^^^^^^^^^^^^^^^
+    320 │ 			new AbortController().signal,
+    321 │ 		);
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 1342.
+Checked 1794 files in 1106ms. No fixes applied.
+Found 1328 warnings.
+Found 34 infos.
+文件行数检查（阈值 500 行，基线只减不增）
+扫描 656 个 .ts 文件，基线登记 0 条
+
+✓ 通过：0 个文件在基线内且未增长
+分层依赖检查（architecture §6：只允许依赖本层或更低层，含 import type；基线只减不增）
+扫描 107 个共享模块 / 761 个 workspace .ts 文件，基线登记 0 条
+
+✓ 通过：没有上行依赖
