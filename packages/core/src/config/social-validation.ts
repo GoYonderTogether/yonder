@@ -8,13 +8,17 @@ export function socialBindingIssues(agent: AgentConfig, file: string): ConfigIss
 		const plugin = binding.match.type?.endsWith(".batch-ready")
 			? binding.match.type.slice(0, -".batch-ready".length)
 			: undefined;
+		const legacyGroupBatch = binding.match.type === "channel-qq.group-batch";
 		const profile = agent.profiles[binding.profile ?? agent.defaultProfile];
 		const selected = profile?.plugins ?? agent.defaults?.plugins ?? [];
 		const configuredPlugin = [
 			...Object.values(agent.social?.defaults ?? {}),
 			...Object.values(agent.social?.conversations ?? {}),
 		].some((policy) => policy.plugin === plugin);
-		const batch = plugin === "social" || (plugin !== undefined && configuredPlugin && selected.includes(plugin));
+		const batch =
+			legacyGroupBatch ||
+			plugin === "social" ||
+			(plugin !== undefined && configuredPlugin && selected.includes(plugin));
 		const kinds = [binding.match.kind].flat();
 		const scoped =
 			!agent.social?.scope ||
@@ -26,10 +30,11 @@ export function socialBindingIssues(agent: AgentConfig, file: string): ConfigIss
 			(typeof binding.session !== "object" ||
 				binding.session.per !== "conv" ||
 				binding.reply !== "none" ||
-				binding.wake === "write")
+				(!legacyGroupBatch && binding.wake === "write"))
 		)
-			message =
-				"参与批次必须使用 persistent/per: conv、reply: none 和 wake: run/mention；不能进入私人 main。按这三项修正此 binding 后，运行 yonder agents validate 再 update，并用 agents show 读回";
+			message = legacyGroupBatch
+				? "旧 QQ 群批次必须使用 persistent/per: conv 与 reply: none；不能进入私人 main。修正此 binding 后，运行 yonder agents validate 再 update，并用 agents show 读回"
+				: "参与批次必须使用 persistent/per: conv、reply: none 和 wake: run/mention；不能进入私人 main。按这三项修正此 binding 后，运行 yonder agents validate 再 update，并用 agents show 读回";
 		else if (
 			binding.session === "main" &&
 			agent.social?.enabled &&

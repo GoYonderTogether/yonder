@@ -200,6 +200,24 @@ test("reject unrunnable social group/main and batch shapes before publishing con
 	).toThrow(/参与批次/);
 });
 
+test("legacy QQ group batches cannot enter private main and keep their persistent conversation route", () => {
+	const legacy = {
+		id: "legacy-group-batch",
+		match: { type: "channel-qq.group-batch", channel: "qq", conv: "conv:qq:group:work" },
+		session: "main",
+		reply: "none",
+	};
+	expect(() => parseAgentConfig(JSON.stringify({ ...base, bindings: [legacy] }))).toThrow(/旧 QQ 群批次.*私人 main/);
+	expect(() =>
+		parseAgentConfig(
+			JSON.stringify({
+				...base,
+				bindings: [{ ...legacy, session: { mode: "persistent", per: "conv" }, wake: "write" }],
+			}),
+		),
+	).not.toThrow();
+});
+
 test("unrelated plugin batch-ready events keep their ordinary binding contract", () => {
 	expect(() =>
 		parseAgentConfig(
