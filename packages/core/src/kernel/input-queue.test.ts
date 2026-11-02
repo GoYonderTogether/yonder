@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -11,9 +11,9 @@ import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
-for (const scenario of ["generation", "tools", "interrupt"] as const) {
+for (const scenario of ["generation", "tools", "interrupt", "foreign-steer"] as const) {
 	test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
-		`real Luna merges all queued inputs in one run during ${scenario}`,
+		`real Luna preserves queued inputs across source groups during ${scenario}`,
 		async () => {
 			const home = await tempHome("yonder-input-queue-");
 			let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
@@ -33,17 +33,41 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 				agent.defaults.contexts = [];
 				agent.profiles.owner.model = "openai/gpt-6-luna";
 				agent.profiles.owner.tools = { offer: scenario === "generation" ? [] : ["bash"], search: [] };
-				delete agent.bindings.find((binding: { id: string }) => binding.id === "owner")!.busy;
-				agent.bindings.find((binding: { id: string }) => binding.id === "owner")!.stream = true;
+				const ownerBinding = agent.bindings.find((binding: { id: string }) => binding.id === "owner");
+				if (!ownerBinding) throw new Error("Missing owner binding");
+				delete ownerBinding.busy;
+				ownerBinding.stream = true;
 				agent.bindings.unshift({
-					...agent.bindings.find((binding: { id: string }) => binding.id === "owner")!,
+					...ownerBinding,
 					id: "interrupt",
 					match: { channel: "interrupt", from: "owner" },
-					busy: "interrupt",
+					busy: scenario === "interrupt" ? "interrupt" : "steer",
 				});
 				await writeFile(path, stringify(agent));
 				kernel = await openKernel(home);
 				const running = kernel;
+				let onboarding: YEvent | undefined;
+				await expect
+					.poll(
+						async () => {
+							onboarding = (await running.events.query({ type: "onboarding.start", conv: "conv:onboarding:main" }))
+								.events[0];
+							return onboarding !== undefined;
+						},
+						{ timeout: 30000 },
+					)
+					.toBe(true);
+				const onboardingId = onboarding?.id;
+				if (!onboardingId) throw new Error("Missing onboarding start event");
+				await expect
+					.poll(
+						async () =>
+							(await running.events.query({ type: "run.end", conv: "conv:onboarding:main" })).events.some((event) =>
+								((event.data as { inputs?: string[] }).inputs ?? []).includes(onboardingId),
+							),
+						{ timeout: 180000 },
+					)
+					.toBe(true);
 				const connect = async (channel: string) => {
 					const socket = createConnection(`${home}/.yonder/plugins/channel-cli/${channel}.sock`);
 					sockets.push(socket);
@@ -76,32 +100,137 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 					.poll(
 						() =>
 							scenario === "generation"
-								? packets.some((p) => p.type === "text")
+								? updates.some(
+										(update) =>
+											update.type === "message" &&
+											update.streaming === true &&
+											(update.message as { role?: string } | undefined)?.role === "assistant",
+									)
 								: updates.some((p) => p.type === "tool" && p.tool?.phase === "start"),
 						{ timeout: 60000 },
 					)
 					.toBe(true);
 				send(
-					scenario === "interrupt" ? interrupt : cli,
-					"Input B replaces the requested final answer. Do not call any more tools. After reading all queued inputs including Input C, reply exactly QUEUE_MERGED_A_B_C. No other text.",
+					scenario === "interrupt" || scenario === "foreign-steer" ? interrupt : cli,
+					scenario === "foreign-steer"
+						? "Input B is from another source. When this input is run after the active source finishes, reply exactly QUEUE_B_ONLY. No tools."
+						: "Input B replaces the requested final answer. Do not call any more tools. After reading all queued inputs including Input C, reply exactly QUEUE_MERGED_A_B_C. No other text.",
 				);
-				send(cli, "Input C. Final answer must be exactly QUEUE_MERGED_A_B_C. No more tools and no long explanation.");
+				send(
+					cli,
+					scenario === "foreign-steer"
+						? "Input C continues the original source. Reply exactly QUEUE_A_C after reading this input. No more tools."
+						: "Input C. Final answer must be exactly QUEUE_MERGED_A_B_C. No more tools and no long explanation.",
+				);
+				await expect.poll(() => packets.filter((p) => p.type === "accepted").length, { timeout: 5000 }).toBe(3);
+				const acceptedInputs = packets.filter((p): p is { type: "accepted"; event: YEvent } => p.type === "accepted");
+				const inputA = acceptedInputs[0]?.event;
+				if (!inputA) throw new Error("Missing first input acceptance");
+				const inputB =
+					acceptedInputs.find((item) => item.event.conv !== inputA.conv)?.event ??
+					acceptedInputs.find((item) => item.event.id !== inputA.id)?.event;
+				const inputC = acceptedInputs.find(
+					(item) => item.event.id !== inputA.id && item.event.id !== inputB?.id,
+				)?.event;
+				if (!inputB || !inputC) throw new Error("Missing queued input acceptances");
+				let merged: YEvent | undefined;
 				await expect
-					.poll(async () => (await running.events.query({ type: "run.end" })).events.length, { timeout: 90000 })
-					.toBe(1);
-				const ends = (await running.events.query({ type: "run.end" })).events;
-				const data = ends[0]!.data as { inputs: string[]; status: string };
-				expect(data.inputs).toHaveLength(3);
-				expect(data.status).toBe("done");
-				await expect
-					.poll(() => packets.some((p) => p.type === "final" && p.text.includes("QUEUE_MERGED_A_B_C")), {
-						timeout: 5000,
-					})
+					.poll(
+						async () => {
+							const ends = (await running.events.query({ type: "run.end" })).events;
+							merged = ends.find((event) => {
+								const inputs = (event.data as { inputs?: string[] }).inputs ?? [];
+								return scenario === "foreign-steer"
+									? inputs.length === 2 && inputs.includes(inputA.id) && inputs.includes(inputC.id)
+									: inputs.length === 3 && !inputs.includes(onboardingId);
+							});
+							return merged !== undefined;
+						},
+						{ timeout: 90000 },
+					)
 					.toBe(true);
+				if (!merged) throw new Error("Missing merged user run");
+				const data = merged.data as { inputs: string[]; status: string };
+				expect(data.inputs).toHaveLength(scenario === "foreign-steer" ? 2 : 3);
+				if (scenario === "foreign-steer") {
+					expect(data.inputs).toEqual(expect.arrayContaining([inputA.id, inputC.id]));
+				} else {
+					expect(data.inputs).toEqual(expect.arrayContaining([inputA.id, inputB.id, inputC.id]));
+				}
+				expect(data.status).toBe("done");
+				if (scenario === "foreign-steer") {
+					let foreign: YEvent | undefined;
+					await expect
+						.poll(
+							async () => {
+								foreign = (await running.events.query({ type: "run.end" })).events.find((event) => {
+									const inputs = (event.data as { inputs?: string[] }).inputs ?? [];
+									return inputs.length === 1 && inputs[0] === inputB.id;
+								});
+								return foreign !== undefined;
+							},
+							{ timeout: 90000 },
+						)
+						.toBe(true);
+					if (!foreign) throw new Error("Missing foreign source run");
+					expect((foreign.data as { status: string }).status).toBe("done");
+					expect(merged.conv).toBe(inputA.conv);
+					expect(foreign.conv).toBe(inputB.conv);
+					for (const [conv, parent, marker] of [
+						[inputA.conv, inputA.id, "QUEUE_A_C"],
+						[inputB.conv, inputB.id, "QUEUE_B_ONLY"],
+					] as const) {
+						let delivered: YEvent | undefined;
+						await expect
+							.poll(
+								async () => {
+									delivered = (await running.events.query({ type: "message.out" })).events.find((event) => {
+										const data = event.data as { text?: string; delivery?: { ok?: boolean } };
+										return (
+											event.conv === conv &&
+											event.parent === parent &&
+											data.delivery?.ok === true &&
+											data.text?.includes(marker)
+										);
+									});
+									return delivered !== undefined;
+								},
+								{ timeout: 5000 },
+							)
+							.toBe(true);
+						expect(delivered).toMatchObject({ conv, parent });
+					}
+				} else {
+					const expectedDeliveries = scenario === "interrupt" ? 2 : 1;
+					await expect
+						.poll(
+							async () =>
+								(await running.events.query({ type: "message.out" })).events.filter((event) => {
+									const data = event.data as { text?: string; delivery?: { ok?: boolean } };
+									return data.delivery?.ok === true && data.text?.includes("QUEUE_MERGED_A_B_C");
+								}).length === expectedDeliveries,
+							{ timeout: 5000 },
+						)
+						.toBe(true);
+					const messages = (await running.events.query({ type: "message.out" })).events;
+					const deliveries = messages.filter((event) => {
+						const data = event.data as { text?: string; delivery?: { ok?: boolean } };
+						return data.delivery?.ok === true && data.text?.includes("QUEUE_MERGED_A_B_C");
+					});
+					expect(deliveries).toHaveLength(expectedDeliveries);
+					if (scenario === "interrupt") {
+						expect(deliveries.map((event) => event.conv)).toEqual(expect.arrayContaining([inputA.conv, inputB.conv]));
+						expect(deliveries).toEqual(
+							expect.arrayContaining([
+								expect.objectContaining({ conv: inputA.conv, parent: inputA.id }),
+								expect.objectContaining({ conv: inputB.conv, parent: inputB.id }),
+							]),
+						);
+					} else {
+						expect(deliveries).toEqual([expect.objectContaining({ conv: inputA.conv, parent: inputA.id })]);
+					}
+				}
 				const messages = (await running.events.query({ type: "message.out" })).events;
-				expect(messages.filter((e) => (e.data as { text: string }).text.includes("QUEUE_MERGED_A_B_C"))).toHaveLength(
-					scenario === "interrupt" ? 2 : 1,
-				);
 				expect(messages.some((e) => (e.data as { text: string }).text.startsWith("QUEUE_OLD"))).toBe(false);
 				if (scenario !== "generation") {
 					expect(updates.filter((p) => p.type === "tool" && p.tool?.phase === "start")).toHaveLength(1);

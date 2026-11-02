@@ -43,5 +43,15 @@ export function createRunCompletion({
 			if (close) await sessions().closeSession(id, close);
 		}
 	};
-	return { closeReason, completeRun };
+	const finishIdle = async (id: string) => {
+		const session = await store.sessions.get(id);
+		if (!session) return;
+		await router().finishIdle(session);
+		if (!session.closed && !(await runtime().hasPendingWork(id))) {
+			const end = await runtime().lastResult(id);
+			const close = end ? await closeReason(id, session.mode, end.status) : undefined;
+			if (close) await sessions().closeSession(id, close);
+		}
+	};
+	return { closeReason, completeRun, finishIdle };
 }

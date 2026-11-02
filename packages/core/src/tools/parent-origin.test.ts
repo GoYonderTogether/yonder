@@ -15,7 +15,7 @@ import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { createStore } from "../store/index.js";
 import { createCoreTools } from "./index.js";
-import { parentOrigins, requestSources } from "./parent-origin.js";
+import { parentOrigins, requestSourceGroup, requestSourceGroupForSession, requestSources } from "./parent-origin.js";
 
 test("actual parent_ask uses ledger originals and admitted current inputs, never model supplied identity or sourceEvents", async () => {
 	const db = await openDatabase(":memory:");
@@ -462,6 +462,8 @@ test("requestSources follows trusted QQ parent requests and native continuations
 			route,
 		);
 		expect(await requestSources(store, session, [continuation.id])).toEqual([ownerA, ownerB]);
+		expect(await requestSourceGroup(store, session, continuation.id)).toBe(conv);
+		expect(await requestSourceGroupForSession(store, session.id, continuation.id)).toBe(conv);
 
 		const badRoute = [{ agent: "main", session: "other", binding: "other", wake: "run" as const }];
 		const crossSession = await store.events.record(
@@ -495,6 +497,8 @@ test("requestSources follows trusted QQ parent requests and native continuations
 		expect(await requestSources(store, session, [crossSession.id])).toBeUndefined();
 		expect(await requestSources(store, session, [crossConv.id])).toBeUndefined();
 		expect(await requestSources(store, session, [forged.id])).toBeUndefined();
+		expect(await requestSourceGroup(store, session, crossSession.id)).toBeUndefined();
+		expect(await requestSourceGroup(store, session, forged.id)).toBeUndefined();
 		expect(await requestSources(store, { ...session, id: "other" }, [continuation.id])).toBeUndefined();
 		const cycleA: YEvent = {
 			id: "cycle-a",

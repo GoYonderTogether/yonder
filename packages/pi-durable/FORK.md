@@ -95,23 +95,5 @@ server decode timing. Deferred results retain their originating sidecar, not a n
 
 Source packages retain version 1.3.0 here: no publish or dependency version bump is implied. The upstream lockstep
 package artifact flow is `scripts/pack-packages.mjs` followed by `scripts/use-local-packages.mjs` for an isolated
-consumer. Yonder now bundles the matching pi-ai artifact from the recorded base commit
-in `third_party/pi-ai`; see CONTRIBUTING.md for the coherent rebuild procedure.
-
-## Harness-local anchor overlay (IMP-01 / IMP-11)
-
-`FORK_SOURCE.json` records the base fork commit
-`5414b87ae1909d708d4e188ba582d12486ebb0c5`, not an exact snapshot of the
-current durable source. The Harness-local anchor file-tool implementation adds
-changes on top of that base:
-
-- Modified under `src/tools/`: `edit-diff.ts`, `edit.ts`, `index.ts`, `read.ts`, `write.ts`.
-- Added under `src/tools/`: `copy.ts`, `hashline/alphabet.ts`, `hashline/anchors.ts`,
-  `hashline/edit.ts`, `insert.ts`, `move.ts`, `replace-match.ts`, `replace.ts`, `undo.ts`.
-
-Core consumers depend on this overlay, including `anchorsFor` and `anchorOwners`.
-The matching pi-ai artifact shares the base commit; its integrity check does not
-verify this durable overlay. `sync-pi-durable.mjs` refuses to replace a source tree
-that differs from the recorded base. Preserve these changes; reconcile and verify
-them in the Pi fork before an explicit provenance migration and coherent artifact
-rebuild. There is no force-overwrite or automatic overlay replay path.
+consumer; production consumption needs a separately approved coherent fork release/dependency update. Syncing this
+commit into Yonder vendors only durable and continues resolving npm pi-ai 1.3.0 until that separate integration.

@@ -27,6 +27,18 @@ export async function submit(
 		input = { ...input, busy: "followup" };
 	const requestId = input.requestId ?? (input.event ? `event:${input.event.id}` : undefined);
 	const existing = requestId ? await rt.storage.submissionByRequest(cid(id), requestId, C) : undefined;
+	let sourceGroup: string | undefined;
+	if (input.wake !== "write" && existing === undefined) {
+		if (input.event === undefined) sourceGroup = `direct:${id}`;
+		else {
+			try {
+				sourceGroup = await rt.options.sourceGroup?.(id, input.event.id);
+			} catch (error) {
+				rt.options.onReport?.(error);
+			}
+			sourceGroup ??= `event:${input.event.id}`;
+		}
+	}
 	const content = [{ type: "text" as const, text: input.text }];
 	let stream = input.onOutput ? await watchEvents(rt.harness, cid(id), C) : undefined;
 	let submission: Submission | undefined;
@@ -76,6 +88,7 @@ export async function submit(
 								...(requestId ? { requestId } : {}),
 								content,
 								entry,
+								...(sourceGroup === undefined ? {} : { sourceGroup }),
 								whenBusy: input.busy === "followup" ? "followUp" : (input.busy ?? "steer"),
 							},
 					C,
