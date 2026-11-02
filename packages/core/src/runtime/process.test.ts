@@ -50,6 +50,18 @@ test("explicitly unhosted bash retains real output and nonzero exit", async () =
 		await f.close();
 	}
 });
+test("bash preserves an explicit workspace containing spaces", async () => {
+	const f = await fixture();
+	try {
+		const cwd = join(f.home, "workspace with spaces");
+		await mkdir(cwd);
+		const result = await f.run({ command: "printf 'cwd preserved' > result.txt", cwd });
+		expect(result.isError).toBe(false);
+		expect(await readFile(join(cwd, "result.txt"), "utf8")).toBe("cwd preserved");
+	} finally {
+		await f.close();
+	}
+});
 test("truncated bash output is indexed with its complete original", async () => {
 	const f = await fixture();
 	try {

@@ -12,6 +12,7 @@ import { Scheduler } from "./index.js";
 test("persists owned jobs, executes a real command, prevents overlap and recovers without replay", async () => {
 	const dir = await tempHome("yonder-cron-");
 	const events: YEvent[] = [];
+	const errors: unknown[] = [];
 	const ctx = {
 		agent: null,
 		session: "1",
@@ -20,7 +21,7 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 	} as ToolContext;
 	const api = {
 		paths: { data: dir },
-		log: { error: () => {} },
+		log: { error: (message: string, details: unknown) => errors.push({ message, details }) },
 		events: {
 			async emit(input: object) {
 				const event = { ...input, id: String(events.length + 1), ts: new Date().toISOString() } as YEvent;
@@ -140,10 +141,12 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 		await scheduler.start();
 		await expect
 			.poll(
-				async () =>
-					(
+				async () => {
+					expect(errors, "Scheduler must report persistence failures instead of silently staying running").toEqual([]);
+					return (
 						(await scheduler.manage({ action: "history", id: pending[1]?.id }, ctx, false)) as Array<{ status: string }>
-					)[0]?.status,
+					)[0]?.status;
+				},
 				// Windows runners are slow enough that a fired recovery can still be running after the 1s default.
 				{ timeout: 10_000 },
 			)
@@ -182,6 +185,7 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 		await scheduler.stop();
 		expect(await longRun).toMatchObject({ status: "interrupted" });
 		await expect(scheduler.manage({ action: "run", id: long.id }, ctx, true)).rejects.toThrow("service stopped");
+		expect(errors).toEqual([]);
 	} finally {
 		await scheduler.stop();
 		await rm(dir, { recursive: true, force: true });

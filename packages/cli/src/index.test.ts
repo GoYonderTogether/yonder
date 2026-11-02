@@ -1,9 +1,9 @@
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
-import { initHome } from "@yonder/core";
+import { cliChannelEndpoint, initHome, requestControl } from "@yonder/core";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
@@ -32,7 +32,10 @@ test("chat preserves JSONL final after progress and exits when the server discon
 		),
 	);
 	try {
-		await new Promise<void>((done) => server.listen(join(directory, "cli.sock"), done));
+		await new Promise<void>((done, reject) => {
+			server.once("error", reject);
+			server.listen(cliChannelEndpoint(home, "cli"), done);
+		});
 		const child = spawn(process.execPath, [
 			resolve("packages/cli/dist/index.js"),
 			"chat",
@@ -70,7 +73,7 @@ test("chat preserves JSONL final after progress and exits when the server discon
 test("global CLI discovers the default user home and preserves explicit overrides", async () => {
 	const root = await tempHome("ya-");
 	try {
-		const env: NodeJS.ProcessEnv = { ...process.env, HOME: root };
+		const env: NodeJS.ProcessEnv = { ...process.env, HOME: root, USERPROFILE: root, LOCALAPPDATA: root };
 		delete env.YONDER_HOME;
 		const version = (args: string[], extra = {}) =>
 			JSON.parse(
@@ -80,7 +83,9 @@ test("global CLI discovers the default user home and preserves explicit override
 					encoding: "utf8",
 				}),
 			);
-		expect(version([]).home).toBe(join(root, ".local/share/yonder/home"));
+		expect(version([]).home).toBe(
+			join(root, process.platform === "win32" ? "YonderHarness/home" : ".local/share/yonder/home"),
+		);
 		expect(version([], { YONDER_HOME: join(root, "dev") }).home).toBe(join(root, "dev"));
 		expect(version(["--home", join(root, "explicit")], { YONDER_HOME: join(root, "dev") }).home).toBe(
 			join(root, "explicit"),
@@ -105,9 +110,14 @@ test("CLI start preserves interaction configuration and Agent tools without publ
 		const exited = once(child, "exit");
 		try {
 			await expect
-				.poll(async () => (await stat(join(home, ".yonder/control.sock")).catch(() => null))?.isSocket() ?? false, {
-					timeout: 10000,
-				})
+				.poll(
+					() =>
+						requestControl(home, { method: "sessions.list" }).then(
+							() => true,
+							() => false,
+						),
+					{ timeout: 10000 },
+				)
 				.toBe(true);
 			const updated = parse(await readFile(file, "utf8"));
 			expect(updated.plugins.filter((entry: { use: string }) => entry.use === "@yonder/plugin-interaction")).toEqual([
@@ -119,7 +129,7 @@ test("CLI start preserves interaction configuration and Agent tools without publ
 			const descriptor = join(home, ".yonder/plugins/interaction/desktop.json");
 			await expect(readFile(descriptor, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
-			child.kill("SIGTERM");
+			await requestControl(home, { method: "stop" }).catch(() => child.kill("SIGTERM"));
 			await exited;
 			await rm(home, { recursive: true, force: true });
 		}

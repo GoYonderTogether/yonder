@@ -342,9 +342,18 @@ test.each(["scope", "full"])(
 			expect(owned?.owner).toBeUndefined();
 			expect(owned?.background).toBe(true);
 
-			const abortable = JSON.parse(
-				text(await call(first, "bash", { command: "sleep 30 & echo $$:$!; wait", background: true })),
-			).background as string;
+			// Use native PIDs: Git Bash's $$/$! are MSYS IDs, not Windows process IDs.
+			await writeFile(
+				join(home, "process-tree.cjs"),
+				`const { spawn } = require("node:child_process");
+const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+child.once("spawn", () => console.log(process.pid + ":" + child.pid));
+process.on("SIGTERM", () => child.kill("SIGTERM"));
+child.once("exit", () => process.exit());`,
+			);
+			const treeCommand = `'${process.execPath.replaceAll("\\", "/").replaceAll("'", "'\\''")}' process-tree.cjs`;
+			const abortable = JSON.parse(text(await call(first, "bash", { command: treeCommand, background: true })))
+				.background as string;
 			await expect.poll(() => internal.background.running.get(Number(abortable))?.output.trim()).toMatch(/^\d+:\d+$/);
 			const abortPids = internal.background.running.get(Number(abortable))?.output.trim().split(":").map(Number) ?? [];
 			await runtime.abort(first);
@@ -361,9 +370,8 @@ test.each(["scope", "full"])(
 					})
 					.toBe(false);
 
-			const shutdown = JSON.parse(
-				text(await call(first, "bash", { command: "sleep 30 & echo $$:$!; wait", background: true })),
-			).background as string;
+			const shutdown = JSON.parse(text(await call(first, "bash", { command: treeCommand, background: true })))
+				.background as string;
 			await expect.poll(() => internal.background.running.get(Number(shutdown))?.output.trim()).toMatch(/^\d+:\d+$/);
 			const pids = internal.background.running.get(Number(shutdown))?.output.trim().split(":").map(Number) ?? [];
 			await runtime.close();
