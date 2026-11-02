@@ -238,6 +238,40 @@ test("unrelated plugin batch-ready events keep their ordinary binding contract",
 	).toThrow("同一会话");
 });
 
+test("a selected group participation plugin keeps batch bindings separate from private sessions", () => {
+	expect(() =>
+		parseAgentConfig(
+			JSON.stringify({
+				...base,
+				profiles: { group: { plugins: ["delivery-probe"] }, private: {} },
+				defaultProfile: "group",
+				social: { enabled: true, defaults: { group: { plugin: "delivery-probe", mode: "batch" } } },
+				bindings: [
+					{
+						id: "group",
+						match: { channel: "qq", kind: "group" },
+						session: { mode: "persistent", per: "conv" },
+						profile: "group",
+					},
+					{
+						id: "group-batch",
+						match: { type: "delivery-probe.batch-ready", channel: "qq" },
+						session: { mode: "persistent", per: "conv" },
+						profile: "group",
+						reply: "none",
+					},
+					{
+						id: "private",
+						match: { channel: "qq", kind: "dm" },
+						session: { mode: "persistent", per: "conv" },
+						profile: "private",
+					},
+				],
+			}),
+		),
+	).not.toThrow();
+});
+
 test("default social batch profiles need the same plugin admission checks as explicit plugins", () => {
 	const agent = parseAgentConfig(
 		JSON.stringify({

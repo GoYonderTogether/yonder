@@ -40,8 +40,17 @@ export function socialBindingIssues(agent: AgentConfig, file: string): ConfigIss
 	});
 }
 
-export function isSocialBatchBinding(binding: Binding): boolean {
-	return binding.match.type === "social.batch-ready";
+export function participationBatchKinds(agent: AgentConfig, binding: Binding): string[] | undefined {
+	const event = binding.match.type;
+	if (!event?.endsWith(".batch-ready")) return;
+	const plugin = event.slice(0, -".batch-ready".length);
+	if (plugin === "social") return ["group", "channel"];
+	const selected = agent.profiles[binding.profile ?? agent.defaultProfile]?.plugins ?? agent.defaults?.plugins ?? [];
+	if (!selected.includes(plugin)) return;
+	const kinds = Object.entries(agent.social?.defaults ?? {})
+		.filter(([, policy]) => (policy.plugin ?? "social") === plugin)
+		.map(([kind]) => kind);
+	return kinds.length ? kinds : undefined;
 }
 
 /** Cross-file validation runs on the candidate before it is published. */

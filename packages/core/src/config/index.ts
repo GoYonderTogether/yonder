@@ -29,7 +29,7 @@ import {
 	YonderSchema,
 } from "./schema.js";
 import { socialTriggerErrors } from "./social-schema.js";
-import { isSocialBatchBinding, socialBindingIssues } from "./social-validation.js";
+import { participationBatchKinds, socialBindingIssues } from "./social-validation.js";
 import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
 export {
@@ -289,12 +289,12 @@ const intersects = (a?: string | string[], b?: string | string[]) =>
 	b === undefined ||
 	(Array.isArray(a) ? a : [a]).some((value) => (Array.isArray(b) ? b : [b]).includes(value));
 
-function sameSession(a: Binding, b: Binding): boolean {
+function sameSession(a: Binding, b: Binding, agent: AgentConfig): boolean {
 	if (a.session === "main" || b.session === "main") return a.session === b.session;
 	if (typeof a.session === "string" || typeof b.session === "string" || a.session.per !== b.session.per) return false;
 	if (a.session.per === "conv" && !intersects(a.match.conv, b.match.conv)) return false;
 	// Batch admission only accepts a group/channel source; it can never reuse a DM conversation.
-	const kinds = (binding: Binding) => (isSocialBatchBinding(binding) ? ["group", "channel"] : binding.match.kind);
+	const kinds = (binding: Binding) => participationBatchKinds(agent, binding) ?? binding.match.kind;
 	return a.session.per === "person" || (intersects(a.match.channel, b.match.channel) && intersects(kinds(a), kinds(b)));
 }
 
@@ -339,7 +339,7 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 		// ponytail: pairwise checks suit small binding tables; index session scopes if these tables grow.
 		for (const previous of agent.bindings.slice(0, index)) {
 			if (
-				sameSession(binding, previous) &&
+				sameSession(binding, previous, agent) &&
 				(binding.profile ?? agent.defaultProfile) !== (previous.profile ?? agent.defaultProfile)
 			) {
 				issues.push({
