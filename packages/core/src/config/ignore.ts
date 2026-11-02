@@ -1,4 +1,4 @@
-/** Minimal `.gitignore` subset for skill discovery: no dependency, last matching rule wins. */
+/** Shared ignore-file subset for discovery and remote search: last matching rule wins. */
 export interface IgnoreRule {
 	negated: boolean;
 	dirOnly: boolean;

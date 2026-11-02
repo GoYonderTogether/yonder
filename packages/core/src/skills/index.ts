@@ -3,10 +3,10 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { fileURLToPath } from "node:url";
 import type { ExecutionEnv, ToolResult } from "@yonder/sdk";
 import { parse } from "yaml";
+import { addIgnoreRules, type IgnoreRule, ignored, ignoreFileNames } from "../config/ignore.js";
 import { matchesGlob, type WorkspaceFiles } from "../config/index.js";
 import { canonicalPath } from "../runtime/env.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
-import { addIgnoreRules, type IgnoreRule, ignored, ignoreFileNames } from "./ignore.js";
 
 export type SkillSource =
 	| "workspace"

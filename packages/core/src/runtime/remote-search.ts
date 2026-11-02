@@ -12,7 +12,7 @@ import {
 	stripBom,
 } from "@earendil-works/pi-durable/tools";
 import type { ToolContext } from "@yonder/sdk";
-import { addIgnoreRules, type IgnoreRule, ignored } from "../skills/ignore.js";
+import { addIgnoreRules, type IgnoreRule, ignored } from "../config/ignore.js";
 
 const contextOf = (ctx: ToolContext) => withAbortSignal(ctx.signal, BACKGROUND_CONTEXT);
 const normalized = (path: string) => path.replaceAll("\\", "/");
