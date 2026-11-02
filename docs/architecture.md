@@ -31,7 +31,7 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 | **宿主适配** | 本机目录与 SQLite、云端 PG 与 Redis、HostFacts、插件代码加载、可选本机/远程环境；本机另含 CLI、安装与更新 | 另写一套 Bot 解析、提示词或运行循环 |
 | **插件** | 通过插件槽提供：渠道、工具、上下文、触发器、执行环境、钩子、预设、skill | 绕过内核直接改会话或事件存储；import pi 的包 |
 
-共享实现的唯一入口为 `@yonder/bot-core.createBot`：本机 `@yonder/local-host.openKernel` 与云端宿主都调用它，不复制路由/会话/投递或运行循环。`@yonder/runtime-adapter` 是唯一 pi 适配包，默认入口只含运行算法和注入契约，`/node` 与 `/postgres` 是显式宿主子路径；本机存储入口不要求注册本机环境，环境由宿主另行组合。`@yonder/core` 只保留旧导出的兼容门面，不再保存第二份业务实现。SDK 的纯注册/collector 独立于 testing/Node 入口，避免共享入口传递加载 FS。保留原 SDK `executionContext(signal)`：index 仅使用 chord/context 的 `BACKGROUND_CONTEXT`、`withAbortSignal` 构造纯取消上下文；pi-ai/pi-durable 仍只能 import type，该精确例外由层级检查限定。
+共享实现的唯一入口为 `@yonder/bot-core.createBot`：本机 `@yonder/local-host.openKernel` 与云端宿主都调用它，不复制路由/会话/投递或运行循环。`@yonder/runtime-adapter` 是唯一 pi 适配包，默认入口只含运行算法和注入契约，`/node` 与 `/postgres` 是显式宿主子路径；本机存储入口不要求注册本机环境，环境由宿主另行组合。消费者直接依赖 `@yonder/bot-definition`、`@yonder/bot-core`、`@yonder/runtime-adapter` 或实际宿主包；删除旧 `@yonder/core` 兼容门面。SDK 的纯注册/collector 独立于 testing/Node 入口，避免共享入口传递加载 FS。保留原 SDK `executionContext(signal)`：index 仅使用 chord/context 的 `BACKGROUND_CONTEXT`、`withAbortSignal` 构造纯取消上下文；pi-ai/pi-durable 仍只能 import type，该精确例外由层级检查限定。
 
 共享 Bot 核心只依赖 Bot 定义来源、工作区与运行状态存储、插件私有存储、运行环境能力、调用方注入的 HostFacts 和模型调用。本机宿主组合目录 + SQLite 存储与可选本机环境；云端宿主组合 PostgreSQL + Redis 存储与无本机环境，按需接入远程设备。核心禁止 import `node:fs`、`node:child_process`、`node:os` 或直接读取 `process.*` 宿主事实，由 `scripts/check-layers.mjs` 强制。轻量组合不包含本机环境层，完整版追加该层；本次不改安装脚本。
 
@@ -71,7 +71,7 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 ## 6. 内核分层与规模预算
 
-共享内核必须小到一个模型能完整读懂并安全修改。`packages/bot-core/src` 的业务模块按下列层级组织，只允许依赖本层或更低层（含 `import type`）；定义解析在 `packages/bot-definition`，唯一 pi 运行适配在 `packages/runtime-adapter`，本机资源装配在 `packages/local-host`。旧 `packages/core` 只兼容导出，不承载独立业务。
+共享内核必须小到一个模型能完整读懂并安全修改。`packages/bot-core/src` 的业务模块按下列层级组织，只允许依赖本层或更低层（含 `import type`）；定义解析在 `packages/bot-definition`，唯一 pi 运行适配在 `packages/runtime-adapter`，本机资源装配在 `packages/local-host`。删除旧 `packages/core`；层级检查覆盖全部 workspace 包和真实宿主子路径。
 
 | 层 | 模块 | 职责 |
 |---|---|---|

@@ -8,21 +8,25 @@
 
 BotSource 供应 Agent、agent.yaml、presets、prompt 模板、子 Agent、skills 与工作区文件。接口复用 WorkspaceFiles：home 来源含逻辑 root 与文件访问，workspace(entry) 选择 Agent 工作区，templates/skills 提供按既有优先序排列的文件来源。Skill 来源负责 canonical 路径事实，保留本机 symlink 边界；PG 来源使用受租户与 Bot 限定的虚拟路径。共享加载、重载、模板展开及 skill 发现算法均消费这些来源；旧本机离线命令可以保留 fs 兼容入口，但不能复制解析逻辑。定义来源 PG 实现位于 monorepo 的云端宿主包，内置及插件静态资产由宿主提供。本机目录来源与 PostgreSQL 来源使用同一解析器。WorkspaceFiles 的目录实现经 ExecutionEnv；DB 实现为按 bot_id/path 隔离的 bot_files 虚拟工作区。人格、用户资料与记忆仍使用 SOUL.md、AGENTS.md、USER.md、MEMORY.md、memories/*，每个 Bot 独立，不为人格建专用列。
 
-事件、会话、pi 转录/文档、模型健康与工具输出缓存由运行状态存储接口提供：本机继续每 home 单 SQLite 连接，PG 实现按租户和 Bot 隔离。会话与转录仍只归 pi-durable，不能另存一份历史。插件使用 SDK storage.open(root?) 的私有文本文件/文档能力，按插件与宿主租户/Bot 隔离；本机默认保留原 api.paths.data 文件路径与格式，PG 使用 plugin_files 虚拟树，云端官方插件不得裸写宿主文件。memory 已配置个人库 root 保持本机原路径，PG 仅视为当前命名空间内的虚拟树名。tasks 的旧 SQLite 完整事件只读导入，经既有 replay 校验与新存储事务完成后才记标记，不删除旧库；详情见 04。本机与 worker 都由唯一宿主调度器驱动相同插件 tick，保留任务/cron/关注能力，不给云端 Bot 各自留 interval。
+事件、会话、pi 转录/文档、模型健康与工具输出缓存由运行状态存储接口提供：本机继续每 home 单 SQLite 连接，PG 实现按租户和 Bot 隔离。会话与转录仍只归 pi-durable，不能另存一份历史。PG 激活不能将全部历史提交回放进 MemoryStorage；读取按实际记录和分页进行，保留全部历史的可检索性与 durable 校验。插件使用 SDK storage.open(root?) 的私有文本文件/文档能力，按插件与宿主租户/Bot 隔离；本机默认保留原 api.paths.data 文件路径与格式，PG 使用 plugin_files 虚拟树，云端官方插件不得裸写宿主文件。memory 已配置个人库 root 保持本机原路径，PG 仅视为当前命名空间内的虚拟树名。tasks 的旧 SQLite 完整事件只读导入，经既有 replay 校验与新存储事务完成后才记标记，不删除旧库；详情见 04。本机与 worker 都由唯一宿主调度器驱动相同插件 tick，保留任务/cron/关注能力，不给云端 Bot 各自留 interval。
 
-无环境使用同一实际NoEnvironment：逻辑路径/工作目录为宿主提供的逻辑值，任何文件或进程操作按ExecutionEnv契约明确不可用，不能偷偷选本机Node环境或伪造操作成功。BotSource和插件私有存储独立于环境，无环境仍读取本机/PG中的定义、人格和记忆。
+云端不提供必然失败的 bash 工具，不声明空实现的 quota poller；host.status 的渠道登录与模型凭据状态来自实际注册渠道和凭据解析结果。无环境使用同一实际NoEnvironment：逻辑路径/工作目录为宿主提供的逻辑值，任何文件或进程操作按ExecutionEnv契约明确不可用，不能偷偷选本机Node环境或伪造操作成功。BotSource和插件私有存储独立于环境，无环境仍读取本机/PG中的定义、人格和记忆。
 
 轻量组合为核心 + 本机存储，完整组合追加本机环境层；零权限本机 Bot 与云端无环境 Bot 使用同一核心路径。本机验收从真实openKernel的environment:none组合进入，使用FS来源/单SQLite；云端使用PG来源/Storage，两者同一noEnvironment与createBot，不以孤立工厂或假内核代替。本次不改安装脚本。新增抽象在本次必须有两个真实使用中的实现，不留占位实现。
 
 ## 2 Worker 与消息路径
 
-Worker 位于 yonder monorepo，一个进程服务全部云端 Bot，不为每账号/Bot 起容器或子进程。消息到达才从 PG 激活实例，活跃实例有上限，按 LRU 释放空闲实例；忙碌实例不能被释放。忙状态同时检查实际Runtime pending work、未完成tick及Trigger.busy所反映的执行/持久化/投递；cron launch返回不代表任务结束。忙状态解除必须唤醒等候激活，不新增每Bot轮询。Bot 不各自占用定时器、长连接或文件句柄，定时任务由唯一调度器扫描 PG 触发。插件deadline通过await schedule持久化后才确认操作；LRU detach仅解绑内存实例，不取消PGdeadline，真正取消计划才删除。outbound、去重维护、模型维护与插件tick的实际周期入口都由宿主集中驱动。
+Worker 位于 yonder monorepo，一个进程服务全部云端 Bot，不为每账号/Bot 起容器或子进程。消息到达才从 PG 激活实例，活跃实例上限 20，按 Bot 合并同一激活请求，不用全局激活链阻塞其他租户；满载时按 LRU 释放空闲实例。唯一宿主调度器还须在真实空闲 60 秒后释放实例（15 秒维护周期内完成），无需等到容量用满；忙碌实例不能被释放。忙状态同时检查实际Runtime pending work、未完成tick及Trigger.busy所反映的执行/持久化/投递；cron launch返回不代表任务结束。忙状态解除必须唤醒等候激活，不新增每Bot轮询。Bot 不各自占用定时器、长连接或文件句柄，定时任务由唯一调度器扫描 PG 触发。插件deadline通过await schedule持久化后才确认操作；LRU detach仅解绑内存实例，不取消PGdeadline，真正取消计划才删除。outbound、去重维护、模型维护与插件tick的实际周期入口都由宿主集中驱动。
 
-空载 RSS ≤150 MB；100 个 Bot 轮流对话、任何时刻最多 20 个活跃时 RSS ≤350 MB。负载脚本以回环模型传输 stub 测资源，再以真实模型跑少量轮次，记录每轮数据库往返。附件仅传引用，不下载大文件，浏览器下行数据量不超过既有消息路径。
+空载 RSS ≤150 MB；100 个 Bot 各自至少 500 条 durable 历史消息后轮流对话、任何时刻最多 20 个活跃时 RSS ≤350 MB；验收必须记录实际历史数量。负载脚本以回环模型传输 stub 测资源，再以真实模型跑少量轮次，记录每轮数据库往返。附件仅传引用，不下载大文件，浏览器下行数据量不超过既有消息路径。
 
-输入仍调用真实渠道io.emit→router.emit，保留waiting=false的原自动投递；不用会抑制渠道回复的router.ask。worker在emit前建立当前sourceMessageId的活动处理项，等待共享channel-card的最终send/sent或最终Delivery失败才释放该Bot队列；失败/空答由同一共享delivery的单结果模式处理，外层不竞争补发。尚未进入核心的激活失败由宿主经同一真实send报告。socket中断结束当前活动处理项，server沿既有唯一结果槽写错误。主动deliveryId不冒用用户source槽。
+输入仍调用真实渠道io.emit→router.emit，保留waiting=false的原自动投递；不用会抑制渠道回复的router.ask。worker在emit前建立当前sourceMessageId的活动处理项，等待共享channel-card的最终send/sent或最终Delivery失败才释放该Bot队列；失败/空答由同一共享delivery的单结果模式处理，外层不竞争补发。尚未进入核心的激活失败由宿主经同一真实send报告。socket中断结束当前活动处理项，server沿既有唯一结果槽写错误。server 另用单个 5 秒扫描器检查持久来源时间；用户消息提交后 5 分钟仍无结果，即使 worker 在线，也须在同一结果槽写入一条真实超时 error，迟到回复不能覆盖或再追加。该边界是云端来源请求的协议期限，不改核心软提醒语义。HTTP 在用户消息已提交后须返回该消息的成功响应，后续派发或写错误失败不得变成可诱发重试的 500；未完成结果由持久来源扫描补结。主动deliveryId不冒用用户source槽。
 
 Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任的特殊设备接入；server 不依赖 @yonder 包。服务端 `CLOUD_BOT_WORKER_KEY_FILE` 指向独立的私有 32 字节原始凭据（不是模型 key 文本）；worker 以其 base64url 作为 Bearer 接入同一 /ws/device。hello 后服务端发送 `{type:'bots',bots:[{id,name,ownerId}]}` 完整映射，创建或暂停状态变更用同帧刷新；只包含 enabled 的云端 Bot。输入仍为原 message 帧；响应用户的 send 必带 sourceMessageId（原用户消息 UUID），ref 仅确认。服务端 cloud_bot_turns 按 sourceMessageId 唯一关联结果，并与 appendMessage 同事务完成。cron/关注等程序投递和显式其他目标消息没有原用户消息，此时沿同一 send 使用现有 OutMessage.deliveryId，并按 Bot/投递ID持久去重，不占另一条用户输入的结果槽；不能以通道强制用户来源禁用主动能力。已有 /api/device/dm 同样接受受限 worker 身份，以 DB 中实际 Bot owner 和已有社交/会话规则核验，不伪造设备或用户会话。send 保留合法 replyTo；sourceMessageId 本身不强制引用。普通 HTTP/device 不可写 error。暂停 Bot 的新输入得到真实暂停错误，不派模型；其 online 以 enabled 和共享 worker 在线状态计算。单 server/worker 采用现有 Hub 的进程内在线状态，不据 Redis 广播宣称支持多 server 在线路由。鉴权须把 worker 的服务身份与目标 Bot/owner 关联，不能信任帧内自报租户。default/cloud 且没有 device_id 的 Bot 消息交给 worker；不再返回固定引导或整段转给主人设备。设备自己的 Bot 仍是独立联系人。
+
+服务级凭据保留：持有者可代表所有已启用云端 Bot 接收用户消息、发送回复、申请模型额度，并经既有 work bridge 请求各真实 owner 的设备工具。泄漏影响全部租户的云端会话、Bot 数据与已授权设备操作；它不是用户登录凭据，仍须通过 Bot/owner/设备/来源与 grant 检查，不能绕过设备权限。worker owner 资格在所有入口一致要求 `kind=human AND NOT anonymous`，不能仅凭 owner_id 非空。
+
+轮换先准备新的独立随机 32 字节原始密钥文件，权限 0600，分别安全交给 server 与 worker；两端在启动时读取，不支持双 key 过渡。停旧 worker，替换两端私有文件并重启 server，再启动唯一 worker；既有连接中断的来源按唯一结果槽真实报错。验证旧 key 被拒绝、新 worker 重新收到 Bot 映射且少量真实消息完成，再撤销旧文件并按既有备份制度处理旧副本。模型 key 与 worker 服务 key 分开轮换，不把值放入 argv、日志、仓库或报告；本规范仅描述部署步骤，不自动执行。
 
 旧 runtimes.ts 与 runtime-supervisor.mjs 原样保留，不扩展、不作为云端 Bot 路径。删除范围列入报告供维护者决定。
 
@@ -38,7 +42,7 @@ Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任�
 
 SDK OutMessage 支持至少 interactive 结构化内容，channel-card 原样透传。interactive.actions 每个按钮可有自己的 link；渲染使用 actions[i].link ?? content.link，保留旧客户端兼容性。server 校验与两端 MessageContent 类型同步。官方channel-card_reply_card接受标题、正文与按钮及应用内链接，本机、云端共用；按真实session/runId保存一张意图，最后成功保存者生效，经可信最终beforeSend替换同一OutMessage，不额外发送或扫描历史。失败清除，成功的有效卡片即使final文本为空仍投递。原attempt保存完整interactive后沿原重试，不新造outbox；详见16 §4.1。验收卡片同时包含 /connect 与 /download 两个按钮。两份客户端路由均须可达；cloud旧前端的 /download 复用现有 /get 安装页，不另造页面或安装流程。
 
-MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可写，客户端提交时拒绝。超时、HTTP 状态错误、网络/隧道故障、空回答、超额度、worker 不在线均生成真实中文原因，不含密钥、鉴权头或堆栈。每条用户消息只有一个结果：正常回复或一条错误；错误不进入后续模型历史。原生运行失败仍优先保留真实原因；单结果渠道中正常结束且waiting=false、reply:none的来源也须沿共享最终路径给系统error“本轮来源关闭自动回复，未投递模型回复”，不发模型正常文本、不暗示操作未执行，避免Worker等待不存在的回执而堵住该Bot队列；普通本机reply:none与io.ask/caller仍保持原语义。worker渠道声明output.singleResult，省略中间流/回退通知；对本轮来源的即时message_send明确失败并指导使用最终回复，不能返回伪发送成功或抢占结果槽。其他目标的主动发送仍按原权限和deliveryId投递。官方卡片工具只准备最终卡片，工具回执不得声称已投递，模型失败时不能先发卡片再吞掉错误。apps/app 使用 role="alert" 与 text-danger 渲染，不套正常气泡；会话列表支持该类型。云端输入框不再声明只能引导；其在线状态以实际 worker 为准，不使用设备 Bot 的“上线后送达”承诺掩盖云端失败。
+MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可写，客户端提交时拒绝。超时、HTTP 状态错误、网络/隧道故障、空回答、超额度、worker 不在线均生成真实中文原因，不含密钥、鉴权头或堆栈。每条用户消息只有一个结果：正常回复或一条错误；错误不进入后续模型历史。共享 SDK 的用户可见 Bot 发言谓词同时约束投递和 social 群历史，`error` 不能被当作正常发言写入上下文。原生运行失败仍优先保留真实原因；单结果渠道中正常结束且waiting=false、reply:none的来源也须沿共享最终路径给系统error“本轮来源关闭自动回复，未投递模型回复”，不发模型正常文本、不暗示操作未执行，避免Worker等待不存在的回执而堵住该Bot队列；普通本机reply:none与io.ask/caller仍保持原语义。worker渠道声明output.singleResult，省略中间流/回退通知；对本轮来源的即时message_send明确失败并指导使用最终回复，不能返回伪发送成功或抢占结果槽。其他目标的主动发送仍按原权限和deliveryId投递。官方卡片工具只准备最终卡片，工具回执不得声称已投递，模型失败时不能先发卡片再吞掉错误。apps/app 使用 role="alert" 与 text-danger 渲染，不套正常气泡；会话列表支持该类型。云端输入框不再声明只能引导；其在线状态以实际 worker 为准，不使用设备 Bot 的“上线后送达”承诺掩盖云端失败。
 
 ## 5 远程设备工具
 
