@@ -16,7 +16,7 @@ BotSource 供应 Agent、agent.yaml、presets、prompt 模板、子 Agent、skil
 
 ## 2 Worker 与消息路径
 
-Worker 位于 yonder monorepo，一个进程服务全部云端 Bot，不为每账号/Bot 起容器或子进程。消息到达才从 PG 激活实例，活跃实例上限 20，按 Bot 合并同一激活请求，不用全局激活链阻塞其他租户；满载时按 LRU 释放空闲实例。唯一宿主调度器还须在真实空闲 60 秒后释放实例（15 秒维护周期内完成），无需等到容量用满；忙碌实例不能被释放。忙状态同时检查实际Runtime pending work、未完成tick及Trigger.busy所反映的执行/持久化/投递；cron launch返回不代表任务结束。忙状态解除必须唤醒等候激活，不新增每Bot轮询。Bot 不各自占用定时器、长连接或文件句柄，定时任务由唯一调度器扫描 PG 触发。插件deadline通过await schedule持久化后才确认操作；LRU detach仅解绑内存实例，不取消PGdeadline，真正取消计划才删除。outbound、去重维护、模型维护与插件tick的实际周期入口都由宿主集中驱动。
+Worker 位于 yonder monorepo，一个进程服务全部云端 Bot，不为每账号/Bot 起容器或子进程。消息到达才从 PG 激活实例，活跃实例上限 20，按 Bot 合并同一激活请求，不用全局激活链阻塞其他租户；满载时按 LRU 释放空闲实例。唯一宿主调度器还须在真实空闲 60 秒后释放实例（15 秒维护周期内完成），无需等到容量用满；忙碌实例不能被释放。忙状态同时检查实际Runtime pending work、未完成tick及Trigger.busy所反映的执行/持久化/投递；cron launch返回不代表任务结束。忙状态解除必须唤醒等候激活，不新增每Bot轮询。Bot 不各自占用定时器、长连接或文件句柄，定时任务由唯一调度器扫描 PG 触发。插件deadline通过await schedule持久化后才确认操作；LRU detach仅解绑内存实例，不取消PGdeadline，真正取消计划才删除。outbound、去重维护、模型维护与插件tick的实际周期入口都由宿主集中驱动。outbound 仅在存在未 final 的真实 notification.intent 时安排 deadline，新的入队重设计划，flush 后按真实剩余项重排或清除；空轮询不能唤醒 Bot 或延长空闲租期。
 
 空载 RSS ≤150 MB；100 个 Bot 各自至少 500 条 durable 历史消息后轮流对话、任何时刻最多 20 个活跃时 RSS ≤350 MB；验收必须记录实际历史数量。负载脚本以回环模型传输 stub 测资源，再以真实模型跑少量轮次，记录每轮数据库往返。附件仅传引用，不下载大文件，浏览器下行数据量不超过既有消息路径。
 
