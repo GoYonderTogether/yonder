@@ -174,6 +174,7 @@ export function createVisibility(deps: VisibilityDeps) {
 		if (!first || first.type !== "message.in" || !(await ownerSource(session, first, run.config))) return;
 		if (run.signal?.aborted || lifetime.signal.aborted) return;
 		const target = first.conv!;
+		if (deps.channelFor(target)?.output.singleResult) return;
 		const outputs = await store.events.outputSince(
 			session.id,
 			target,

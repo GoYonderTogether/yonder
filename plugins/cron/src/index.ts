@@ -26,6 +26,7 @@ export default definePlugin({
 			id: "cron",
 			start: (io) => scheduler.start(io),
 			tick: (now) => scheduler.tick(now),
+			busy: () => scheduler.busy(),
 			stop: () => scheduler.stop(),
 		});
 		api.views.register(

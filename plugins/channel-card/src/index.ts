@@ -1,4 +1,4 @@
-import type { TriggerIO } from "@yonder/sdk";
+import type { Channel, PluginModule, TriggerIO } from "@yonder/sdk";
 import { definePlugin } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Check } from "typebox/value";
@@ -31,86 +31,105 @@ const parameters = Type.Object(
 	{ additionalProperties: false },
 );
 
-export default definePlugin({
-	setup(api) {
-		const instances = new Map<string, CardChannel>();
-		let triggerIO: TriggerIO | undefined;
-		const scheduleSync = () => {
-			const due = [...instances.values()].flatMap((channel) => {
-				const at = channel.nextSync();
-				return at === undefined ? [] : [at];
-			});
-			triggerIO?.schedule(due.length ? Math.min(...due) : undefined);
-		};
-		api.triggers.register({
-			id: "channel-card-sync",
-			async start(io) {
-				triggerIO = io;
-				scheduleSync();
-			},
-			async tick(now) {
-				await Promise.all([...instances.values()].map((channel) => channel.tick(now)));
-				scheduleSync();
-			},
-			async stop() {
-				triggerIO?.schedule(undefined);
-				triggerIO = undefined;
-			},
+function setupCardPlugin(api: Parameters<PluginModule["setup"]>[0], sharedChannel?: CardChannel): void {
+	const instances = new Map<string, CardChannel>();
+	let triggerIO: TriggerIO | undefined;
+	const scheduleSync = async () => {
+		const due = [...instances.values()].flatMap((channel) => {
+			const at = channel.nextSync();
+			return at === undefined ? [] : [at];
 		});
-		api.channels.register({
-			type: "card",
-			multiAgent: true,
-			configSchema,
-			create(id, config) {
-				if (instances.has(id)) throw new Error("Duplicate card instance");
-				const channel = new CardChannel(id, config as Config, api, scheduleSync);
-				instances.set(id, channel);
-				return channel;
-			},
-		});
-		api.tools.register({
-			name: "channel-card_card_push",
-			description:
-				"Draft the calling Agent's own card for human review. Does not publish. Supply a configured card instance, title, markdown and optional HTML/SVG display.",
-			capabilities: ["write", "network"],
-			parameters,
-			async execute(input, ctx) {
-				if (!Check(parameters, input)) return { isError: true, text: "Invalid card parameters" };
-				const { instance, ...data } = input;
-				const channel = instances.get(instance);
-				if (!channel) return { isError: true, text: "Unknown card instance" };
-				// 任务/预设会话没有 Agent 身份，cardPush 一定失败；直接说清原因，别让模型去猜（JV2-J03-02）。
-				if (!ctx.agent)
+		await triggerIO?.schedule(due.length ? Math.min(...due) : undefined);
+	};
+	api.triggers.register({
+		id: "channel-card-sync",
+		async start(io) {
+			triggerIO = io;
+			await scheduleSync();
+		},
+		async tick(now) {
+			await Promise.all([...instances.values()].map((channel) => channel.tick(now)));
+			await scheduleSync();
+		},
+		async stop() {
+			await triggerIO?.schedule(undefined);
+			triggerIO = undefined;
+		},
+	});
+	api.channels.register({
+		type: "card",
+		multiAgent: true,
+		configSchema,
+		create(id, config) {
+			if (instances.has(id)) throw new Error("Duplicate card instance");
+			if (sharedChannel && id !== sharedChannel.id)
+				throw new Error(`Worker card channel id must be ${sharedChannel.id}`);
+			const channel = sharedChannel ?? new CardChannel(id, config as Config, api, scheduleSync);
+			instances.set(id, channel);
+			return channel;
+		},
+	});
+	api.tools.register({
+		name: "channel-card_card_push",
+		description:
+			"Draft the calling Agent's own card for human review. Does not publish. Supply a configured card instance, title, markdown and optional HTML/SVG display.",
+		capabilities: ["write", "network"],
+		parameters,
+		async execute(input, ctx) {
+			if (!Check(parameters, input)) return { isError: true, text: "Invalid card parameters" };
+			const { instance, ...data } = input;
+			const channel = instances.get(instance);
+			if (!channel) return { isError: true, text: "Unknown card instance" };
+			// 任务/预设会话没有 Agent 身份，cardPush 一定失败；直接说清原因，别让模型去猜（JV2-J03-02）。
+			if (!ctx.agent)
+				return {
+					isError: true,
+					text: "Card draft needs an Agent identity: this session has none (task/preset sessions have no Agent). Call it from the main Agent session — `yonder chat` or a message in the card channel — or draft the card from there. · 名片起草需要 Agent 身份，任务会话没有 Agent：请在 Agent 会话（yonder chat）或名片渠道里调用。",
+				};
+			try {
+				const draft = await channel.cardPush(ctx.agent, data, ctx.signal);
+				// 起草不会自动发布：把发布入口一并交给调用方转述给主人（UX-07）。
+				const publishUrl = `${channel.endpoint}/me`;
+				const result = draft && typeof draft === "object" ? draft : { draft };
+				return {
+					text: JSON.stringify({
+						...result,
+						publishUrl,
+						next: `Draft saved, not published. Tell the owner to open ${publishUrl} and tap Publish. · 草稿已保存，尚未发布：请到 ${publishUrl} 点「发布」。`,
+					}),
+				};
+			} catch (error) {
+				// 未注册 = 本 home 还没登录 card 渠道或该 Agent 不在登记表里；其它失败带上真实原因。
+				if (error instanceof Error && error.message === "Card Agent not registered")
 					return {
 						isError: true,
-						text: "Card draft needs an Agent identity: this session has none (task/preset sessions have no Agent). Call it from the main Agent session — `yonder chat` or a message in the card channel — or draft the card from there. · 名片起草需要 Agent 身份，任务会话没有 Agent：请在 Agent 会话（yonder chat）或名片渠道里调用。",
+						text: `Card draft failed: Agent "${ctx.agent}" is not registered on card instance "${instance}". Run \`yonder channels login card\` in this home (it registers every enabled Agent), then retry. · 这个 Agent 未在 card 实例注册：先在该 home 执行 yonder channels login card 完成登录与登记，再重试。`,
 					};
-				try {
-					const draft = await channel.cardPush(ctx.agent, data, ctx.signal);
-					// 起草不会自动发布：把发布入口一并交给调用方转述给主人（UX-07）。
-					const publishUrl = `${channel.endpoint}/me`;
-					const result = draft && typeof draft === "object" ? draft : { draft };
-					return {
-						text: JSON.stringify({
-							...result,
-							publishUrl,
-							next: `Draft saved, not published. Tell the owner to open ${publishUrl} and tap Publish. · 草稿已保存，尚未发布：请到 ${publishUrl} 点「发布」。`,
-						}),
-					};
-				} catch (error) {
-					// 未注册 = 本 home 还没登录 card 渠道或该 Agent 不在登记表里；其它失败带上真实原因。
-					if (error instanceof Error && error.message === "Card Agent not registered")
-						return {
-							isError: true,
-							text: `Card draft failed: Agent "${ctx.agent}" is not registered on card instance "${instance}". Run \`yonder channels login card\` in this home (it registers every enabled Agent), then retry. · 这个 Agent 未在 card 实例注册：先在该 home 执行 yonder channels login card 完成登录与登记，再重试。`,
-						};
-					const reason = error instanceof Error ? error.message : String(error);
-					return {
-						isError: true,
-						text: `Card draft failed: ${reason}. The request to POST /api/device/cards did not succeed; retry after checking the card instance connection. · 名片起草失败：${reason}；确认 card 实例连接后重试。`,
-					};
-				}
-			},
-		});
-	},
-});
+				const reason = error instanceof Error ? error.message : String(error);
+				return {
+					isError: true,
+					text: `Card draft failed: ${reason}. The request to POST /api/device/cards did not succeed; retry after checking the card instance connection. · 名片起草失败：${reason}；确认 card 实例连接后重试。`,
+				};
+			}
+		},
+	});
+}
+
+const cardPlugin = definePlugin({ setup: (api) => setupCardPlugin(api) });
+export default cardPlugin;
+
+export function createCardWorkerPlugin(host: import("./channel.js").CardWorkerHost): {
+	plugin: PluginModule;
+	channels: Map<string, Channel>;
+	start(): Promise<void>;
+	stop(): Promise<void>;
+} {
+	const channel = new CardChannel("card", host);
+	const channels = new Map<string, Channel>([[channel.id, channel]]);
+	return {
+		plugin: definePlugin({ setup: (api) => setupCardPlugin(api, channel) }),
+		channels,
+		start: () => channel.start(),
+		stop: () => channel.stop(),
+	};
+}

@@ -1,4 +1,5 @@
 import type { Context } from "@earendil-works/chord";
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Id, Seq, StorageWrite } from "@earendil-works/pi-durable";
 import { MemoryStorage } from "@earendil-works/pi-durable/storage/memory";
 import type { Pool } from "pg";
@@ -30,7 +31,12 @@ export class PostgresStorage extends MemoryStorage {
 		super();
 	}
 
-	static async open(pool: Pool, tenant: string, bot: string, context: Context): Promise<PostgresStorage> {
+	static async open(
+		pool: Pool,
+		tenant: string,
+		bot: string,
+		context: Context = BACKGROUND_CONTEXT,
+	): Promise<PostgresStorage> {
 		const storage = new PostgresStorage(pool, tenant, bot);
 		await pool.query("INSERT INTO bot_runtime_ids VALUES($1,$2,2) ON CONFLICT DO NOTHING", [tenant, bot]);
 		const result = await pool.query<{ seq: string; writes: StorageWrite[] }>(
@@ -51,7 +57,9 @@ export class PostgresStorage extends MemoryStorage {
 			"UPDATE bot_runtime_ids SET next_id=next_id+1 WHERE tenant_id=$1 AND bot_id=$2 RETURNING next_id-1 AS id",
 			[this.tenant, this.bot],
 		);
-		const id = Number(result.rows[0]!.id);
+		const row = result.rows[0];
+		if (!row) throw new Error("Runtime storage ID sequence is unavailable");
+		const id = Number(row.id);
 		if (!Number.isSafeInteger(id)) throw new Error("ID space is exhausted");
 		return id as I;
 	}

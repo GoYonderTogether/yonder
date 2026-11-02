@@ -1,4 +1,4 @@
-import type { Attachment, Delivery, ToolContext } from "@yonder/sdk";
+import type { Attachment, Delivery, OutMessage, ToolContext } from "@yonder/sdk";
 
 /**
  * One explicit send requested by a tool call (06). Declared here, with the port, because the send tool is L2 and
@@ -8,6 +8,7 @@ export interface MessageRequest {
 	to: string;
 	via?: string;
 	text: string;
+	content?: NonNullable<OutMessage["content"]>;
 	respondTo?: string;
 	mentions?: string[];
 	replyTo?: string;

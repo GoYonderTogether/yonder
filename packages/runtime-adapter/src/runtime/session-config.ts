@@ -42,13 +42,14 @@ export async function prepareRun(rt: RuntimeInternals, session: string, context:
 	let config: RuntimeSessionConfig = saved?.config
 		? JSON.parse(saved.config)
 		: structuredClone(await rt.options.resolveSession(session));
+	const inputs = saved?.config ? undefined : await rt.sources(live.run.inputs);
 	if (!saved?.config && config.sessionMode !== "task") {
-		const inputs = await rt.sources(live.run.inputs);
-		if (inputs.length && inputs.every(isOwnerWorkbenchInput)) {
+		if (inputs?.length && inputs.every(isOwnerWorkbenchInput)) {
 			const state = await rt.harness.snapshot(SessionDoc, cid(session), context);
 			config = { ...applyWorkbenchOptions(config, state?.workbench ?? undefined), ownerWorkbench: true };
 		}
 	}
+	if (!saved?.config) await rt.options.admitRun?.({ session, run: id, inputs: inputs ?? [] });
 	const usageBefore = saved?.config ? saved.usageBefore : await rt.usage(session);
 	if (!saved?.config) await rt.applyRequestedEffort(session, config, context);
 	await rt.modelsFor(config);
@@ -197,6 +198,7 @@ export async function preparePlacedInputs(
 			(config) => rt.modelsFor(config),
 			() => rt.imageProcessor(),
 			(uri, env, context) => rt.options.services.readAttachment(uri, env, context),
+			rt.options.services.attachmentInput ?? "inline",
 		);
 		await rt.harness.commit(async (tx) => {
 			await tx.appendEntry(cid(session), {

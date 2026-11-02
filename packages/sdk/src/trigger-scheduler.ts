@@ -38,6 +38,7 @@ export function createTriggerScheduler(report: (key: string, error: unknown) => 
 		arm();
 	}
 	return {
+		busy: () => [...entries.values()].some((entry) => !!entry.pending || entry.trigger.busy?.() === true),
 		async start(key: string, trigger: Trigger, emit: (event: EventInput) => Promise<YEvent>) {
 			const entry: { trigger: Trigger; at?: number; pending?: Promise<void> } = { trigger };
 			entries.set(key, entry);
@@ -45,7 +46,7 @@ export function createTriggerScheduler(report: (key: string, error: unknown) => 
 				await trigger.start({
 					emit,
 					startedAt,
-					schedule(at) {
+					async schedule(at) {
 						if (stopped || entries.get(key) !== entry) return;
 						if (at === undefined) delete entry.at;
 						else entry.at = at;

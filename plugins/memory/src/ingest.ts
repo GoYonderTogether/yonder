@@ -288,16 +288,16 @@ export class Ingest {
 						.on("change", changed)
 						.on("error", () => this.problem("Inbox watcher failed"));
 				}
-				io.schedule(Date.now() + (this.config.inbox?.rescanSeconds ?? 60) * 1000);
+				await io.schedule(Date.now() + (this.config.inbox?.rescanSeconds ?? 60) * 1000);
 				enqueue();
 			},
 			tick: async () => {
 				this.work = this.work.then(() => this.scan(this.io!.emit)).catch(() => this.problem("Inbox scan failed"));
 				await this.work;
-				this.io!.schedule(Date.now() + (this.config.inbox?.rescanSeconds ?? 60) * 1000);
+				await this.io!.schedule(Date.now() + (this.config.inbox?.rescanSeconds ?? 60) * 1000);
 			},
 			stop: async () => {
-				this.io?.schedule(undefined);
+				await this.io?.schedule(undefined);
 				await this.watcher?.close();
 				this.lifetime.abort();
 				await this.work;

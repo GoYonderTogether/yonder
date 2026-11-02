@@ -13,9 +13,13 @@ export function sourceConversation(ctx: Pick<ToolContext, "event" | "events">): 
 	if (convs.length !== 1 || !convs[0]?.startsWith("conv:")) throw new Error("当前运行没有唯一来源会话。");
 	return convs[0];
 }
-const visible = (event: YEvent) =>
-	event.type === "message.in" ||
-	(event.type === "message.out" && (event.data as { delivery?: { ok?: boolean } }).delivery?.ok === true);
+const visible = (event: YEvent) => {
+	const data = event.data as { delivery?: { ok?: boolean }; content?: { type?: string } };
+	return (
+		data.content?.type !== "error" &&
+		(event.type === "message.in" || (event.type === "message.out" && data.delivery?.ok === true))
+	);
+};
 
 export async function conversationMessage(store: Store, event: YEvent, agent?: string | null) {
 	const data = event.data as {

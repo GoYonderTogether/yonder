@@ -33,21 +33,43 @@ export function markCredentialFailure(provider: string, text: string): string {
 	return `${CREDENTIAL_MARK}; run \`yonder login ${provider} --replace\`): ${text}`;
 }
 /** Rewrite a credential error so the chain treats it as an authentication failure; other events pass through. */
-export function withCredentialMark(stream: AssistantMessageEventStream, provider: string): AssistantMessageEventStream {
+export function redactCredentials(text: string | undefined, credentials: readonly string[] = []): string | undefined {
+	if (text === undefined) return undefined;
+	return credentials.reduce(
+		(safe, credential) => (credential ? safe.replaceAll(credential, "[redacted]") : safe),
+		text,
+	);
+}
+
+export function withCredentialMark(
+	stream: AssistantMessageEventStream,
+	provider: string,
+	credentials: readonly string[] = [],
+): AssistantMessageEventStream {
 	const out = createAssistantMessageEventStream();
 	void (async () => {
 		try {
 			for await (const event of stream) {
-				if (event.type === "error" && upstreamFailure(event.error.errorMessage)) {
-					const error = { ...event.error, errorMessage: `${UPSTREAM_MARK}: ${event.error.errorMessage}` };
+				if (event.type !== "error") {
+					out.push(event);
+					continue;
+				}
+				const errorMessage = redactCredentials(event.error.errorMessage, credentials);
+				if (upstreamFailure(errorMessage)) {
+					const error = { ...event.error, errorMessage: `${UPSTREAM_MARK}: ${errorMessage}` };
 					out.push({ type: "error", reason: event.reason, error });
-				} else if (event.type === "error" && credentialFailure(event.error.errorMessage)) {
+				} else if (credentialFailure(errorMessage)) {
 					const error = {
 						...event.error,
-						errorMessage: markCredentialFailure(provider, event.error.errorMessage ?? ""),
+						errorMessage: markCredentialFailure(provider, errorMessage ?? ""),
 					};
 					out.push({ type: "error", reason: event.reason, error });
-				} else out.push(event);
+				} else
+					out.push({
+						type: "error",
+						reason: event.reason,
+						error: { ...event.error, ...(errorMessage === undefined ? {} : { errorMessage }) },
+					});
 			}
 		} finally {
 			out.end();

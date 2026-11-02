@@ -21,14 +21,23 @@
 		}
 	},
 	"files": [
-		"dist"
+		"dist",
+		"prompts"
 	],
 	"dependencies": {
 		"@yonder/bot-definition": "0.3.26110207",
 		"pg": "8.23.1",
 		"@yonder/bot-core": "0.3.26110207",
 		"@yonder/runtime-adapter": "0.3.26110207",
-		"@yonder/sdk": "0.3.26110207"
+		"@yonder/sdk": "0.3.26110207",
+		"@yonder/plugin-agent-presets": "0.3.26110207",
+		"@yonder/plugin-memory": "0.3.26110207",
+		"@yonder/plugin-tasks": "0.3.26110207",
+		"@yonder/plugin-cron": "0.3.26110207",
+		"@yonder/plugin-market": "0.3.26110207",
+		"@yonder/plugin-web-tools": "0.3.26110207",
+		"@yonder/plugin-channel-card": "0.3.26110207",
+		"@yonder/local-host": "0.3.26110207"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",

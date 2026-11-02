@@ -81,6 +81,8 @@ export interface RuntimeOptions {
 		},
 	): Promise<number | undefined>;
 	tickIntervalMs?: number | undefined;
+	/** Called once when a new run reaches beforeAgent, after inputs are resolved and before runtime work starts. */
+	admitRun?(admission: { session: string; run: string; inputs: YEvent[] }): Promise<void>;
 	onRun?(session: string, run: RuntimeRun): Promise<void>;
 	/**
 	 * A finished run's usage, settled before `onRun` records it. The kernel checks session budgets here; the

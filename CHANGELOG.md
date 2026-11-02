@@ -4,6 +4,8 @@
 
 ### Added
 
+- cloud-host：单进程 PostgreSQL Worker，按需激活与20实例LRU、统一持久调度；通过原渠道接平台GLM与owner额度，真实错误按唯一结果投递且不进入后续模型提示词。
+
 - app：与 Bot 的会话在输入条上方显示一行「内容由 AI 生成」，含 Bot 成员的群聊同样显示，按《人工智能生成合成内容标识办法》作可见标识；与人的会话不显示。
 - 安装脚本新增 `--desktop` / `-Desktop`：核心装完后一并安装桌面应用（macOS dmg、Windows 安装程序）并注册后台服务，关掉桌面窗口即回到只装核心。
 - 桌面应用启动时先连接本机 Yonder，服务未运行时才打开 yonderbot.net。

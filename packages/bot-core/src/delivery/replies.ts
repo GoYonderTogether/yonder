@@ -4,6 +4,7 @@ import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "@yonder/runtime-
 import type { Channel, EventInput, OutputPart, RunEndData, SessionInfo, YEvent } from "@yonder/sdk";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/contracts.js";
+import { cloudFailure } from "./cloud-result.js";
 import type { createLedger } from "./ledger.js";
 import { sourceMessage, stopNotice } from "./model-notice.js";
 import { OutputQueue, ReplyText } from "./reply-text.js";
@@ -232,7 +233,9 @@ export function createReplies({
 		const onConsole = (event: YEvent) => !!event.conv && channelId(event.conv) === CONSOLE;
 		const consoleTurn = actual.some(onConsole);
 		const replies = consoleTurn ? sources.filter(onConsole) : sources;
-		const targets = stopped || (run.text.trim() && run.text.trim() !== "NO_REPLY") ? replies : [];
+		const singleResult = (event: YEvent) => channels.get(channelId(event.conv!) ?? "")?.output.singleResult === true;
+		const empty = !run.text.trim() || run.text.trim() === "NO_REPLY";
+		const targets = stopped || !empty ? replies : replies.filter(singleResult);
 		const destination =
 			!stopped &&
 			!consoleTurn &&
@@ -291,7 +294,18 @@ export function createReplies({
 						from(session),
 						{
 							to: event.conv!,
-							text: finalText,
+							text:
+								singleResult(event) && (stopped || empty)
+									? cloudFailure(run.reason ?? (empty ? "模型返回空回答" : run.status))
+									: finalText,
+							...(singleResult(event) && (stopped || empty)
+								? {
+										content: {
+											type: "error" as const,
+											text: cloudFailure(run.reason ?? (empty ? "模型返回空回答" : run.status)),
+										},
+									}
+								: {}),
 							...(sourceMessageId ? { sourceMessageId } : {}),
 						},
 						session,

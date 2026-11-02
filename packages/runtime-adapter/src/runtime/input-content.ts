@@ -27,6 +27,7 @@ export async function inputContent(
 	modelsFor: (config: RuntimeSessionConfig) => Promise<Models>,
 	imageProcessor: () => Promise<ImageProcessor>,
 	readAttachment: (uri: string, env: ExecutionEnv, context: Context) => Promise<Uint8Array>,
+	attachmentInput: "inline" | "reference" = "inline",
 ) {
 	const env = environment(config);
 	const content: Array<{ type: "text"; text: string } | { type: "image"; mimeType: string; data: string }> = [
@@ -41,6 +42,15 @@ export async function inputContent(
 	const actual = new Map<string, { mime: string; bytes: number }>();
 	for (const attachment of input.attachments ?? [])
 		if (attachment.kind === "image") {
+			if (attachmentInput === "reference") {
+				const bytes = attachment.bytes === undefined ? "size unavailable" : `${attachment.bytes} bytes`;
+				content.push({
+					type: "text",
+					text: `image reference: ${attachment.uri} (${attachment.mime}, ${bytes}); image content is not available to this runtime`,
+				});
+				actual.set(attachment.uri, { mime: attachment.mime, bytes: attachment.bytes ?? 0 });
+				continue;
+			}
 			const bytes = attachment.uri.startsWith("data:")
 				? decodeBase64(imageData(attachment.uri))
 				: await readAttachment(attachment.uri, env, preparation);

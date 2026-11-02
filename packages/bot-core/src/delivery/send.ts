@@ -60,7 +60,7 @@ export function createSender(deps: SenderDeps) {
 		messageId?: string,
 		scope: Scope = config?.resolved ?? {},
 	): Promise<Delivery> {
-		for (const hook of selectedHooks(hooks, config)) {
+		for (const hook of request.content?.type === "error" ? [] : selectedHooks(hooks, config)) {
 			const changed = await hook.beforeSend?.(
 				request,
 				session ? { session: session.id, agent: session.agent, profile: session.profile } : undefined,

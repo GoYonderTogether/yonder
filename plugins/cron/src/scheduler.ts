@@ -23,6 +23,10 @@ export class Scheduler {
 	private stopped = true;
 	private io?: TriggerIO;
 	private startedAt = 0;
+	private finishing = 0;
+	busy() {
+		return this.running.size > 0 || this.finishing > 0;
+	}
 	private running = new Map<
 		string,
 		{ controller: AbortController; promise: Promise<RecordRun>; session?: string | undefined }
@@ -62,7 +66,7 @@ export class Scheduler {
 	}
 	async stop() {
 		this.stopped = true;
-		this.io?.schedule(undefined);
+		await this.io?.schedule(undefined);
 		await this.queue;
 		for (const active of this.running.values()) {
 			active.controller.abort();
@@ -74,15 +78,15 @@ export class Scheduler {
 	private validate(job: Job) {
 		validateJob(job);
 	}
-	private scheduleNext() {
+	private async scheduleNext() {
 		if (this.stopped || this.running.size >= this.concurrency) {
-			this.io?.schedule(undefined);
+			await this.io?.schedule(undefined);
 			return;
 		}
 		const due = this.jobs
 			.filter((j) => j.enabled && j.next !== null && !this.running.has(j.id))
 			.map((j) => j.next as number);
-		this.io?.schedule(due.length ? Math.min(...due) : undefined);
+		await this.io?.schedule(due.length ? Math.min(...due) : undefined);
 	}
 	async tick(now = Date.now()) {
 		await this.exclusive(async () => {
@@ -128,7 +132,7 @@ export class Scheduler {
 					});
 				}
 			}
-			this.scheduleNext();
+			await this.scheduleNext();
 		});
 	}
 	private async launch(
@@ -160,9 +164,14 @@ export class Scheduler {
 		await this.save();
 		const active = { controller, promise: Promise.resolve(run), session: undefined as string | undefined };
 		this.running.set(job.id, active);
-		active.promise = executeRun(this.api, job, run, active, this.io?.emit).finally(() => {
+		active.promise = executeRun(this.api, job, run, active, this.io?.emit).finally(async () => {
+			this.finishing++;
 			this.running.delete(job.id);
-			this.scheduleNext();
+			try {
+				await this.scheduleNext();
+			} finally {
+				this.finishing--;
+			}
 		});
 		void active.promise.catch((error) =>
 			this.api.log.error("cron result persistence failed", { job: job.id, error: errorText(error) }),
@@ -209,14 +218,14 @@ export class Scheduler {
 			if (a.action === "delete") {
 				this.jobs = this.jobs.filter((j) => j !== job);
 				await this.save();
-				this.scheduleNext();
+				await this.scheduleNext();
 				return { deleted: a.id };
 			}
 			if (a.action === "disable" || a.action === "enable") {
 				(job as Job).enabled = a.action === "enable";
 				if (a.action === "enable") (job as Job).next = next((job as Job).schedule, Date.now(), job?.start, job?.end);
 				await this.save();
-				this.scheduleNext();
+				await this.scheduleNext();
 				return job;
 			}
 			if (!a.job) throw new Error("job required");
@@ -265,7 +274,7 @@ export class Scheduler {
 			if (updated.maxRuns !== undefined && updated.runs >= updated.maxRuns) updated.enabled = false;
 			this.jobs = [...this.jobs.filter((j) => j.id !== updated.id), updated];
 			await this.save();
-			this.scheduleNext();
+			await this.scheduleNext();
 			return updated;
 		});
 	}

@@ -15,6 +15,24 @@
 		},
 		{
 			"path": "../../plugins/memory"
+		},
+		{
+			"path": "../../plugins/agent-presets"
+		},
+		{
+			"path": "../../plugins/tasks"
+		},
+		{
+			"path": "../../plugins/cron"
+		},
+		{
+			"path": "../../plugins/market"
+		},
+		{
+			"path": "../../plugins/web-tools"
+		},
+		{
+			"path": "../../plugins/channel-card"
 		}
 	]
 }

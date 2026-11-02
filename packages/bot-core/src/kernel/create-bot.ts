@@ -5,7 +5,7 @@ import { createDelivery } from "../delivery/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
 import type { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, type PluginBindings, registerPlugins } from "../plugins/index.js";
-import { type PromptOptions, prepareInput } from "../prompt/index.js";
+import { type PromptOptions, prepareInput, systemPromptKeys, systemPromptParts } from "../prompt/index.js";
 import { createRouter } from "../routing/index.js";
 import { checkBudget } from "../sessions/budget.js";
 import { createSessions } from "../sessions/index.js";
@@ -221,6 +221,8 @@ export async function createBot(options: CreateBotOptions) {
 				.flatMap((file) => (file.protect ? [{ path: file.path, capability: file.protect }] : []));
 			return { ...session, protectedFiles };
 		},
+		sections: (session, signal) => systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
+		sectionKeys: systemPromptKeys(loaded.contexts),
 		...prepared.runtimeOptions,
 		onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
 		...observedRuntimeEvents(store, forwardUpdate, delivery.modelNotice),

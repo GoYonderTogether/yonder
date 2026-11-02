@@ -74,6 +74,8 @@ export interface PluginBindings {
 	storage(id: string): PluginStorage;
 	dataPath(id: string): string;
 	scheduler: ReturnType<typeof createTriggerScheduler>;
+	/** Channels already started by a multi-Bot host; the host owns their lifecycle. */
+	sharedChannels?: ReadonlyMap<string, Channel>;
 }
 export async function registerPlugins(
 	bindings: PluginBindings,
@@ -374,7 +376,7 @@ export async function registerPlugins(
 		async start(io, workControl) {
 			try {
 				for (const [id, channel] of channels) {
-					if (id === CONSOLE) continue;
+					if (id === CONSOLE || bindings.sharedChannels?.get(id) === channel) continue;
 					const owner = channelProviders.get(config.channels![id]!.type)!.pluginId;
 					await channel.start({
 						emit: (event) => io.emit(pluginEvent(owner, event, id, channel.multiAgent)),

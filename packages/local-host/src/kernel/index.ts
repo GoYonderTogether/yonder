@@ -50,6 +50,7 @@ import { credentialsAndModels, skillsFor, sourceFor } from "@yonder/local-host/k
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "@yonder/local-host/plugins/index";
 import { type UpdateResult, updateResultEvent } from "@yonder/local-host/release/result";
 import { createStore } from "@yonder/local-host/store/index";
+import { noEnvironment } from "@yonder/runtime-adapter";
 import type { Runtime } from "@yonder/runtime-adapter/node";
 import { openNodeRuntime } from "@yonder/runtime-adapter/node";
 import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db.js";
@@ -250,7 +251,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			openRuntime: async (runtimeOptions) =>
 				openNodeRuntime({
 					...runtimeOptions,
-					localEnvironment: true,
+					localEnvironment: options.environment === "none" ? noEnvironment : true,
 					envs: plugins!.envs,
 					storage: await openRuntimeStorage(db!),
 				}),
@@ -275,17 +276,17 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				id: "model-maintenance",
 				async start(io) {
 					maintenanceIO = io;
-					io.schedule(Date.now() + 15000);
+					await io.schedule(Date.now() + 15000);
 				},
 				async tick(now) {
 					try {
 						await runtime!.maintenance(now);
 					} finally {
-						maintenanceIO.schedule(now + 15000);
+						await maintenanceIO.schedule(now + 15000);
 					}
 				},
 				async stop() {
-					maintenanceIO.schedule(undefined);
+					await maintenanceIO.schedule(undefined);
 				},
 			},
 			router.emit,
@@ -363,7 +364,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		const work = createKernelWorkHost(agents, store.identity(), loaded.channels);
 		await loaded.start(router, work.forInstance);
 		delivery.start();
-		outbound.start();
+		await outbound.start(scheduler);
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		const workbench = createWorkbenchOptions(home, config, realRuntime, sessions.api, presets, loaded.tools);
 		return {

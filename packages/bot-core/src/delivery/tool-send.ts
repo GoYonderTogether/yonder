@@ -1,5 +1,5 @@
 import type { Runtime, RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
-import type { Delivery, SessionInfo, ToolContext } from "@yonder/sdk";
+import type { Channel, Delivery, SessionInfo, ToolContext } from "@yonder/sdk";
 import type { Store } from "../store/contracts.js";
 import type { Scope } from "./console.js";
 import { sourceMessage } from "./model-notice.js";
@@ -15,7 +15,7 @@ export interface ToolSendDeps {
 		agent?: string | null,
 		config?: RuntimeSessionConfig,
 		scope?: Scope,
-	) => Promise<{ target: string }>;
+	) => Promise<{ target: string; channel: Channel }>;
 	proactive: (
 		from: string | undefined,
 		msg: MessageRequest,
@@ -32,11 +32,21 @@ export function createToolSend({ store, runtime, resolveTarget, proactive }: Too
 		if (!session) throw new Error("当前会话不存在。");
 		const config = runtime().currentConfig(ctx.session);
 		let target: string;
+		let singleResult = false;
 		try {
-			target = (await resolveTarget(request, ctx.agent, config, ctx)).target;
+			const resolved = await resolveTarget(request, ctx.agent, config, ctx);
+			target = resolved.target;
+			singleResult = resolved.channel.output.singleResult === true;
 		} catch (error) {
 			return { ok: false, error: message(error) };
 		}
+		if (
+			singleResult &&
+			(ctx.events ?? (ctx.event ? [ctx.event] : [])).some(
+				(event) => event.conv === target || ((event.data as { kind?: string }).kind === "dm" && event.from === target),
+			)
+		)
+			return { ok: false, error: "本渠道只投递本轮最终结果，不支持对本轮来源即时发送；请把内容放最终回复。" };
 		try {
 			await runtime().authorizeAttachments(ctx, request.attachments);
 		} catch (error) {

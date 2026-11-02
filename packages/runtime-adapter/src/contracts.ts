@@ -180,6 +180,7 @@ export interface RuntimeServices {
 		context: import("@earendil-works/chord").Context,
 	): Promise<Uint8Array>;
 	imageProcessor(): Promise<import("@earendil-works/pi-durable/tools").ImageProcessor>;
+	attachmentInput?: "inline" | "reference";
 	toolHost: import("./runtime/tool-activation.js").RuntimeToolHost;
 	executeCommand(
 		config: import("./types.js").RuntimeSessionConfig,

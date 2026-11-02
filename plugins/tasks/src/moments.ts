@@ -81,7 +81,7 @@ export function moments(api: PluginAPI, store: Store, config: Config): Trigger {
 			} catch (error) {
 				api.log.error("Task moments failed", { error: String(error) });
 			}
-			io.schedule(Date.now() + 60000);
+			await io.schedule(Date.now() + 60000);
 		},
 		async tick(now) {
 			try {
@@ -89,11 +89,11 @@ export function moments(api: PluginAPI, store: Store, config: Config): Trigger {
 			} catch (error) {
 				api.log.error("Task moments failed", { error: String(error) });
 			} finally {
-				io?.schedule(Date.now() + 60000);
+				await io?.schedule(Date.now() + 60000);
 			}
 		},
 		async stop() {
-			io?.schedule(undefined);
+			await io?.schedule(undefined);
 			io = undefined;
 		},
 	};

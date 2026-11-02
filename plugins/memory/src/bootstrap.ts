@@ -232,7 +232,7 @@ export class Bootstrap {
 				this.io = io;
 				await initialize(this.store.files);
 				await this.check(io.emit);
-				io.schedule(Date.now() + period());
+				await io.schedule(Date.now() + period());
 			},
 			tick: async () => {
 				this.work = this.work
@@ -241,10 +241,10 @@ export class Bootstrap {
 						this.errors.push("Bootstrap evaluation failed");
 					});
 				await this.work;
-				this.io!.schedule(Date.now() + period());
+				await this.io!.schedule(Date.now() + period());
 			},
 			stop: async () => {
-				this.io?.schedule(undefined);
+				await this.io?.schedule(undefined);
 				this.lifetime.abort();
 				await this.work;
 			},

@@ -1,5 +1,5 @@
 import type { AgentsAPI } from "./agent-bindings.js";
-import type { Attachment, TranscriptItem } from "./messages.js";
+import type { Attachment, Delivery, OutMessage, OutputPart, TranscriptItem } from "./messages.js";
 import type { PluginStorage } from "./plugin-storage.js";
 import type { ToolContext } from "./tool-context.js";
 
@@ -238,7 +238,7 @@ export interface Channel {
 	multiAgent?: boolean;
 	id: string;
 	kinds: string[];
-	output: { stream: boolean; attachments: boolean };
+	output: { stream: boolean; attachments: boolean; singleResult?: boolean };
 	features?: ChannelFeatures;
 	login?(
 		action: "start" | "poll",
@@ -276,35 +276,6 @@ export interface AskResult {
 	event: YEvent;
 	results: RunResult[];
 }
-export interface OutMessage {
-	/** Stable delivery attempt identifier, reused on retry. */
-	deliveryId?: string;
-	notification?: NotificationIntent;
-	text: string;
-	/** Semantic reply target: verified internal inbound event ID; does not force a quote. */
-	respondTo?: string;
-	/** Verified account refs to notify in the target conversation. */
-	mentions?: Ref[];
-	/** Automatic reply source; explicit replyTo still forces a quoted reply. */
-	sourceMessageId?: string;
-	attachments?: Attachment[];
-	replyTo?: string;
-}
-export interface Delivery {
-	ok: boolean;
-	/** Transient failure before any part was sent. Never combine with id or uncertain. */
-	retryable?: boolean;
-	uncertain?: boolean;
-	id?: string;
-	error?: string;
-}
-export type OutputPart =
-	| { type: "message_start"; id: string }
-	| { type: "message_end"; text: string }
-	| { type: "text"; delta: string }
-	| { type: "tool"; phase: "start" | "end"; name: string; label?: string; ok?: boolean }
-	| { type: "final"; text: string }
-	| { type: "error"; message: string };
 
 export interface Tool {
 	name: string;
@@ -341,11 +312,13 @@ export interface TriggerIO {
 	/** Host process start, so idle Bot activation is not mistaken for a service restart. */
 	startedAt: number;
 	/** The host owns a single scheduler; undefined removes this trigger's next tick. */
-	schedule(at: number | undefined): void;
+	schedule(at: number | undefined): Promise<void>;
 }
 export interface Trigger {
 	id: string;
 	start(io: TriggerIO): Promise<void>;
+	/** Includes in-flight execution, result persistence and delivery. */
+	busy?(): boolean;
 	/** Deterministic scheduled work, invoked by the host. No per-Bot timer is needed. */
 	tick?(now: number): Promise<void>;
 	stop(): Promise<void>;

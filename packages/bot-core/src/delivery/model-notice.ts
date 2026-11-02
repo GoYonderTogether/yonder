@@ -46,6 +46,7 @@ export function createModelNotice(
 							deps.waiting(session, input) === false &&
 							input.conv &&
 							deps.channelFor(input.conv) &&
+							!deps.channelFor(input.conv)?.output.singleResult &&
 							(deps.binding(session, input, config)?.reply ?? "auto") === "auto" &&
 							!visitorBinding(deps.binding(session, input, config)),
 					)

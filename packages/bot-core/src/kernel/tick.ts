@@ -5,6 +5,8 @@ import type { KernelLog } from "./types.js";
 
 export interface KernelOptions {
 	log?: KernelLog;
+	/** Select a resource-free execution environment; storage remains local. */
+	environment?: "none";
 	/** Test-only timer injection; production runs keep the default interval. */
 	test?: { heartbeatIntervalMs?: number };
 }

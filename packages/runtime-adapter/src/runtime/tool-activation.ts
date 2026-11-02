@@ -1,3 +1,5 @@
+import type { Context } from "@earendil-works/chord";
+import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import {
 	defineExtension,
 	defineTool,
@@ -10,7 +12,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
-import { createCodingTools } from "@earendil-works/pi-durable/tools";
+import { createCodingTools, type ReadToolInput } from "@earendil-works/pi-durable/tools";
 import type { Attachment, Hook, Tool, ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
 import type { RuntimeBackground, RuntimeLiveOutput } from "../contracts.js";
@@ -30,6 +32,8 @@ import { todoTool } from "./todo-tool.js";
 import { normalizeToolImages, prepareWith } from "./tool-images.js";
 
 export interface RuntimeToolHost {
+	cacheTools?: boolean;
+	cacheOutput?(config: string): boolean;
 	createBackground(options: RuntimeBackgroundOptions): RuntimeBackground;
 	processTool(
 		home: string,
@@ -49,6 +53,19 @@ export interface RuntimeToolHost {
 		home: string,
 	): (text: string | AsyncIterable<Uint8Array>, options?: { extension?: string }) => Promise<string>;
 	fileURLToPath(uri: string): string;
+	readCachedOutput?(
+		path: string,
+		offset?: number | string,
+		limit?: number,
+	): Promise<import("@earendil-works/pi-durable").ToolExecutionResult | undefined>;
+	grepCachedOutput?(input: {
+		path?: string;
+		pattern: string;
+		literal?: boolean;
+		ignoreCase?: boolean;
+		context?: number;
+		limit?: number;
+	}): Promise<{ text: string } | undefined>;
 	remoteFind: RemoteFind;
 	remoteGrep: RemoteGrep;
 }
@@ -78,7 +95,8 @@ export interface RuntimeBackgroundOptions {
 export function installExtensions(rt: RuntimeInternals, host: RuntimeToolHost) {
 	rt.background = host.createBackground({
 		home: rt.options.home,
-		cacheOutput: (snapshot) => rt.environment(JSON.parse(snapshot).config).id === "node:local",
+		cacheOutput: (snapshot) =>
+			host.cacheOutput?.(snapshot) ?? rt.environment(JSON.parse(snapshot).config).id === "node:local",
 		harness: () => rt.harness,
 		changed: (session) => rt.options.onBackgroundChanged?.(session),
 		config: async (session, context) => {
@@ -121,7 +139,7 @@ export function installExtensions(rt: RuntimeInternals, host: RuntimeToolHost) {
 						result,
 						prepareWith(() => rt.imageProcessor()),
 					);
-				if (rt.sdkToolNames.has(input.name) && ctx.env.id === "node:local")
+				if (rt.sdkToolNames.has(input.name) && (host.cacheTools || ctx.env.id === "node:local"))
 					result = await host.cacheSdkResult(result, ctx, input, rt.options);
 				return result;
 			} finally {
@@ -164,11 +182,23 @@ export function installExtensions(rt: RuntimeInternals, host: RuntimeToolHost) {
 	const codingTools = createCodingTools({
 		images: { prepare: async (...args) => (await rt.imageProcessor()).prepare(...args) },
 	});
+	const codingRegistrations = (codingTools.tools ?? []).map((tool) => {
+		const readCachedOutput = host.readCachedOutput;
+		if (tool.name !== "read" || !readCachedOutput) return tool;
+		return {
+			...tool,
+			async execute(args: ReadToolInput, api: ToolExecutionApi, context: Context) {
+				const input = args;
+				const page = await readCachedOutput(input.path, input.offset, input.limit);
+				return page ?? tool.execute(args, api, context);
+			},
+		};
+	});
 	const coding = defineExtension({
 		...codingTools,
 		name: "yonder.files",
 		tools: [
-			...(codingTools.tools ?? []).filter((t) => t.name !== "bash"),
+			...codingRegistrations.filter((t) => t.name !== "bash"),
 			host.processTool(rt.options.home, rt.background.running, (id) => rt.sessionConfig(id)),
 		].map((t) => rt.backgroundTool({ ...t, deferred: true })),
 	});
@@ -244,7 +274,7 @@ export function adapter(
 					: {}),
 				execute: async (args, api, context) => {
 					const ctx = await rt.context(String(api.conversationId), context);
-					if (ctx.env.id === "node:local") {
+					if (host.cacheTools || ctx.env.id === "node:local") {
 						const writer = host.toolOutputWriter(ctx, tool.name, args as object, rt.options.home);
 						ctx.cacheToolOutput = writer;
 						ctx.cacheToolOutputStream = writer;
@@ -259,6 +289,12 @@ export function adapter(
 					};
 					rt.toolInvocations.set(ctx, { api, context });
 					try {
+						if (tool.name === "grep" && host.grepCachedOutput) {
+							const cached = await host.grepCachedOutput(
+								args as Parameters<NonNullable<typeof host.grepCachedOutput>>[0],
+							);
+							if (cached) return toResult(cached);
+						}
 						return toResult(await tool.execute(args, ctx));
 					} finally {
 						rt.toolInvocations.delete(ctx);

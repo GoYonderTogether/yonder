@@ -1,12 +1,16 @@
 # 项目状态
 
-更新：2026-11-02。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
+更新：2026-11-03。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
 ## 共享 Bot 核心重构（2026-11-02，实施中）
 
-目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段1–7已完成：共享定义/来源/工作区、SQLite/PG状态、FS/PG插件私有存储，以及实际单一createBot、唯一Runtime适配包与本机宿主拆分。旧core保留兼容导出；CI检查纯包传递依赖与唯一pi入口，原健康/额度维护接同一宿主scheduler。完整build/typecheck/lint通过，默认2698通过/0失败/112跳过，相对a6a6c0b5无新增失败。cloud阶段9服务端/主动投递/cloud界面已提交63b5a99、107ce7e，后端205项及SSR3项通过；旧cloud前端/download别名仍待补，不能据href断言宣称路由可达。单进程worker、真实GLM/Luna、资源预算、monorepo app、卡片工具和设备工具尚未验收。Luna缺仓库规约凭据，记未测。证据见[阶段检查](verification/shared-bot-core-20261102.md)与[包边界记录](verification/shared-bot-boundaries-20261103.md)，逐项进度见未提交REFACTOR-REPORT.md。不推送、不部署、不连接生产。
+目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段1–8已完成：共享定义/来源/工作区、SQLite/PG运行状态、FS/PG插件存储、单一createBot与Runtime、无环境本机组合、单进程PG Worker、20实例LRU及统一持久deadline调度。共享createBot默认接主系统sections，实际GLM证明PG SOUL生效；本机保留配置诊断扩展，旧core兼容导出。
+
+阶段8完整build/typecheck/lint通过，默认2703通过/0失败/112跳过；size923/layer108、基线均0，相对a6a6c0b5无新增失败。真实PG/Redis/server/Worker两租户隔离、三个真实GLM轮次、错误唯一结果与后续prompt过滤、在途/排队取消、cron逐出/重启均已验证。修后100Bot+暖轮空载136.135MB、采样峰值312.459MB、active上限20，连接与timer资源不随Bot增长；cold query均值161.8、warm83。数据是本机验证，不是生产2核主机实测。
+
+cloud阶段9服务端/主动投递/cloud界面先行提交63b5a99、107ce7e，配套程序模型准入提交eed0b17，根/server build/typecheck通过，后端206/0/0/0；cloud组件SSR3项为前阶段证据。monorepo app、cloud /download别名、最终卡片工具及远程设备插件仍待阶段9–11；不据已有worker证明这些完成。真实Luna缺仓库规约凭据，记未测。证据见[阶段检查](verification/shared-bot-core-20261102.md)、[包边界](verification/shared-bot-boundaries-20261103.md)与[Worker验证](verification/shared-bot-worker-20261103.md)，逐项进度见未提交REFACTOR-REPORT.md。不推送、不部署、不连接生产。
 
 ## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
 

@@ -10,6 +10,14 @@
 
 阶段7将既有模型健康与官方额度维护统一为 Runtime.maintenance(now) 的确定性 tick，由本机或云端的单宿主调度器驱动；原core兼容工厂在Node宿主保留并清理驱动。保留原探测/轮询节奏与首次读取，不能以去掉interval为由停掉已有行为。
 
+阶段8主系统sections与keys默认由createBot调用同一systemPromptParts/systemPromptKeys提供，本机可保留原配置接纳事实扩展，不能依赖每个宿主重复补装人格主段。
+
+阶段8接线先明确现有契约：worker以真实渠道emit保留自动投递，按source的最终send/sent完成串行处理，不用会抑制渠道回复的ask，也不在外层竞争补发。TriggerIO.schedule改为可await的持久deadline确认，两个实际宿主分别内存/PG实现；LRU解绑保留持久计划，用户取消才删除。无环境由共享NoEnvironment明确拒绝文件/进程操作，来源与私有存储照常工作；程序模型运行使用同一平台owner额度桶，不能绕开server原准入。SDK结构化内容/error能力是worker真实接线的前置，先随阶段8完成，阶段9再完成两份客户端呈现；属于依赖顺序调整，不删减验收。
+
+云端单结果是渠道明确能力output.singleResult：保留共享路由/投递，但禁止同源即时工具消息抢占唯一结果，返回真实失败并指导写最终回复；跨会话主动投递保持原权限与deliveryId。模型回退通知不额外发送；卡片只准备最终意图、失败不预先投递。该差异由BRIEF每用户输入仅一结果的硬约束要求，不改变本机多段输出，也不添加通用延迟发送框架。
+
+LRU只在真实工作全部结束后释放：Runtime pending与scheduler tick/Trigger.busy共同判定，异步cron/market任务包含结果持久化和投递；忙状态解除唤醒等候激活，不能把launch返回当完成。复用现有Trigger生命周期，不引入第二任务管理器。
+
 维护者同日澄清阶段门槛：先在原始 a6a6c0b5 记录完整测试与 build 基线，后续不得新增测试失败，build/typecheck/lint 必须通过；基线已有的机器原因失败可保留，不再因这些失败停止。
 
 ## 2026-11-02 默认 Bot 中文名改为「小未」（主人要求）

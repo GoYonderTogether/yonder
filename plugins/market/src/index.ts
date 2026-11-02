@@ -32,6 +32,7 @@ export default definePlugin({
 			id: "market",
 			start: (io) => watch.start(io),
 			tick: (now) => watch.tick(now),
+			busy: () => watch.busy(),
 			stop: () => watch.stop(),
 		});
 	},

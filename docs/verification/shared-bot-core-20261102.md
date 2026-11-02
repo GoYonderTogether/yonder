@@ -156,3 +156,9 @@ pi-durable 的 ToolExecutionApi.executeTool 仅供活动工具的 nested call；
 ### 前端路由证据更正（2026-11-03）
 
 root 后续核对 App 路由：monorepo app 已有 `/download` 独立页面；cloud 旧前端只有 `/get` 与 `/connect`。cloud 的3项SSR验证的是实际Bubble产出的href及错误/普通样式，未验证落地页面；此前cloud记录“使用现有/download路由”的描述不准确，已更正。阶段9后续将 `/download` 复用现有Install页面，不新增页面或修改安装器，待实际路由检查完成再记可达。
+
+## 阶段8：PG Worker与真实模型/资源验收（完整gate通过）
+
+详细实现、全部开发失败与后续修复、启动/迁移契约见 [Worker验证](shared-bot-worker-20261103.md)。共享createBot补默认system sections，真实GLM两个租户回复各自PG SOUL独有token，另有暖轮；首轮SOUL失败保留。实际本机零环境与PG Worker共用createBot/Runtime；隔离、六类错误/中断、cron逐出/ACK/重启与owner统一模型额度均通过。修后100Bot+暖轮空载136.135MB、采样峰值312.459MB，active上限20，连接/timer不随Bot增长；cold均值161.8 query，warm83，逐轮JSON已保存。旧缺主系统段负载不作为最终证据。
+
+Root完整build/typecheck成功；默认2703通过/0失败/112跳过，文件506通过/67跳过，105.13秒。首次lint3个证据JSON格式错误，只格式化文档后重跑lint成功：0error/1322warning/34info，size923/layer108、基线0。源码未变，不重复成功的完整测试。日志shared-bot-core/stage-8-final-*，最终lint为stage-8-final-lint-corrected.log。Cloud配套eed0b17完整根/server build/typecheck通过，全server206通过/0失败/0取消/0跳过。阶段9–11后续仍待实施，不将Worker结果冒充客户端/卡片/设备工具完成。

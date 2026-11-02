@@ -1,6 +1,6 @@
 import type { AgentConfig, YonderConfig } from "@yonder/bot-definition";
 import { allowsChannelInstance } from "@yonder/bot-definition/console";
-import type { Delivery, ExecutionOwner, NotificationIntent } from "@yonder/sdk";
+import type { Delivery, ExecutionOwner, NotificationIntent, TriggerIO } from "@yonder/sdk";
 import { channelOf, matches } from "../routing/matching.js";
 import { decideParticipation, type ParticipationHooks, socialBindingAllowed } from "../routing/social.js";
 import type { Sessions } from "../sessions/index.js";
@@ -34,7 +34,7 @@ export function outboundQueue({
 	participationHooks?: ParticipationHooks;
 }) {
 	let tail = Promise.resolve();
-	let timer: ReturnType<typeof setInterval> | undefined;
+	let dispose: (() => Promise<void>) | undefined;
 	const serialized = <T>(fn: () => Promise<T>): Promise<T> => {
 		const next = tail.then(fn);
 		tail = next.then(
@@ -245,13 +245,33 @@ export function outboundQueue({
 	return {
 		enqueue,
 		flush,
-		start: () => {
-			timer = setInterval(() => void flush().catch(() => {}), 60000);
-			timer.unref();
-			void flush().catch(() => {});
+		start: async (scheduler: ReturnType<typeof import("@yonder/sdk/trigger-scheduler").createTriggerScheduler>) => {
+			let io: TriggerIO;
+			dispose = await scheduler.start(
+				"core:outbound",
+				{
+					id: "outbound",
+					async start(value) {
+						io = value;
+						await flush();
+						await io.schedule(Date.now() + 60000);
+					},
+					async tick(now) {
+						try {
+							await flush();
+						} finally {
+							await io.schedule(now + 60000);
+						}
+					},
+					async stop() {
+						await io.schedule(undefined);
+					},
+				},
+				async (event) => store.events.record(event),
+			);
 		},
 		stop: async () => {
-			if (timer) clearInterval(timer);
+			await dispose?.();
 			await tail;
 		},
 	};

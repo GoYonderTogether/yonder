@@ -48,7 +48,7 @@ interface ChannelProvider {
 interface Channel {
   id: string;
   kinds: string[];                     // 会产生的 message.in kind，如 ['dm','group']
-  output: { stream: boolean; attachments: boolean };
+  output: { stream: boolean; attachments: boolean; singleResult?: boolean };
   start(io: ChannelIO): Promise<void>;
   stop(signal?: AbortSignal): Promise<void>;
   send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>; // conv: 发到会话；acct: 由渠道解析为该账号私聊
@@ -61,7 +61,17 @@ interface ChannelIO {
   ownerConnected(input: { account: Ref; conv: Ref; agent?: string }): Promise<YEvent>; // 已授权主人及可发送的真实私聊
 }
 interface AskResult { event: YEvent; results: RunResult[] }   // 每个被唤醒运行的 agent 一条；只旁观或未命中的 agent 没有
-interface OutMessage { text: string; attachments?: Attachment[]; replyTo?: string }   // replyTo：被回复的渠道原生消息 id
+interface OutMessage {
+  text: string;
+  deliveryId?: string;                 // 同一真实发送尝试的稳定标识，重试复用
+  sourceMessageId?: string;            // 自动回复的原用户消息，不强制引用
+  content?:
+    | { type: 'text' | 'markdown'; text: string; mentions?: string[]; mentionAll?: boolean }
+    | { type: 'error'; text: string }
+    | { type: 'interactive'; title: string; body: string; actions: Array<{id: string; label: string; link?: string}>; state: 'pending' | 'done'; link?: string };
+  attachments?: Attachment[];
+  replyTo?: string;                    // 被引用的渠道原生消息 id
+}
 interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boolean }           // id：渠道原生消息 id
 ```
 
@@ -69,6 +79,8 @@ interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boole
 - 实例配置里的密钥写成凭据名（例如 `credential: feishu-main`），插件用 `api.credentials.get` 读取（07 §6.2）。
 - 渠道只负责把外部消息变成 `message.in`、把输出交到外部。它**不**决定进哪个会话、要不要回复——那是绑定和投递的事（02、06）。
 - 外部系统调用 agent 并要拿到返回值（例如 MCP 服务端）时，渠道用 `io.ask`。
+- `output.singleResult` 表示渠道每条用户输入只接收一个最终回复或error，云端worker启用；不改变绑定或io.ask语义。同来源的即时模型工具发送明确返回失败并指导写入最终回复，不能先占结果槽后隐藏模型错误；跨会话主动消息仍沿原授权和deliveryId发送。中间模型回退提示不额外发送，本机普通渠道保持既有多段输出。官方卡片工具准备最终卡片时须如实说明仅已准备，最终投递仍由共享delivery完成。
+
 - 用户首次或重新授权完成后，渠道已确认主人的账号和可发送的真实私聊时，可调用 `ownerConnected`；内核固定插件来源并写入 `channel.connected`，按该渠道已有主人私聊绑定或 multiAgent 主人点名入口路由到对应 Bot 的 main，提醒其自主决定是否打招呼。只有 multiAgent 渠道可指定 agent。启动恢复、重连、查询及周期同步不调用；账号未确定或渠道不能发送时不调用。
 - `login(action, signal, verifyCode)` 的纯数字 verifyCode 由具体渠道解释；card 用它兑换网页主人发起的十位一次性邀请码（start/poll 均适用），见 16 §1；不增加公共登录参数。
 
@@ -138,12 +150,13 @@ interface RenderContext {
 interface TriggerIO {
   emit(e: EventInput): Promise<YEvent>;
   startedAt: number;                         // 宿主进程启动时点，不是每次 Bot 激活时点
-  schedule(at: number | undefined): void;    // 注册/移除下一次 tick，由宿主统一调度
+  schedule(at: number | undefined): Promise<void>; // 注册/移除下一次 tick；持久宿主落库后才完成
 }
 interface Trigger {
   id: string;
   start(io: TriggerIO): Promise<void>;
   tick?(now: number): Promise<void>;
+  busy?(): boolean;                    // 实际在途执行/持久化/投递尚未完成，供宿主生命周期判断
   stop(): Promise<void>;
 }
 ```
@@ -273,6 +286,8 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 memory 的已配置个人记忆 root 必须原样保留：本机 open(config.root) 绑定已有已校验用户库，PG 将该 root 作为当前插件/租户/Bot 内的虚拟树名。它不扩大模型的目录权限，原 capability/allowedRun 检查继续生效，不增加 core 的 memory 特判。
 
 tasks 旧 tasks.sqlite 只读导入完整事件账本，包含 seq/history/wake/audit/spend/digest/moment，经原 replay 校验后在新存储事务写入完成标记；失败不得标成功、删除或覆盖旧库。不按轮复制 SQLite blob。cron jobs/runs、market watch、channel-card 凭据/映射沿用旧文件名与语义。所有兼容/导入只作用于用户实际启动的宿主，本次验证仅临时数据，不触碰主人目录。
+
+创建、修改、取消计划以及start/tick/stop必须逐层await schedule；本机内存调度立即完成，PG调度在受租户/Bot限定的deadline写入或删除后完成。宿主调度器的忙状态包含未完成tick和trigger.busy；它是实际生命周期事实，不因模型已idle就把异步任务视为结束。LRU逐出仅解绑该实例的TriggerIO，随后stop不得删除持久deadline；用户真正取消计划仍在绑定状态删除，inactive Bot 到期由同一宿主扫描并激活。
 
 周期任务以插件的确定性 tick 注册到宿主唯一调度器，替代插件各自的常驻 interval；本机驱动已加载插件，云端唯一调度器扫描 PG 到期记录、按需激活 Bot 并调用相同 tick。保留真实 start/stop 的外部资源触发器；云端无环境时本机 inbox/微信采集明确不可用，不能偷偷开子进程或假称采集成功。无需另建调度平台；现有 cron/watch/moment 算法继续负责自身策略。
 

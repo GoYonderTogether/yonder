@@ -97,6 +97,7 @@ import {
 
 export { inspectToolCatalog } from "./catalog.js";
 export { submissionOutcome } from "./docs.js";
+export { noEnvironment } from "./no-environment.js";
 
 import type { RuntimeInput, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "../types.js";
 import type { TerminalUpdate } from "./terminal.js";

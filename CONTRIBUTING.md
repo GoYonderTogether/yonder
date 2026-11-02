@@ -14,7 +14,7 @@ packages/
   bot-core/ @yonder/bot-core  共享 createBot、路由/会话/投递/提示词/插件注册
   runtime-adapter/ @yonder/runtime-adapter  唯一 pi 运行实现，默认纯入口与 node/postgres 子路径
   local-host/ @yonder/local-host  本机启动、存储/环境、插件解析、控制与管理
-  cloud-host/ @yonder/cloud-host  PG 来源/插件存储与云端组合（worker 见实际实现）
+  cloud-host/ @yonder/cloud-host  PG 来源/插件存储、统一调度与单进程云端 worker
   core/     @yonder/core   旧路径兼容导出，不复制共享业务
   cli/      @yonder/cli    yonder 命令与终端界面
   macos/                   macOS 状态栏

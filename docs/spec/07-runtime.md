@@ -12,6 +12,7 @@
 ## 2. 存储
 
 - 事件账本、会话元数据、pi 转录与文档、模型健康和工具输出缓存通过运行状态存储接口访问。本机与云端使用同一运行循环，不复制转录，不建立第二套会话队列。
+- 本机组合入口 `openKernel(home, { environment: 'none' })` 可明确省略执行环境；默认不传保持原本机行为。此宿主组合参数使用与云端相同的noEnvironment，目录来源和单SQLite仍真实运行，不增加一套YAML配置或安装器。
 - 本机实现：一个 home 一个 SQLite 文件 `<home>/.yonder/state.db`，使用 Node 内置 `node:sqlite`。`openNodeSqliteDatabase(path)` 的同一个连接供 pi 的 `SqliteStorage.open(db, { prefix: 'pi_' })` 与 Yonder 的 `y_` 表使用；禁止对同一文件再开第二个连接。每个 home 的锁与本地控制接口保持不变。
 - 运行时接收 pi Storage 与领域 Store，不在共享运行循环硬编码 SQLite 打开或裸 SQL 读取。目录宿主以原同一连接构造 SQLite Storage；离线转录查询可以留本机入口。
 - 运行时 `maintenance(now)` 只执行既有模型健康探测与官方额度轮询 tick，不拥有定时器。本机 openKernel 把它登记到现有同一宿主调度器；worker 同样集中驱动。模型探测保留15秒检查节奏，官方额度保留60秒间隔及首次启用时的读取，不因合并调度加密网络轮询。新的 openNodeRuntime 不暗中起 timer；旧 core Runtime.open 兼容入口由 Node 宿主负责原有维护驱动并在 close 时清理。释放单个云 Bot 只解绑自身维护，不能停掉共享调度器。
