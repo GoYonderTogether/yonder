@@ -147,8 +147,9 @@ jobs:
           set -eu
           cd apps/desktop
           npx --no-install tauri ios build --target aarch64 --archive-only --build-number "$BUILD_NUMBER"
-          archive="$(find src-tauri/gen/apple/build -maxdepth 1 -name '*.xcarchive' | head -1)"
+          archive="$(find "$PWD/src-tauri/gen/apple/build" -maxdepth 1 -name '*.xcarchive' | head -1)"
           [ -n "$archive" ] || { echo "::error::no xcarchive was produced"; exit 1; }
+          # 绝对路径：后面的导出步骤在仓库根目录跑，相对 apps/desktop 的路径会失效。
           echo "ARCHIVE=$archive" >> "$GITHUB_ENV"
 
       # tauri 生成的 ExportOptions 不带 provisioningProfiles，导出会失败；这里写一份完整的。
