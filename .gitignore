@@ -7,6 +7,7 @@ HANDOFF.md
 .claude/
 
 .build/
+packages/windows-status/obj/
 deploy/node/local.env
 .pi/
 

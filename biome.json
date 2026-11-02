@@ -6,6 +6,7 @@
 			"!**/dist",
 			"!**/.build",
 			"!**/.cache",
+			"!packages/windows-status/obj",
 			"!.pi/tasks",
 			"!.vitest/json",
 			"!apps/desktop/src-tauri/gen",

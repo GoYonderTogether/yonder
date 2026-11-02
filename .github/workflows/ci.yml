@@ -189,7 +189,12 @@ jobs:
       - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json="${{ runner.temp }}/windows-failures.json"
       - run: npm run test:node
       - run: node --test scripts/release/auto-release.test.mjs
-      - run: npm run lint
+      - name: Lint
+        id: lint
+        run: npm run lint
+      - name: Show lint errors
+        if: ${{ failure() && steps.lint.outcome == 'failure' }}
+        run: npx biome check . --diagnostic-level=error
       # Load the checked-in binary, not a freshly compiled substitute.
       - uses: actions/setup-node@v4
         with:
