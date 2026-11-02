@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
@@ -232,6 +233,8 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(prepared.text).toContain("locale=zh-CN timezone=Asia/Shanghai");
 		expect(prepared.text).toContain("星期五");
 		expect(prepared.text).toContain("UTC 2026-10-23T06:00:00.000Z");
+		const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../cli/dist/index.js");
+		await access(cliPath);
 		const cliInput = await prepareInput(
 			row,
 			{ ...session, resolved: resolveProfile({ capabilities: ["exec"] }) },
@@ -240,9 +243,8 @@ test("custom events retain complete data and message labels cannot break the tur
 			{ ...options, offeredTools: () => ["bash"] },
 		);
 		expect(cliInput.text).toContain(
-			`management: scope=local access=local-exec home=${directory} version=${row.version}`,
+			`management: scope=local access=cli-via-exec home=${directory} version=${row.version} node=${process.execPath} nodeVersion=${process.version} cli=${cliPath}`,
 		);
-		expect(cliInput.text).toContain("cli=unknown");
 		const connection = newEvent({
 			type: "channel.connected",
 			from: "plugin:channel-card",
