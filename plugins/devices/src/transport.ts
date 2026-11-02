@@ -37,7 +37,12 @@ export class UnconfirmedRequest extends Error {
 	constructor(
 		readonly requestId: string,
 		readonly connectivity: "offline" | "unknown",
-		readonly diagnostic?: { stage: "exchange" | "authentication"; reason: string },
+		readonly diagnostic?: {
+			stage: "exchange" | "authentication";
+			reason: string;
+			verification?: string;
+			offsetMs?: number;
+		},
 	) {
 		super("No authenticated response; inspect the existing operation before retrying");
 	}
@@ -118,6 +123,24 @@ export async function rpc<M extends RpcRequest["method"]>(
 							? message
 							: "unconfirmed",
 			};
+			const cause = error instanceof Error ? error.cause : undefined;
+			if (stage === "authentication" && message === "UNAUTHORIZED" && cause && typeof cause === "object") {
+				const { verification, offsetMs } = cause as { verification?: unknown; offsetMs?: unknown };
+				if (
+					typeof verification === "string" &&
+					["key-id", "principal", "signature", "invalid-now", "future", "expired", "invalid-window"].includes(
+						verification,
+					)
+				) {
+					diagnostic.verification = verification;
+					if (
+						(verification === "future" || verification === "expired") &&
+						typeof offsetMs === "number" &&
+						Number.isSafeInteger(offsetMs)
+					)
+						diagnostic.offsetMs = offsetMs;
+				}
+			}
 			if (signal.aborted) break;
 		}
 	}

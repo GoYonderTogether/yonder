@@ -55,10 +55,12 @@ export function verifyMessage(
 ): RpcMessage {
 	if (!Check(SignedEnvelopeSchema, envelope)) throw new Error("INVALID_REQUEST");
 	const packet = envelope as SignedEnvelope;
-	if (packet.keyId !== publicKeyId(pairedKey)) throw new Error("UNAUTHORIZED");
-	if (expected.kind === "request" && packet.keyId !== expected.principalId) throw new Error("UNAUTHORIZED");
+	if (packet.keyId !== publicKeyId(pairedKey)) throw new Error("UNAUTHORIZED", { cause: { verification: "key-id" } });
+	if (expected.kind === "request" && packet.keyId !== expected.principalId)
+		throw new Error("UNAUTHORIZED", { cause: { verification: "principal" } });
 	const bytes = payloadBytes(packet.payloadBase64);
-	if (!verify(null, bytes, pairedKey, Buffer.from(packet.signatureBase64, "base64"))) throw new Error("UNAUTHORIZED");
+	if (!verify(null, bytes, pairedKey, Buffer.from(packet.signatureBase64, "base64")))
+		throw new Error("UNAUTHORIZED", { cause: { verification: "signature" } });
 	const parsed: unknown = JSON.parse(bytes.toString("utf8"));
 	if (!Check(RpcMessageSchema, parsed)) throw new Error("INVALID_REQUEST");
 	const message = parsed as RpcMessage;
@@ -70,14 +72,13 @@ export function verifyMessage(
 		(expected.requestId !== undefined && message.requestId !== expected.requestId)
 	)
 		throw new Error("WRONG_TARGET");
-	if (
-		!Number.isSafeInteger(expected.now) ||
-		message.issuedAt > expected.now ||
-		message.expiresAt <= expected.now ||
-		message.expiresAt <= message.issuedAt ||
-		message.expiresAt - message.issuedAt > MAX_MESSAGE_AGE_MS
-	)
-		throw new Error("UNAUTHORIZED");
+	if (!Number.isSafeInteger(expected.now)) throw new Error("UNAUTHORIZED", { cause: { verification: "invalid-now" } });
+	if (message.issuedAt > expected.now)
+		throw new Error("UNAUTHORIZED", { cause: { verification: "future", offsetMs: message.issuedAt - expected.now } });
+	if (message.expiresAt <= expected.now)
+		throw new Error("UNAUTHORIZED", { cause: { verification: "expired", offsetMs: message.expiresAt - expected.now } });
+	if (message.expiresAt <= message.issuedAt || message.expiresAt - message.issuedAt > MAX_MESSAGE_AGE_MS)
+		throw new Error("UNAUTHORIZED", { cause: { verification: "invalid-window" } });
 	return message;
 }
 

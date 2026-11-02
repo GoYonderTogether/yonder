@@ -363,6 +363,12 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 		[new Error("Execution HTTP status 400"), "Execution HTTP status 400"],
 		[Object.assign(new Error("private transport detail"), { code: "ECONNRESET" }), "ECONNRESET"],
 		[new Error("private transport detail"), "unconfirmed"],
+		[
+			new Error("UNAUTHORIZED", {
+				cause: { verification: "future", offsetMs: 1, payload: "private transport detail" },
+			}),
+			"UNAUTHORIZED",
+		],
 	])(
 		"keeps unconfirmed mutations unknown without replay and logs only safe diagnostics: %s",
 		async (failure, reason) => {
@@ -390,9 +396,58 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 			expect(error).toMatchObject({ diagnostic: { stage: "exchange", reason } });
 			expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN", connectivity: "unknown" });
 			expect(JSON.stringify(error)).not.toContain("private transport detail");
+			expect(error.diagnostic.verification).toBeUndefined();
 			expect(sends).toBe(1);
 		},
 	);
+	it("does not copy extra fields from a forged verification cause", async () => {
+		const { peer, ctx } = await setup();
+		const device = {
+			...peer.device,
+			routes: [
+				{
+					kind: "direct" as const,
+					exchange: async () => ({
+						algorithm: "Ed25519",
+						payloadBase64: "YQ==",
+						signatureBase64: "YQ==",
+						get keyId() {
+							throw new Error("UNAUTHORIZED", {
+								cause: {
+									verification: "future",
+									offsetMs: 1,
+									payload: "private transport detail",
+									key: "private transport detail",
+								},
+							});
+						},
+					}),
+				},
+			],
+		};
+		const error = await rpc(device, "device.describe", {}, ctx.signal).catch((error) => error);
+		expect(error.diagnostic).toEqual({
+			stage: "authentication",
+			reason: "UNAUTHORIZED",
+			verification: "future",
+			offsetMs: 1,
+		});
+		expect(JSON.stringify(error)).not.toContain("private transport detail");
+		expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+	});
+	it("retains only safe timing diagnostics from authenticated response verification", async () => {
+		const { peer, controller, ctx } = await setup();
+		peer.state.alterResponse = (r) => ({ ...r, issuedAt: Date.now() + 30_000, expiresAt: Date.now() + 60_000 });
+		const error = await controller.describe(peer.device.deviceId, ctx).catch((error) => error);
+		expect(error.diagnostic).toEqual({
+			stage: "authentication",
+			reason: "UNAUTHORIZED",
+			verification: "future",
+			offsetMs: expect.any(Number),
+		});
+		expect(error.diagnostic.offsetMs).toBeGreaterThan(0);
+		expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+	});
 	it("rejects wrong signed response identity and wrong result target, keeping unknown honest", async () => {
 		const { peer, controller, ctx } = await setup();
 		peer.state.alterResponse = (r) => ({ ...r, requestId: randomUUID() });
