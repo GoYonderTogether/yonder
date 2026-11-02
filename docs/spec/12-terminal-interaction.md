@@ -22,7 +22,7 @@ TUI 随 CLI 安装，不要求人另装插件。channel-cli 仍只负责常驻 a
 
 复用顺序：公开 UI 导出能直接使用就直接使用；与上游 AgentSession 耦合的部分，按 MIT 许可从同一 tag 提取最小完整 UI 模块，保留来源/版权/许可证与修改记录，仅适配数据读取、动作回调及本规范明确批准的角色标签/折叠呈现。不能为了避开包依赖重新设计同功能组件，也不能复制整套运行时来满足 UI 构造参数。pi-tui 是渲染基础，coding-agent UI 是产品界面基准；两者都需固定精确来源版本。
 
-允许 `packages/cli/` 使用 pi-tui 和明确列出的 coding-agent UI/主题/键位导出或提取模块。实现前记录具体文件与运行时耦合边界；不把整个 InteractiveMode 当作已经可接任意后端的独立组件。模型/会话运行包与 chord 仍只经 `packages/core/src/runtime/` 使用，插件仍只依赖 SDK。
+允许 `packages/cli/` 使用 pi-tui 和明确列出的 coding-agent UI/主题/键位导出或提取模块。实现前记录具体文件与运行时耦合边界；不把整个 InteractiveMode 当作已经可接任意后端的独立组件。模型/会话运行包与 chord 仍只经 `packages/runtime-adapter/` 使用，插件仍只依赖 SDK。
 
 ## 3. 入口与首次使用
 

@@ -151,4 +151,4 @@ guide/watch 支持 `0 < timeout <= 600`（默认 600 秒），status/request 不
 
 - `run` 等价 `task_run`（`options` 即其参数，支持 `effort` 等既有字段）；`status`、`stop` 需要 `options.id`（数字后台 id），分别等价 `task_control` 的 status 与 kill；`list` 只列本会话由 `task_run` 建的后台任务。
 - 委派规则与 `task_run` 完全一致：预设、`credentialSlots`、附件、两层嵌套上限与 admin 校验都沿用，不新增授权路径，也不放宽任何限额。
-- 工具 schema 进 `packages/core/src/tools/delegation.golden.json`；description 与 `promptGuidelines` 文案由提示词流程另写，本节不定。
+- 工具 schema 进 `packages/local-host/src/tools/delegation.golden.json`；description 与 `promptGuidelines` 文案由提示词流程另写，本节不定。

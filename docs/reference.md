@@ -61,7 +61,7 @@ Yonder Harness
 - `yonder-development`：任何独立代码仓库，所有改动都直接在主分支上进行，不迁出分支，不建 worktree 或独立环境。同一目录允许 10 到 30 个 Agent 并行，内容大致不重叠即可；重叠时改不同的行，或等 5 到 10 秒再改，顺带提交别人的改动也可以。只有两种情况需要独立环境：特定版本发版时为该版本建发版环境；一批任务完成后，主 Agent 安排检出当时的 commit 做验证，同时开始下一批。主 Agent 不写代码、不改代码文件，只改提示词、规约和文档，落地执行全部交给子 Agent。
 - `yonder-plugin-debug`：从指定入口执行短任务、核对工具/事件/产物并按需隔离复现；不增加插件，沿现有按需读取机制使用。
 - `yonder-self-management`：Yonder特有目录、配置、Agent/preset、权限和更新规约；不增加通用编码/GitHub教程。
-- 核心运行：pi模型循环、原生队列/回执、会话、身份、权限、绑定及共享投递由core/runtime承担。
+- 核心运行：pi模型循环、原生队列/回执、会话、身份、权限、绑定及共享投递由 bot-core 与 runtime-adapter 承担。
 - 原生工具：文件读写、Bash、grep及共享message_send/task_run/agent_ask等不重复包装成插件。
 - 用户入口：CLI/TUI、桌面客户端（加载线上站点）、安装更新、launchd和状态栏属于产品包，不是额外渠道插件。
 

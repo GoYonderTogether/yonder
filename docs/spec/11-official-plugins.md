@@ -4,7 +4,7 @@
 
 官方插件放在主仓库 `plugins/` 的独立 npm workspace 包；沿用现有清单、八个贡献槽、配置实例和 profile 选择。当前没有独立发布节奏的需要，不建立子模块或第二个插件仓库。将来独立发布可直接拆包，当前不增加兼容包装。
 
-插件可使用其功能所需的正常第三方依赖；Yonder 内部只依赖 `@yonder/sdk`，不 import core、pi 或兄弟插件内部代码。pi 运行时依赖仍只在 core/runtime。任何针对具体渠道/浏览器/搜索供应商的实现均在插件中。
+插件可使用其功能所需的正常第三方依赖；Yonder 内部只依赖 `@yonder/sdk`，不 import core、pi 或兄弟插件内部代码。pi 运行时依赖仍只在 packages/runtime-adapter。任何针对具体渠道/浏览器/搜索供应商的实现均在插件中。
 
 官方插件清单见 [plugins.md](../plugins.md)；cron、mcp-client、native-automation 的契约见 [14](14-execution-capabilities.md)。
 
@@ -56,7 +56,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - Bash 沿用 pi 原生工具，验证 cwd、取消、退出码、长输出与超时；只在真实不足处修适配，不另造终端执行器。
 - 新增真正可供模型调用的 grep：基于 ripgrep，支持模式/字面量、路径、文件过滤、大小写与结果数量，返回文件/行号/匹配文本及明确截断。使用固定程序与 argv，不把搜索文本拼成 shell。
 - grep 需要 read，作用域沿用文件工具真实路径规则；不能用只读 grep 调任意 shell，不能跟随符号链接绕过边界。缺 rg 时给出具体依赖诊断，不实现第二个递归搜索引擎。
-- 采用 OpenCode/Hermes 的成熟功能语义，在本项目 runtime 中适配已有 ExecutionEnv；这项基础工具允许进入 core/runtime，但不把插件供应商实现放进去。
+- 采用 OpenCode/Hermes 的成熟功能语义，在本项目 runtime 中适配已有 ExecutionEnv；这项基础工具允许进入 runtime-adapter，但不把插件供应商实现放进去。
 
 ### 5.2 Web 搜索（供应商回退）
 

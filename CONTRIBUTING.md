@@ -15,7 +15,6 @@ packages/
   runtime-adapter/ @yonder/runtime-adapter  唯一 pi 运行实现，默认纯入口与 node/postgres 子路径
   local-host/ @yonder/local-host  本机启动、存储/环境、插件解析、控制与管理
   cloud-host/ @yonder/cloud-host  PG 来源/插件存储、统一调度与单进程云端 worker
-  core/     @yonder/core   旧路径兼容导出，不复制共享业务
   cli/      @yonder/cli    yonder 命令与终端界面
   macos/                   macOS 状态栏
 plugins/                   官方插件，每个是独立 npm workspace 包，只依赖 @yonder/sdk
@@ -81,7 +80,7 @@ node scripts/bundle-pi-ai.mjs /absolute/artifacts/manifest.json
 npm install --package-lock-only --ignore-scripts
 npm ci --ignore-scripts
 node scripts/check-pi-ai-bundle.mjs
-node node_modules/typescript/bin/tsc -b packages/pi-durable packages/sdk packages/core packages/cli --force
+node node_modules/typescript/bin/tsc -b packages/pi-durable packages/sdk packages/runtime-adapter packages/bot-core packages/local-host packages/cli --force
 ```
 
 打包脚本要求 clean、精确同源的 artifact manifest。根 direct dependency 用仓库内相对 tarball 路径，并以 npm `$` override 统一直接/传递依赖；不要把 `/tmp` 或外部 checkout 写入依赖。构建前 guard 检查唯一 ai resolution 与同源 hash。新 tarball、provenance、MIT LICENSE、根 package.json 与 package-lock 必须一起提交。正式 tag 的干净 clone 无需 pi checkout 或本地 artifact 目录；重建 tarball 才需要 fork 构建输入。

@@ -238,7 +238,7 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 | `outsiders.publicDocs` | 路径数组 | 主人标记为公开、外人只能读这些目录或条目 |
 | `defaults.channelPolicy` | `open`（默认）或 `closed` | 未配白名单的渠道：放行走外人额度，或只允许主人与白名单 |
 
-这些键的机器可读形状由 `packages/core/src/config/schema.golden.json` 守护（20 §5），改键即改 golden。控制面通过 `config.get` 的 `home` 视图读取，通过 `config.update` 的 home 白名单写入（contracts.md「O51 IMP-34 运行期契约同步」）；home 段写入需要重启内核才生效，agent 段写入即时重载。
+这些键的机器可读形状由 `packages/local-host/src/config/schema.golden.json` 守护（20 §5），改键即改 golden。控制面通过 `config.get` 的 `home` 视图读取，通过 `config.update` 的 home 白名单写入（contracts.md「O51 IMP-34 运行期契约同步」）；home 段写入需要重启内核才生效，agent 段写入即时重载。
 
 `agents/<id>/agent.yaml` 的可选键另有：配置档或 defaults 内的 `limits.maxTokens`（正整数），以及本文件下文社交策略中的 `social` 段。
 
