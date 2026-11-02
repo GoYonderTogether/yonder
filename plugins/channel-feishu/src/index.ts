@@ -2,6 +2,7 @@ import {
 	type Attachment,
 	allowsChannelInstance,
 	assertChannelInstance,
+	conv,
 	definePlugin,
 	type PluginAPI,
 	parseRef,
@@ -206,6 +207,79 @@ export default definePlugin({
 					return { text: JSON.stringify({ source: "Feishu", chat, ...result }) };
 				} catch (error) {
 					return { text: error instanceof Error ? error.message : "Feishu history failed", isError: true };
+				}
+			},
+		});
+		register({
+			name: "channel-feishu_chats",
+			description:
+				"Find a real group chat by its natural name and return its Feishu chat ID and complete conv reference for other channel tools. Reads one bounded page of groups visible to the selected Feishu bot; direct chats are excluded by Feishu. If names are duplicated, inspect all returned matches and ask for clarification rather than choosing the first. A name filter applies to this page only; when hasMore is true, continue with nextPageToken before treating a name as unique or absent. Missing permission guidance points to channel-feishu_scopes. Does not read messages or members, join chats, change configuration, or send messages.",
+			parameters: {
+				type: "object",
+				additionalProperties: false,
+				required: ["instance"],
+				properties: {
+					instance: str,
+					name: { type: "string", minLength: 1, maxLength: 200 },
+					pageToken: str,
+					pageSize: { type: "integer", minimum: 1, maximum: 100 },
+				},
+			} as TSchema,
+			capabilities: ["read", "network", "admin"],
+			async execute(input, ctx) {
+				let channel: FeishuChannel | undefined;
+				try {
+					const resolved = resolve(input, ctx);
+					const selected = resolved.channel;
+					channel = selected;
+					if (!ctx.capabilities.includes("admin")) throw new Error("Listing Feishu groups requires admin");
+					const params = new URLSearchParams({
+						page_size: String(typeof resolved.args.pageSize === "number" ? resolved.args.pageSize : 50),
+						...(string(resolved.args.pageToken) ? { page_token: string(resolved.args.pageToken) } : {}),
+					});
+					const data = object(
+						(await selected.client.request(`/im/v1/chats?${params}`, "GET", undefined, ctx.signal)).data,
+					);
+					if (!Array.isArray(data.items)) throw new Error("Feishu chat list omitted items");
+					const name = string(resolved.args.name).trim().toLocaleLowerCase();
+					const items = data.items.flatMap((value) => {
+						const row = object(value),
+							chatId = string(row.chat_id).trim(),
+							chatName = string(row.name).trim();
+						if (
+							!chatId ||
+							!chatName ||
+							string(row.chat_mode) === "p2p" ||
+							(name && !chatName.toLocaleLowerCase().includes(name))
+						)
+							return [];
+						return [{ name: chatName, chatId, conv: conv(selected.id, chatId) }];
+					});
+					const counts = new Map<string, number>();
+					for (const item of items) counts.set(item.name, (counts.get(item.name) ?? 0) + 1);
+					const hasMore = data.has_more === true;
+					return {
+						text: JSON.stringify({
+							ok: true,
+							items,
+							ambiguousNames: [...counts].filter(([, count]) => count > 1).map(([value]) => value),
+							hasMore,
+							truncated: hasMore,
+							...(hasMore ? { nextPageToken: required(data.page_token, "Chat next page token") } : {}),
+						}),
+					};
+				} catch (error) {
+					return {
+						text: JSON.stringify({
+							ok: false,
+							error:
+								error instanceof FeishuRequestError
+									? error.message
+									: (channel?.client.safe(error) ??
+										(error instanceof Error ? error.message : "Feishu group listing failed")),
+						}),
+						isError: true,
+					};
 				}
 			},
 		});

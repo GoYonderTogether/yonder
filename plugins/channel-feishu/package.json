@@ -37,6 +37,7 @@
 			],
 			"tools": [
 				"channel-feishu_status",
+				"channel-feishu_chats",
 				"channel-feishu_history",
 				"channel-feishu_scopes",
 				"channel-feishu_card",
