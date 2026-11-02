@@ -33,6 +33,7 @@
 				"devices_open",
 				"devices_observe",
 				"devices_execute",
+				"devices_operation",
 				"devices_status",
 				"devices_cancel",
 				"devices_close"

@@ -4,6 +4,7 @@ import { getOrThrow } from "@earendil-works/pi-durable/env";
 import { DEFAULT_IMAGE_LIMITS, type ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type { ExecutionEnv, Models } from "@yonder/sdk";
 import { imageMime } from "./attachments.js";
+import { localEnvironment } from "./env.js";
 import { imageData } from "./output.js";
 import type { RuntimeInput, RuntimeSessionConfig } from "./types.js";
 
@@ -17,7 +18,8 @@ export async function inputContent(
 	modelsFor: (config: RuntimeSessionConfig) => Promise<Models>,
 	imageProcessor: () => Promise<ImageProcessor>,
 ) {
-	const env = environment(config);
+	const execution = environment(config);
+	const env = execution.id.startsWith("device:") ? localEnvironment(process.cwd()) : execution;
 	const content: Array<{ type: "text"; text: string } | { type: "image"; mimeType: string; data: string }> = [
 		{ type: "text", text: input.text },
 	];

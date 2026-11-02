@@ -5,6 +5,7 @@ import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
 import { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type { ExecutionEnv, Models, ToolContext } from "@yonder/sdk";
+import { wrapCloudCredentials } from "./cloud-models.js";
 import { cid, ModelBindingDoc, RunDoc, SessionDoc } from "./docs.js";
 import { localEnvironment } from "./env.js";
 import type { RuntimeInternals } from "./instance.js";
@@ -13,6 +14,7 @@ import { accountKey } from "./model-quota.js";
 import { buildModels } from "./models.js";
 import { Outbox } from "./outbox.js";
 import { modelTimeouts, retryPolicy } from "./recovery.js";
+import { remoteEnvironment } from "./remote-env.js";
 import type { RuntimeOptions } from "./runtime-options.js";
 import type { RuntimeSessionConfig } from "./types.js";
 
@@ -100,10 +102,13 @@ export function modelsFor(rt: RuntimeInternals, config: RuntimeSessionConfig): P
 			const selection = Object.freeze({ ...config.resolved.credentialSlots });
 			const aliases = fallbackAliases(config.resolved.fallback, selection, config.resolved.model);
 			config.credentialGenerations ??= await rt.credentialSlots.capture(selection, aliases);
-			const credentials = rt.credentialSlots.bind(selection, config.credentialGenerations, aliases);
+			const credentials = wrapCloudCredentials(
+				rt.credentialSlots.bind(selection, config.credentialGenerations, aliases),
+				new Map(rt.cloud.apiKeys),
+			);
 			const models = buildModels(
 				credentials,
-				rt.options.config.models?.providers,
+				{ ...rt.options.config.models?.providers, ...rt.cloud.providers },
 				selection,
 				aliases,
 				{
@@ -129,6 +134,7 @@ export function modelsFor(rt: RuntimeInternals, config: RuntimeSessionConfig): P
 	return pending;
 }
 export function environment(rt: RuntimeInternals, config: RuntimeSessionConfig): ExecutionEnv {
+	if (config.resolved.env.startsWith("device:")) return remoteEnvironment(rt, config, config.resolved.env.slice(7));
 	if (config.resolved.env === "local") return localEnvironment(config.cwd);
 	const env = rt.options.envs?.get(config.resolved.env);
 	if (!env) throw new Error(`Unknown execution environment: ${config.resolved.env}`);
@@ -145,6 +151,7 @@ export async function toolContext(rt: RuntimeInternals, id: string, context: Con
 		profile: config.profile,
 		session: id,
 		capabilities: [...config.resolved.capabilities],
+		...(config.resources ? { resources: structuredClone(config.resources) } : {}),
 		...(config.resolved.channelInstances === undefined
 			? {}
 			: { channelInstances: [...config.resolved.channelInstances] }),

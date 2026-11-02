@@ -6,6 +6,7 @@ import { offlineQuery, requestControl } from "@yonder/core";
 export const usage = `Usage: yonder <command> [options]
 
 Commands:
+  rpc <method> [params-json] --home <dir>  当前运行宿主控制面 · Registered control API
   init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]  初始化数据目录 · Create a home
   channels list|login [instance] [--open] [--replace]  渠道列表 / 登录操作 · List / login (list login means supported, not online)
   login <provider> [--slot <name>] [--method oauth|api_key] [--replace]  登录模型账号

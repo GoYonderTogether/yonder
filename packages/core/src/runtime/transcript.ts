@@ -1,6 +1,6 @@
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import type { Conversation, EntryId, EntryRecord } from "@earendil-works/pi-durable";
-import type { TranscriptItem } from "@yonder/sdk";
+import type { Attachment, TranscriptItem } from "@yonder/sdk";
 import type { Db } from "./db.js";
 import { notificationOf } from "./notifications.js";
 
@@ -15,12 +15,14 @@ export function entryText(entry: EntryRecord | undefined): string {
 }
 export function transcriptItem(entry: EntryRecord): TranscriptItem {
 	const notification = notificationOf(entry);
+	const attachments = (entry.data as { attachments?: Attachment[] } | undefined)?.attachments;
 	const prepared =
 		entry.kind === "yonder.prepared" ? entry.edits?.find((edit) => edit.action === "replace") : undefined;
 	const messages = prepared && "messages" in prepared ? prepared.messages : entry.model;
 	const timestamp = messages?.find((message) => typeof message.timestamp === "number")?.timestamp;
 	return {
 		...(notification ? { from: notification.from } : {}),
+		...(attachments?.length ? { attachments } : {}),
 		id: Number(entry.id),
 		kind: entry.kind,
 		text: notification?.text ?? entryText(entry),

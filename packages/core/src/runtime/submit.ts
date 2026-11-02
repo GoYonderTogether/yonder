@@ -7,6 +7,7 @@ import type { RuntimeInternals } from "./instance.js";
 import { notificationRequestId, writeNotification } from "./notifications.js";
 import { projectOutput } from "./output.js";
 import type { RuntimeInput, RuntimeRun } from "./types.js";
+import { isOwnerWorkbenchInput } from "./workbench-options.js";
 
 export async function notificationRecorded(rt: RuntimeInternals, id: string, from: string, event: string) {
 	return Boolean(await rt.storage.submissionByRequest(cid(id), notificationRequestId(from, event), C));
@@ -21,6 +22,9 @@ export async function submit(
 	accepted?: () => void,
 ): Promise<RuntimeRun> {
 	const conversation = await rt.conversation(id);
+	// Non-owner channel input must start its own run, never steer an elevated owner snapshot.
+	if (rt.currentConfig(id)?.ownerWorkbench && !isOwnerWorkbenchInput(input.event))
+		input = { ...input, busy: "followup" };
 	const requestId = input.requestId ?? (input.event ? `event:${input.event.id}` : undefined);
 	const existing = requestId ? await rt.storage.submissionByRequest(cid(id), requestId, C) : undefined;
 	const content = [{ type: "text" as const, text: input.text }];

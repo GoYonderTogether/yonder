@@ -1,5 +1,9 @@
 import type { AgentsAPI } from "./agent-bindings.js";
 import type { Attachment, TranscriptItem } from "./messages.js";
+import type { ToolContext } from "./tool-context.js";
+
+export type { ToolContext } from "./tool-context.js";
+
 import type { WorkControl } from "./work-control.js";
 
 export type * from "./agent-bindings.js";
@@ -309,23 +313,6 @@ export interface Tool {
 	parameters: TSchema;
 	capabilities: Capability[];
 	execute(args: unknown, ctx: ToolContext): Promise<ToolResult>;
-}
-export interface ToolContext {
-	agent: string | null;
-	profile: string;
-	session: string;
-	capabilities: Capability[];
-	/** Effective scope from the real run configuration, not inferred from input events. */
-	channelInstances?: string[];
-	env: ExecutionEnv;
-	event?: YEvent;
-	/** Actual inputs of this native run, including placed steer inputs. */
-	events?: YEvent[];
-	signal: AbortSignal;
-	cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>;
-	cacheToolOutputStream?(chunks: AsyncIterable<Uint8Array>, options?: { extension?: string }): Promise<string>;
-	/** Authorize a file write using the active run policy. */
-	authorizeFileWrite?(path: string): Promise<void>;
 }
 export interface ToolResult {
 	text: string;

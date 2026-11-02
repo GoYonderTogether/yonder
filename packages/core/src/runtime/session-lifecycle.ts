@@ -49,6 +49,7 @@ export async function sessionState(rt: RuntimeInternals, id: string): Promise<Ru
 	const state = await rt.harness.snapshot(SessionDoc, cid(id), C);
 	if (!state) return;
 	return {
+		...(state.workbench ? { workbench: structuredClone(state.workbench) } : {}),
 		...(state.judgment ? { judgment: true } : {}),
 		...(state.models ? { models: structuredClone(state.models) } : {}),
 		agent: state.agent,
@@ -65,10 +66,11 @@ export async function setSessionState(rt: RuntimeInternals, id: string, state: R
 	await (await rt.conversation(id)).commit(async (tx) => {
 		Object.assign(await tx.doc(SessionDoc, cid(id)), {
 			...state,
+			workbench: state.workbench ?? null,
 			capabilities: state.capabilities ?? null,
 			channelInstances: state.channelInstances ?? null,
 			inherit: state.inherit ?? null,
 		});
 	}, C);
-	rt.configured.delete(id);
+	if (!(await rt.hasPendingWork(id))) rt.configured.delete(id);
 }

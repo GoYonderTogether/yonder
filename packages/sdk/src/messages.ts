@@ -31,6 +31,7 @@ export interface MessageInData {
 }
 
 export interface TranscriptItem {
+	attachments?: Attachment[];
 	from?: string;
 	timestamp?: number;
 	/** Existing prepared-input edit, attached to its original transcript entry. */

@@ -39,6 +39,7 @@ import {
 	hasOtherBackgroundWork,
 } from "./background-query.js";
 import { capabilityMap } from "./catalog.js";
+import { refreshRuntimeCloudModels, wrapCloudCredentials } from "./cloud-models.js";
 import { CredentialSlotStore } from "./credential-slots.js";
 import { credentialPath, type FileCredentials } from "./credentials.js";
 import { runTask } from "./delegation.js";
@@ -128,6 +129,10 @@ export { readTranscript } from "./transcript.js";
 export type * from "./types.js";
 
 export class Runtime {
+	readonly cloud = {
+		providers: {} as Record<string, import("./models.js").ModelsJsonProvider>,
+		apiKeys: new Map<string, string>(),
+	};
 	private settledEvents = new Map<string, string>();
 	private harness!: Harness;
 	private outbox!: Outbox;
@@ -146,7 +151,12 @@ export class Runtime {
 	private toolGuidelines = new Map<string, readonly string[]>();
 	private invocationConfigs = new WeakMap<
 		Context,
-		{ config: RuntimeSessionConfig; events: import("@yonder/sdk").YEvent[] }
+		{
+			config: RuntimeSessionConfig;
+			operationPrefix?: string;
+			operationSequence: number;
+			events: import("@yonder/sdk").YEvent[];
+		}
 	>();
 	private extensions = new Map<string, Extension>();
 	private tools = new Map<string, ToolRegistration>();
@@ -165,7 +175,7 @@ export class Runtime {
 	readonly credentials: FileCredentials;
 	private readonly policy: ToolPolicy;
 	private readonly limits: RunLimits;
-	readonly models: Models;
+	readonly models: ReturnType<typeof buildModels>;
 	private constructor(private options: RuntimeOptions) {
 		const authPath = credentialPath(options.home, options.config.credentials);
 		this.credentialSlots = new CredentialSlotStore(authPath);
@@ -180,7 +190,11 @@ export class Runtime {
 			quota: this.quota,
 			gate: this.gate,
 			models: (selection) =>
-				buildModels(this.credentialSlots.bind(selection), this.options.config.models?.providers, selection),
+				buildModels(
+					wrapCloudCredentials(this.credentialSlots.bind(selection), this.cloud.apiKeys),
+					{ ...this.options.config.models?.providers, ...this.cloud.providers },
+					selection,
+				),
 			onHealth: (event) => this.options.onModelHealth?.(event),
 			onReport: (error) => this.options.onReport?.(error),
 		});
@@ -231,13 +245,17 @@ export class Runtime {
 	}
 	static async open(options: RuntimeOptions): Promise<Runtime> {
 		const runtime = new Runtime(options);
+		await runtime.refreshModels();
 		await openRuntime(runtime.rt, options);
 		return runtime;
+	}
+	async refreshModels(): Promise<void> {
+		await refreshRuntimeCloudModels(this.rt);
 	}
 	private modelsFor(config: RuntimeSessionConfig): Promise<Models> {
 		return modelsFor(this.rt, config);
 	}
-	private environment(config: RuntimeSessionConfig): ExecutionEnv {
+	environment(config: RuntimeSessionConfig): ExecutionEnv {
 		return environment(this.rt, config);
 	}
 	private async context(id: string, context: Context): Promise<ToolContext> {

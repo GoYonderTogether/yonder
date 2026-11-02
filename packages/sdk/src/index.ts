@@ -2,6 +2,7 @@ import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/conte
 import type { ChannelProvider, ContextContribution, Hook, PluginModule, Ref, Tool, Trigger } from "./types.js";
 
 export type * from "./types.js";
+export type * from "./workbench.js";
 export const executionContext = (signal: AbortSignal) => withAbortSignal(signal, BACKGROUND_CONTEXT);
 export const definePlugin = <T extends PluginModule>(value: T): T => value;
 export const defineChannel = <T extends ChannelProvider>(value: T): T => value;

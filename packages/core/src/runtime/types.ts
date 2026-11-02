@@ -15,6 +15,9 @@ import type { Binding, ResolvedProfile, YonderConfig } from "../config/index.js"
 import type { Db } from "./db.js";
 import type { TodoUpdatedEvent } from "./todo.js";
 export interface RuntimeSessionConfig {
+	ownerWorkbench?: boolean;
+	sessionId?: string;
+	resources?: import("@yonder/sdk").WorkspaceResource[];
 	agent: string | null;
 	profile: string;
 	/** Stored session mode when this resolves a real session rather than a profile preview. */
@@ -41,6 +44,14 @@ export interface RuntimeOptions {
 	plugins?: Array<{ id: string; tools: Tool[]; hooks: Hook[] }>;
 	tools?: Tool[];
 	envs?: Map<string, ExecutionEnv>;
+	deviceOperation?(
+		config: RuntimeSessionConfig,
+		deviceId: string,
+		commandId: string,
+		action: string,
+		args: Record<string, unknown>,
+		signal: AbortSignal,
+	): Promise<unknown>;
 	resolveSession(id: string): Promise<RuntimeSessionConfig>;
 	/** System prompt parts in order; keyed parts become their own pi section when `sectionKeys` declares the key. */
 	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<Array<string | PromptPart>>;
@@ -129,6 +140,7 @@ export interface RuntimeRun {
 }
 
 export interface RuntimeSessionState {
+	workbench?: import("@yonder/sdk").SessionWorkbenchOptions;
 	judgment?: boolean;
 	models?: SessionModels;
 	close?: "run-end" | "manual";

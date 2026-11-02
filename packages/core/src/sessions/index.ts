@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import type { Capability, Input, InputReceipt, Preset, RunResult, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
 import {
 	type AgentConfig,
-	mergeCredentialSlots,
 	presetProfile,
 	presetSession,
 	type ResolvedProfile,
@@ -12,6 +11,7 @@ import {
 } from "../config/index.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "../runtime/index.js";
 import { taskReport } from "../runtime/results.js";
+import { configuredWorkbenchSession } from "../runtime/workbench-options.js";
 import type { Store } from "../store/index.js";
 import { createBranches } from "./branches.js";
 import { notifySession, recoverSessionInputs } from "./inputs.js";
@@ -35,7 +35,6 @@ interface CreateSessionsOptions {
 	forward?: Forward;
 	onReport?: (error: unknown) => void;
 }
-
 export function createSessions({
 	store,
 	agents,
@@ -64,7 +63,6 @@ export function createSessions({
 		if (!entry) throw new Error(`Unknown agent workspace: ${agent}`);
 		return { cwd: resolve(home, entry.workspace), env: entry.env ?? "local" };
 	};
-
 	async function resolveBaseSession(id: string): Promise<RuntimeSessionConfig> {
 		const row = await store.sessions.get(id);
 		if (!row) throw new Error(`Unknown session: ${id}`);
@@ -111,20 +109,8 @@ export function createSessions({
 			owner: agent.owner,
 		};
 	}
-
 	async function resolveSession(id: string): Promise<RuntimeSessionConfig> {
-		const base = await resolveBaseSession(id);
-		const override = (await runtime().sessionState(id))?.models;
-		return override
-			? {
-					...base,
-					resolved: {
-						...base.resolved,
-						...override,
-						credentialSlots: mergeCredentialSlots(base.resolved.credentialSlots, override.credentialSlots),
-					},
-				}
-			: base;
+		return configuredWorkbenchSession(await resolveBaseSession(id), id, await runtime().sessionState(id));
 	}
 	async function command(id: string, command: string): Promise<string> {
 		const session = await store.sessions.get(id);
@@ -219,7 +205,6 @@ export function createSessions({
 			].join("\n")
 		);
 	}
-
 	async function createAgentSession(agentId: string, profileName: string, key: string, mode: SessionInfo["mode"]) {
 		if (agents.get(agentId)?.archivedAt) throw new Error(`Agent archived: ${agentId}`);
 		const lock = `${agentId}\0${key}`;
@@ -260,7 +245,6 @@ export function createSessions({
 			opening.delete(lock);
 		}
 	}
-
 	async function closeSession(id: string, reason = "closed"): Promise<void> {
 		const session = await store.sessions.get(id);
 		if (!session) throw new Error(`Unknown session: ${id}`);
@@ -272,7 +256,6 @@ export function createSessions({
 			data: { session: id, reason },
 		});
 	}
-
 	async function failInput(session: SessionInfo, event: YEvent, error: unknown): Promise<RunResult> {
 		onReport(error);
 		const reason = error instanceof Error ? error.message : String(error);
@@ -361,10 +344,8 @@ export function createSessions({
 	}
 	const recover = () => recoverSessionInputs(store, runtime, submitTaskEvent, onReport);
 	const { withPolicy, list } = sessionProjection(store, runtime, agents);
-
 	const notifyFrom = (id: string, input: { event: string; text: string }, from: string) =>
 		notifySession(store, runtime, closing, id, input, from);
-
 	const overview = botOverview(config, agents, store, withPolicy);
 	const workbench = createWorkbench({
 		store,
@@ -422,6 +403,14 @@ export function createSessions({
 				...(inherit ? { inherit } : {}),
 				close: request.close ?? "run-end",
 			});
+			if (parentProfile?.resources) {
+				const state = await runtime().sessionState(id);
+				if (state)
+					await runtime().setSessionState(id, {
+						...state,
+						workbench: { resources: structuredClone(parentProfile.resources) },
+					});
+			}
 			if (sourceProfile) {
 				const state = await runtime().sessionState(id);
 				if (!state) throw new Error(`Missing runtime session state: ${id}`);

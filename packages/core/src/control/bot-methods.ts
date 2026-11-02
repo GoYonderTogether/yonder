@@ -9,6 +9,8 @@ function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
 	return def as unknown as MethodDef;
 }
 
+import type { Attachment } from "@yonder/sdk";
+import { AttachmentSchema } from "./attachments-methods.js";
 import { dedupe } from "./submit-dedupe.js";
 
 export const botMethods: MethodDef[] = [
@@ -22,10 +24,17 @@ export const botMethods: MethodDef[] = [
 	define({
 		name: "bots.send",
 		scope: "owner",
-		params: obj({ agent: text, text, requestId: Type.Optional(text) }),
+		params: obj({
+			agent: text,
+			text: Type.String(),
+			requestId: Type.Optional(text),
+			attachments: Type.Optional(Type.Array(AttachmentSchema, { maxItems: 10 })),
+		}),
 		since: 1,
 		async handler(p, ctx) {
-			const run = () => ctx.kernel.bots.send(p.agent, p.text);
+			if (!p.text.trim() && !p.attachments?.length)
+				throw new MethodError("invalid_params", "Message or attachment required");
+			const run = () => ctx.kernel.bots.send(p.agent, p.text, p.attachments as Attachment[] | undefined);
 			return p.requestId ? dedupe(`bot:${p.agent}`, p.requestId, run) : run();
 		},
 	}),

@@ -1,6 +1,7 @@
 import { Errors } from "typebox/value";
 import { activityMethods } from "./activity-methods.js";
 import { approvalsMethods } from "./approvals-methods.js";
+import { attachmentsMethods } from "./attachments-methods.js";
 import { botMethods } from "./bot-methods.js";
 import { capabilitiesMethods } from "./capabilities-methods.js";
 import { catalogMethods } from "./catalog-methods.js";
@@ -14,6 +15,7 @@ import { sessionOpenMethods } from "./session-open-methods.js";
 import { socialMethods } from "./social-methods.js";
 import { updateMethods } from "./update-methods.js";
 import { viewsMethods } from "./views-methods.js";
+import { workbenchOptionsMethods } from "./workbench-options-methods.js";
 
 export * from "./method-types.js";
 
@@ -31,6 +33,8 @@ const defs: MethodDef[] = [
 	...botMethods,
 	...updateMethods,
 	...socialMethods,
+	...workbenchOptionsMethods,
+	...attachmentsMethods,
 ];
 
 export interface MethodFacts {

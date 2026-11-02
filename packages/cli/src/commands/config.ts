@@ -25,6 +25,18 @@ function currentInspectContext(home: string) {
 
 /** `agents`/`presets`, `plugins`/`models`/`inspect` and `skills`: management over the control socket. */
 export async function runConfig(command: string, options: Options, rest: string[]): Promise<number | undefined> {
+	if (command === "rpc") {
+		if (!rest[0] || rest.length > 2)
+			throw new UsageError("Usage: yonder rpc <method> [params-json] --home <runtime-home>");
+		const params: unknown = rest[1] ? JSON.parse(rest[1]) : {};
+		if (!params || typeof params !== "object" || Array.isArray(params))
+			throw new UsageError("RPC params must be a JSON object");
+		return print(
+			managed(homeFor(options), { method: rest[0], params: params as Record<string, unknown> }, true),
+			options.json,
+		);
+	}
+
 	if (command === "agents" || command === "presets") {
 		const operation = rest[0];
 		const usage = `Usage: yonder ${command} list|show <id>|create <id> --file <json> [--preset <id>]|update <id> --file <json>|validate <id> --file <json>|${command === "agents" ? "archive|remove|restore" : "remove"} <id>`;

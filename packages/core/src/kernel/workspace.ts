@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import type { ExecutionEnv } from "@yonder/sdk";
 import {
 	type AgentConfig,
 	loadAgentConfig,
@@ -97,8 +98,11 @@ export function projectRulesFor(
 	plugins: LoadedPlugins,
 	session: RuntimeSessionConfig,
 	signal?: AbortSignal,
+	execution?: ExecutionEnv,
 ) {
-	const env = session.resolved.env === "local" ? localEnvironment(session.cwd) : plugins.envs.get(session.resolved.env);
+	const env =
+		execution ??
+		(session.resolved.env === "local" ? localEnvironment(session.cwd) : plugins.envs.get(session.resolved.env));
 	if (!env) throw new Error(`Unknown execution environment: ${session.resolved.env}`);
 	const globalDir = resolve(homedir(), ".pi/agent");
 	return projectRules(env, session.cwd, localEnvironment(globalDir), globalDir, signal);

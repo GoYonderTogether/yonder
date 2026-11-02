@@ -22,10 +22,21 @@ import {
 	UiSnapshotSchema,
 } from "@yonder/sdk";
 import { Check } from "typebox/value";
+import { operate } from "./operations.js";
 import { ControllerStore } from "./store.js";
 import { type DeviceRegistry, type RegisteredDevice, RemoteError, rpc, UnconfirmedRequest } from "./transport.js";
 
 export const executeCapabilities: ExecutionCapability[] = ["read", "write", "exec", "network", "message"];
+const fileReadActions = new Set(["fs.stat", "fs.canonical", "fs.list", "fs.read"]);
+const fileWriteActions = new Set(["fs.write", "fs.mkdir", "fs.remove", "fs.rename", "fs.truncate", "fs.flush"]);
+const actionCaps = (action: string): ExecutionCapability[] =>
+	fileReadActions.has(action)
+		? ["read", "network"]
+		: fileWriteActions.has(action)
+			? ["read", "write", "network"]
+			: action === "process.exec"
+				? ["read", "exec", "network"]
+				: executeCapabilities;
 const readCapabilities: ExecutionCapability[] = ["read", "network"];
 function requireCaps(ctx: ToolContext, caps: readonly ExecutionCapability[]): void {
 	ctx.signal.throwIfAborted();
@@ -45,6 +56,7 @@ function checked<T>(schema: TSchema, value: unknown): T {
 
 export class DeviceController {
 	readonly store: ControllerStore;
+	private operationSessions = new Map<string, Promise<DeviceSession>>();
 	constructor(
 		data: string,
 		private readonly registry: DeviceRegistry,
@@ -63,6 +75,7 @@ export class DeviceController {
 		return device;
 	}
 	private grants(device: RegisteredDevice, ctx: ToolContext, capability: "read" | "exec" = "read"): Grant[] {
+		if (ctx.resources?.length && !ctx.resources.some((resource) => resource.deviceId === device.deviceId)) return [];
 		const principalId = publicKeyId(device.controllerKey);
 		return device.grants.filter(
 			(g) =>
@@ -97,6 +110,8 @@ export class DeviceController {
 					deviceId: device.deviceId,
 					name: device.name,
 					grants: grants.map((grant) => ({
+						readRoots: [...grant.readRoots],
+						writeRoots: [...grant.writeRoots],
 						targetIds: [...grant.targetIds],
 						capabilities: executeCapabilities.filter(
 							(capability) => ctx.capabilities.includes(capability) && grant.capabilities.includes(capability),
@@ -272,7 +287,12 @@ export class DeviceController {
 		args: Record<string, unknown>,
 		ctx: ToolContext,
 	): Promise<CommandReceipt> {
-		requireCaps(ctx, executeCapabilities);
+		requireCaps(ctx, actionCaps(action));
+		const scope = ctx.resources?.find((resource) => resource.deviceId === deviceId);
+		if (fileReadActions.has(action) || fileWriteActions.has(action) || action === "process.exec") {
+			const { scopeRoots: _ignored, ...rest } = args;
+			args = { ...rest, ...(scope?.paths.length ? { scopeRoots: scope.paths } : {}) };
+		}
 		const device = await this.readable(deviceId, ctx);
 		const principalId = publicKeyId(device.controllerKey);
 		const pending = await this.store.command(deviceId, principalId, commandId);
@@ -327,6 +347,27 @@ export class DeviceController {
 				);
 			}
 		}
+	}
+	async operation(
+		deviceId: string,
+		commandId: string,
+		action: string,
+		args: Record<string, unknown>,
+		ctx: ToolContext,
+	): Promise<unknown> {
+		if (!fileReadActions.has(action) && !fileWriteActions.has(action) && action !== "process.exec")
+			throw new RemoteError("UNSUPPORTED_OPERATION", "Not a filesystem or process operation");
+		requireCaps(ctx, actionCaps(action));
+		return operate(
+			this,
+			await this.readable(deviceId, ctx),
+			deviceId,
+			commandId,
+			action,
+			args,
+			ctx,
+			this.operationSessions,
+		);
 	}
 	async cancel(deviceId: string, commandId: string, ctx: ToolContext): Promise<CommandReceipt> {
 		requireCaps(ctx, ["exec", "network"]);

@@ -2,6 +2,7 @@ import { execFile, spawn } from "node:child_process";
 import { access, mkdir, open, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
+import { getOrThrow } from "@earendil-works/pi-durable/env";
 import { Type } from "typebox";
 
 import { hostedProcessSpawner } from "./hosted-process.js";
@@ -60,6 +61,43 @@ export function processTool(
 		),
 		async execute(value, api, context) {
 			const args = value as { command: string; cwd?: string; timeout?: number; stdin?: boolean };
+			if (api.env?.id.startsWith("device:")) {
+				if (args.stdin) throw new Error("Remote commands do not support interactive stdin");
+				let output = "";
+				const timer = args.timeout
+					? setTimeout(() => api.output(`\n[elapsed ${args.timeout}s; still running]\n`), args.timeout * 1000)
+					: undefined;
+				try {
+					const result = getOrThrow(
+						await api.env.exec(
+							args.command,
+							{
+								...(args.cwd ? { cwd: args.cwd } : {}),
+								onOutput: (text) => {
+									output = (output + text).slice(-65536);
+									api.output(text);
+								},
+							},
+							context,
+						),
+					);
+					return {
+						output: [
+							{
+								type: "text",
+								text: JSON.stringify({
+									output,
+									exitCode: result.exitCode,
+									...(result.spillPath ? { log: result.spillPath } : {}),
+								}),
+							},
+						],
+						isError: result.exitCode !== 0,
+					};
+				} finally {
+					clearTimeout(timer);
+				}
+			}
 			if (api.env?.id !== "node:local")
 				throw new Error("Interactive process management requires the local environment");
 			const session = await resolveSession?.(String(api.conversationId));

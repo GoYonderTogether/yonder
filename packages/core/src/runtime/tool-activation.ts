@@ -44,7 +44,11 @@ export function installExtensions(rt: RuntimeInternals) {
 		},
 		execute: async (input, api, context) => {
 			const snapshot = JSON.parse(input.config);
-			rt.invocationConfigs.set(context, snapshot);
+			rt.invocationConfigs.set(context, {
+				...snapshot,
+				operationPrefix: `${api.conversationId}:${api.taskId}`,
+				operationSequence: 0,
+			});
 			try {
 				const tool = rt.rawTools.get(input.name);
 				if (!tool) throw new Error(`Unavailable tool: ${input.name}`);

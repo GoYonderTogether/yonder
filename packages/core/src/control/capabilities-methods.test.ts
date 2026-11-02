@@ -53,15 +53,15 @@ it("returns every v1.1 NodeFacts field and passes the protocol schema", async ()
 			{ id: "channel-cli", version: "1.0.0", views: [] },
 		],
 		views: [{ id: "core.background.rail" }],
-		models: { select: false }, // models.list / sessions.model.set 尚未注册
-		remoteSession: { create: true, modes: ["task"], agents: [], workspaces: false },
+		models: { select: true },
+		remoteSession: { create: true, modes: ["task"], agents: [], workspaces: true },
 		auth: { kind: "local", owner: true },
 	});
 	// features 的六个开关按注册表事实判断，不是 UI 决定。
 	expect(result.features).toEqual({
 		requestIdDedupe: true,
 		resumableWatch: true,
-		attachments: false,
+		attachments: true,
 		notifications: true,
 		approvals: false,
 		suggestions: false,

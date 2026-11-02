@@ -18,7 +18,7 @@ export async function projectRules(
 	const directories: string[] = [];
 	for (let current = cwd; ; current = paths.dirname(current)) {
 		directories.unshift(current);
-		if (paths.dirname(current) === current) break;
+		if (env.id.startsWith("device:") || paths.dirname(current) === current) break;
 	}
 	const seen = new Set<string>();
 	const rules: { path: string; content: string }[] = [];

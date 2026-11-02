@@ -44,6 +44,38 @@ export class ToolPolicy {
 	): Promise<string | undefined> {
 		const missing = (this.deps.capabilities.get(name) ?? []).filter((c) => !config.resolved.capabilities.includes(c));
 		if (missing.length) return `缺少能力：${missing.join(", ")}`;
+		if (
+			config.resources?.length &&
+			!config.resources.some((resource) => resource.deviceId === "local") &&
+			config.resolved.env === "local" &&
+			[
+				"bash",
+				"process",
+				"read",
+				"write",
+				"edit",
+				"replace",
+				"replace_match",
+				"insert",
+				"copy",
+				"move",
+				"undo_last_change",
+				"grep",
+				"ls",
+				"find",
+			].includes(name)
+		)
+			return "当前工作区只选择了远程设备；使用 devices 工具在已选择设备上执行，不能在运行宿主执行本地工具。";
+		if (name === "bash" && typeof args.cwd === "string")
+			return this.deniedPath(name, args.cwd, config, context, session);
+		if (
+			config.resources?.length &&
+			!config.resources.some((resource) => resource.deviceId === "local") &&
+			(this.deps.capabilities.get(name) ?? []).includes("exec") &&
+			!["bash", "process"].includes(name) &&
+			!name.startsWith("devices_")
+		)
+			return "此工具需要运行宿主；本次资源只授权了远程设备。";
 		if (name === "process" && args.action === "write" && !config.resolved.capabilities.includes("exec"))
 			return "Writing process stdin requires exec capability";
 		const guarded = [
@@ -88,6 +120,20 @@ export class ToolPolicy {
 		};
 		const target = await canonical(path),
 			cwd = await canonical(config.cwd);
+		const roots = config.resources?.find(
+			(resource) => resource.deviceId === (env.id.startsWith("device:") ? env.id.slice(7) : "local"),
+		)?.paths;
+		if (roots?.length) {
+			const allowed = (await Promise.all(roots.map(canonical))).some((root) => {
+				const rel = relative(root, target);
+				return !isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`);
+			});
+			if (
+				!allowed &&
+				!((name === "read" || name === "grep") && (await this.attachmentPaths(session, context)).includes(target))
+			)
+				return "文件路径不在本次选择的工作目录内。";
+		}
 		if (env.id === "node:local" && (name === "read" || name === "grep")) {
 			const base = await canonical(join(this.deps.home, "cache", "tool-output"));
 			const rel = relative(base, target);
@@ -102,7 +148,7 @@ export class ToolPolicy {
 					return "缓存路径超出当前会话。";
 			}
 		}
-		if (!config.resolved.capabilities.includes("exec")) {
+		if (!config.resolved.capabilities.includes("exec") && !roots?.length && env.id === "node:local") {
 			const rel = relative(cwd, target);
 			if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {
 				const ctx = await this.attachmentPaths(session, context);

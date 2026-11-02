@@ -12,6 +12,7 @@ export const SessionDoc = defineDoc({
 	history: "latest",
 	fork: "current",
 	initial: () => ({
+		workbench: null as import("@yonder/sdk").SessionWorkbenchOptions | null,
 		models: null as SessionModels | null,
 		judgment: false,
 		agent: null as string | null,

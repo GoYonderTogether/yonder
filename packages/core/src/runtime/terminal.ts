@@ -14,13 +14,17 @@ export async function observeTerminal(harness: Harness, id: string, send: (updat
 	let currentId = "live";
 	let partial: Extract<AgentEvent, { type: "message_start" }>["message"] | undefined;
 	const clone = <T>(value: T): T => structuredClone(value);
+	const decorate = (entry: EntryRecord, item: object) => {
+		const attachments = (entry.data as { attachments?: unknown[] } | undefined)?.attachments;
+		return "role" in item && item.role === "user" && attachments?.length ? { ...item, attachments } : item;
+	};
 	const message = async (entry: EntryRecord) => {
 		const notification = notificationOf(entry);
 		if (notification) await send({ type: "notification", notification });
 		for (const [index, item] of (entry.model ?? []).entries()) {
 			const id = `${entry.id}:${index}`;
 			if ("role" in item && item.role === "assistant") currentId = id;
-			await send({ type: "message", id, message: item, streaming: false });
+			await send({ type: "message", id, message: decorate(entry, item), streaming: false });
 		}
 	};
 	const handle = async (events: readonly AgentEvent[]) => {
@@ -32,10 +36,16 @@ export async function observeTerminal(harness: Harness, id: string, send: (updat
 						const notification = notificationOf(entry);
 						return notification
 							? [{ id: String(entry.id), notification }]
-							: (entry.model ?? []).map((message, index) => ({ id: `${entry.id}:${index}`, message }));
+							: (entry.model ?? []).map((message, index) => ({
+									id: `${entry.id}:${index}`,
+									message: decorate(entry, message),
+								}));
 					}),
 					messages: event.entries.flatMap((entry) =>
-						(entry.model ?? []).map((message, index) => ({ id: `${entry.id}:${index}`, message })),
+						(entry.model ?? []).map((message, index) => ({
+							id: `${entry.id}:${index}`,
+							message: decorate(entry, message),
+						})),
 					),
 					running: !!event.run,
 					inputs: (event.run?.inputs ?? []).map(String),

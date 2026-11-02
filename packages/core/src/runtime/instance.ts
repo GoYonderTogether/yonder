@@ -99,6 +99,7 @@ export interface Activity {
  * through one typed getter, so the cast lives in exactly one place.
  */
 export interface RuntimeInternals {
+	cloud: { providers: Record<string, import("./models.js").ModelsJsonProvider>; apiKeys: Map<string, string> };
 	settledEvents: Map<string, string>;
 	harness: Harness;
 	outbox: Outbox;
@@ -115,7 +116,10 @@ export interface RuntimeInternals {
 	rawTools: Map<string, ToolRegistration>;
 	sdkToolNames: Set<string>;
 	toolGuidelines: Map<string, readonly string[]>;
-	invocationConfigs: WeakMap<Context, { config: RuntimeSessionConfig; events: YEvent[] }>;
+	invocationConfigs: WeakMap<
+		Context,
+		{ config: RuntimeSessionConfig; operationPrefix?: string; operationSequence: number; events: YEvent[] }
+	>;
 	extensions: Map<string, Extension>;
 	tools: Map<string, ToolRegistration>;
 	capabilities: Map<string, Capability[]>;
@@ -133,7 +137,7 @@ export interface RuntimeInternals {
 	readonly credentials: FileCredentials;
 	readonly policy: ToolPolicy;
 	readonly limits: RunLimits;
-	readonly models: Models;
+	readonly models: ReturnType<typeof import("./models.js").buildModels>;
 	readonly options: RuntimeOptions;
 
 	/** Entry points on `Runtime` the extracted modules call back into; each one delegates to a module again. */

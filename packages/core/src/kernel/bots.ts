@@ -1,4 +1,4 @@
-import type { Ref, YEvent } from "@yonder/sdk";
+import type { Attachment, Ref, YEvent } from "@yonder/sdk";
 import type { AgentConfig } from "../config/index.js";
 import type { Store } from "../store/index.js";
 import { CONSOLE, isConsoleBot } from "./console.js";
@@ -33,7 +33,7 @@ export async function createBots(agents: Map<string, AgentConfig>, store: Store,
 				})),
 			),
 		/** A normal message.in on the console channel; the agent's own binding decides everything else. */
-		send: async (agent: string, text: string) => {
+		send: async (agent: string, text: string, attachments?: Attachment[]) => {
 			const bot = agents.get(agent);
 			if (!bot || !bots().includes(bot)) throw new Error(`Unknown bot: ${agent}`);
 			// SOC01 A3：云端/控制台只能归档 Bot，不能删除；归档后仍留在名册里，恢复即可继续对话。
@@ -42,7 +42,13 @@ export async function createBots(agents: Map<string, AgentConfig>, store: Store,
 				type: "message.in",
 				from: account as Ref,
 				conv: `conv:${CONSOLE}:${agent}` as Ref,
-				data: { kind: "dm", text, target: agent },
+				data: {
+					kind: "dm",
+					text,
+					target: agent,
+					ownerWorkbench: true,
+					...(attachments?.length ? { attachments } : {}),
+				},
 			});
 			const route = event.routes?.find((item) => item.agent === agent);
 			if (!route?.session) throw new Error(`Bot ${agent} did not accept the message (${route?.dropped ?? "no route"})`);

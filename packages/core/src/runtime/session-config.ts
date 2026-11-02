@@ -11,6 +11,7 @@ import { inputContent } from "./input-content.js";
 import type { RuntimeInternals } from "./instance.js";
 import { entryText as textOf } from "./transcript.js";
 import type { RuntimeSessionConfig } from "./types.js";
+import { applyWorkbenchOptions, isOwnerWorkbenchInput } from "./workbench-options.js";
 
 export function currentConfig(rt: RuntimeInternals, id: string): RuntimeSessionConfig | undefined {
 	return rt.configured.get(id);
@@ -38,9 +39,16 @@ export async function prepareRun(rt: RuntimeInternals, session: string, context:
 		activity.activityIssue = null;
 	}, context);
 	const started = saved?.started || Date.now();
-	const config: RuntimeSessionConfig = saved?.config
+	let config: RuntimeSessionConfig = saved?.config
 		? JSON.parse(saved.config)
 		: structuredClone(await rt.options.resolveSession(session));
+	if (!saved?.config && config.sessionMode !== "task") {
+		const inputs = await rt.sources(live.run.inputs);
+		if (inputs.length && inputs.every(isOwnerWorkbenchInput)) {
+			const state = await rt.harness.snapshot(SessionDoc, cid(session), context);
+			config = { ...applyWorkbenchOptions(config, state?.workbench ?? undefined), ownerWorkbench: true };
+		}
+	}
 	const usageBefore = saved?.config ? saved.usageBefore : await rt.usage(session);
 	if (!saved?.config) await rt.applyRequestedEffort(session, config, context);
 	await rt.modelsFor(config);

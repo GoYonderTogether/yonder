@@ -17,6 +17,49 @@
 				"type": "object"
 			}
 		},
+		"attachments.get": {
+			"scope": "owner",
+			"since": 1,
+			"paramsSchema": {
+				"additionalProperties": false,
+				"properties": {
+					"session": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"uri": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["session", "uri"],
+				"type": "object"
+			}
+		},
+		"attachments.put": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"additionalProperties": false,
+				"properties": {
+					"dataBase64": {
+						"maxLength": 8388608,
+						"type": "string"
+					},
+					"mime": {
+						"maxLength": 128,
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 255,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["name", "dataBase64"],
+				"type": "object"
+			}
+		},
 		"awake.status": {
 			"scope": "read",
 			"since": 1,
@@ -56,12 +99,55 @@
 						"minLength": 1,
 						"type": "string"
 					},
+					"attachments": {
+						"items": {
+							"properties": {
+								"bytes": {
+									"minimum": 0,
+									"type": "number"
+								},
+								"kind": {
+									"anyOf": [
+										{
+											"const": "image",
+											"type": "string"
+										},
+										{
+											"const": "file",
+											"type": "string"
+										},
+										{
+											"const": "audio",
+											"type": "string"
+										},
+										{
+											"const": "video",
+											"type": "string"
+										}
+									]
+								},
+								"mime": {
+									"type": "string"
+								},
+								"name": {
+									"type": "string"
+								},
+								"uri": {
+									"minLength": 1,
+									"type": "string"
+								}
+							},
+							"required": ["kind", "uri"],
+							"type": "object"
+						},
+						"maxItems": 10,
+						"type": "array"
+					},
 					"requestId": {
 						"minLength": 1,
 						"type": "string"
 					},
 					"text": {
-						"minLength": 1,
 						"type": "string"
 					}
 				},
@@ -293,6 +379,14 @@
 				"type": "object"
 			}
 		},
+		"models.list": {
+			"scope": "owner",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
 		"notifications.prefs.get": {
 			"scope": "read",
 			"since": 1,
@@ -484,6 +578,83 @@
 							}
 						]
 					},
+					"options": {
+						"additionalProperties": false,
+						"properties": {
+							"effort": {
+								"anyOf": [
+									{
+										"const": "auto",
+										"type": "string"
+									},
+									{
+										"const": "off",
+										"type": "string"
+									},
+									{
+										"const": "minimal",
+										"type": "string"
+									},
+									{
+										"const": "low",
+										"type": "string"
+									},
+									{
+										"const": "medium",
+										"type": "string"
+									},
+									{
+										"const": "high",
+										"type": "string"
+									},
+									{
+										"const": "xhigh",
+										"type": "string"
+									},
+									{
+										"const": "max",
+										"type": "string"
+									}
+								]
+							},
+							"model": {
+								"maxLength": 4096,
+								"minLength": 1,
+								"type": "string"
+							},
+							"permission": {
+								"maxLength": 4096,
+								"minLength": 1,
+								"type": "string"
+							},
+							"resources": {
+								"items": {
+									"additionalProperties": false,
+									"properties": {
+										"deviceId": {
+											"maxLength": 4096,
+											"minLength": 1,
+											"type": "string"
+										},
+										"paths": {
+											"items": {
+												"maxLength": 4096,
+												"minLength": 1,
+												"type": "string"
+											},
+											"maxItems": 64,
+											"type": "array"
+										}
+									},
+									"required": ["deviceId", "paths"],
+									"type": "object"
+								},
+								"maxItems": 64,
+								"type": "array"
+							}
+						},
+						"type": "object"
+					},
 					"parent": {
 						"minLength": 1,
 						"type": "string"
@@ -494,6 +665,108 @@
 					}
 				},
 				"required": ["preset"],
+				"type": "object"
+			}
+		},
+		"sessions.options.get": {
+			"scope": "owner",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"maxLength": 4096,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.options.set": {
+			"scope": "owner",
+			"since": 1,
+			"paramsSchema": {
+				"additionalProperties": false,
+				"properties": {
+					"effort": {
+						"anyOf": [
+							{
+								"const": "auto",
+								"type": "string"
+							},
+							{
+								"const": "off",
+								"type": "string"
+							},
+							{
+								"const": "minimal",
+								"type": "string"
+							},
+							{
+								"const": "low",
+								"type": "string"
+							},
+							{
+								"const": "medium",
+								"type": "string"
+							},
+							{
+								"const": "high",
+								"type": "string"
+							},
+							{
+								"const": "xhigh",
+								"type": "string"
+							},
+							{
+								"const": "max",
+								"type": "string"
+							}
+						]
+					},
+					"id": {
+						"maxLength": 4096,
+						"minLength": 1,
+						"type": "string"
+					},
+					"model": {
+						"maxLength": 4096,
+						"minLength": 1,
+						"type": "string"
+					},
+					"permission": {
+						"maxLength": 4096,
+						"minLength": 1,
+						"type": "string"
+					},
+					"resources": {
+						"items": {
+							"additionalProperties": false,
+							"properties": {
+								"deviceId": {
+									"maxLength": 4096,
+									"minLength": 1,
+									"type": "string"
+								},
+								"paths": {
+									"items": {
+										"maxLength": 4096,
+										"minLength": 1,
+										"type": "string"
+									},
+									"maxItems": 64,
+									"type": "array"
+								}
+							},
+							"required": ["deviceId", "paths"],
+							"type": "object"
+						},
+						"maxItems": 64,
+						"type": "array"
+					}
+				},
+				"required": ["id"],
 				"type": "object"
 			}
 		},
@@ -1239,6 +1512,30 @@
 						]
 					},
 					"session": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"type": "object"
+			}
+		},
+		"workspaces.list": {
+			"scope": "owner",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"deviceId": {
+						"maxLength": 4096,
+						"minLength": 1,
+						"type": "string"
+					},
+					"id": {
+						"maxLength": 4096,
+						"minLength": 1,
+						"type": "string"
+					},
+					"path": {
+						"maxLength": 4096,
 						"minLength": 1,
 						"type": "string"
 					}

@@ -109,7 +109,8 @@ export function kernelPromptOptions(
 		timezone: config.timezone ?? "Asia/Shanghai",
 		contexts: loaded.contexts,
 		workspace: (session, signal) => filesFor(home, config, loaded, session.agent ?? "", signal),
-		projectRules: (session, signal) => projectRulesFor(home, config, loaded, session, signal),
+		projectRules: (session, signal) =>
+			projectRulesFor(home, config, loaded, session, signal, runtime().environment(session)),
 		identity: store.identity(),
 		models: services.models,
 		setVersion: store.sessions.setVersion,

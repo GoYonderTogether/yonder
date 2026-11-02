@@ -131,6 +131,21 @@ export function createDevicesPlugin(registry?: DeviceRegistry) {
 					),
 			);
 			add(
+				"operation",
+				"Operate on a device returned by devices_list. Use fs.read/stat/list/canonical with {path}; fs.write with {path,dataBase64,append?}; fs.mkdir/remove with {path,recursive?}; fs.rename with {path,destination}; process.exec with {command,cwd,timeout?} (timeout milliseconds). Files are limited to 512 KiB. Choose a new UUID commandId per operation; reuse it only to inspect the same operation after interruption. Runtime enforces action capabilities and selected directories. Shell cwd is not a sandbox.",
+				object({ ...command, action: string, arguments: { type: "object", additionalProperties: true } }),
+				["read"],
+				(a, c) =>
+					controller.operation(
+						a.deviceId as string,
+						a.commandId as string,
+						a.action as string,
+						a.arguments as Record<string, unknown>,
+						{ ...c, capabilities: [...new Set([...c.capabilities, "network" as const])] },
+					),
+			);
+
+			add(
 				"status",
 				"Query the existing command ID on this device/principal without dispatch. Works after controller restart, session expiry or a new model session with current read authorization. Unknown stays unknown; no automatic replay.",
 				object(command),

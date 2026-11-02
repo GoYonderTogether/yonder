@@ -63,9 +63,18 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 					id: "devices",
 					entry: "./dist/index.js",
 					contributes: {
-						tools: ["list", "describe", "apps", "open", "observe", "execute", "status", "cancel", "close"].map(
-							(n) => `devices_${n}`,
-						),
+						tools: [
+							"list",
+							"describe",
+							"apps",
+							"open",
+							"observe",
+							"execute",
+							"operation",
+							"status",
+							"cancel",
+							"close",
+						].map((n) => `devices_${n}`),
 						skills: ["devices"],
 						triggers: ["devices-connections"],
 					},
@@ -75,7 +84,7 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 		expect(await checkPlugin(stage)).toEqual([]);
 		const { api, registrations } = createRegistrationCollector();
 		plugin.setup({ ...api, paths: { data: join(stage, "must-not-exist") } } as PluginAPI);
-		expect(registrations.tools).toHaveLength(9);
+		expect(registrations.tools).toHaveLength(10);
 		expect(registrations.contexts).toHaveLength(0);
 		expect(registrations.presets).toHaveLength(0);
 		expect(registrations.triggers).toHaveLength(1);

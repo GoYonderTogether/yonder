@@ -26,6 +26,7 @@ import { configRuntimeSections } from "./config-facts.js";
 import { loadHomeConfig, loadHomeSources } from "./config-sources.js";
 import { watchAgents } from "./config-watch.js";
 import { kernelPromptOptions, kernelTools } from "./conversation.js";
+import { deviceOperation } from "./device-operation.js";
 import { configurationErrors, profileContexts, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { createNotificationPrefs } from "./notifications.js";
@@ -39,6 +40,7 @@ import { createKernelServices } from "./services-wiring.js";
 import { createSocial, createSocialSupport, socialTarget } from "./social.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
+import { createWorkbenchOptions } from "./workbench-options.js";
 import { credentialsAndModels, filesFor, skillsFor } from "./workspace.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
@@ -158,6 +160,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			log("warn", `card-visitor 迁移失败：${error instanceof Error ? error.message : String(error)}`);
 		}
 		const homePresets = await loadHomeSources(home, config, loaded, agents, initialRevisions);
+		const presets = () => [...new Map([...loaded.presets, ...homePresets]).values()];
 		const errors = configurationErrors(
 			config,
 			agents,
@@ -282,7 +285,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				runtime: realRuntime,
 				delivery,
 				ask: router.ask,
-				presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
+				presets,
 				...(config.defaultModel ? { defaultModel: config.defaultModel } : {}),
 			},
 			home,
@@ -297,6 +300,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			plugins: [...loaded.tools].map(([id, tools]) => ({ id, tools, hooks: loaded.hooks.get(id) ?? [] })),
 			tools,
 			envs: loaded.envs,
+			deviceOperation: deviceOperation(home, loaded.tools),
 			readEvent: store.events.get,
 			settled: async (session, run) => Boolean(await store.events.runEnd(session, run)),
 			prepareInput: async (id, event, config, wake, signal) => {
@@ -417,7 +421,9 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		delivery.start();
 		outbound.start();
 		log("info", "Yonder Harness started", { home, version: packageVersion });
+		const workbench = createWorkbenchOptions(home, config, realRuntime, sessions.api, presets, loaded.tools);
 		return {
+			workbench,
 			setWorkHost: work.set,
 			social,
 			notifications,
@@ -469,13 +475,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			bots: await createBots(agents, store, (event) => router.emit(event as never), log),
 			close,
 			eventWatermark: () => store.events.watermark(),
-			async awakeActivity() {
-				const sessions = await store.sessions.list({ open: true });
-				const active = await Promise.all(
-					sessions.map(async (session) => ((await realRuntime().hasAwakeWork(session.id)) ? session.id : null)),
-				);
-				return { active: active.filter(Boolean).length };
-			},
+			awakeActivity: workbench.awakeActivity,
 			terminal: terminalApi({
 				home,
 				config,

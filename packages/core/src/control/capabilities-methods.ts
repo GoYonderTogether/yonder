@@ -10,6 +10,7 @@ function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
 	return def as unknown as MethodDef;
 }
 
+import { ATTACHMENT_MAX_BYTES } from "./attachments-methods.js";
 import { PROTOCOL } from "./method-types.js";
 import { registry } from "./methods.js";
 import { visibleViews } from "./views-methods.js";
@@ -60,7 +61,7 @@ export const capabilitiesMethods: MethodDef[] = [
 				granted: ctx.principal.scopes,
 				// 与 views.list 无参结果同源：同一个可见性过滤，免客户端再取一次。
 				views: await visibleViews(ctx, {}),
-				models: { select: "models.list" in methods && "sessions.model.set" in methods },
+				models: { select: "models.list" in methods && "sessions.options.set" in methods },
 				remoteSession: {
 					create: createSession,
 					// sessions.open 目前只创建 task 会话；远程连接按 contracts §14.3 也只有 task。
@@ -69,11 +70,15 @@ export const capabilitiesMethods: MethodDef[] = [
 					agents: [],
 					workspaces: "workspaces.list" in methods,
 				},
-				limits: { maxSubs: 64, attachmentMaxBytes: 0, transcriptPage: 50 },
+				limits: {
+					maxSubs: 64,
+					attachmentMaxBytes: "attachments.put" in methods ? ATTACHMENT_MAX_BYTES : 0,
+					transcriptPage: 50,
+				},
 				features: {
 					requestIdDedupe: true,
 					resumableWatch: true,
-					// attachments.put 是网关路由，不在控制注册表里；不可用时额度为 0（contracts §12）。
+					// Uploads use the shared authenticated RPC, including the cloud work bridge.
 					attachments: "attachments.put" in methods,
 					notifications: "notifications.prefs.get" in methods && "notifications.prefs.set" in methods,
 					approvals: "approvals.list" in methods,

@@ -324,6 +324,7 @@ export async function prepareInput(
 	if (wake === "run") {
 		lines.push(`runtime: version=${label(options.version)} home=${label(options.home)}`);
 		lines.push(`execution: env=${label(session.resolved.env)} cwd=${label(session.cwd)}`);
+		if (session.resources?.length) lines.push(`selected resources: ${label(JSON.stringify(session.resources))}`);
 		const cli = resolve(dirname(fileURLToPath(import.meta.url)), "../../../cli/dist/index.js");
 		let cliAvailable = true;
 		try {

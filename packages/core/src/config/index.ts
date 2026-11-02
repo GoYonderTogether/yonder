@@ -102,7 +102,7 @@ export function mergeCredentialSlots(
 }
 
 /** Level and capabilities depend on no model, so permission checks need no configured default model. */
-function securityOf(profile: Profile, defaults: Profile): { level?: Level; capabilities: Capability[] } {
+export function securityOf(profile: Profile, defaults: Profile = {}): { level?: Level; capabilities: Capability[] } {
 	const security = profile.level !== undefined || profile.capabilities !== undefined ? profile : defaults;
 	const level = security.capabilities === undefined ? (security.level ?? "readonly") : undefined;
 	return { level, capabilities: [...(security.capabilities ?? levels[level ?? "readonly"])] } as {
