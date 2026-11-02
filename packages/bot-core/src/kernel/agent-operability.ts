@@ -1,12 +1,12 @@
-import type { Channel, Hook } from "@yonder/sdk";
-import type { AgentConfig } from "@yonder/bot-definition";
-import type { Store } from "@yonder/bot-core/store/contracts";
 import {
 	type AgentOperabilityFact,
 	type OperabilitySelector,
 	projectConversationOperability,
 	type SessionOperabilityFact,
 } from "@yonder/bot-core/kernel/operability";
+import type { Store } from "@yonder/bot-core/store/contracts";
+import type { AgentConfig } from "@yonder/bot-definition";
+import type { Channel, Hook } from "@yonder/sdk";
 
 const exactConversations = (agent: AgentConfig) => [
 	...new Set(

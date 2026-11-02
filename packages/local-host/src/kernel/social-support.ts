@@ -1,9 +1,9 @@
+import { projectConversationOperability } from "@yonder/bot-core/kernel/operability";
+import { membershipGroup } from "@yonder/bot-core/routing/platform-group.js";
+import { requestSources } from "@yonder/bot-core/tools/parent-origin.js";
+import type { Store } from "@yonder/local-host/store/index";
 import type { Channel, Hook, SocialPolicy, ToolContext } from "@yonder/sdk";
 import type { AgentConfig } from "../config/index.js";
-import { membershipGroup } from "@yonder/bot-core/routing/platform-group.js";
-import type { Store } from "@yonder/local-host/store/index";
-import { requestSources } from "@yonder/bot-core/tools/parent-origin.js";
-import { projectConversationOperability } from "@yonder/bot-core/kernel/operability";
 
 export function createSocialSupport(
 	store: Store,

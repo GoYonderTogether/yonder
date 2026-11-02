@@ -8,7 +8,12 @@ const checks = [
 	["views", "node_modules/vitest/vitest.mjs", "run", "packages/sdk/src/views.golden.test.ts"],
 	["participation", "node_modules/vitest/vitest.mjs", "run", "packages/sdk/src/participation.golden.test.ts"],
 	["config", "node_modules/vitest/vitest.mjs", "run", "packages/local-host/src/config/schema.golden.test.ts"],
-	["plugin API version", "node_modules/vitest/vitest.mjs", "run", "packages/local-host/src/plugins/api-version.test.ts"],
+	[
+		"plugin API version",
+		"node_modules/vitest/vitest.mjs",
+		"run",
+		"packages/local-host/src/plugins/api-version.test.ts",
+	],
 	["store migrations", "node_modules/vitest/vitest.mjs", "run", "packages/local-host/src/store/migrations.test.ts"],
 	["names consistency", "--test", "scripts/test/names-consistency.test.mjs"],
 	["package versions", "scripts/version-check.mjs", "--check"],

@@ -1,6 +1,6 @@
-import type { SessionInfo, YEvent } from "@yonder/sdk";
 import type { Store } from "@yonder/bot-core/store/contracts";
 import { parentSources } from "@yonder/bot-core/tools/parent-origin.js";
+import type { SessionInfo, YEvent } from "@yonder/sdk";
 
 const SOURCE_LIMIT = 8;
 const TEXT_LIMIT = 2000;

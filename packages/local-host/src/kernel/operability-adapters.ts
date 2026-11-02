@@ -1,9 +1,13 @@
+import { projectAgentOperability } from "@yonder/bot-core/kernel/agent-operability";
+import {
+	type AgentOperabilityFact,
+	type OperabilitySelector,
+	projectConversationOperability,
+} from "@yonder/bot-core/kernel/operability";
+import type { Store } from "@yonder/local-host/store/index";
+import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 import type { Channel, Hook } from "@yonder/sdk";
 import type { AgentConfig } from "../config/index.js";
-import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
-import type { Store } from "@yonder/local-host/store/index";
-import { projectAgentOperability } from "@yonder/bot-core/kernel/agent-operability";
-import { type AgentOperabilityFact, type OperabilitySelector, projectConversationOperability } from "@yonder/bot-core/kernel/operability";
 
 export async function extendRuntimeInspection(options: {
 	result: unknown;

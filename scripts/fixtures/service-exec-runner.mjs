@@ -1,4 +1,3 @@
-import { remoteGrep } from "../../packages/runtime-adapter/dist/node/runtime/remote-search.js";
 // Actual local env, Runtime and SDK/cron entrypoints under a real native host.
 // No model is selected, no credentials or production home are used.
 import assert from "node:assert/strict";
@@ -11,10 +10,11 @@ import { resolveProfile } from "../../packages/local-host/dist/config/index.js";
 import { openKernel } from "../../packages/local-host/dist/kernel/index.js";
 import { openDatabase, openRuntimeStorage } from "../../packages/runtime-adapter/dist/node/runtime/db.js";
 import { localEnvironment } from "../../packages/runtime-adapter/dist/node/runtime/env.js";
-import { createGrepTool } from "../../packages/runtime-adapter/dist/runtime/grep.js";
 import { hostedProcessSpawner } from "../../packages/runtime-adapter/dist/node/runtime/hosted-process.js";
 import { Runtime } from "../../packages/runtime-adapter/dist/node/runtime/index.js";
 import { processTool } from "../../packages/runtime-adapter/dist/node/runtime/process.js";
+import { remoteGrep } from "../../packages/runtime-adapter/dist/node/runtime/remote-search.js";
+import { createGrepTool } from "../../packages/runtime-adapter/dist/runtime/grep.js";
 
 const [home, mode, sameGroup] = process.argv.slice(2);
 const env = localEnvironment(home); // consumes fd4 once; bash below must use its cache.

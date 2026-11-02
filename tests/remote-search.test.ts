@@ -3,11 +3,11 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DeviceSession } from "@yonder/protocol";
-import type { ToolContext } from "@yonder/sdk";
-import { afterEach, expect, test } from "vitest";
+import { createRemoteEnvironment } from "@yonder/runtime-adapter/node/runtime/remote-env";
 import { createFindTool } from "@yonder/runtime-adapter/runtime/find";
 import { createGrepTool } from "@yonder/runtime-adapter/runtime/grep";
-import { createRemoteEnvironment } from "@yonder/runtime-adapter/node/runtime/remote-env";
+import type { ToolContext } from "@yonder/sdk";
+import { afterEach, expect, test } from "vitest";
 import { createHostProvider, HOST_TARGET } from "../packages/device/src/backends/host.js";
 
 const homes: string[] = [];

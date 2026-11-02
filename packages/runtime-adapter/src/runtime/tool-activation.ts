@@ -226,7 +226,9 @@ export function installExtensions(rt: RuntimeInternals, host: RuntimeToolHost) {
 		name: "yonder.files",
 		tools: [
 			...codingRegistrations.filter((t) => t.name !== "bash"),
-			...(host.processTool ? [host.processTool(rt.options.home, rt.background.running, (id) => rt.sessionConfig(id))] : []),
+			...(host.processTool
+				? [host.processTool(rt.options.home, rt.background.running, (id) => rt.sessionConfig(id))]
+				: []),
 		].map((t) => rt.backgroundTool({ ...t, deferred: true })),
 	});
 	rt.registry.install(coding);

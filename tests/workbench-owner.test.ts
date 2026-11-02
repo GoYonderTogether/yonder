@@ -2,12 +2,12 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { expect, test } from "vitest";
 import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { createStore } from "@yonder/local-host/store/index";
 import { attachmentFromPath } from "@yonder/runtime-adapter/node/runtime/attachments";
 import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
 import { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
-import { createStore } from "@yonder/local-host/store/index";
+import { expect, test } from "vitest";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(

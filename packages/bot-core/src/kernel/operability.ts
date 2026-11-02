@@ -1,10 +1,10 @@
-import type { Channel, Hook, YEvent } from "@yonder/sdk";
-import { type AgentConfig, matchesGlob, securityOf } from "@yonder/bot-definition";
 import { batchConsumerForSource } from "@yonder/bot-core/routing/batch-consumer.js";
 import { batchPlugin, participationPlugin } from "@yonder/bot-core/routing/participation.js";
 import { decideParticipation } from "@yonder/bot-core/routing/social.js";
 import { resolveSourceBindings } from "@yonder/bot-core/routing/source-binding.js";
 import type { Store } from "@yonder/bot-core/store/contracts";
+import { type AgentConfig, matchesGlob, securityOf } from "@yonder/bot-definition";
+import type { Channel, Hook, YEvent } from "@yonder/sdk";
 
 export type OperabilitySelector = { conv?: string; eventId?: string };
 export type SessionOperabilityFact = {

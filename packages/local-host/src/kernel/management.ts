@@ -1,7 +1,7 @@
-import type { AgentOperabilityFact } from "@yonder/bot-core/kernel/operability";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import type { AgentOperabilityFact } from "@yonder/bot-core/kernel/operability";
 import {
 	type AgentConfig,
 	ConfigError,

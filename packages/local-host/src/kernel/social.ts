@@ -1,6 +1,8 @@
 import type { SessionOperabilityFact } from "@yonder/bot-core/kernel/operability";
 import { batchPreflightData } from "./social-preflight.js";
+
 export { createSocialSupport, socialTarget } from "./social-support.js";
+
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";

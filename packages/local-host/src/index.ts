@@ -1,3 +1,4 @@
+export { summarizeAgentOperability } from "@yonder/bot-core/kernel/operability-summary";
 export { statusPath } from "@yonder/bot-core/status/snapshot";
 export {
 	type Bundle,
@@ -45,7 +46,6 @@ export {
 	packageVersion,
 	setNamedCredential,
 } from "@yonder/local-host/kernel/index";
-export { summarizeAgentOperability } from "@yonder/bot-core/kernel/operability-summary";
 export {
 	checkRelease,
 	compareVersions,

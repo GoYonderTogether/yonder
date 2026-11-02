@@ -1,6 +1,6 @@
+import type { SessionOperabilityFact } from "@yonder/bot-core/kernel/operability";
 import type { SocialPolicy } from "@yonder/sdk";
 import type { AgentConfig } from "../config/index.js";
-import type { SessionOperabilityFact } from "@yonder/bot-core/kernel/operability";
 
 type Route = {
 	operability?: Partial<Pick<SessionOperabilityFact, "status" | "reason" | "sample" | "history" | "prediction">>;
