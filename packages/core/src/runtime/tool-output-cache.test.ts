@@ -1,5 +1,5 @@
 import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { boundToolOutput, cacheToolOutput } from "./tool-output-cache.js";
@@ -32,7 +32,7 @@ test("caches truncated output with a searchable path and removes expired files",
 			),
 		).rejects.toThrow("stream failed");
 		expect((await readdir(join(home, "cache/tool-output/1"))).sort()).toEqual(
-			["index.jsonl", streamed.split("/").pop()].sort(),
+			["index.jsonl", basename(streamed)].sort(),
 		);
 		const old = await cacheToolOutput(home, "1", "web", { url: "private" }, "old");
 		const other = await cacheToolOutput(home, "2", "web", {}, "other session");

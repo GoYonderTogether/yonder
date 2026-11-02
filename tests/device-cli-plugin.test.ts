@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Grant, PluginAPI, ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../plugins/devices/src/index.js";
 
-const cli = new URL("../packages/device/dist/cli.js", import.meta.url).pathname;
+const cli = fileURLToPath(new URL("../packages/device/dist/cli.js", import.meta.url));
 const run = (args: string[], input?: unknown): Record<string, unknown> =>
 	JSON.parse(
 		execFileSync(process.execPath, [cli, ...args], {

@@ -84,9 +84,11 @@ async function document(config: Config, loc: Location, includePrivate: boolean, 
 	const file = await safePath(loc.root, loc.path),
 		info = await stat(file);
 	if (!info.isFile()) throw new Error("path: not a regular file");
+	// Classify the validated filesystem target, not an alias containing separators or dot segments.
+	loc = { ...loc, path: relative(await safePath(loc.root, ""), file).replaceAll("\\", "/") };
 	const text = await readText(loc.root, loc.path),
 		meta = metadata(text);
-	if ((loc.path.split("/")[0] === "private" || meta.private === true) && !includePrivate)
+	if ((loc.path.split("/")[0]?.toLowerCase() === "private" || meta.private === true) && !includePrivate)
 		throw new Error("Private content requires includePrivate: true");
 	const lines = text.split("\n");
 	if (lines.at(-1) === "") lines.pop();

@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
-import type { Hook, Message, PluginAPI, RenderContext, Tool, ToolContext } from "@yonder/sdk";
+import type { Hook, Message, PluginAPI, RenderContext, Tool, ToolContext, Trigger } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import tasks from "../src/index.js";
@@ -21,6 +21,7 @@ async function fixture(reply: Reply | ((index: number) => Reply), config: object
 	const data = await tempHome("yonder-tasks-audit-");
 	const tools: Tool[] = [];
 	const hooks: Hook[] = [];
+	const triggers: Trigger[] = [];
 	const opened: string[] = [];
 	const closed: string[] = [];
 	const prompts: string[] = [];
@@ -63,7 +64,11 @@ async function fixture(reply: Reply | ((index: number) => Reply), config: object
 		},
 		views: { register() {} },
 		contexts: { register() {} },
-		triggers: { register() {} },
+		triggers: {
+			register(trigger: Trigger) {
+				triggers.push(trigger);
+			},
+		},
 		messages: { send: async () => ({ ok: true }) },
 	};
 	tasks.setup(api as unknown as PluginAPI);
@@ -95,6 +100,7 @@ async function fixture(reply: Reply | ((index: number) => Reply), config: object
 		prompts,
 		tool: (name: string) => tools.find((tool) => tool.name === `tasks_${name}`)!,
 		async close() {
+			for (const trigger of triggers) await trigger.stop();
 			store.close();
 			await rm(data, { recursive: true, force: true });
 		},

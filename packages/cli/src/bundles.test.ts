@@ -1,10 +1,10 @@
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, createServer } from "node:net";
 import { join, resolve } from "node:path";
-import { initHome, openKernel } from "@yonder/core";
+import { initHome, openKernel, requestControl } from "@yonder/core";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
@@ -41,15 +41,26 @@ async function freePort() {
 async function start(home: string) {
 	const child = spawn(process.execPath, [cli, "start", "--home", home, "--no-gateway", "--json"], { stdio: "ignore" });
 	const exited = once(child, "exit");
-	await expect
-		.poll(async () => (await stat(join(home, ".yonder/control.sock")).catch(() => null))?.isSocket() ?? false, {
-			timeout: 15000,
-		})
-		.toBe(true);
-	return async () => {
-		child.kill("SIGTERM");
+	const stop = async () => {
+		if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
 		await exited;
 	};
+	try {
+		await expect
+			.poll(
+				() =>
+					requestControl(home, { method: "terminal.channels" }).then(
+						() => true,
+						() => false,
+					),
+				{ timeout: 15000 },
+			)
+			.toBe(true);
+		return stop;
+	} catch (error) {
+		await stop();
+		throw error;
+	}
 }
 
 test("init --bundle core writes no channel, no channel binding and model-free presets", async () => {

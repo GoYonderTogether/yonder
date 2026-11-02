@@ -143,7 +143,7 @@ test("SDK context cache and automatic cache run through the native background wr
 		const streamPath = hint.match(/Full output: (.+?)\. Use read/)?.[1];
 		if (!streamPath) throw new Error(`stream cache path missing: ${hint.slice(0, 200)}`);
 		expect(await readFile(streamPath, "utf8")).toBe(full.repeat(8));
-		vi.stubEnv("TMPDIR", join(home, "missing"));
+		for (const key of ["TMPDIR", "TMP", "TEMP"]) vi.stubEnv(key, join(home, "missing"));
 		const failedCaptureId = await internal.harness.commit(
 			(tx) =>
 				tx.createTask(

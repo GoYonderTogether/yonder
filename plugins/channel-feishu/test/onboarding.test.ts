@@ -82,7 +82,7 @@ test("confirmed registration stores credentials privately and never returns the 
 	expect(done).toEqual({ status: "confirmed", instance: "a" });
 	expect(JSON.stringify(done)).not.toContain("new-secret-value");
 	const file = join(data, "a", "app.json");
-	expect((await stat(file)).mode & 0o777).toBe(0o600);
+	if (process.platform !== "win32") expect((await stat(file)).mode & 0o777).toBe(0o600);
 	expect(JSON.parse(await readFile(file, "utf8"))).toMatchObject({ appId: "cli_new", appSecret: "new-secret-value" });
 	expect((await channel.login("start", signal)).status).toBe("already_configured");
 	await channel.stop();

@@ -52,7 +52,7 @@ it("creates 0600 and preserves concurrent OAuth modify under the same lock", asy
 	await Promise.all([refreshing, saving]);
 	expect((await credentials.read("openai"))?.type).toBe("oauth");
 	expect(JSON.parse(readFileSync(path, "utf8")).openai.refresh).toBe("test-new-refresh");
-	expect(statSync(path).mode & 0o777).toBe(0o600);
+	if (process.platform !== "win32") expect(statSync(path).mode & 0o777).toBe(0o600);
 	expect(await credentials.read("feishu-hermes-app-secret")).toEqual({ type: "api_key", key: "test-only-key" });
 });
 it("refuses replacement including OAuth; cancelled write changes nothing", async () => {
@@ -69,7 +69,7 @@ it("cancellation before creation leaves no store", async () => {
 	expect(existsSync(path)).toBe(false);
 });
 it("refuses symlink, hardlink, permissive file and writable parent without modifying targets", async () => {
-	for (const kind of ["symlink", "hardlink", "mode", "parent"]) {
+	for (const kind of ["symlink", "hardlink", ...(process.platform === "win32" ? [] : ["mode", "parent"])]) {
 		const path = location();
 		const target = `${path}.target`;
 		writeFileSync(target, "{}", { mode: 0o600 });
@@ -115,7 +115,7 @@ it("aborts while waiting for OAuth lock without appending a credential", async (
 it("refuses a symlink ancestor before creating any credential file", async () => {
 	const path = location();
 	const alias = `${path}.alias`;
-	symlinkSync(join(path, ".."), alias);
+	symlinkSync(join(path, ".."), alias, process.platform === "win32" ? "junction" : "dir");
 	await expect(storeNamedCredential(join(alias, "nested-auth.json"), "new", "test-only-key")).rejects.toThrow("Unsafe");
 	expect(existsSync(join(path, "..", "nested-auth.json"))).toBe(false);
 });
