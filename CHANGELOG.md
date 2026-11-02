@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.26110204] - 2026-11-02
+
 ### Fixed
 
 - app：工作页版本检查复用应用挂载路径，云端根路径不再误请求旧 `/console/version.json`；本机与 `/console/` 挂载保持兼容。
@@ -15,7 +17,26 @@
 - delegation：分身与后台续办沿持久来源核验原请求者，来源不可核验明确报错；准入/额度拒绝返回 error/reason；可选 effort/账号覆盖的错误指出参数与合法恢复办法，避免将运行权限误报为主人权限。
 - social：明确主人指令可在既有能力和目标范围内直接应用策略，移除预览后另发“确认”口令的附加门；inspect 使用真实入站路由与配置匹配诊断，历史有效策略缺少证据时保持未知。
 - config：按指定既有 profile 更新并保留未涉及字段，管理写入在锁内核对原文版本；失败按当前文件内容恢复本次改动并同步恢复有效快照，不覆盖并发更改。保留自定义参与插件与私聊的既有隔离语义。
+- windows：await child close in production execution environment
+- app：respect mount path in update check
+- config：isolate legacy QQ group batches from main
+- social：honor enabled batch run opportunities
+- core：derive complete default agent routes
+- config：reload restored state after failed publish
+- config：classify selected participation batch scopes
+- config：pass expected file revision to management
+- config：guard profile updates and reload rollback
+- core：verify parent delegation origins
+- config：reject unrunnable social bindings before reload
+- runtime：expose request model facts and scoped attachment access
 
+### Added
+
+- feishu：add bounded group directory tool
+
+### Changed
+
+- social：keep group coordination under file limit
 
 ## [0.3.26110203] - 2026-11-02
 
