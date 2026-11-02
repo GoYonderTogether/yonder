@@ -49,7 +49,7 @@ preset 没有身份、owner、工作区或绑定：在 `<home>/presets/<id>.yaml
 - 连续任务：`yonder sessions open <preset> --keep-open` 创建 manual task，然后 `sessions submit <id> --text <text>`；默认返回输入回执，**不代表模型完成**。`sessions show <id>` 看会话元数据与转录，运行终态还应核对对应 run.end。`abort` 中止工作但保留 manual 会话；`close` 中止未完成工作并关闭、保留历史。退出 TUI 或观察断连不会关闭任务。
 - `sessions submit` 只驱动 task，不能给常驻 agent 会话直接塞输入。`yonder chat --session <id>` 续聊 task；`yonder chat --channel <instance>` 经渠道绑定联系常驻 agent。裸 `yonder` 在 TTY 优先选择 CLI 渠道；显式 `yonder chat` 默认独立任务。
 
-`sources` 由程序逐字转交当前来源会话中的原消息，不转抄为自己的摘要；`effort` 是本次运行的思考级别，需 admin。渠道分身可在实际提供 `parent_ask` 时向同一个 Agent 的主会话提出有限请求，附带的来源身份不等于主人授权；它不是提权按钮。
+`sources` 由程序逐字转交当前来源会话中的原消息，不转抄为自己的摘要，也不是跨 Agent 的主人授权证明；`effort` 是本次运行的思考级别，需 admin。没有必要覆盖就省略这个可选参数，`effort: default` 仍算覆盖；能力错误应按指出的字段修正，不重复改写交办文字重试。渠道分身可在实际提供 `parent_ask` 时向同一个 Agent 的主会话提出有限请求，附带的来源身份不等于主人授权；它不是提权按钮。
 
 列出/读取会话的内置工具需要 admin；涉及其他 agent 还需 cross-agent。CLI 是管理面，不是绕过任务授权的借口。委派前明确任务和允许副作用；接纳回执、模型终态、渠道送达分别核对，结果不明先查原事件/会话，不重复投递。
 
@@ -80,3 +80,20 @@ ASR/TTS/embedding/rerank 等用 `yonder.yaml.services`，不是聊天 model。�
 运行中的 agent 不能依靠自己的 bash 执行 update 并把服务重启造成的断连当成功。已安装的 channel-github 提供 `channel-github_update_schedule` 与 `channel-github_update_status`，仅供配置了 apply 策略与安装/home 边界的管家受限更新配置档，参数为真实 instance/releaseId，重新读取已批准发布的 Release；用实际工具定义提交独立一次性 launchd 更新并查结果。它不是任意版本或任意 Agent 的更新入口；不可用时交给服务外的已授权执行方。更新后重新连接，核对 version 的来源 commit、service info 的运行版本/home/pid 和需要验证的真实能力。查到新版本文件不等于服务已重启成功。
 
 来源：当前安装文档 `spec/02-sessions.md`、`03-agents.md`、`04-plugins.md`、`05-security.md`、`07-runtime.md`、`08-config.md`、`09-cli-release.md`、`10-runtime-guarantees.md`；对应源码 `packages/cli/src/index.ts`、`packages/core/src/config/reload.ts`、`kernel/index.ts`、`tools/index.ts`、`release/index.ts`。文档可用 `yonder docs --list` 发现，不依赖开发仓库存在。
+
+
+## 7. 用户需求到配置交付
+
+主人说“改成某模型”“负责这个群”“消息都看着但按需回复”“先别说话”时，完成下面这条链。不要把低层 YAML、第二次确认口令或反复重试交给用户。只在目标/影响范围确实不清时问缺失信息。
+
+1. **确定真实对象。** 核对 home、服务版本、原始消息的 Agent/channel/conv 与 owner 关系。`agents show` 读取实际绑定及 profiles，`inspect --agent <id> --profile <name>` 核对有效工具/能力/模型。群名称和昵称不是目标或授权证明。
+2. **拆开配置维度。** 由谁负责是 Agent 身份；在哪保存历史是 session；用哪个模型和工具是 profile；收到消息、记录、唤醒模型、允许发言与最终投递各有配置。使用实际已选 social 工具查询群策略及路由，工具不在当前可用列表时只用已提供的发现入口，不假装存在。
+3. **形成最小补丁。** 私聊与各群可能共用 profile；先列出本次实际影响，尽量更新现有目标 profile，不随意新命名 profile 使开放会话产生冲突。`agents update` 的 profiles/bindings 是配置字段，不是任意 JSON 深合并：按 `agents show` 保留未修改的兄弟字段/绑定，避免只提交一个子项把其他配置替换掉。控制面的 config.get/update 支持可选 profile，省略仍是 defaultProfile；只能在实际提供该管理接口的客户端使用，不虚构 CLI 命令。
+4. **先校验再接纳。** 用 `agents validate <id> --file <json>` 校验完整候选，再 `agents update <id> --file <json>` 等待热重载结果，显式带 `--home <home> --json`。无效候选保留旧有效配置；读取具体字段/绑定错误再改，不能为了通过而弱化能力边界。saved 是落盘，accepted 是服务接纳；restartRequired 是另一个事实，不能把重启所需字段说成已热生效。
+5. **群参与策略直接办理。** 当前提供 social_update 或 social_group_mode_set 时先 inspect 取得 revision，按主人明确需求显式 dryRun:false 应用并读回。dryRun 可供预览，不要求主人另发“确认”。保留实际 admin、跨 Agent、channelInstances 和可信来源限制。想让同一个 Agent 在工作群接活，沿独立群上下文与已有 parent_ask 交接，不把私人 main 当作完整能力开关。真正要求共用私人主上下文时报告当前支持边界，不擅自改意图。普通消息的批处理窗口读取当前配置，不宣布一个未经核实的统一秒数。
+6. **验证具体行为。** 读回有效配置；social.inspect 的历史路由不等于修改后的新消息已通过。按本次目标追踪真实入站 → 目标绑定/session/profile → run.end → delivery.ok 的 message.out。换模型核对下次真实运行与本请求宿主模型事实，发生 fallback 时同时说明首选和实际型号。只读配置检查、doctor 和主动发送一条消息都不能代替整条链。没有新入站就明确“已接纳，端到端未测”，不要制造用户消息或擅自重复发信。
+7. **交付并续办。** 报告修改对象、差异、接纳状态、运行/送达证据和未测项。被拒绝要说具体参数/来源/能力，不能把内部运行权限误说成主人不是 admin。后台返回后继续原任务；仍需工作时沿已有后台等待或 task_continue，不以“稍后处理”结束。
+
+群附件已经收到时，优先使用输入给出的 message/index 和实际提供的 conversation_attachment_read；该工具只读当前来源会话中的文本附件，不是任意文件路径接口。图片/二进制解析与文本读取不同。没有提供 reader 或下载失败时报告真实缺口，必要时 parent_ask 附原文来源；不要先让用户把已经收到的文档再贴一遍。
+
+长期 SOUL/AGENTS 记录职责、风格和稳定工作方法；当前模型、配置 revision、平台权限和本轮投递状态从宿主事实查，不另写静态副本造成冲突。对过去失败的调查按 agent/channel/conv/时间关联原请求与最终成功或失败回执，不能拿当前 YAML 或其他机器人的日志作过去的执行证据。

@@ -15,5 +15,6 @@ description: 管理 Yonder Harness 自身的运行目录、配置、身份、常
 - 新常驻 Agent、preset、子任务或助理：第 3–4 节。
 - 模型和非对话服务：第 5 节。
 - 生效检查、热重载、安装更新：第 6 节。
+- 用户提出模型、群接管、监听节奏、禁言或配置需求后的完整办理：第 7 节。
 
 以当前安装的 `yonder --help`、`yonder docs --list` 和 `yonder docs <path>` 查询版本对应文档；本文不是对尚未提供的 CLI 或插件的承诺。工具不在当前列表时，仅在已提供 `tool_search` 的情况下用它搜索；否则用可用的 `yonder inspect` 或插件清单核对，不调用未提供的工具。

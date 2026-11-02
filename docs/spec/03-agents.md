@@ -178,6 +178,8 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 - id/type 对 write 同样保留；message.in/session.input 继续使用 text 与附件，其他事件将完整 data JSON 序列化为正文。插件负责原生事实，内核不识别 release 或卡片专用字段。外部名称、附件名按字符串转义为单行，不能通过换行或标记制造框架边界；原事件保持不变（10 §1.1）。
 - 提示词、环境、能力与投递均使用本次运行配置；新选中的上下文文件在配置发布前完成必要 scaffold。版本只在输入真正提交后确认，准备失败不能吞掉 notice。
 
+每次原生模型请求可在稳定 system 前缀之后追加独立的模型事实段，只含本请求由运行时实际选择的 provider/model/thinking 及配置首选。fallback 后随实际选择更新，不从当前 YAML 猜历史模型；这一段不混入稳定底座、时间或外部正文。输入时刻的 `<turn>` 无法预知之后的 fallback。附件行同时给出来源 message/index；本轮提供 `conversation_attachment_read` 时指明受限入口，不把缓存路径暗示为任意文件读取权限。
+
 ### 5.4 SOUL.md 与 AGENTS.md 模板
 
 context-files 的 `soul-md`、`agents-md` 保持通用文件读取和空模板语义；未经编辑的空模板不注入提示词。
