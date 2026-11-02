@@ -23,7 +23,7 @@ import { ModelHealth } from "../runtime/model-health.js";
 import { accountKey, ModelQuota } from "../runtime/model-quota.js";
 import { cardVisitorGaps, cardVisitorWarning } from "./card-visitor.js";
 import { type ChainEntryReport, chainCredentialMissing, modelChainIssues, unusableChainError } from "./host-status.js";
-import { canReceivePeerAsk, peerFix, withDefaultPeer } from "./peer.js";
+import { canReceivePeerAsk, parentRequestWarnings, peerReachabilityWarning, withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
 
 /** Distinct contexts of every profile of an agent, resolved against the home's default model. */
@@ -486,38 +486,8 @@ export async function inspectHome(home: string) {
 					);
 			}
 			// BE-13：这条链路断了主人要能看懂影响、知道改哪个文件、改完怎么复查。
-			if (!canReceivePeerAsk(agent)) {
-				const fix = peerFix(agent, env, config.defaultModel);
-				const workspace = config.agents?.find((item) => item.id === agent.id)?.workspace ?? `./agents/${agent.id}`;
-				const file = `${workspace.replace(/^\.\//, "").replace(/\/$/, "")}/agent.yaml`;
-				warnings.push(
-					`${agent.id}: 别的 agent 用 agent_ask 问它时永远送不到——它没有 channel=agent、kind=agent 的绑定，peer 协作链在这里断开（调用方只会拿到「这是配置缺口」，不是它拒绝）。有意隔离可以忽略。修复：在 ${file} 里补上下面这段，然后运行 yonder doctor 复查。${fix ? `\n${fix}` : "它已有同名 peer 配置，请检查绑定。"}`,
-				);
-			}
-			const includesOrOmits = (value: string | string[] | undefined, target: string) =>
-				value === undefined || (Array.isArray(value) ? value.includes(target) : value === target);
-			const parentBindings = agent.bindings.filter(
-				(binding) =>
-					includesOrOmits(binding.match.channel, "agent") &&
-					includesOrOmits(binding.match.kind, "parent-request") &&
-					includesOrOmits(binding.match.type, "message.in"),
-			);
-			if (!parentBindings.length) {
-				warnings.push(
-					`${agent.id}: 分身的 parent_ask 没有通往所属主会话的 parent-request 绑定；这不授予调用方新权限。用 yonder agents show ${agent.id} --home <active home> 查看绑定；若需要主会话协助，添加仅匹配 channel=agent、kind=parent-request、from=acct:agent:${agent.id} 且 session=main 的路由，再运行 agents validate 并用 agents show 读回。`,
-				);
-			} else {
-				for (const binding of parentBindings) {
-					const from = binding.match.from;
-					const hasExactFrom = Array.isArray(from)
-						? from.includes(`acct:agent:${agent.id}`)
-						: from === `acct:agent:${agent.id}`;
-					if (binding.session !== "main" || !hasExactFrom)
-						warnings.push(
-							`${agent.id}/${binding.id}: 自定义 parent-request 路由的 type/from/session 不匹配 parent_ask 的所属主会话请求（需要 type=message.in、from=acct:agent:${agent.id} 且 session=main）。保留其他自定义范围；若这条路由本应接收 parent_ask，用 yonder agents show ${agent.id} --home <active home> 检查后只修正该 binding，再运行 agents validate 并用 agents show 读回。`,
-						);
-				}
-			}
+			if (!canReceivePeerAsk(agent)) warnings.push(peerReachabilityWarning(agent, config));
+			warnings.push(...parentRequestWarnings(agent));
 		}
 		return { ok: errors.length === 0, errors, warnings: [...new Set(warnings)], modelChains };
 	} catch (error) {
