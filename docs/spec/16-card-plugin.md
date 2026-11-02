@@ -33,7 +33,7 @@
 - acct 目标先 `POST /api/device/dm` `{agentId,accountId}` → `{convId}`（幂等）；Agent 须属于设备且 enabled，目标须与 Agent 同在一个会话或是其主人的好友，否则 403 forbidden。
 - 连接后发送 `{type:'hello'}`，服务端 agent_cursor 补收；仅在 io.emit 接纳后发送 `{type:'ack',agentId,convId,seq}`。失败不 ack。重连指数退避；同步 Agent 后重连刷新服务端 hello 订阅。
 - hello 补收的帧带 `replayed: true`（实时帧不带）。补收消息发出已超过 5 分钟时，插件在正文前加一行「[补收：这条消息发于 <ISO 时间>，设备离线期间未送达…先向对方确认。]」，Bot 据此判断旧指令是否已被后来的消息取代，不照做覆盖新结果（JV2-J03-10）。
-- 首版出站仅文本/Markdown，不支持上传附件或流式；入站 image/file 映射附件，interactive 保留其标题和正文。
+- 出站支持文本/Markdown 与 SDK OutMessage 的结构化 interactive 内容，channel-card 原样透传；不支持上传附件或流式。入站 image/file 映射附件，interactive 保留其标题和正文。按钮级 link、卡片工具与仅服务端可写的 error 消息见 [22](22-shared-bot-core.md)。
 
 ## 4 名片草稿工具
 
@@ -67,7 +67,7 @@
 
 ## 默认 Bot 与云端创建（增补，主人 10-29）
 网页端（apps/app）依赖社交服务的两个增补接口，仅限已登录的 human 会话：
-- `POST /api/me/default-bot`，正文 `{name, englishName}`（网页固定发 `小未` / `Yonder Bot`）。**幂等**：在账号行锁内判断，账号名下已有任意 `kind=agent` 且 `owner_id=本账号` 的账号（含设备接入的）时原样返回其中一个，不创建；否则创建一个云端 Bot（使用云端默认模型与预设，学习功能默认开启）并建立与本人的 DM 会话，返回 Actor。重复登录和并发请求不得产生多个。
+- `POST /api/me/default-bot`，正文 `{name, englishName}`（网页固定发 `小未` / `Yonder Bot`）。**幂等**：在账号行锁内判断，账号名下已有任意 `kind=agent` 且 `owner_id=本账号` 的账号（含设备接入的）时原样返回其中一个，不创建；否则创建一个云端 Bot（使用共享核心、平台模型与 agent-presets 默认模板，不启动独立容器）并建立与本人的 DM 会话，返回 Actor。重复登录和并发请求不得产生多个。
 - `POST /api/bots`，正文仅 `{name}`，创建云端 Bot，其余参数全部取服务端默认值，返回 Actor。不接受用途、模型、预设等字段。
 网页行为：联系人加载后若没有任何自己的 Bot 就调用前者一次；聊天列表不再有选择/创建引导页，旧 `/pa` 重定向到 `/`。服务端实现不在本仓库（yonder-cloud）。
 

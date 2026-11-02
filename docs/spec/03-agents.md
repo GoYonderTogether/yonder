@@ -5,7 +5,7 @@
 | | 常驻 Agent | 预设 Preset |
 |---|---|---|
 | 身份 | 有：id、owner、账号、绑定 | 无 |
-| 工作区 | 有，一个文件夹 | 无；会话和配置照常记录 |
+| 工作区 | 有，目录或数据库虚拟工作区 | 无；会话和配置照常记录 |
 | 会话 | main / persistent / ephemeral | task |
 | 用途 | 长期存在的个人或业务 agent | 给任何 agent 或外部调用方临时用一下：编码、调研…… |
 
@@ -13,7 +13,9 @@
 
 ### 2.1 位置
 
-工作区 = **执行环境 + 路径**（05 §4）。home 的 `yonder.yaml` 登记每个 agent：
+Bot 定义由同一个 schema 与解析器处理，来源接口提供 Agent 列表、agent.yaml 原文、presets、prompt 模板、子 Agent 定义、skills 条目及工作区文件。本机目录来源沿用既有加载语义；云端 PostgreSQL 来源按租户与 Bot 隔离，不能另写一套解析或提示词装配。
+
+目录工作区 = **执行环境 + 路径**（05 §4）。本机 home 的 `yonder.yaml` 登记每个 agent：
 
 ```yaml
 agents:
@@ -24,7 +26,7 @@ agents:
     workspace: /home/me/agents/gpu-coder
 ```
 
-内核读写工作区一律通过执行环境接口（架构不变量 8）。
+内核通过 WorkspaceFiles 读写工作区（架构不变量 8）。目录实现使用执行环境；云端使用 `bot_files(bot_id, path, content, updated_at)` 虚拟工作区，SOUL.md、AGENTS.md、USER.md、MEMORY.md 与 memories/* 仍为文件，不为人格单独建列。新建云端 Bot 首次激活前用 agent-presets 现有默认模板生成 SOUL.md 和 AGENTS.md；模板与 contexts 选择和本机默认 Bot 一致。
 
 ### 2.2 内容
 
