@@ -1,0 +1,6066 @@
+{
+	"phase": "cleanup round 1 completed; active A12/final validations remain held for exact final-ledger reference refresh",
+	"referenceHeads": {
+		"yonder": "658713ed7408f57fc6fa820482f57c2fa106828b",
+		"cloud": "e6fd63d4ed4b6297457fd9881c08cdc4909ce1f3"
+	},
+	"rule": "Only .log files deleted. Existing committed verification documents are retention evidence; this administrative scratch inventory is not. Exact filenames, explicit braces/prefixes and named suffix shorthand count. Tracked unreferenced historical logs are held for owner review. Active A12/verified/final2/final logs are a temporary hold, not a permanent generic reference.",
+	"summary": {
+		"yonder": {
+			"keep_committed_reference": 332,
+			"hold_active_validation": 12,
+			"keep_tracked_unresolved": 0,
+			"deleted_unreferenced_scratch": 145
+		},
+		"cloud": {
+			"keep_committed_reference": 18,
+			"hold_active_validation": 0,
+			"keep_tracked_unresolved": 0,
+			"deleted_unreferenced_scratch": 6
+		}
+	},
+	"deletedBytes": 1159325,
+	"logs": [
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-diagnostic-before-fix-2.log",
+			"tracked": false,
+			"bytes": 122208,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-diagnostic-before-fix.log",
+			"tracked": false,
+			"bytes": 2769,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-diagnostic-format-2.log",
+			"tracked": false,
+			"bytes": 1383,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-diagnostic-format.log",
+			"tracked": false,
+			"bytes": 1380,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-model-binding-focused.log",
+			"tracked": false,
+			"bytes": 200,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-model-binding-format-2.log",
+			"tracked": false,
+			"bytes": 6747,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-model-binding-format.log",
+			"tracked": false,
+			"bytes": 8071,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-model-binding-load-after-fix.log",
+			"tracked": false,
+			"bytes": 121832,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-model-binding-typecheck-2.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/A12-model-binding-typecheck.log",
+			"tracked": false,
+			"bytes": 700,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/evidence-format.log",
+			"tracked": false,
+			"bytes": 42,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A12-load.log",
+			"tracked": false,
+			"bytes": 25901,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 29,
+				"token": "final-A12-load.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A6-live.log",
+			"tracked": false,
+			"bytes": 2828,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 23,
+				"token": "final-A6-live.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A7-503-reflect.log",
+			"tracked": false,
+			"bytes": 1112,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 25,
+				"token": "final-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A7-503.log",
+			"tracked": false,
+			"bytes": 1096,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 25,
+				"token": "final-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A7-empty.log",
+			"tracked": false,
+			"bytes": 1100,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 25,
+				"token": "final-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A7-interrupt.log",
+			"tracked": false,
+			"bytes": 808,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 25,
+				"token": "final-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A7-reply-none.log",
+			"tracked": false,
+			"bytes": 1035,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 25,
+				"token": "final-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A7-send-then-503.log",
+			"tracked": false,
+			"bytes": 1116,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 25,
+				"token": "final-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A7-timeout.log",
+			"tracked": false,
+			"bytes": 1179,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 25,
+				"token": "final-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A8-live.log",
+			"tracked": false,
+			"bytes": 1560,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 23,
+				"token": "final-A8-live.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A8-loopback.log",
+			"tracked": false,
+			"bytes": 1801,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 25,
+				"token": "final-A8-loopback.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-A9-live.log",
+			"tracked": false,
+			"bytes": 1741,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 23,
+				"token": "final-A9-live.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/final-lifecycle.log",
+			"tracked": false,
+			"bytes": 2580,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 31,
+				"token": "final-lifecycle.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/focused-main-migration-2.log",
+			"tracked": false,
+			"bytes": 214,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 36,
+				"token": "focused-main-migration-2.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/focused-main-migration.log",
+			"tracked": false,
+			"bytes": 1341,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/layer-tests.log",
+			"tracked": false,
+			"bytes": 1660,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 36,
+				"token": "layer-tests.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/local-host-migration.log",
+			"tracked": false,
+			"bytes": 2159,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 36,
+				"token": "local-host-migration.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/main-refresh-focused.log",
+			"tracked": false,
+			"bytes": 227,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/main-content-audit.md",
+				"line": 98,
+				"token": "main-refresh-focused.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/main-refresh-format.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/main-content-audit.md",
+				"line": 99,
+				"token": "main-refresh-format.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/main-refresh-typecheck.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/main-content-audit.md",
+				"line": 97,
+				"token": "main-refresh-typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/migration-biome-clean.log",
+			"tracked": false,
+			"bytes": 44,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/migration-biome-final.log",
+			"tracked": false,
+			"bytes": 15832,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/migration-format-final.log",
+			"tracked": false,
+			"bytes": 168,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/migration-format-remainder.log",
+			"tracked": false,
+			"bytes": 166,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/speech-regression-2.log",
+			"tracked": false,
+			"bytes": 978,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/speech-regression-3.log",
+			"tracked": false,
+			"bytes": 202,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 36,
+				"token": "speech-regression-3.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/speech-regression.log",
+			"tracked": false,
+			"bytes": 1201,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/typecheck-core-removal-2.log",
+			"tracked": false,
+			"bytes": 4195,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/typecheck-core-removal.log",
+			"tracked": false,
+			"bytes": 3234,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/typecheck.log",
+			"tracked": false,
+			"bytes": 1171,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/typecheck2.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-complete-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 15,
+				"token": "yonder-complete-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-complete-lint.log",
+			"tracked": false,
+			"bytes": 15420,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 15,
+				"token": "yonder-complete-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-complete-node-tests.log",
+			"tracked": false,
+			"bytes": 7100,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 15,
+				"token": "yonder-complete-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-complete-tests.log",
+			"tracked": false,
+			"bytes": 2297,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 15,
+				"token": "yonder-complete-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-complete-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 15,
+				"token": "yonder-complete-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-final-build.log",
+			"tracked": false,
+			"bytes": 12402,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 14,
+				"token": "yonder-final-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-final-lint.log",
+			"tracked": false,
+			"bytes": 13919,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 14,
+				"token": "yonder-final-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-final-node-tests.log",
+			"tracked": false,
+			"bytes": 7126,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 14,
+				"token": "yonder-final-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-final-tests.log",
+			"tracked": false,
+			"bytes": 2867,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 14,
+				"token": "yonder-final-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 14,
+				"token": "yonder-final-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-first-build.log",
+			"tracked": false,
+			"bytes": 1191,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 13,
+				"token": "yonder-first-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-first-lint.log",
+			"tracked": false,
+			"bytes": 42549,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 13,
+				"token": "yonder-first-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-first-node-tests.log",
+			"tracked": false,
+			"bytes": 7102,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 13,
+				"token": "yonder-first-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-first-tests.log",
+			"tracked": false,
+			"bytes": 5972,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 13,
+				"token": "yonder-first-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-first-typecheck.log",
+			"tracked": false,
+			"bytes": 451,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 13,
+				"token": "yonder-first-{build,typecheck,lint,tests,node-tests}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-verified-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-verified-lint.log",
+			"tracked": false,
+			"bytes": 13557,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-verified-tests.log",
+			"tracked": false,
+			"bytes": 147,
+			"status": "hold_active_validation"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/yonder-verified-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-artifact-final-format.log",
+			"tracked": false,
+			"bytes": 5208,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-artifact-focused-final-2.log",
+			"tracked": false,
+			"bytes": 557,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-artifact-focused-final.log",
+			"tracked": false,
+			"bytes": 557,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-artifact-format.log",
+			"tracked": false,
+			"bytes": 2460,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-artifact-guard-format.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-console-focused.log",
+			"tracked": false,
+			"bytes": 202,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-events-focused-2.log",
+			"tracked": false,
+			"bytes": 201,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-events-focused.log",
+			"tracked": false,
+			"bytes": 1196,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-events-format.log",
+			"tracked": false,
+			"bytes": 14843,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-events-typecheck.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-gate-failures-focused-2.log",
+			"tracked": false,
+			"bytes": 201,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-gate-failures-focused.log",
+			"tracked": false,
+			"bytes": 3069,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-host-scheduler-focused.log",
+			"tracked": false,
+			"bytes": 200,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-load-format.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-plugin-bind-focused.log",
+			"tracked": false,
+			"bytes": 200,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-plugin-bind-format.log",
+			"tracked": false,
+			"bytes": 37,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-remote-search-lint.log",
+			"tracked": false,
+			"bytes": 2864,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-scheduler-format.log",
+			"tracked": false,
+			"bytes": 38,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-shutdown-build-final.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 41,
+				"token": "build-final.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-shutdown-build-first.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-shutdown-focused-final.log",
+			"tracked": false,
+			"bytes": 203,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-shutdown-focused-first.log",
+			"tracked": false,
+			"bytes": 203,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-shutdown-format.log",
+			"tracked": false,
+			"bytes": 17804,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-shutdown-negative-control.log",
+			"tracked": false,
+			"bytes": 1176,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-shutdown-test-format.log",
+			"tracked": false,
+			"bytes": 859,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-focused-2.log",
+			"tracked": false,
+			"bytes": 7187,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-focused-3.log",
+			"tracked": false,
+			"bytes": 556,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-focused-4.log",
+			"tracked": false,
+			"bytes": 1497,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-focused-final.log",
+			"tracked": false,
+			"bytes": 557,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-focused-first.log",
+			"tracked": false,
+			"bytes": 3935,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-format-2.log",
+			"tracked": false,
+			"bytes": 7272,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-format-3.log",
+			"tracked": false,
+			"bytes": 11044,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-format-4.log",
+			"tracked": false,
+			"bytes": 1356,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-format-5.log",
+			"tracked": false,
+			"bytes": 2424,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-format-final.log",
+			"tracked": false,
+			"bytes": 7886,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-format.log",
+			"tracked": false,
+			"bytes": 14810,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-typecheck-2.log",
+			"tracked": false,
+			"bytes": 4195,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-typecheck-3.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-typecheck-4.log",
+			"tracked": false,
+			"bytes": 350,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-typecheck-5.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-typecheck-final.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/hermes-experience-official.md",
+				"line": 51,
+				"token": "typecheck-final.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-typecheck-first.log",
+			"tracked": false,
+			"bytes": 13757,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-busy-focused.log",
+			"tracked": false,
+			"bytes": 201,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 20,
+				"token": "review-worker-busy-focused.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-final-lint.log",
+			"tracked": false,
+			"bytes": 9392,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-final-size-2.log",
+			"tracked": false,
+			"bytes": 157,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 24,
+				"token": "review-worker-final-size-2.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-final-size-format.log",
+			"tracked": false,
+			"bytes": 43,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-final-size.log",
+			"tracked": false,
+			"bytes": 343,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 33,
+				"token": "review-worker-final-size.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-2.log",
+			"tracked": false,
+			"bytes": 746,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 32,
+				"token": "-2.log",
+				"kind": "abbreviated suffix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-3.log",
+			"tracked": false,
+			"bytes": 2700,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 32,
+				"token": "-3.log",
+				"kind": "abbreviated suffix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-4.log",
+			"tracked": false,
+			"bytes": 2930,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 23,
+				"token": "review-worker-lifecycle-4.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-build-2.log",
+			"tracked": false,
+			"bytes": 3203,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 31,
+				"token": "-build-2.log",
+				"kind": "abbreviated suffix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-build-3.log",
+			"tracked": false,
+			"bytes": 1026,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 31,
+				"token": "-build-3.log",
+				"kind": "abbreviated suffix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-build-4.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 22,
+				"token": "review-worker-lifecycle-build-4.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-build-5.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 22,
+				"token": "review-worker-lifecycle-build-5.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-build.log",
+			"tracked": false,
+			"bytes": 994,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 31,
+				"token": "review-worker-lifecycle-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-first.log",
+			"tracked": false,
+			"bytes": 505,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 32,
+				"token": "review-worker-lifecycle-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-lint.log",
+			"tracked": false,
+			"bytes": 3029,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-lifecycle-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-outbound-focused.log",
+			"tracked": false,
+			"bytes": 214,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 21,
+				"token": "review-worker-outbound-focused.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-outbound-lint.log",
+			"tracked": false,
+			"bytes": 1956,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-worker-outbound-test-lint.log",
+			"tracked": false,
+			"bytes": 1357,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/baseline-build.log",
+			"tracked": false,
+			"bytes": 13806,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 65,
+				"token": "shared-bot-core/baseline-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/baseline-lint.log",
+			"tracked": false,
+			"bytes": 13906,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 67,
+				"token": "shared-bot-core/baseline-lint.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/baseline-test.log",
+			"tracked": false,
+			"bytes": 2281,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 66,
+				"token": "shared-bot-core/baseline-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/cloud-baseline-build.log",
+			"tracked": false,
+			"bytes": 5792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 94,
+				"token": "shared-bot-core/cloud-baseline-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/cloud-baseline-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 94,
+				"token": "cloud-baseline-server-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/cloud-baseline-server-test.log",
+			"tracked": false,
+			"bytes": 22855,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 94,
+				"token": "cloud-baseline-server-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/cloud-baseline-server-typecheck.log",
+			"tracked": false,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/cloud-baseline-typecheck.log",
+			"tracked": false,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-app-build.log",
+			"tracked": false,
+			"bytes": 10985,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 42,
+				"token": "shared-bot-core/stage-1-app-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-build.log",
+			"tracked": false,
+			"bytes": 10139,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 21,
+				"token": "shared-bot-core/stage-1-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-final-lint.log",
+			"tracked": false,
+			"bytes": 14605,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 45,
+				"token": "shared-bot-core/stage-1-final-lint.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-focused-platform.log",
+			"tracked": false,
+			"bytes": 3024,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 34,
+				"token": "shared-bot-core/stage-1-focused-platform.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-focused-tests.log",
+			"tracked": false,
+			"bytes": 8008,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 33,
+				"token": "shared-bot-core/stage-1-focused-tests.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-lint.log",
+			"tracked": false,
+			"bytes": 16012,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 23,
+				"token": "shared-bot-core/stage-1-lint.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-resumed-lint.log",
+			"tracked": false,
+			"bytes": 13909,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 71,
+				"token": "stage-1-resumed-lint.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-resumed-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-test-after-build.log",
+			"tracked": false,
+			"bytes": 4057,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 25,
+				"token": "shared-bot-core/stage-1-test-after-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-test.log",
+			"tracked": false,
+			"bytes": 6331,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 24,
+				"token": "shared-bot-core/stage-1-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-1-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-complete-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 70,
+				"token": "stage-10-complete-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-complete-lint.log",
+			"tracked": false,
+			"bytes": 13910,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 70,
+				"token": "stage-10-complete-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-complete-test.log",
+			"tracked": false,
+			"bytes": 2281,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 70,
+				"token": "stage-10-complete-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-complete-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-corrected-build.log",
+			"tracked": false,
+			"bytes": 12283,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 70,
+				"token": "stage-10-corrected-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-corrected-lint.log",
+			"tracked": false,
+			"bytes": 13910,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 70,
+				"token": "stage-10-corrected-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-corrected-test.log",
+			"tracked": false,
+			"bytes": 2282,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 70,
+				"token": "stage-10-corrected-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-corrected-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-final-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 70,
+				"token": "shared-bot-core/stage-10-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-final-test.log",
+			"tracked": false,
+			"bytes": 4162,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 70,
+				"token": "shared-bot-core/stage-10-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-10-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-cloud-build.log",
+			"tracked": false,
+			"bytes": 5792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 15,
+				"token": "stage-11-cloud-{build,typecheck,server-build}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-cloud-corrected-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 15,
+				"token": "stage-11-cloud-corrected-server-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-cloud-corrected-server-test.log",
+			"tracked": false,
+			"bytes": 24722,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 15,
+				"token": "stage-11-cloud-corrected-server-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-cloud-corrected-server-typecheck.log",
+			"tracked": false,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-cloud-realtime-fixture-fixed.log",
+			"tracked": false,
+			"bytes": 2516,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 19,
+				"token": "stage-11-cloud-realtime-fixture-fixed.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-cloud-server-build.log",
+			"tracked": false,
+			"bytes": 133,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 15,
+				"token": "stage-11-cloud-{build,typecheck,server-build}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-cloud-server-test-final.log",
+			"tracked": false,
+			"bytes": 23843,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 19,
+				"token": "stage-11-cloud-server-test-final.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-cloud-typecheck.log",
+			"tracked": false,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-complete-build.log",
+			"tracked": false,
+			"bytes": 12246,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 184,
+				"token": "stage-11-complete-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-complete-lint.log",
+			"tracked": false,
+			"bytes": 13910,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 184,
+				"token": "stage-11-complete-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-complete-test.log",
+			"tracked": false,
+			"bytes": 2282,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 184,
+				"token": "stage-11-complete-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-complete-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-biome-final-small-verified.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-biome-final-small.log",
+			"tracked": false,
+			"bytes": 4546,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-biome-first.log",
+			"tracked": false,
+			"bytes": 19130,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-layer-first.log",
+			"tracked": false,
+			"bytes": 264,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-local-format.log",
+			"tracked": false,
+			"bytes": 14455,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-resources-format.log",
+			"tracked": false,
+			"bytes": 40,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-size-first.log",
+			"tracked": false,
+			"bytes": 226,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-source-format.log",
+			"tracked": false,
+			"bytes": 9657,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-typecheck-fifth.log",
+			"tracked": false,
+			"bytes": 1231,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 65,
+				"token": "stage-11-development-typecheck-{fourth,fifth,sixth}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-typecheck-first.log",
+			"tracked": false,
+			"bytes": 1531,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 51,
+				"token": "shared-bot-core/stage-11-development-typecheck-{first,second}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-typecheck-fourth.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 65,
+				"token": "stage-11-development-typecheck-{fourth,fifth,sixth}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-typecheck-second.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 51,
+				"token": "shared-bot-core/stage-11-development-typecheck-{first,second}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-typecheck-sixth.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 65,
+				"token": "stage-11-development-typecheck-{fourth,fifth,sixth}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-development-typecheck-third.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 53,
+				"token": "stage-11-development-typecheck-third.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-device-live-first.log",
+			"tracked": false,
+			"bytes": 100,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 71,
+				"token": "shared-bot-core/stage-11-device-live-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-device-live-verified.log",
+			"tracked": false,
+			"bytes": 1741,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 79,
+				"token": "shared-bot-core/stage-11-device-live-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-device-program-catalogue-fixed.log",
+			"tracked": false,
+			"bytes": 903,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 75,
+				"token": "stage-11-device-program-catalogue-fixed.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-device-program-catalogue-phase-fixed.log",
+			"tracked": false,
+			"bytes": 3080,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 81,
+				"token": "stage-11-device-program-catalogue-phase-fixed.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-device-program-first.log",
+			"tracked": false,
+			"bytes": 64,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 57,
+				"token": "stage-11-device-program-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-device-program-second.log",
+			"tracked": false,
+			"bytes": 433,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 61,
+				"token": "stage-11-device-program-second.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-final-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 184,
+				"token": "stage-11-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-final-test.log",
+			"tracked": false,
+			"bytes": 4443,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 184,
+				"token": "stage-11-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-channel-scope-biome.log",
+			"tracked": false,
+			"bytes": 19010,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-channel-scope-typecheck.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-channel-scope.log",
+			"tracked": false,
+			"bytes": 202,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 114,
+				"token": "stage-11-focused-channel-scope{,-typecheck}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-core-tools-first.log",
+			"tracked": false,
+			"bytes": 2479,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 65,
+				"token": "stage-11-focused-core-tools-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-gateway-contract.log",
+			"tracked": false,
+			"bytes": 200,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 114,
+				"token": "stage-11-focused-gateway-contract.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-last-callers-second-verified.log",
+			"tracked": false,
+			"bytes": 214,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 65,
+				"token": "stage-11-focused-last-callers-second-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-last-callers-verified.log",
+			"tracked": false,
+			"bytes": 1136,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-last-callers.log",
+			"tracked": false,
+			"bytes": 1189,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 114,
+				"token": "stage-11-focused-last-callers.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-local-typecheck.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-source-final.log",
+			"tracked": false,
+			"bytes": 583,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 53,
+				"token": "stage-11-focused-source-final.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-source-first.log",
+			"tracked": false,
+			"bytes": 2358,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 53,
+				"token": "shared-bot-core/stage-11-focused-source-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-source-second.log",
+			"tracked": false,
+			"bytes": 583,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-preflight-layers.log",
+			"tracked": false,
+			"bytes": 196,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 83,
+				"token": "stage-11-preflight-{size,layers}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-preflight-lint-errors.log",
+			"tracked": false,
+			"bytes": 1870,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 83,
+				"token": "stage-11-preflight-lint{-errors,}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-preflight-lint.log",
+			"tracked": false,
+			"bytes": 13918,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 83,
+				"token": "stage-11-preflight-lint{-errors,}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-preflight-size.log",
+			"tracked": false,
+			"bytes": 157,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 83,
+				"token": "stage-11-preflight-{size,layers}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-sdk-resource-test.log",
+			"tracked": false,
+			"bytes": 210,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 95,
+				"token": "stage-11-sdk-resource-{typecheck,test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-sdk-resource-typecheck.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-worker-live-verified.log",
+			"tracked": false,
+			"bytes": 2825,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 89,
+				"token": "stage-11-worker-live-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-worker-live.log",
+			"tracked": false,
+			"bytes": 1768,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 87,
+				"token": "stage-11-worker-live.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-worker-load.log",
+			"tracked": false,
+			"bytes": 45998,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 97,
+				"token": "stage-11-worker-load.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-2-build.log",
+			"tracked": false,
+			"bytes": 12246,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 82,
+				"token": "shared-bot-core/stage-2-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-2-final-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 85,
+				"token": "shared-bot-core/stage-2-final-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-2-final-lint.log",
+			"tracked": false,
+			"bytes": 13918,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 87,
+				"token": "shared-bot-core/stage-2-final-lint.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-2-final-test.log",
+			"tracked": false,
+			"bytes": 2281,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 86,
+				"token": "shared-bot-core/stage-2-final-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-2-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-2-test.log",
+			"tracked": false,
+			"bytes": 2984,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 83,
+				"token": "shared-bot-core/stage-2-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-2-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-3-build.log",
+			"tracked": false,
+			"bytes": 12286,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 102,
+				"token": "shared-bot-core/stage-3-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-3-lint.log",
+			"tracked": false,
+			"bytes": 13910,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 102,
+				"token": "shared-bot-core/stage-3-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-3-test.log",
+			"tracked": false,
+			"bytes": 2282,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 102,
+				"token": "shared-bot-core/stage-3-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-3-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-biome-final.log",
+			"tracked": false,
+			"bytes": 14646,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-source-20261102.md",
+				"line": 23,
+				"token": "shared-bot-core/stage-4-biome-final.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-biome-in-progress.log",
+			"tracked": false,
+			"bytes": 4523,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-build.log",
+			"tracked": false,
+			"bytes": 12283,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 112,
+				"token": "shared-bot-core/stage-4-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-final-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 114,
+				"token": "shared-bot-core/stage-4-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-final-lint.log",
+			"tracked": false,
+			"bytes": 13909,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 114,
+				"token": "shared-bot-core/stage-4-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-final-test.log",
+			"tracked": false,
+			"bytes": 2281,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 114,
+				"token": "shared-bot-core/stage-4-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-focused-test.log",
+			"tracked": false,
+			"bytes": 206,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-source-20261102.md",
+				"line": 22,
+				"token": "shared-bot-core/stage-4-focused-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-install.log",
+			"tracked": false,
+			"bytes": 146,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-source-20261102.md",
+				"line": 18,
+				"token": "shared-bot-core/stage-4-install.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-lint.log",
+			"tracked": false,
+			"bytes": 13909,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 112,
+				"token": "shared-bot-core/stage-4-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-lock-final.log",
+			"tracked": false,
+			"bytes": 132,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-source-20261102.md",
+				"line": 17,
+				"token": "shared-bot-core/stage-4-lock-final.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-lock.log",
+			"tracked": false,
+			"bytes": 135,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-size-in-progress.log",
+			"tracked": false,
+			"bytes": 326,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-source-20261102.md",
+				"line": 24,
+				"token": "shared-bot-core/stage-4-size-in-progress.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-source-failure-biome.log",
+			"tracked": false,
+			"bytes": 903,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 113,
+				"token": "stage-4-source-failure-{test,biome}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-source-failure-test.log",
+			"tracked": false,
+			"bytes": 201,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 113,
+				"token": "stage-4-source-failure-{test,biome}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-test.log",
+			"tracked": false,
+			"bytes": 2280,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 112,
+				"token": "shared-bot-core/stage-4-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-typecheck-final.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/hermes-experience-official.md",
+				"line": 51,
+				"token": "typecheck-final.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-typecheck-in-progress.log",
+			"tracked": false,
+			"bytes": 1537,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-source-20261102.md",
+				"line": 19,
+				"token": "shared-bot-core/stage-4-typecheck-in-progress.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-typecheck-verified.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-source-20261102.md",
+				"line": 21,
+				"token": "shared-bot-core/stage-4-typecheck-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-4-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 128,
+				"token": "shared-bot-core/stage-5-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-development-biome.log",
+			"tracked": false,
+			"bytes": 15555,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-state-20261102.md",
+				"line": 21,
+				"token": "shared-bot-core/stage-5-development-biome.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-development-lock.log",
+			"tracked": false,
+			"bytes": 135,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-state-20261102.md",
+				"line": 20,
+				"token": "shared-bot-core/stage-5-development-lock.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-development-state-biome.log",
+			"tracked": false,
+			"bytes": 9016,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-development-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-focused-biome-verified.log",
+			"tracked": false,
+			"bytes": 20228,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-state-20261102.md",
+				"line": 25,
+				"token": "shared-bot-core/stage-5-focused-biome-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-focused-final-files-biome.log",
+			"tracked": false,
+			"bytes": 7073,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-state-20261102.md",
+				"line": 25,
+				"token": "stage-5-focused-final-files-biome.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-focused-pg-verified.log",
+			"tracked": false,
+			"bytes": 201,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-state-20261102.md",
+				"line": 24,
+				"token": "shared-bot-core/stage-5-focused-pg-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-focused-test.log",
+			"tracked": false,
+			"bytes": 434,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-state-20261102.md",
+				"line": 23,
+				"token": "shared-bot-core/stage-5-focused-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-lint.log",
+			"tracked": false,
+			"bytes": 13909,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 128,
+				"token": "shared-bot-core/stage-5-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-test.log",
+			"tracked": false,
+			"bytes": 2282,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 128,
+				"token": "shared-bot-core/stage-5-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-5-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 136,
+				"token": "shared-bot-core/stage-6-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-development-lock-verified.log",
+			"tracked": false,
+			"bytes": 135,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-development-lock.log",
+			"tracked": false,
+			"bytes": 135,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-development-memory-biome.log",
+			"tracked": false,
+			"bytes": 16094,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-development-new-tests-biome.log",
+			"tracked": false,
+			"bytes": 2066,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-development-second-biome.log",
+			"tracked": false,
+			"bytes": 14385,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-development-storage-biome.log",
+			"tracked": false,
+			"bytes": 11265,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-development-typecheck-2.log",
+			"tracked": false,
+			"bytes": 152,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 20,
+				"token": "shared-bot-core/stage-6-development-typecheck*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-development-typecheck.log",
+			"tracked": false,
+			"bytes": 447,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-lint.log",
+			"tracked": false,
+			"bytes": 13909,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 136,
+				"token": "shared-bot-core/stage-6-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-test.log",
+			"tracked": false,
+			"bytes": 2282,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 136,
+				"token": "shared-bot-core/stage-6-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-6-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-7-build.log",
+			"tracked": false,
+			"bytes": 12294,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 34,
+				"token": "shared-bot-core/stage-7-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-7-final-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 38,
+				"token": "shared-bot-core/stage-7-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-7-final-lint.log",
+			"tracked": false,
+			"bytes": 13909,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 38,
+				"token": "shared-bot-core/stage-7-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-7-final-test.log",
+			"tracked": false,
+			"bytes": 2281,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 38,
+				"token": "shared-bot-core/stage-7-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-7-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-7-test.log",
+			"tracked": false,
+			"bytes": 3786,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 34,
+				"token": "shared-bot-core/stage-7-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-7-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-cloud-build.log",
+			"tracked": false,
+			"bytes": 5792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 37,
+				"token": "shared-bot-core/stage-8-cloud-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-cloud-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 37,
+				"token": "shared-bot-core/stage-8-cloud-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-cloud-server-test.log",
+			"tracked": false,
+			"bytes": 23711,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 37,
+				"token": "shared-bot-core/stage-8-cloud-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-cloud-server-typecheck.log",
+			"tracked": false,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-cloud-typecheck.log",
+			"tracked": false,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-final-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 164,
+				"token": "shared-bot-core/stage-8-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-final-lint-corrected.log",
+			"tracked": false,
+			"bytes": 14894,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 164,
+				"token": "shared-bot-core/stage-8-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-final-lint.log",
+			"tracked": false,
+			"bytes": 13918,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 164,
+				"token": "shared-bot-core/stage-8-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-final-test.log",
+			"tracked": false,
+			"bytes": 2278,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 164,
+				"token": "shared-bot-core/stage-8-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-8-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-alias-cloud-build.log",
+			"tracked": false,
+			"bytes": 5792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "shared-bot-core/stage-9-alias-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-alias-cloud-typecheck.log",
+			"tracked": false,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-alias-render-test.log",
+			"tracked": false,
+			"bytes": 382,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "shared-bot-core/stage-9-alias-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-alias-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "shared-bot-core/stage-9-alias-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-alias-server-test.log",
+			"tracked": false,
+			"bytes": 23817,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "shared-bot-core/stage-9-alias-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-alias-server-typecheck.log",
+			"tracked": false,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-app-final-build.log",
+			"tracked": false,
+			"bytes": 12258,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "shared-bot-core/stage-9-app-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-app-final-lint-corrected.log",
+			"tracked": false,
+			"bytes": 13909,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "stage-9-app-final-lint-corrected.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-app-final-lint.log",
+			"tracked": false,
+			"bytes": 13917,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "shared-bot-core/stage-9-app-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-app-final-test.log",
+			"tracked": false,
+			"bytes": 2282,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "shared-bot-core/stage-9-app-final-{build,typecheck,test,lint}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-app-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-channel-ui-cloud-build.log",
+			"tracked": false,
+			"bytes": 5792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 148,
+				"token": "shared-bot-core/stage-9-channel-ui-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-channel-ui-cloud-typecheck.log",
+			"tracked": false,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-channel-ui-render-test.log",
+			"tracked": false,
+			"bytes": 384,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 148,
+				"token": "shared-bot-core/stage-9-channel-ui-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-channel-ui-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 148,
+				"token": "shared-bot-core/stage-9-channel-ui-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-channel-ui-server-test.log",
+			"tracked": false,
+			"bytes": 23617,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 148,
+				"token": "shared-bot-core/stage-9-channel-ui-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-channel-ui-server-typecheck.log",
+			"tracked": false,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "cloud",
+				"document": "docs/verification/shared-bot-server-20261102.md",
+				"line": 31,
+				"token": "stage-9-server-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-cloud-build.log",
+			"tracked": false,
+			"bytes": 5792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "cloud",
+				"document": "docs/verification/shared-bot-server-20261102.md",
+				"line": 31,
+				"token": "stage-9-server-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-cloud-typecheck.log",
+			"tracked": false,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-final-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 120,
+				"token": "shared-bot-core/stage-9-server-final-{cloud-build,cloud-typecheck,build,typecheck,test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-final-cloud-build.log",
+			"tracked": false,
+			"bytes": 5792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 120,
+				"token": "shared-bot-core/stage-9-server-final-{cloud-build,cloud-typecheck,build,typecheck,test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-final-cloud-typecheck.log",
+			"tracked": false,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-final-test.log",
+			"tracked": false,
+			"bytes": 23523,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 120,
+				"token": "shared-bot-core/stage-9-server-final-{cloud-build,cloud-typecheck,build,typecheck,test}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-final-typecheck.log",
+			"tracked": false,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-test.log",
+			"tracked": false,
+			"bytes": 27833,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-core-20261102.md",
+				"line": 120,
+				"token": "stage-9-server-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-typecheck.log",
+			"tracked": false,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-card-live-first.log",
+			"tracked": false,
+			"bytes": 1619,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 47,
+				"token": "stage-10-card-live-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-evidence-format.log",
+			"tracked": false,
+			"bytes": 41,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-biome-final.log",
+			"tracked": false,
+			"bytes": 14031,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-biome-harness-final.log",
+			"tracked": false,
+			"bytes": 43,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-harness-biome-2.log",
+			"tracked": false,
+			"bytes": 40,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-harness-biome-3.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-harness-biome-4.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-harness-biome-5.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-harness-biome.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-loopback-development-1.log",
+			"tracked": false,
+			"bytes": 953,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-loopback-development-2.log",
+			"tracked": false,
+			"bytes": 950,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-loopback-development-3.log",
+			"tracked": false,
+			"bytes": 774,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-loopback-development-4.log",
+			"tracked": false,
+			"bytes": 712,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-loopback-development-5.log",
+			"tracked": false,
+			"bytes": 943,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-loopback-development-6.log",
+			"tracked": false,
+			"bytes": 1025,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-loopback-development-7.log",
+			"tracked": false,
+			"bytes": 1590,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-loopback-verified.log",
+			"tracked": false,
+			"bytes": 1800,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 55,
+				"token": "stage-10-focused-card-loopback-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-card-plugin-verified.log",
+			"tracked": false,
+			"bytes": 226,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-{typecheck-development-1,typecheck-development-2,delivery-development-1,suite-development-2,card-plugin-verified}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-client-ssr-development-2.log",
+			"tracked": false,
+			"bytes": 5747,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-client-ssr*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-client-ssr-verified.log",
+			"tracked": false,
+			"bytes": 385,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-client-ssr*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-client-ssr.log",
+			"tracked": false,
+			"bytes": 1290,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-client-ssr*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-component-biome.log",
+			"tracked": false,
+			"bytes": 42,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-delivery-biome.log",
+			"tracked": false,
+			"bytes": 3865,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-delivery-development-1.log",
+			"tracked": false,
+			"bytes": 1093,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-{typecheck-development-1,typecheck-development-2,delivery-development-1,suite-development-2,card-plugin-verified}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-delivery-test-biome-2.log",
+			"tracked": false,
+			"bytes": 13949,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-delivery-test-biome.log",
+			"tracked": false,
+			"bytes": 13949,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-layers-development-1.log",
+			"tracked": false,
+			"bytes": 264,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-prompt-corrected.log",
+			"tracked": false,
+			"bytes": 203,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 67,
+				"token": "stage-10-focused-prompt-corrected.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-size-development-1.log",
+			"tracked": false,
+			"bytes": 226,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-suite-development-2.log",
+			"tracked": false,
+			"bytes": 7721,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-{typecheck-development-1,typecheck-development-2,delivery-development-1,suite-development-2,card-plugin-verified}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-typecheck-development-1.log",
+			"tracked": false,
+			"bytes": 822,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-{typecheck-development-1,typecheck-development-2,delivery-development-1,suite-development-2,card-plugin-verified}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-focused-typecheck-development-2.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-{typecheck-development-1,typecheck-development-2,delivery-development-1,suite-development-2,card-plugin-verified}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-reply-none-core-test.log",
+			"tracked": false,
+			"bytes": 202,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 62,
+				"token": "stage-10-reply-none-{focused-typecheck,core-typecheck,core-test,worker-verified,focused-biome}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-reply-none-core-typecheck.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-reply-none-focused-biome.log",
+			"tracked": false,
+			"bytes": 3726,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 62,
+				"token": "stage-10-reply-none-{focused-typecheck,core-typecheck,core-test,worker-verified,focused-biome}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-reply-none-focused-typecheck.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-10-reply-none-worker-verified.log",
+			"tracked": false,
+			"bytes": 1034,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 62,
+				"token": "stage-10-reply-none-{focused-typecheck,core-typecheck,core-test,worker-verified,focused-biome}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-focused-1.log",
+			"tracked": false,
+			"bytes": 2125,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-focused-2.log",
+			"tracked": false,
+			"bytes": 1208,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-focused-3.log",
+			"tracked": false,
+			"bytes": 1208,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-focused-4.log",
+			"tracked": false,
+			"bytes": 1300,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-focused-5.log",
+			"tracked": false,
+			"bytes": 200,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-focused-6.log",
+			"tracked": false,
+			"bytes": 1155,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-focused-7.log",
+			"tracked": false,
+			"bytes": 200,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-typecheck-1.log",
+			"tracked": false,
+			"bytes": 1407,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-typecheck-2.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-typecheck-3.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-typecheck-4.log",
+			"tracked": false,
+			"bytes": 469,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-typecheck-5.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-development-native-typecheck-6.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 45,
+				"token": "docs/verification/stage-11-development-native-{typecheck,focused}-N.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-focused-host-request-1.log",
+			"tracked": false,
+			"bytes": 201,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 67,
+				"token": "docs/verification/stage-11-focused-host-request-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-focused-host-request-typecheck-1.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 67,
+				"token": "typecheck-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-development-typecheck-3.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-atomic-biome.log",
+			"tracked": false,
+			"bytes": 37,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-biome-development.log",
+			"tracked": false,
+			"bytes": 13805,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-biome-error-detail.log",
+			"tracked": false,
+			"bytes": 1204,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-biome-verified.log",
+			"tracked": false,
+			"bytes": 16787,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-files-memory-verified.log",
+			"tracked": false,
+			"bytes": 216,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 23,
+				"token": "stage-6-focused-files-memory-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-final-biome.log",
+			"tracked": false,
+			"bytes": 15819,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 27,
+				"token": "stage-6-focused-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-final-layers.log",
+			"tracked": false,
+			"bytes": 264,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 27,
+				"token": "stage-6-focused-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-final-size.log",
+			"tracked": false,
+			"bytes": 226,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 27,
+				"token": "stage-6-focused-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-final-test.log",
+			"tracked": false,
+			"bytes": 2066,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 25,
+				"token": "stage-6-focused-final-test.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-final-tests-biome.log",
+			"tracked": false,
+			"bytes": 8580,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 27,
+				"token": "stage-6-focused-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-final-typecheck-2.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 27,
+				"token": "stage-6-focused-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-final-typecheck-3.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 27,
+				"token": "stage-6-focused-final-*",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-final-typecheck.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-layers.log",
+			"tracked": false,
+			"bytes": 264,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-legacy-atomic-development.log",
+			"tracked": false,
+			"bytes": 202,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 24,
+				"token": "stage-6-focused-legacy-atomic-development.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-legacy-biome-2.log",
+			"tracked": false,
+			"bytes": 3296,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-moments-verified.log",
+			"tracked": false,
+			"bytes": 213,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 26,
+				"token": "stage-6-focused-moments-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-new-tests-biome.log",
+			"tracked": false,
+			"bytes": 4906,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-size-verified.log",
+			"tracked": false,
+			"bytes": 226,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-size.log",
+			"tracked": false,
+			"bytes": 397,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-test-development-2.log",
+			"tracked": false,
+			"bytes": 3029,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 22,
+				"token": "stage-6-focused-test-development-2.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-test-development.log",
+			"tracked": false,
+			"bytes": 7345,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-plugins-20261102.md",
+				"line": 21,
+				"token": "stage-6-focused-test-development.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-6-focused-typecheck-verified.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-adapter-typecheck-1.log",
+			"tracked": false,
+			"bytes": 6033,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 17,
+				"token": "stage-7-development-adapter-typecheck-{1,2,3}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-adapter-typecheck-2.log",
+			"tracked": false,
+			"bytes": 451,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 17,
+				"token": "stage-7-development-adapter-typecheck-{1,2,3}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-adapter-typecheck-3.log",
+			"tracked": false,
+			"bytes": 110,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 17,
+				"token": "stage-7-development-adapter-typecheck-{1,2,3}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-biome-1.log",
+			"tracked": false,
+			"bytes": 21143,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-biome-2.log",
+			"tracked": false,
+			"bytes": 21103,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-guard-biome-2.log",
+			"tracked": false,
+			"bytes": 3075,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-guard-biome-3.log",
+			"tracked": false,
+			"bytes": 2437,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-guard-biome.log",
+			"tracked": false,
+			"bytes": 1903,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-install-2.log",
+			"tracked": false,
+			"bytes": 135,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-install.log",
+			"tracked": false,
+			"bytes": 142,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-layers-1.log",
+			"tracked": false,
+			"bytes": 917,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-layers-2.log",
+			"tracked": false,
+			"bytes": 917,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-layers-3.log",
+			"tracked": false,
+			"bytes": 293,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-layers-4.log",
+			"tracked": false,
+			"bytes": 545,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-maintenance-host-biome.log",
+			"tracked": false,
+			"bytes": 15547,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-new-tests-biome.log",
+			"tracked": false,
+			"bytes": 2538,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-typecheck-1.log",
+			"tracked": false,
+			"bytes": 39566,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 19,
+				"token": "stage-7-development-typecheck-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-typecheck-2.log",
+			"tracked": false,
+			"bytes": 2247,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 20,
+				"token": "stage-7-development-typecheck-2.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-typecheck-3.log",
+			"tracked": false,
+			"bytes": 3630,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 21,
+				"token": "stage-7-development-typecheck-3.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-typecheck-4.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 22,
+				"token": "stage-7-development-typecheck-{4,5,6}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-typecheck-5.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 22,
+				"token": "stage-7-development-typecheck-{4,5,6}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-development-typecheck-6.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 22,
+				"token": "stage-7-development-typecheck-{4,5,6}.log",
+				"kind": "brace"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-biome-development-full.log",
+			"tracked": false,
+			"bytes": 637790,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-biome-development.log",
+			"tracked": false,
+			"bytes": 20314,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-biome-format-development.log",
+			"tracked": false,
+			"bytes": 45,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-biome-verified.log",
+			"tracked": false,
+			"bytes": 14558,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 27,
+				"token": "stage-7-focused-biome-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-codegraph-diff-verified.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-codegraph-format-verified.log",
+			"tracked": false,
+			"bytes": 44,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-codegraph-verified.log",
+			"tracked": false,
+			"bytes": 200,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 36,
+				"token": "stage-7-focused-codegraph-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-diff-verified.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-format-verified.log",
+			"tracked": false,
+			"bytes": 44,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-layers-development.log",
+			"tracked": false,
+			"bytes": 196,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 28,
+				"token": "stage-7-focused-layers-development.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-layers-verified.log",
+			"tracked": false,
+			"bytes": 264,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-release-verified.log",
+			"tracked": false,
+			"bytes": 202,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 26,
+				"token": "stage-7-focused-release-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-size-development.log",
+			"tracked": false,
+			"bytes": 226,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-test-development-1.log",
+			"tracked": false,
+			"bytes": 120610,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 23,
+				"token": "stage-7-focused-test-development-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-test-verified-2.log",
+			"tracked": false,
+			"bytes": 544,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 24,
+				"token": "stage-7-focused-test-verified-2.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-7-focused-test-workspace-verified.log",
+			"tracked": false,
+			"bytes": 215,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-boundaries-20261103.md",
+				"line": 25,
+				"token": "stage-7-focused-test-workspace-verified.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-cloud-npm-recovery.log",
+			"tracked": false,
+			"bytes": 144,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 29,
+				"token": "stage-8-cloud-npm-recovery.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-biome-imports.log",
+			"tracked": false,
+			"bytes": 42,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-format.log",
+			"tracked": false,
+			"bytes": 42,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-install.log",
+			"tracked": false,
+			"bytes": 88,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-1.log",
+			"tracked": false,
+			"bytes": 16605,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-device-tools-20261103.md",
+				"line": 67,
+				"token": "typecheck-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-10.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-11.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-12.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-2.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-3.log",
+			"tracked": false,
+			"bytes": 2356,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-4.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-5.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-6.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-7.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-8.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-development-typecheck-9.log",
+			"tracked": false,
+			"bytes": 271,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-evidence-format.log",
+			"tracked": false,
+			"bytes": 41,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 144,
+				"token": "stage-8-evidence-format.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-after-size-suite.log",
+			"tracked": false,
+			"bytes": 229,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-biome-after-size.log",
+			"tracked": false,
+			"bytes": 7462,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-biome-card-verified.log",
+			"tracked": false,
+			"bytes": 38,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-biome-development-1.log",
+			"tracked": false,
+			"bytes": 16739,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-card-protocol-verified.log",
+			"tracked": false,
+			"bytes": 201,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-credential-redaction-development-1.log",
+			"tracked": false,
+			"bytes": 212,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-diff-verified.log",
+			"tracked": false,
+			"bytes": 0,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-final-suite.log",
+			"tracked": false,
+			"bytes": 1792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-layers-development-1.log",
+			"tracked": false,
+			"bytes": 264,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-layers-verified.log",
+			"tracked": false,
+			"bytes": 264,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-local-zero-development-1.log",
+			"tracked": false,
+			"bytes": 242,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 15,
+				"token": "stage-8-focused-local-zero-development-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-local-zero-verified.log",
+			"tracked": false,
+			"bytes": 242,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-pg-services-development-1.log",
+			"tracked": false,
+			"bytes": 200,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 18,
+				"token": "stage-8-focused-pg-services-development-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-runtime-development-1.log",
+			"tracked": false,
+			"bytes": 815,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 16,
+				"token": "stage-8-focused-runtime-development-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-runtime-development-2.log",
+			"tracked": false,
+			"bytes": 2316,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 17,
+				"token": "stage-8-focused-runtime-development-2.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-scheduler-development-1.log",
+			"tracked": false,
+			"bytes": 199,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 14,
+				"token": "stage-8-focused-scheduler-development-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-sdk-size-biome.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-size-after-split.log",
+			"tracked": false,
+			"bytes": 226,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-size-verified.log",
+			"tracked": false,
+			"bytes": 595,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-typecheck-after-size.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-typecheck-verified.log",
+			"tracked": false,
+			"bytes": 51,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-503-development-1.log",
+			"tracked": false,
+			"bytes": 1051,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-503-reflect-verified.log",
+			"tracked": false,
+			"bytes": 1111,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-503-verified.log",
+			"tracked": false,
+			"bytes": 1095,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-cron-development-1.log",
+			"tracked": false,
+			"bytes": 496,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-cron-development-2.log",
+			"tracked": false,
+			"bytes": 494,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-cron-development-3.log",
+			"tracked": false,
+			"bytes": 569,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-empty-development-1.log",
+			"tracked": false,
+			"bytes": 1055,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-empty-verified.log",
+			"tracked": false,
+			"bytes": 1099,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-interrupt-development-1.log",
+			"tracked": false,
+			"bytes": 808,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-interrupt-verified.log",
+			"tracked": false,
+			"bytes": 808,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-reflection-development-1.log",
+			"tracked": false,
+			"bytes": 1111,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-send-then-503-development-1.log",
+			"tracked": false,
+			"bytes": 1071,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-send-then-503-verified.log",
+			"tracked": false,
+			"bytes": 1115,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-smoke-development-1.log",
+			"tracked": false,
+			"bytes": 704,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 19,
+				"token": "stage-8-focused-worker-smoke-development-1.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-smoke-development-2.log",
+			"tracked": false,
+			"bytes": 946,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 20,
+				"token": "stage-8-focused-worker-smoke-development-2.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-smoke-development-3.log",
+			"tracked": false,
+			"bytes": 1477,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 21,
+				"token": "stage-8-focused-worker-smoke-development-3.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-source-diagnostic-1.log",
+			"tracked": false,
+			"bytes": 972,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-source-diagnostic-2.log",
+			"tracked": false,
+			"bytes": 2536,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-timeout-development-1.log",
+			"tracked": false,
+			"bytes": 1134,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-focused-worker-timeout-verified.log",
+			"tracked": false,
+			"bytes": 1178,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-lint-errors.log",
+			"tracked": false,
+			"bytes": 924,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 144,
+				"token": "stage-8-lint-errors.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-network-health.log",
+			"tracked": false,
+			"bytes": 369,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 23,
+				"token": "stage-8-network-health.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-worker-live-first.log",
+			"tracked": false,
+			"bytes": 722,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 81,
+				"token": "stage-8-worker-live-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-worker-live-second.log",
+			"tracked": false,
+			"bytes": 2674,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 115,
+				"token": "stage-8-worker-live-second.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-worker-load-after-sections.log",
+			"tracked": false,
+			"bytes": 45999,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 97,
+				"token": "stage-8-worker-load-after-sections.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-8-worker-load-first.log",
+			"tracked": false,
+			"bytes": 20738,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 41,
+				"token": "stage-8-worker-load-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-9-app-focused-first.log",
+			"tracked": false,
+			"bytes": 1937,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 14,
+				"token": "stage-9-app-focused-first.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-9-app-focused-rerun.log",
+			"tracked": false,
+			"bytes": 202,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 14,
+				"token": "stage-9-app-focused-rerun.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-9-evidence-format.log",
+			"tracked": false,
+			"bytes": 39,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-9-lint-errors.log",
+			"tracked": false,
+			"bytes": 1004,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-app-20261103.md",
+				"line": 39,
+				"token": "stage-9-lint-errors.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-complete-deploy-tests.log",
+			"tracked": true,
+			"bytes": 2106,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "cloud",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 16,
+				"token": "cloud-complete-deploy-tests.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-complete-market-tests.log",
+			"tracked": true,
+			"bytes": 1293,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "cloud",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 17,
+				"token": "cloud-complete-market-tests.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-complete-render-tests.log",
+			"tracked": true,
+			"bytes": 382,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "cloud",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 18,
+				"token": "cloud-complete-render-tests.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-complete-server-build.log",
+			"tracked": true,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "cloud",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 13,
+				"token": "cloud-complete-server-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-complete-server-tests.log",
+			"tracked": true,
+			"bytes": 23967,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "cloud",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 15,
+				"token": "cloud-complete-server-tests.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-complete-server-typecheck.log",
+			"tracked": true,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-complete-web-build.log",
+			"tracked": true,
+			"bytes": 5792,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "cloud",
+				"document": "docs/verification/fix-round/verification.md",
+				"line": 11,
+				"token": "cloud-complete-web-build.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-complete-web-typecheck.log",
+			"tracked": true,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-deploy-tests.log",
+			"tracked": false,
+			"bytes": 2100,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-market-tests.log",
+			"tracked": false,
+			"bytes": 1287,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-render-tests.log",
+			"tracked": false,
+			"bytes": 384,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-server-tests.log",
+			"tracked": false,
+			"bytes": 23995,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-server-typecheck.log",
+			"tracked": false,
+			"bytes": 78,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-web-build.log",
+			"tracked": false,
+			"bytes": 5792,
+			"status": "deleted_unreferenced_scratch"
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-web-typecheck.log",
+			"tracked": false,
+			"bytes": 58,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/harness-self-configuration-20261101.md",
+				"line": 66,
+				"token": "typecheck.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/review-worker-server-focused-2.log",
+			"tracked": false,
+			"bytes": 4050,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 19,
+				"token": "docs/verification/review-worker-server-focused-2.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/review-worker-server-focused.log",
+			"tracked": false,
+			"bytes": 4625,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/review-worker-lifecycle.md",
+				"line": 30,
+				"token": "review-worker-server-focused.log",
+				"kind": "exact"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/stage-10-focused-client-ssr-development-2.log",
+			"tracked": false,
+			"bytes": 5747,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-client-ssr*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/stage-10-focused-client-ssr-verified.log",
+			"tracked": false,
+			"bytes": 385,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-client-ssr*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/stage-10-focused-client-ssr.log",
+			"tracked": false,
+			"bytes": 1290,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-card-20261103.md",
+				"line": 29,
+				"token": "stage-10-focused-client-ssr*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/stage-8-focused-admission-pending-only.log",
+			"tracked": false,
+			"bytes": 2413,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/stage-8-focused-admission-realtime.log",
+			"tracked": false,
+			"bytes": 2404,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/stage-8-focused-server-build.log",
+			"tracked": false,
+			"bytes": 65,
+			"status": "keep_committed_reference",
+			"reference": {
+				"repo": "yonder",
+				"document": "docs/verification/shared-bot-worker-20261103.md",
+				"line": 22,
+				"token": "docs/verification/stage-8-focused-*.log",
+				"kind": "prefix"
+			}
+		}
+	]
+}
