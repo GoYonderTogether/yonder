@@ -7,6 +7,7 @@ import {
 	type DeviceSession,
 	encodeCommand,
 	type Grant,
+	MAX_MESSAGE_AGE_MS,
 	publicKeyId,
 	type RpcRequest,
 	type RpcResponse,
@@ -335,6 +336,7 @@ test("same-home second daemon denied and crash recovery leaves running unknown",
 test("unpaired and forged signatures, stale request, and request-id reuse are rejected", async () => {
 	const f = await fixture();
 	const stranger = generateKeyPairSync("ed25519");
+	const issuedAt = Date.now();
 	const request = {
 		protocol: "yonder.execution",
 		version: 1,
@@ -342,8 +344,8 @@ test("unpaired and forged signatures, stale request, and request-id reuse are re
 		requestId: randomUUID(),
 		principalId: publicKeyId(stranger.publicKey),
 		deviceId: f.executor.deviceId,
-		issuedAt: Date.now(),
-		expiresAt: Date.now() + 60_000,
+		issuedAt,
+		expiresAt: issuedAt + MAX_MESSAGE_AGE_MS,
 		method: "device.describe",
 		params: {},
 	} as RpcRequest;
@@ -351,7 +353,11 @@ test("unpaired and forged signatures, stale request, and request-id reuse are re
 	const forged = { ...request, principalId: f.proof.controllerFingerprint } as RpcRequest;
 	await expect(f.executor.handle(signMessage(forged, stranger.privateKey))).rejects.toThrow("UNAUTHORIZED");
 	const pairedKey = createPrivateKey(f.controller.privateKey);
-	const expired = { ...forged, issuedAt: Date.now() - 120_000, expiresAt: Date.now() - 60_000 } as RpcRequest;
+	const expired = {
+		...forged,
+		issuedAt: issuedAt - 2 * MAX_MESSAGE_AGE_MS,
+		expiresAt: issuedAt - MAX_MESSAGE_AGE_MS,
+	} as RpcRequest;
 	await expect(f.executor.handle(signMessage(expired, pairedKey))).rejects.toThrow("UNAUTHORIZED");
 	const requestId = randomUUID();
 	result(

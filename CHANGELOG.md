@@ -4,6 +4,19 @@
 
 ### Fixed
 
+- config：自配置按本次请求记录真实接纳与动态状态，语义候选修复沿原生 patch；有限精确 conv 前置接收绑定可遮蔽普通消息 fallback，batch/custom 事件仍须共享 profile，profile 改变时要求显式关闭 open session、保留历史后重开。
+
+## [0.3.26110205] - 2026-11-02
+
+### Fixed
+
+- social：群规则正则保留固定脚本与 10ms 执行上限，仅采纳可信单调计时确认完成且未超预算的结果；区分 VM 启动调度误超时，避免合法匹配和回放被误拒，执行中的病态正则不重试，回放失败继续保留旧规则。
+- social：distinguish regex execution from VM watchdog timing
+
+## [0.3.26110204] - 2026-11-02
+
+### Fixed
+
 - app：工作页版本检查复用应用挂载路径，云端根路径不再误请求旧 `/console/version.json`；本机与 `/console/` 挂载保持兼容。
 - feishu：提供受实例范围与 read/network/admin 能力约束的只读群目录，让主人按真实群名提出需求后可发现目标引用；分页、重名及权限缺失如实返回，不预先接入或扩大权限。
 - config：兼容窗口仍发送的旧 QQ 群批次沿同一可接纳性校验保持群与私人主会话隔离，保留合法的旧 per-conv 记录绑定；升级时明确拒绝不安全配置，不绕过 doctor。
@@ -15,8 +28,26 @@
 - delegation：分身与后台续办沿持久来源核验原请求者，来源不可核验明确报错；准入/额度拒绝返回 error/reason；可选 effort/账号覆盖的错误指出参数与合法恢复办法，避免将运行权限误报为主人权限。
 - social：明确主人指令可在既有能力和目标范围内直接应用策略，移除预览后另发“确认”口令的附加门；inspect 使用真实入站路由与配置匹配诊断，历史有效策略缺少证据时保持未知。
 - config：按指定既有 profile 更新并保留未涉及字段，管理写入在锁内核对原文版本；失败按当前文件内容恢复本次改动并同步恢复有效快照，不覆盖并发更改。保留自定义参与插件与私聊的既有隔离语义。
-- config：自配置按本次请求记录真实接纳与动态状态，语义候选修复沿原生 patch；有限精确 conv 前置接收绑定可遮蔽普通消息 fallback，batch/custom 事件仍须共享 profile，profile 改变时要求显式关闭 open session、保留历史后重开。
+- windows：await child close in production execution environment
+- app：respect mount path in update check
+- config：isolate legacy QQ group batches from main
+- social：honor enabled batch run opportunities
+- core：derive complete default agent routes
+- config：reload restored state after failed publish
+- config：classify selected participation batch scopes
+- config：pass expected file revision to management
+- config：guard profile updates and reload rollback
+- core：verify parent delegation origins
+- config：reject unrunnable social bindings before reload
+- runtime：expose request model facts and scoped attachment access
 
+### Added
+
+- feishu：add bounded group directory tool
+
+### Changed
+
+- social：keep group coordination under file limit
 
 ## [0.3.26110203] - 2026-11-02
 

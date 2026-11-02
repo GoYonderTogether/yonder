@@ -1,4 +1,5 @@
-import { createContext, Script } from "node:vm";
+import { performance } from "node:perf_hooks";
+import { type Context, createContext, Script } from "node:vm";
 import type { PluginAPI, SocialPolicy, ToolContext, YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
 import { groupEvents } from "./group-history.js";
@@ -13,7 +14,34 @@ interface Revision {
 	rules: OwnRules;
 	before: OwnRules;
 }
-const testRegex = new Script('new RegExp(pattern,"u").test(text)');
+const monotonicNow = performance.now.bind(performance);
+const testRegex = new Script(
+	'state.started = true; state.startedAt = now(); state.match = new RegExp(pattern,"u").test(text); state.finishedAt = now(); state.done = true',
+);
+function matchRegex(context: Context) {
+	for (let attempt = 0; ; attempt++) {
+		const state = {
+			started: false,
+			done: false,
+			startedAt: NaN,
+			finishedAt: NaN,
+			match: undefined as boolean | undefined,
+		};
+		try {
+			context.state = state;
+			testRegex.runInContext(context, { timeout: 10 });
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ERR_SCRIPT_EXECUTION_TIMEOUT") throw error;
+			// At most two starts; an executing regex is never retried or given more than 10ms.
+			if (!state.started && attempt === 0) continue;
+			if (!state.done) throw error;
+		}
+		const elapsed = state.finishedAt - state.startedAt;
+		if (!state.done || typeof state.match !== "boolean" || !(elapsed >= 0 && elapsed <= 10))
+			throw Error("Regex exceeded execution budget");
+		return state.match;
+	}
+}
 export function ruleMatch(text: string, policy: SocialPolicy, onError?: (pattern: string) => void) {
 	const normalized = text.normalize("NFC"),
 		value = normalized.slice(0, 2048),
@@ -27,11 +55,11 @@ export function ruleMatch(text: string, policy: SocialPolicy, onError?: (pattern
 		return { eligible: false, match: false };
 	const keyword = policy.keywords?.some((s) => value.includes(s.normalize("NFC"))) ?? false;
 	let regex = false;
-	const context = createContext({ pattern: "", text: value });
+	const context = createContext({ pattern: "", text: value, now: monotonicNow });
 	for (const pattern of filter?.regex ?? [])
 		try {
 			context.pattern = pattern;
-			if (testRegex.runInContext(context, { timeout: 10 })) {
+			if (matchRegex(context)) {
 				regex = true;
 				break;
 			}

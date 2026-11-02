@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { Script } from "node:vm";
 import type { SocialPolicy } from "@yonder/sdk";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { GroupRules, type OwnRules, ruleMatch, validateRules } from "../src/group-rules.js";
 import { groupFixture, mainConv } from "./group-fixture.js";
 
@@ -40,6 +41,91 @@ test("pathological regex is skipped within a bounded execution window and later 
 	});
 	expect(performance.now() - started).toBeLessThan(200);
 	expect(errors).toEqual([pattern]);
+});
+
+test("watchdog startup timeout retries once without retrying an executing regex", () => {
+	const timeout = Object.assign(new Error("Script execution timed out"), { code: "ERR_SCRIPT_EXECUTION_TIMEOUT" });
+	const run = vi.spyOn(Script.prototype, "runInContext");
+	try {
+		run.mockImplementationOnce(() => {
+			throw timeout;
+		});
+		expect(ruleMatch("hello!", { triggers: { regex: ["!$"] } })).toEqual({ eligible: true, match: true });
+		expect(run).toHaveBeenCalledTimes(2);
+		run.mockClear();
+		run.mockImplementation(() => {
+			throw timeout;
+		});
+		const errors: string[] = [];
+		expect(ruleMatch("hello!", { triggers: { regex: ["!$"] } }, (p) => errors.push(p))).toEqual({
+			eligible: true,
+			match: false,
+		});
+		expect(run).toHaveBeenCalledTimes(2);
+		expect(errors).toEqual(["!$"]);
+		run.mockClear();
+		run.mockImplementation((context) => {
+			context.state.started = true;
+			throw timeout;
+		});
+		ruleMatch("hello!", { triggers: { regex: ["!$"] } });
+		expect(run).toHaveBeenCalledTimes(1);
+	} finally {
+		run.mockRestore();
+	}
+});
+
+test("a completed regex result survives a watchdog timeout during VM teardown", () => {
+	const original = Script.prototype.runInContext;
+	const run = vi.spyOn(Script.prototype, "runInContext").mockImplementation(function (context, options) {
+		original.call(this, context, options);
+		throw Object.assign(new Error("Script execution timed out"), { code: "ERR_SCRIPT_EXECUTION_TIMEOUT" });
+	});
+	try {
+		const errors: string[] = [];
+		expect(ruleMatch("hello!", { triggers: { regex: ["no", "!$"] } }, (p) => errors.push(p))).toEqual({
+			eligible: true,
+			match: true,
+		});
+		expect(errors).toEqual([]);
+		expect(run).toHaveBeenCalledTimes(2);
+	} finally {
+		run.mockRestore();
+	}
+});
+
+test.each([
+	{ done: true, match: true, elapsed: 10, error: "ERR_SCRIPT_EXECUTION_TIMEOUT", accepted: true },
+	{ done: true, match: false, elapsed: 10, error: "ERR_SCRIPT_EXECUTION_TIMEOUT", accepted: true },
+	{ done: true, match: true, elapsed: 10.01, error: "ERR_SCRIPT_EXECUTION_TIMEOUT", accepted: false },
+	{ done: true, match: true, elapsed: 10.01, error: undefined, accepted: false },
+	{ done: false, match: true, elapsed: 1, error: "ERR_SCRIPT_EXECUTION_TIMEOUT", accepted: false },
+	{ done: true, match: undefined, elapsed: 1, error: "ERR_SCRIPT_EXECUTION_TIMEOUT", accepted: false },
+	{ done: true, match: true, elapsed: NaN, error: "ERR_SCRIPT_EXECUTION_TIMEOUT", accepted: false },
+	{ done: true, match: true, elapsed: 1, error: "OTHER_ERROR", accepted: false },
+])("completed regex requires a boolean and a measured execution within budget: %j", (result) => {
+	const run = vi.spyOn(Script.prototype, "runInContext").mockImplementation((context, options) => {
+		expect(options).toMatchObject({ timeout: 10 });
+		Object.assign(context.state, {
+			started: true,
+			done: result.done,
+			match: result.match,
+			startedAt: 100,
+			finishedAt: 100 + result.elapsed,
+		});
+		if (result.error) throw Object.assign(new Error("VM execution failed"), { code: result.error });
+	});
+	try {
+		const errors: string[] = [];
+		expect(ruleMatch("hello!", { triggers: { regex: ["!$"] } }, (p) => errors.push(p))).toEqual({
+			eligible: true,
+			match: result.accepted && result.match,
+		});
+		expect(errors).toEqual(result.accepted ? [] : ["!$"]);
+		expect(run).toHaveBeenCalledTimes(1);
+	} finally {
+		run.mockRestore();
+	}
 });
 
 test("own trigger rules validate standard regex and reject policy changes outside their narrow fields", () => {
@@ -162,7 +248,31 @@ test("authorized program rule updates atomically reject bad proposals, roll back
 		expect(await facts()).toEqual([]);
 		expect(rules.current("main", mainConv, inspection.revision)).toEqual(initial);
 		const proposal: OwnRules = { keywords: ["界面"], count: 30, triggers: { regex: ["^(设计|界面).{0,20}$"] } };
-		const applied = await rules.update("main", mainConv, { ...request, rules: proposal }, [source], inspection);
+		for (const done of [false, true]) {
+			const run = vi.spyOn(Script.prototype, "runInContext").mockImplementation((context) => {
+				Object.assign(context.state, { started: true, done, match: false, startedAt: 100, finishedAt: 111 });
+				throw Object.assign(new Error("Script execution timed out"), { code: "ERR_SCRIPT_EXECUTION_TIMEOUT" });
+			});
+			try {
+				await expect(
+					rules.update("main", mainConv, { ...request, rules: proposal }, [source], inspection),
+				).rejects.toThrow("old rules retained");
+				expect(run).toHaveBeenCalledTimes(1);
+				expect(await facts()).toEqual([]);
+				expect(rules.current("main", mainConv, inspection.revision)).toEqual(initial);
+			} finally {
+				run.mockRestore();
+			}
+		}
+		const original = Script.prototype.runInContext;
+		const lateTimeout = vi.spyOn(Script.prototype, "runInContext").mockImplementation(function (context, options) {
+			original.call(this, context, options);
+			expect(context.state.match).toBe(false);
+			throw Object.assign(new Error("Script execution timed out"), { code: "ERR_SCRIPT_EXECUTION_TIMEOUT" });
+		});
+		const applied = await rules
+			.update("main", mainConv, { ...request, rules: proposal }, [source], inspection)
+			.finally(() => lateTimeout.mockRestore());
 		expect(applied.rules).toEqual(proposal);
 		expect(applied.replay.errors).toBe(0);
 		expect(await facts()).toHaveLength(1);
