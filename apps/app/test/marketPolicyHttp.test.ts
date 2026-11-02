@@ -185,3 +185,50 @@ it("keeps supported policy fields unchanged on new backends", async () => {
 		coordinates: next.coordinates,
 	});
 });
+
+describe("watch tasks (cloud-backed market needs)", () => {
+	const task = {
+		id: "w1",
+		ownerId: "u1",
+		title: "找相机",
+		brief: { text: "相机", category: "数码好物", budget: 3000, location: "上海", priority: "best" },
+		frequency: "manual",
+		active: true,
+		checkedAt: 1,
+		seenIds: [],
+		createdAt: 1,
+	};
+	const calls = (fetch: { mock: { calls: [string, RequestInit][] } }) =>
+		fetch.mock.calls.map(([url, init]) => [url, init.method ?? "GET"]);
+
+	it("lists, creates, patches and deletes through the existing watch-task endpoints", async () => {
+		const fetch = vi
+			.fn()
+			.mockResolvedValueOnce(response({ items: [task] }))
+			.mockResolvedValueOnce(response(task, 201))
+			.mockResolvedValueOnce(response({ ...task, active: false }))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }));
+		vi.stubGlobal("fetch", fetch);
+		const write = { title: "找相机", brief: task.brief, frequency: "manual" as const };
+		expect(await httpApi.listWatchTasks()).toEqual([task]);
+		await httpApi.createWatchTask(write);
+		await httpApi.updateWatchTask("w/1", { active: false });
+		await httpApi.deleteWatchTask("w/1");
+		expect(calls(fetch)).toEqual([
+			["/api/market/watch-tasks?limit=20", "GET"],
+			["/api/market/watch-tasks", "POST"],
+			["/api/market/watch-tasks/w%2F1", "PATCH"],
+			["/api/market/watch-tasks/w%2F1", "DELETE"],
+		]);
+		expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual(write);
+		expect(JSON.parse(fetch.mock.calls[2][1].body)).toEqual({ active: false });
+	});
+
+	it("never calls the check endpoint, which would advance seen_ids for the plugin", async () => {
+		const fetch = vi.fn().mockImplementation(async () => response({ items: [] }));
+		vi.stubGlobal("fetch", fetch);
+		await httpApi.listWatchTasks();
+		await httpApi.updateWatchTask("w1", { brief: task.brief });
+		expect(fetch.mock.calls.some(([url]) => String(url).includes("/check"))).toBe(false);
+	});
+});

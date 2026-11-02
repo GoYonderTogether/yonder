@@ -1,4 +1,4 @@
-import type { AgentTask, Category, Listing, MarketState } from "./types";
+import type { Category, Listing, MarketState } from "./types";
 
 export const CATEGORIES: Category[] = ["数码好物", "生活方式", "创意服务", "技能与陪伴", "户外出行"];
 const photo = (name: string) => `/market/${name}.jpg`;
@@ -381,26 +381,12 @@ export const DEMO_LISTINGS: Listing[] = [
 	},
 ];
 
-export const INITIAL_TASK: AgentTask = {
-	id: "task-travel",
-	title: "找一台轻便的旅行相机",
-	text: "想买一台旅行用的二手相机，预算 3000 元，希望轻便、含镜头，最好上海能当面试机。",
-	category: "数码好物",
-	budget: 3000,
-	location: "上海",
-	priority: "最合适",
-	frequency: "每小时",
-	active: true,
-	checkedAt: now - 12 * 60000,
-	seenIds: ["camera-sony", "camera-fuji", "camera-canon"],
-};
-
 export function initialMarketState(): MarketState {
 	return {
-		version: 2,
+		version: 3,
 		liked: [],
 		// 帖子只来自云端（api.marketListings）；演示帖只在 mock 构建里由 api/mock.ts 提供（JV2-J10-01）。
-		tasks: [],
+		// 我的需求只来自云端 watch_tasks（market/watch.ts），本地状态不再保存任务。
 		saved: [],
 		compare: [],
 		inquiries: [],

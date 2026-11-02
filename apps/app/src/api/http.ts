@@ -1,4 +1,4 @@
-import type { Listing } from "../market/types";
+import type { Listing, WatchTask } from "../market/types";
 import type { ApiClient, ListingInput, MarketCapabilities } from "./client";
 import type { Actor, Card, CodeSent, Conversation, Device, Message, Session, ShareLink } from "./types";
 
@@ -254,6 +254,13 @@ export const httpApi: ApiClient = {
 				json("POST"),
 			),
 		);
+	},
+	listWatchTasks: async () => (await request<{ items: WatchTask[] }>("/market/watch-tasks?limit=20")).items,
+	createWatchTask: (input) => request<WatchTask>("/market/watch-tasks", json("POST", input)),
+	updateWatchTask: (id, input) =>
+		request<WatchTask>(`/market/watch-tasks/${encodeURIComponent(id)}`, json("PATCH", input)),
+	deleteWatchTask: async (id) => {
+		await request(`/market/watch-tasks/${encodeURIComponent(id)}`, json("DELETE"));
 	},
 	setAgentOnline: (agentId, online) =>
 		request(`/agents/${encodeURIComponent(agentId)}/online`, json("PUT", { online })),

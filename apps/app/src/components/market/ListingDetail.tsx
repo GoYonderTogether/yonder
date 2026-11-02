@@ -113,7 +113,7 @@ export function ListingDetail({
 							</dl>
 							{match && (
 								<details className="mk-disclosure">
-									<summary>为什么推荐给我 · {match.score}% 条件匹配</summary>
+									<summary>为什么推荐给我</summary>
 									{match.reasons.map((r) => (
 										<p key={r}>{r}</p>
 									))}
@@ -198,11 +198,7 @@ export function CompareDialog({
 			? [
 					{
 						label: "符合需求",
-						value: (l: Listing) =>
-							matches
-								.find((m) => m.listing.id === l.id)
-								?.reasons.slice(1)
-								.join("；") ?? "未匹配当前需求",
+						value: (l: Listing) => matches.find((m) => m.listing.id === l.id)?.reasons.join("；") ?? "未匹配当前需求",
 					},
 				]
 			: []),

@@ -1,3 +1,4 @@
+import { useStore } from "@nanostores/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowDown,
@@ -36,10 +37,12 @@ import { CHANNELS } from "../market/catalog";
 import { defaultFilters, type MarketFilters, priceError } from "../market/flows";
 import { listingContext, needContext } from "../market/handoff";
 import { listingInput, marketError } from "../market/listingPolicy";
-import { findMatches, taskTitle } from "../market/matching";
+import { editOf, inputOf, matchesOf, taskOf } from "../market/needs";
 import { listingFilters, useListingFeed, useListingLookup, useMarketCapabilities } from "../market/queries";
 import { useMarketState } from "../market/store";
 import type { AgentTask, Listing, SearchBrief } from "../market/types";
+import { migrateLegacyNeeds, needError, useNeedMatches, useWatchTasks, WATCH_TASKS_KEY } from "../market/watch";
+import { $session } from "../store";
 import { toast } from "../ui/Toast";
 import "../market/market.css";
 
@@ -67,6 +70,7 @@ export function Market() {
 	const qc = useQueryClient();
 	const marketSupport = useMarketCapabilities();
 	const { agent, agents, me } = usePersonalAgent();
+	const session = useStore($session);
 	const [handoff, setHandoff] = useState<string | null>(null);
 	const [handingOff, setHandingOff] = useState(false);
 	const sendToPA = async () => {
@@ -140,9 +144,7 @@ export function Market() {
 	useEffect(() => setQuery(params.get("q") ?? ""), [location.pathname, params.get("q")]);
 	const [visibleCount, setVisibleCount] = useState(12);
 	const [mineTab, setMineTab] = useState("published");
-	const [refreshing, setRefreshing] = useState<string>();
-	const refreshTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-	useEffect(() => () => clearTimeout(refreshTimer.current), []);
+	const [savingNeed, setSavingNeed] = useState<string>();
 	const scrollKey = `${location.pathname}:${params.get("q") ?? ""}:${view}:${params.get("task") ?? params.get("chat") ?? ""}:${view === "selling" ? mineTab : ""}`;
 	useLayoutEffect(() => {
 		document.title = `${title} · Yonder`;
@@ -163,8 +165,29 @@ export function Market() {
 					.reverse()
 			: listings.filter((listing) => !listing.paused && (filters.kind !== "other" || listing.kind === "other"));
 
-	const activeTask = state.tasks.find((t) => t.id === params.get("task"));
-	const matches = useMemo(() => (activeTask ? findMatches(listings, activeTask) : []), [listings, activeTask]);
+	// 我的需求只来自云端 watch_tasks；旧 localStorage 里的副本先迁移，成功后才删除本机那份。
+	const canMigrate = !!session && !session.actor.anonymous;
+	const watch = useWatchTasks(canMigrate);
+	const cloudTasks = useMemo(() => (canMigrate ? (watch.data ?? []) : []), [canMigrate, watch.data]);
+	const needTasks = useMemo(() => cloudTasks.map(taskOf), [cloudTasks]);
+	const matches = useNeedMatches(cloudTasks);
+	useEffect(() => {
+		if (!canMigrate) return;
+		let live = true;
+		void migrateLegacyNeeds(storageKey).then((result) => {
+			if (!live) return;
+			if (result.created) {
+				toast(`已把 ${result.created} 条需求存到云端，换设备也能看到`);
+				void qc.invalidateQueries({ queryKey: [...WATCH_TASKS_KEY] });
+			}
+			if (result.error) toast(`还有 ${result.remaining} 条需求未能存到云端：${needError(result.error)}`, true);
+		});
+		return () => {
+			live = false;
+		};
+	}, [canMigrate, storageKey, qc]);
+	const activeTask = needTasks.find((t) => t.id === params.get("task"));
+	const activeMatches = activeTask ? matchesOf(matches[activeTask.id]?.items ?? [], activeTask) : [];
 	const detail = referenced.find((l) => l.id === params.get("item")) ?? null;
 	const editing = referenced.find((l) => l.id === params.get("edit"));
 	useEffect(() => {
@@ -220,17 +243,48 @@ export function Market() {
 		setState((s) => ({ ...s, compare: ids.slice(0, 3) }));
 		openPanel("compare");
 	};
-	const saveTask = (brief: SearchBrief, id?: string) => {
-		const task: AgentTask = {
-			...brief,
-			id: id ?? crypto.randomUUID(),
-			title: taskTitle(brief.text),
-			active: true,
-			checkedAt: Date.now(),
-			seenIds: [],
-		};
-		setState((s) => ({ ...s, tasks: [task, ...s.tasks.filter((t) => t.id !== task.id)] }));
-		navigate("/me/market/needs?task=" + task.id, { replace: true });
+	const saveTask = async (brief: SearchBrief, id?: string) => {
+		setSavingNeed(id ?? "new");
+		try {
+			// 表单不改标题与检查频率：编辑沿用云端原值，新建才由描述生成标题、按手动检查。
+			const input = id && activeTask ? editOf(brief, activeTask) : inputOf({ ...brief, frequency: "手动" });
+			const saved = id ? await api.updateWatchTask(id, input) : await api.createWatchTask(input);
+			await qc.invalidateQueries({ queryKey: [...WATCH_TASKS_KEY] });
+			closePanel();
+			navigate("/me/market/needs?task=" + saved.id, { replace: true });
+			toast(id ? "寻找条件已更新" : "需求已存到云端，装有市场插件的 Bot 会按它的排程检查");
+			return true;
+		} catch (error) {
+			toast(needError(error), true);
+			return false;
+		} finally {
+			setSavingNeed(undefined);
+		}
+	};
+	const toggleNeed = async (id: string, active: boolean) => {
+		setSavingNeed(id);
+		try {
+			await api.updateWatchTask(id, { active });
+			await qc.invalidateQueries({ queryKey: [...WATCH_TASKS_KEY] });
+		} catch (error) {
+			toast(needError(error), true);
+		} finally {
+			setSavingNeed(undefined);
+		}
+	};
+	const deleteNeed = async (task: AgentTask) => {
+		if (!window.confirm(`删除需求「${task.title}」？云端记录会一起删除。`)) return;
+		setSavingNeed(task.id);
+		try {
+			await api.deleteWatchTask(task.id);
+			await qc.invalidateQueries({ queryKey: [...WATCH_TASKS_KEY] });
+			if (params.get("task") === task.id) setParams({});
+			toast("需求已删除");
+		} catch (error) {
+			toast(needError(error), true);
+		} finally {
+			setSavingNeed(undefined);
+		}
 	};
 	const saveListing = async (listing: Listing): Promise<boolean> => {
 		if (listing.image.startsWith("data:")) {
@@ -250,20 +304,6 @@ export function Market() {
 		navigate("/me/shop", { replace: true, state: location.state });
 		toast(editing ? "修改已保存" : "已发布，可在「我的小店」管理");
 		return true;
-	};
-	const refresh = (id: string) => {
-		if (refreshing) return;
-		setRefreshing(id);
-		refreshTimer.current = setTimeout(() => {
-			setState((s) => ({
-				...s,
-				tasks: s.tasks.map((t) =>
-					t.id === id ? { ...t, checkedAt: Date.now(), seenIds: findMatches(listings, t).map((m) => m.listing.id) } : t,
-				),
-			}));
-			setRefreshing(undefined);
-			toast("已按最新条件重新筛选");
-		}, 350);
 	};
 	const filterCount = [filters.city !== "不限", !!filters.min || !!filters.max].filter(Boolean).length;
 	const submitSearch = (e: FormEvent) => {
@@ -531,21 +571,21 @@ export function Market() {
 					{view === "stats" && <MarketStats listings={listings} onStats={(l) => openPanel("stats", { item: l.id })} />}
 					{view === "agent" && (
 						<AgentWorkspace
-							tasks={state.tasks}
+							tasks={needTasks}
+							loading={watch.isPending}
+							error={watch.error instanceof Error ? watch.error : null}
+							matches={matches}
 							onDelegate={(task) => setHandoff(needContext(task))}
-							listings={listings}
 							selectedId={activeTask?.id}
 							onSelect={(id) => setParams({ task: id })}
 							onBack={() => setParams({})}
 							onNew={() => openPanel("brief")}
 							onEdit={() => openPanel("brief")}
-							onToggle={(id) =>
-								setState((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === id ? { ...t, active: !t.active } : t)) }))
-							}
-							onRefresh={refresh}
-							refreshing={refreshing}
+							onToggle={toggleNeed}
+							onDelete={deleteNeed}
 							onOpen={openDetail}
 							onCompare={compareMany}
+							busy={savingNeed}
 						/>
 					)}
 					{ownFeed && listingsQuery.hasNextPage && <p className="mk-muted">以下为已加载发布，可继续加载</p>}
@@ -627,6 +667,7 @@ export function Market() {
 				editingTask={activeTask}
 				initialText={query}
 				storageKey={storageKey}
+				saving={!!savingNeed}
 				onSave={saveTask}
 			/>
 			<PublishDialog
@@ -642,7 +683,7 @@ export function Market() {
 			<ListingDetail
 				shopAvailable={marketSupport.data?.sellerShops === true && !marketSupport.isError}
 				listing={panel === "detail" ? detail : null}
-				match={matches.find((m) => m.listing.id === detail?.id)}
+				match={activeMatches.find((m) => m.listing.id === detail?.id)}
 				liked={!!detail && state.liked.includes(detail.id)}
 				onLike={() => detail && toggleLiked(detail.id)}
 				saved={!!detail && state.saved.includes(detail.id)}
@@ -662,7 +703,7 @@ export function Market() {
 			{panel === "compare" && (
 				<CompareDialog
 					listings={comparison}
-					matches={matches}
+					matches={activeMatches}
 					close={closePanel}
 					onRemove={toggleCompare}
 					onInquiry={startChat}

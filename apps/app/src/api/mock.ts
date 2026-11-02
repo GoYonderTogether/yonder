@@ -632,4 +632,17 @@ export const mockApi: ApiClient = {
 		listing.paused = paused;
 		return { ...listing };
 	},
+	// 我的需求只存在云端 watch_tasks；原型构建没有云端，也不另造一份内存假数据。
+	async listWatchTasks() {
+		throw new Error("需求需要连接真实市场服务");
+	},
+	async createWatchTask() {
+		throw new Error("需求需要连接真实市场服务");
+	},
+	async updateWatchTask() {
+		throw new Error("需求需要连接真实市场服务");
+	},
+	async deleteWatchTask() {
+		throw new Error("需求需要连接真实市场服务");
+	},
 };

@@ -46,6 +46,7 @@ export interface SearchBrief {
 	frequency: "每小时" | "每天" | "手动";
 }
 
+/** 页面里的需求视图：`SearchBrief` 用中文字段值，id 与云端 watch task 相同。 */
 export interface AgentTask extends SearchBrief {
 	id: string;
 	title: string;
@@ -54,9 +55,47 @@ export interface AgentTask extends SearchBrief {
 	seenIds: string[];
 }
 
+/** 云端 watch_tasks 的 brief（server/src/market.ts SearchBrief）：字段值用接口枚举。 */
+export interface WatchBrief {
+	text: string;
+	category: Category | "any";
+	budget: number;
+	location: string;
+	priority: "best" | "price" | "local";
+}
+
+export type WatchFrequency = "hourly" | "daily" | "manual";
+
+/** 一条云端需求。`seenIds` / `checkedAt` 只由云端任务写入，网页只读。 */
+export interface WatchTask {
+	id: string;
+	ownerId: string;
+	title: string;
+	brief: WatchBrief;
+	frequency: WatchFrequency;
+	active: boolean;
+	botId?: string;
+	checkedAt: number;
+	seenIds: string[];
+	createdAt: number;
+}
+
+export interface WatchTaskInput {
+	title: string;
+	brief: WatchBrief;
+	frequency: WatchFrequency;
+}
+
+export interface WatchTaskUpdate {
+	title?: string;
+	brief?: WatchBrief;
+	frequency?: WatchFrequency;
+	active?: boolean;
+}
+
+/** 推荐理由只陈述可核对的事实（预算、同城、线上），不再计算相似度分数。 */
 export interface Match {
 	listing: Listing;
-	score: number;
 	reasons: string[];
 	tradeoff: string;
 }
@@ -73,7 +112,6 @@ export interface Inquiry {
 
 export interface MarketState {
 	version: number;
-	tasks: AgentTask[];
 	saved: string[];
 	liked: string[];
 	compare: string[];

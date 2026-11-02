@@ -5,11 +5,13 @@ import { compactCount, hasListingImage, viewCount } from "../../market/catalog";
 import { useListingFeed, useListingLookup } from "../../market/queries";
 import { useMarketState } from "../../market/store";
 import type { Listing } from "../../market/types";
+import { useWatchTasks } from "../../market/watch";
 
 /** Personal market entries belong to the shared Me page, not the public feed. */
 export function MyMarket() {
 	const location = useLocation();
 	const { state } = useMarketState();
+	const needs = useWatchTasks();
 	const feed = useListingFeed({ mine: true });
 	const lookup = useListingLookup([...state.saved, ...state.liked]);
 	const savedCount = state.saved.filter((id) => !lookup.missing.includes(id)).length;
@@ -56,7 +58,7 @@ export function MyMarket() {
 				{[
 					{ route: "saved", title: "收藏", count: savedCount, icon: Bookmark },
 					{ route: "liked", title: "点赞", count: likedCount, icon: Heart },
-					{ route: "needs", title: "需求", count: state.tasks.length, icon: Sparkles },
+					{ route: "needs", title: "需求", count: needs.data?.length ?? 0, icon: Sparkles },
 				].map(({ route, title, count, icon: Icon }) => (
 					<Link
 						key={route}

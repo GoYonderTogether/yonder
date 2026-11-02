@@ -1,4 +1,13 @@
-import type { Category, Coordinates, Listing, ListingKind, ListingVisibility } from "../market/types";
+import type {
+	Category,
+	Coordinates,
+	Listing,
+	ListingKind,
+	ListingVisibility,
+	WatchTask,
+	WatchTaskInput,
+	WatchTaskUpdate,
+} from "../market/types";
 import type {
 	Actor,
 	Card,
@@ -180,4 +189,11 @@ export interface ApiClient {
 	/** 下架（paused）或重新上架（active）。 */
 	setListingPaused(id: string, paused: boolean): Promise<Listing>;
 	deleteListing(id: string): Promise<void>;
+
+	// 市场：我的需求（云端 watch_tasks）。读写都走云端，`check` 只由装有 market 插件的
+	// Bot 调用（它会推进 seen_ids），网页只读列表与元数据，避免吞掉插件的通知。
+	listWatchTasks(): Promise<WatchTask[]>;
+	createWatchTask(input: WatchTaskInput): Promise<WatchTask>;
+	updateWatchTask(id: string, input: WatchTaskUpdate): Promise<WatchTask>;
+	deleteWatchTask(id: string): Promise<void>;
 }

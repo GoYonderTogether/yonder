@@ -9,13 +9,15 @@ import {
 	Search,
 	SlidersHorizontal,
 	Sparkles,
+	Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "../../lib/cn";
 import { hasListingImage } from "../../market/catalog";
 import { CATEGORIES } from "../../market/data";
-import { findMatches, inferBrief, taskBrief, timeAgo } from "../../market/matching";
-import type { AgentTask, Listing, SearchBrief } from "../../market/types";
+import { inferBrief, taskBrief, timeAgo } from "../../market/matching";
+import { matchesOf } from "../../market/needs";
+import type { AgentTask, Listing, Match, SearchBrief } from "../../market/types";
 import { AgentMark, MarketDialog } from "./MarketUI";
 
 const EXAMPLES = [
@@ -23,12 +25,15 @@ const EXAMPLES = [
 	"想把手作产品拍得更好看，预算 800 元",
 	"周末想学会手冲咖啡，上海，300 元以内",
 ];
+/** 原型构建没有云端市场；需求只能存进真实的 watch_tasks。 */
+const USE_REAL_MARKET = "需求需要连接真实市场服务";
 export function AgentBriefDialog({
 	open,
 	close,
 	editingTask,
 	initialText,
 	storageKey,
+	saving,
 	onSave,
 }: {
 	open: boolean;
@@ -36,7 +41,8 @@ export function AgentBriefDialog({
 	editingTask?: AgentTask;
 	initialText: string;
 	storageKey: string;
-	onSave: (brief: SearchBrief, id?: string) => void;
+	saving?: boolean;
+	onSave: (brief: SearchBrief, id?: string) => Promise<boolean>;
 }) {
 	const [step, setStep] = useState(0);
 	const [text, setText] = useState("");
@@ -80,18 +86,25 @@ export function AgentBriefDialog({
 		persist(text, next, 1);
 		setError("");
 	};
-	const submit = () => {
+	const submit = async () => {
 		if (!Number.isFinite(brief.budget) || brief.budget <= 0) {
 			setError("请填写大于 0 的预算");
 			return;
 		}
-		const next = { ...brief, frequency: "手动" as const, location: brief.location.trim() || "不限" };
+		// 频率不在这个表单里：编辑时保留云端原值（Bot 的排程照旧），新建为手动检查。
+		const next = {
+			...brief,
+			frequency: editingTask?.frequency ?? ("手动" as const),
+			location: brief.location.trim() || "不限",
+		};
+		const saved = await onSave(next, editingTask?.id);
+		// 只有云端确实保存成功才丢弃草稿；失败时用户还能直接重试。
+		if (!saved) return;
 		try {
 			localStorage.removeItem(key);
 		} catch {
 			/* Storage may be unavailable. */
 		}
-		onSave(next, editingTask?.id);
 	};
 	return (
 		<MarketDialog open={open} close={close} title={step === 0 ? "你在找什么？" : "确认寻找条件"}>
@@ -202,8 +215,13 @@ export function AgentBriefDialog({
 					) : (
 						<span className="mk-form-hint">输入自动保留</span>
 					)}
-					<button type="button" className="mk-button mk-primary" onClick={step === 0 ? clarify : submit}>
-						{step === 0 ? "下一步" : editingTask ? "保存条件" : "查看候选"}
+					<button
+						type="button"
+						className="mk-button mk-primary"
+						disabled={saving}
+						onClick={step === 0 ? clarify : () => void submit()}
+					>
+						{step === 0 ? "下一步" : saving ? "保存中…" : editingTask ? "保存条件" : "保存需求"}
 						<ArrowRight size={16} />
 					</button>
 				</div>
@@ -214,7 +232,9 @@ export function AgentBriefDialog({
 
 export function AgentWorkspace({
 	tasks,
-	listings,
+	loading,
+	error,
+	matches,
 	selectedId,
 	onSelect,
 	onBack,
@@ -222,27 +242,30 @@ export function AgentWorkspace({
 	onEdit,
 	onDelegate,
 	onToggle,
-	onRefresh,
-	refreshing,
+	onDelete,
 	onOpen,
 	onCompare,
+	busy,
 }: {
 	tasks: AgentTask[];
-	onDelegate: (task: AgentTask) => void;
-	listings: Listing[];
+	loading: boolean;
+	error: Error | null;
+	/** 每条需求一份只读候选（云端帖子搜索），键是任务 id。 */
+	matches: Record<string, { items: Listing[]; isPending: boolean; isError: boolean; refetch: () => void }>;
 	selectedId?: string;
+	onDelegate: (task: AgentTask) => void;
 	onSelect: (id: string) => void;
 	onBack: () => void;
 	onNew: () => void;
 	onEdit: () => void;
-	onToggle: (id: string) => void;
-	onRefresh: (id: string) => void;
-	refreshing?: string;
+	onToggle: (id: string, active: boolean) => void;
+	onDelete: (task: AgentTask) => void;
 	onOpen: (listing: Listing) => void;
 	onCompare: (ids: string[]) => void;
+	busy?: string;
 }) {
 	const task = tasks.find((t) => t.id === selectedId);
-	const matches = task ? findMatches(listings, task) : [];
+	const results: Match[] = task ? matchesOf(matches[task.id]?.items ?? [], task) : [];
 	if (!task)
 		return (
 			<section className="mk-workspace mk-narrow">
@@ -252,44 +275,64 @@ export function AgentWorkspace({
 						新建需求
 					</button>
 				</div>
-				<div className="mk-task-list">
-					{tasks.map((t) => {
-						const found = findMatches(listings, t);
-						return (
-							<button type="button" key={t.id} className="mk-task-select" onClick={() => onSelect(t.id)}>
-								<AgentMark />
-								<div className="mk-task-copy">
-									<h3>{t.title}</h3>
-									<p>
-										¥{t.budget.toLocaleString()} 以内 · {t.location} · {t.active ? "寻找中" : "已完成"}
-									</p>
-									<span>
-										{found.length ? `${found.length} 个候选` : "暂无候选"} · {timeAgo(t.checkedAt)}
-									</span>
-								</div>
-								<div className="mk-task-thumbs">
-									{found
-										.filter((m) => hasListingImage(m.listing.image))
-										.slice(0, 3)
-										.map((m) => (
-											<img key={m.listing.id} src={m.listing.image} alt="" />
-										))}
-								</div>
-								<ChevronRight size={19} />
-							</button>
-						);
-					})}
-				</div>
-				{!tasks.length && (
+				{loading && (
+					<div className="mk-task-list" aria-busy="true">
+						<span className="sr-only">正在加载需求</span>
+						{["a", "b"].map((slot) => (
+							<div key={slot} className="mk-skeleton-card" />
+						))}
+					</div>
+				)}
+				{error && (
+					<div className="mk-empty" role="alert">
+						<Search size={30} />
+						<h3>需求暂时无法加载</h3>
+						<p>{error.message === USE_REAL_MARKET ? USE_REAL_MARKET : "没能连上市场服务，请检查网络后重试。"}</p>
+					</div>
+				)}
+				{!loading && !error && (
+					<div className="mk-task-list">
+						{tasks.map((t) => {
+							const items = matchesOf(matches[t.id]?.items ?? [], t);
+							return (
+								<button type="button" key={t.id} className="mk-task-select" onClick={() => onSelect(t.id)}>
+									<AgentMark />
+									<div className="mk-task-copy">
+										<h3>{t.title}</h3>
+										<p>
+											¥{t.budget.toLocaleString()} 以内 · {t.location} · {t.active ? "寻找中" : "已完成"}
+										</p>
+										<span>
+											{items.length ? `${items.length} 个候选` : "暂无候选"}
+											{t.checkedAt ? ` · Bot 上次检查 ${timeAgo(t.checkedAt)}` : ""}
+										</span>
+									</div>
+									<div className="mk-task-thumbs">
+										{items
+											.filter((m) => hasListingImage(m.listing.image))
+											.slice(0, 3)
+											.map((m) => (
+												<img key={m.listing.id} src={m.listing.image} alt="" />
+											))}
+									</div>
+									<ChevronRight size={19} />
+								</button>
+							);
+						})}
+					</div>
+				)}
+				{!loading && !error && !tasks.length && (
 					<div className="mk-empty">
 						<Sparkles size={32} />
 						<h3>还没有保存的需求</h3>
-						<p>保存条件，下次继续比较。</p>
+						<p>保存条件后会存到云端，换手机也不会丢。</p>
 					</div>
 				)}
-				<p className="mk-footnote">本机候选 · 按已填写的条件筛选</p>
+				<p className="mk-footnote">候选来自云端市场搜索 · 只按已填写的条件筛选</p>
 			</section>
 		);
+	const state = matches[task.id];
+	const refreshing = busy === task.id || !!state?.isPending;
 	return (
 		<section className="mk-workspace mk-narrow">
 			<button type="button" className="mk-back" onClick={onBack}>
@@ -310,29 +353,44 @@ export function AgentWorkspace({
 			</div>
 			<div className="mk-task-toolbar">
 				<span>
-					{refreshing === task.id ? "正在重新筛选…" : `${timeAgo(task.checkedAt)}更新 · ${matches.length} 个候选`}
+					{state?.isPending
+						? "正在搜索…"
+						: state?.isError
+							? "搜索失败"
+							: `${task.checkedAt ? `Bot 上次检查 ${timeAgo(task.checkedAt)} · ` : ""}${results.length} 个候选`}
 				</span>
 				<div>
 					<button
 						type="button"
 						className="mk-icon-button"
-						aria-label="重新寻找"
-						disabled={!!refreshing}
-						onClick={() => onRefresh(task.id)}
+						aria-label="重新搜索"
+						disabled={!!busy || state?.isPending}
+						onClick={() => state?.refetch()}
 					>
-						<RefreshCw size={18} className={cn(refreshing === task.id && "mk-working")} />
+						<RefreshCw size={18} className={cn(refreshing && "mk-working")} />
 					</button>
-					<button type="button" className="mk-button" onClick={() => onToggle(task.id)}>
+					<button
+						type="button"
+						className="mk-button"
+						disabled={busy === task.id}
+						onClick={() => onToggle(task.id, !task.active)}
+					>
 						{task.active ? <Check size={15} /> : <Play size={15} />}
 						{task.active ? "标记完成" : "继续寻找"}
 					</button>
+					<button
+						type="button"
+						className="mk-icon-button text-danger"
+						aria-label="删除需求"
+						disabled={busy === task.id}
+						onClick={() => onDelete(task)}
+					>
+						<Trash2 size={18} />
+					</button>
 				</div>
 			</div>
-			<div
-				className={cn("mk-match-list", refreshing === task.id && "is-refreshing")}
-				aria-busy={refreshing === task.id}
-			>
-				{matches.map((m, i) => (
+			<div className={cn("mk-match-list", refreshing && "is-refreshing")} aria-busy={refreshing}>
+				{results.map((m) => (
 					<article className="mk-task-result" key={m.listing.id}>
 						<button
 							type="button"
@@ -343,13 +401,11 @@ export function AgentWorkspace({
 							{hasListingImage(m.listing.image) && <img src={m.listing.image} alt="" />}
 						</button>
 						<div>
-							<span className="mk-result-kicker">
-								{i === 0 ? "最符合条件" : "其他候选"} · {m.score}% 条件匹配
-							</span>
+							<span className="mk-result-kicker">{m.reasons[0]}</span>
 							<button type="button" className="mk-task-result-title" onClick={() => onOpen(m.listing)}>
 								{m.listing.title}
 							</button>
-							<p>{m.reasons.slice(1, 3).join(" · ")}</p>
+							<p>{[m.listing.category, m.listing.location].filter(Boolean).join(" · ")}</p>
 							<small>{m.tradeoff}</small>
 							<p className="mk-price">
 								<span>¥</span>
@@ -368,21 +424,21 @@ export function AgentWorkspace({
 					</article>
 				))}
 			</div>
-			{!matches.length && (
+			{!results.length && !refreshing && (
 				<div className="mk-empty">
 					<Search size={32} />
-					<h3>暂时没有符合条件的选择</h3>
-					<p>调整预算或范围后再试试。</p>
+					<h3>{state?.isError ? "搜索失败，请重试" : "暂时没有符合条件的选择"}</h3>
+					<p>{state?.isError ? "没能连上市场服务。" : "调整预算或范围后再试试。"}</p>
 				</div>
 			)}
-			{matches.length >= 2 && (
+			{results.length >= 2 && (
 				<div className="mk-task-bottom">
 					<button
 						type="button"
 						className="mk-button mk-primary"
-						onClick={() => onCompare(matches.slice(0, 3).map((m) => m.listing.id))}
+						onClick={() => onCompare(results.slice(0, 3).map((m) => m.listing.id))}
 					>
-						对比前 {Math.min(3, matches.length)} 个选择
+						对比前 {Math.min(3, results.length)} 个选择
 						<ArrowRight size={16} />
 					</button>
 				</div>
@@ -397,7 +453,8 @@ export function AgentWorkspace({
 				<p>{task.text}</p>
 				<p>
 					{task.active ? "已保存寻找条件" : "已标记完成"}
-					。当前为本机条件筛选，尚未接入后台轮询。匹配分数表示条件符合程度，不代表质量或信用。
+					。需求保存在云端，装有市场插件的 Bot 会按它自己的排程检查新匹配；这里的候选是按同一条件做的只读搜索， 不会改变
+					Bot 已通知过的结果。
 				</p>
 			</details>
 		</section>
