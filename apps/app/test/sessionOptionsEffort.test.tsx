@@ -9,12 +9,14 @@ test("the shared model button hides effort for a non-reasoning model", () => {
 	client.setQueryData(["models", "local"], {
 		providers: [
 			{
+				id: "cloud-99716501-1a2f-43f5-8337-994ff03cc71a",
+				name: "WorkBuddy 反向映射（依赖本机在线，验收） · workbuddy",
 				models: [
 					{
-						provider: "workbuddy",
+						provider: "cloud-99716501-1a2f-43f5-8337-994ff03cc71a",
 						id: "deepseek-v4.1-flash",
 						name: "DeepSeek V4.1 Flash (WorkBuddy free)",
-						source: "runtime",
+						source: "cloud",
 						reasoning: false,
 						effortLevels: ["off"],
 					},
@@ -28,7 +30,7 @@ test("the shared model button hides effort for a non-reasoning model", () => {
 			<MemoryRouter>
 				<SessionOptions
 					node={{ id: "local" }}
-					value={{ model: "workbuddy/deepseek-v4.1-flash", effort: "medium" }}
+					value={{ model: "cloud-99716501-1a2f-43f5-8337-994ff03cc71a/deepseek-v4.1-flash", effort: "medium" }}
 					onChange={() => {}}
 					runtime={null}
 				/>
@@ -36,5 +38,7 @@ test("the shared model button hides effort for a non-reasoning model", () => {
 		</QueryClientProvider>,
 	);
 	expect(html).toContain("DeepSeek V4.1 Flash");
+	expect(html).toContain("WorkBuddy 反向映射");
+	expect(html).not.toContain("cloud-99716501");
 	expect(html).not.toContain(">medium</span>");
 });
