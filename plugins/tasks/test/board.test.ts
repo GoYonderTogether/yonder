@@ -17,24 +17,24 @@ const content = {
 };
 
 // Keep native renderer cold-start and kernel restart out of the board projection's budget.
-function boardRecords(f: Awaited<ReturnType<typeof fixture>>) {
-	const open = f.store.open(content, f.ctx);
-	const blocked = f.store.open(content, f.ctx);
-	f.store.update(blocked.ref, { state: "active" }, f.ctx);
-	f.store.update(blocked.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-	f.store.update(blocked.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-	f.store.update(blocked.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
-	const waiting = f.store.open(content, f.ctx);
-	f.store.update(waiting.ref, { state: "active" }, f.ctx);
-	f.store.update(waiting.ref, { state: "review" }, f.ctx);
-	const done = f.store.open(content, f.ctx);
-	f.store.update(done.ref, { state: "active" }, f.ctx);
-	f.store.update(done.ref, { state: "review" }, f.ctx);
-	f.store.done(done.ref, "Delivered", ["SQLite rows", "PNG bytes"], f.ctx);
-	const child = f.store.open({ ...content, parent: open.ref }, { ...f.ctx, agent: "child" });
-	const foreign = f.store.open(content, { ...f.ctx, agent: "foreign" });
+async function boardRecords(f: Awaited<ReturnType<typeof fixture>>) {
+	const open = await f.store.open(content, f.ctx);
+	const blocked = await f.store.open(content, f.ctx);
+	await f.store.update(blocked.ref, { state: "active" }, f.ctx);
+	await f.store.update(blocked.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+	await f.store.update(blocked.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+	await f.store.update(blocked.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
+	const waiting = await f.store.open(content, f.ctx);
+	await f.store.update(waiting.ref, { state: "active" }, f.ctx);
+	await f.store.update(waiting.ref, { state: "review" }, f.ctx);
+	const done = await f.store.open(content, f.ctx);
+	await f.store.update(done.ref, { state: "active" }, f.ctx);
+	await f.store.update(done.ref, { state: "review" }, f.ctx);
+	await f.store.done(done.ref, "Delivered", ["Event ledger", "PNG bytes"], f.ctx);
+	const child = await f.store.open({ ...content, parent: open.ref }, { ...f.ctx, agent: "child" });
+	const foreign = await f.store.open(content, { ...f.ctx, agent: "foreign" });
 	const own = { ...f.ctx, capabilities: ["read"] };
-	const board = taskBoard(f.store.list(own), Date.now());
+	const board = taskBoard(await f.store.list(own), Date.now());
 	return { open, done, child, foreign, own, board };
 }
 
@@ -53,15 +53,15 @@ test("board order, evidence, parent visibility and text/SVG renderers", async ()
 	const f = await fixture();
 	try {
 		mark("ledger start");
-		const { child, foreign, own, board } = boardRecords(f);
+		const { child, foreign, own, board } = await boardRecords(f);
 		mark("projection and renderers start");
 		expect(board.groups.map((g) => g.id)).toEqual(["waiting", "inProgress", "blocked", "done"]);
 		expect(board.counts).toEqual({ waiting: 1, inProgress: 2, blocked: 1 });
 		expect(board.groups[3]!.items[0]!.acceptance).toEqual({ met: 2, total: 2 });
 		expect(board.groups[1]!.items[0]!.children[0]!.id).toBe(child.id);
 		expect(JSON.stringify(board)).not.toContain(foreign.id);
-		expect(taskBoard(f.store.list(f.ctx), Date.now()).counts.inProgress).toBe(3);
-		expect(taskBoard(f.store.list(own), Date.now() + 30 * 60000).groups[3]!.items).toEqual([]);
+		expect(taskBoard(await f.store.list(f.ctx), Date.now()).counts.inProgress).toBe(3);
+		expect(taskBoard(await f.store.list(own), Date.now() + 30 * 60000).groups[3]!.items).toEqual([]);
 		expect(renderText(board, "zh-CN")).toContain("1 等你 · 2 进行中 · 1 阻塞");
 		expect(renderText(board)).toContain("Waiting for you");
 		const svg = renderSvg(board, "zh");
@@ -79,19 +79,19 @@ test("short refs and evidence survive a kernel restart", async () => {
 	const f = await fixture();
 	try {
 		mark("ledger start");
-		const { open, done, own } = boardRecords(f);
-		f.store.close();
+		const { open, done, own } = await boardRecords(f);
+		await f.store.close();
 		mark("kernel restart start");
 		await f.restart();
 		mark("reopened ledger start");
-		const reopened = new Store(f.probe.api.paths.data);
+		const reopened = new Store(f.probe.api.storage.open());
 		try {
-			expect(reopened.get(open.ref, own).task.id).toBe(open.id);
-			expect(reopened.get(done.id, own).task.ref).toBe(done.ref);
-			expect(reopened.get(done.id, own).task.evidence).toEqual(["SQLite rows", "PNG bytes"]);
-			expect(reopened.open(content, own).ref).toBe("T7");
+			expect((await reopened.get(open.ref, own)).task.id).toBe(open.id);
+			expect((await reopened.get(done.id, own)).task.ref).toBe(done.ref);
+			expect((await reopened.get(done.id, own)).task.evidence).toEqual(["Event ledger", "PNG bytes"]);
+			expect((await reopened.open(content, own)).ref).toBe("T7");
 		} finally {
-			reopened.close();
+			await reopened.close();
 		}
 	} finally {
 		mark("cleanup start");
@@ -105,7 +105,7 @@ test("the real PNG renderer handles the populated board", async () => {
 	const f = await fixture();
 	try {
 		mark("ledger start");
-		const { board } = boardRecords(f);
+		const { board } = await boardRecords(f);
 		mark("native PNG start");
 		expect((await renderPng(board, "zh")).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
 	} finally {
@@ -117,7 +117,7 @@ test("the real PNG renderer handles the populated board", async () => {
 test("loaded tasks_show returns board/detail JSON and sends a real PNG through the local channel", async () => {
 	const f = await fixture();
 	try {
-		const task = f.store.open(content, f.ctx);
+		const task = await f.store.open(content, f.ctx);
 		expect(JSON.parse((await f.call("show", { target: "json" })).text).counts.inProgress).toBe(1);
 		const detail = JSON.parse((await f.call("show", { target: "json", view: "detail", id: task.ref })).text);
 		expect(detail.detail.task.objective).toBe(content.objective);
@@ -161,15 +161,15 @@ test("digest is conditional, ordered, capped, destination-scoped and persisted; 
 		const hook = f.probe.hooks[0]!;
 		const message = { to: event.conv!, text: "Reply" };
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();
-		const task = f.store.open(content, f.ctx);
-		f.store.update(task.ref, { state: "active" }, f.ctx);
+		const task = await f.store.open(content, f.ctx);
+		await f.store.update(task.ref, { state: "active" }, f.ctx);
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();
-		f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-		f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-		f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
-		const waiting = f.store.open({ ...content, title: "Need the input" }, f.ctx);
-		f.store.update(waiting.ref, { state: "active" }, f.ctx);
-		f.store.update(waiting.ref, { state: "waiting-user" }, f.ctx);
+		await f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+		await f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+		await f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
+		const waiting = await f.store.open({ ...content, title: "Need the input" }, f.ctx);
+		await f.store.update(waiting.ref, { state: "active" }, f.ctx);
+		await f.store.update(waiting.ref, { state: "waiting-user" }, f.ctx);
 		expect(await hook.beforeSend!({ ...message, text: "", attachments: [] }, f.ctx)).toBeUndefined();
 		expect(await hook.beforeSend!({ ...message, to: "agent:other" }, f.ctx)).toBeUndefined();
 		expect(await hook.beforeSend!(message)).toBeUndefined();
@@ -178,18 +178,18 @@ test("digest is conditional, ordered, capped, destination-scoped and persisted; 
 		const result = await hook.beforeSend!(message, f.ctx);
 		expect(result!.message.text).toBe(`Reply\n\n等你 ${waiting.ref} Need the input\n卡住 ${task.ref} ${content.title}`);
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();
-		const reopened = new Store(f.probe.api.paths.data);
+		const reopened = new Store(f.probe.api.storage.open());
 		expect(await digest(f.probe.api, reopened, {}).beforeSend!(message, f.ctx)).toBeUndefined();
-		reopened.close();
-		f.store.done(task.ref, "Delivered", ["one", "two"], f.ctx);
+		await reopened.close();
+		await f.store.done(task.ref, "Delivered", ["one", "two"], f.ctx);
 		expect((await hook.beforeSend!(message, f.ctx))!.message.text).toContain(`已交付 ${task.ref}`);
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();
 		for (let i = 0; i < 6; i++) {
-			const t = f.store.open(content, f.ctx);
-			f.store.update(t.ref, { state: "active" }, f.ctx);
-			f.store.update(t.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-			f.store.update(t.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-			f.store.update(t.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
+			const t = await f.store.open(content, f.ctx);
+			await f.store.update(t.ref, { state: "active" }, f.ctx);
+			await f.store.update(t.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+			await f.store.update(t.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+			await f.store.update(t.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
 		}
 		expect((await hook.beforeSend!(message, f.ctx))!.message.text.split("\n\n")[1]!.split("\n")).toHaveLength(5);
 		expect(
@@ -209,9 +209,9 @@ test("away digest reads the real event ledger with an injected clock after two h
 			conv: "conv:reminder:person",
 			data: { kind: "dm", text: "Continue" },
 		});
-		const task = f.store.open(content, f.ctx);
-		f.store.update(task.ref, { state: "active" }, f.ctx);
-		f.store.update(task.ref, { state: "waiting-user" }, f.ctx);
+		const task = await f.store.open(content, f.ctx);
+		await f.store.update(task.ref, { state: "active" }, f.ctx);
+		await f.store.update(task.ref, { state: "waiting-user" }, f.ctx);
 		const hook = digest(f.probe.api, f.store, {}, () => Date.parse(event.ts) + 2 * 3600000 + 1);
 		const message = { to: event.conv!, text: "Back" };
 		expect((await hook.beforeSend!(message, f.ctx))!.message.text).toContain(`离开期间 · 等你 ${task.ref}`);
@@ -230,11 +230,11 @@ test("a tail digest repeats after the TTL instead of staying silenced forever", 
 			conv: "conv:reminder:person",
 			data: { kind: "dm", text: "Status?" },
 		});
-		const task = f.store.open(content, f.ctx);
-		f.store.update(task.ref, { state: "active" }, f.ctx);
-		f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-		f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-		f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
+		const task = await f.store.open(content, f.ctx);
+		await f.store.update(task.ref, { state: "active" }, f.ctx);
+		await f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+		await f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+		await f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
 		const base = Date.parse(event.ts);
 		const message = { to: event.conv!, text: "Reply" };
 		const at = (offset: number) => digest(f.probe.api, f.store, {}, () => base + offset);
@@ -242,12 +242,12 @@ test("a tail digest repeats after the TTL instead of staying silenced forever", 
 		expect(await at(DIGEST_TTL_MS - 1).beforeSend!(message, f.ctx)).toBeUndefined();
 		expect((await at(DIGEST_TTL_MS).beforeSend!(message, f.ctx))!.message.text).toContain(`卡住 ${task.ref}`);
 		// 换一个目的地，这份 TTL 记录同样要到期才重新认领。
-		const current = f.store.get(task.ref, f.ctx).task;
-		expect(f.store.claimDigest(current, "conv:other", base)).toBe(true);
-		expect(f.store.digestSeen(current, "conv:other", base + DIGEST_TTL_MS - 1)).toBe(true);
-		expect(f.store.claimDigest(current, "conv:other", base + DIGEST_TTL_MS - 1)).toBe(false);
-		expect(f.store.digestSeen(current, "conv:other", base + DIGEST_TTL_MS)).toBe(false);
-		expect(f.store.claimDigest(current, "conv:other", base + DIGEST_TTL_MS)).toBe(true);
+		const current = (await f.store.get(task.ref, f.ctx)).task;
+		expect(await f.store.claimDigest(current, "conv:other", base)).toBe(true);
+		expect(await f.store.digestSeen(current, "conv:other", base + DIGEST_TTL_MS - 1)).toBe(true);
+		expect(await f.store.claimDigest(current, "conv:other", base + DIGEST_TTL_MS - 1)).toBe(false);
+		expect(await f.store.digestSeen(current, "conv:other", base + DIGEST_TTL_MS)).toBe(false);
+		expect(await f.store.claimDigest(current, "conv:other", base + DIGEST_TTL_MS)).toBe(true);
 	} finally {
 		await f.close();
 	}
@@ -256,13 +256,13 @@ test("a tail digest repeats after the TTL instead of staying silenced forever", 
 test("concurrent stores claim a task digest only once", async () => {
 	const f = await fixture();
 	try {
-		const task = f.store.open(content, f.ctx);
-		f.store.update(task.ref, { state: "active" }, f.ctx);
-		f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-		f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-		const blocked = f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
-		const active = f.store.open(content, f.ctx);
-		f.store.update(active.ref, { state: "active" }, f.ctx);
+		const task = await f.store.open(content, f.ctx);
+		await f.store.update(task.ref, { state: "active" }, f.ctx);
+		await f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+		await f.store.update(task.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+		const blocked = await f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
+		const active = await f.store.open(content, f.ctx);
+		await f.store.update(active.ref, { state: "active" }, f.ctx);
 		const barrier = new SharedArrayBuffer(4);
 		const code = `const { parentPort, workerData } = require('node:worker_threads');
 		require('node:module').registerHooks({ resolve(specifier, context, nextResolve) {
@@ -274,12 +274,13 @@ test("concurrent stores claim a task digest only once", async () => {
 		  }});
 		(async () => {
 		  const { Store } = await import(workerData.module);
-		  const store = new Store(workerData.data);
-		  store.digestSeen(workerData.task, 'conv:reminder:person');
+		  const { createFilePluginStorage } = await import('@yonder/sdk/testing');
+		  const store = new Store(createFilePluginStorage(workerData.data).open());
+		  await store.digestSeen(workerData.task, 'conv:reminder:person');
 		  parentPort.postMessage('ready');
 		  Atomics.wait(new Int32Array(workerData.barrier), 0, 0);
-		  parentPort.postMessage([store.claimDigest(workerData.task, 'conv:reminder:person', Date.now()), store.claimMoments(Date.now() + 31 * 60000, 30, 120, false).length]);
-		  store.close();
+		  parentPort.postMessage([await store.claimDigest(workerData.task, 'conv:reminder:person', Date.now()), (await store.claimMoments(Date.now() + 31 * 60000, 30, 120, false)).length]);
+		  await store.close();
 		})().catch(error => { throw error; });`;
 		const workers = Array.from(
 			{ length: 2 },

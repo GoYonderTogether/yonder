@@ -1,12 +1,13 @@
 import { execFile } from "node:child_process";
 import { stat } from "node:fs/promises";
-import { isAbsolute, relative } from "node:path";
+import { isAbsolute, join, posix, relative } from "node:path";
 import { promisify } from "node:util";
+import type { PluginFiles, PluginStorage } from "@yonder/sdk";
 import { DateTime } from "luxon";
 import { type Static, Type } from "typebox";
 import { weekDate, weekInfo } from "./calendar.js";
 import type { Config } from "./config.js";
-import { metadata, readText, safePath } from "./files.js";
+import { memoryFiles, metadata, readText, safePath, textFiles } from "./files.js";
 import { manifest } from "./manifest.js";
 import { type Origin, records, sourceOrigins } from "./records.js";
 
@@ -79,21 +80,29 @@ function fileOrigin(loc: Location, meta: Record<string, unknown>): Origin {
 		return meta.origin as Origin;
 	return loc.path.startsWith("raw/") || loc.path.startsWith("archive/") ? "legacy" : "derived";
 }
-async function document(config: Config, loc: Location, includePrivate: boolean, signal: AbortSignal) {
+async function document(
+	config: Config,
+	loc: Location,
+	includePrivate: boolean,
+	signal: AbortSignal,
+	storage?: PluginStorage,
+) {
 	signal.throwIfAborted();
-	const file = await safePath(loc.root, loc.path),
-		info = await stat(file);
-	if (!info.isFile()) throw new Error("path: not a regular file");
-	// Classify the validated filesystem target, not an alias containing separators or dot segments.
-	loc = { ...loc, path: relative(await safePath(loc.root, ""), file).replaceAll("\\", "/") };
-	const text = await readText(loc.root, loc.path),
+	const files = storage?.open(loc.root) ?? memoryFiles(loc.root);
+	if (files.localRoot) await safePath(files.localRoot, loc.path);
+	const info = await files.stat(loc.path);
+	if (!info || info.type !== "file") throw new Error("path: not a regular file");
+	loc = { ...loc, path: posix.normalize(loc.path.replaceAll("\\", "/")) };
+	const text = await readText(files, loc.path),
 		meta = metadata(text);
 	if ((loc.path.split("/")[0]?.toLowerCase() === "private" || meta.private === true) && !includePrivate)
 		throw new Error("Private content requires includePrivate: true");
 	const lines = text.split("\n");
 	if (lines.at(-1) === "") lines.pop();
 	const original =
-		!loc.registered && loc.path.startsWith("raw/") ? (await manifest(config.root)).files[loc.path] : undefined;
+		!loc.registered && loc.path.startsWith("raw/")
+			? (await manifest(storage?.open(config.root) ?? config.root)).files[loc.path]
+			: undefined;
 	const origin = original?.origin ?? fileOrigin(loc, meta),
 		fallback = DateTime.fromMillis(info.mtimeMs, { zone: config.timezone }).toISODate()!;
 	const facts = lines.map(() => ({ origin, date: fallback }));
@@ -107,11 +116,11 @@ async function document(config: Config, loc: Location, includePrivate: boolean, 
 	}
 	return { text, lines, facts, origin };
 }
-export async function read(config: Config, args: ReadArgs, signal: AbortSignal) {
+export async function read(config: Config, args: ReadArgs, signal: AbortSignal, storage?: PluginStorage) {
 	if ((args.path === undefined) === (args.week === undefined))
 		throw new Error("path and week: exactly one is required");
 	const path = args.path ?? weekInfo(weekDate(args.week!, config.timezone)).path;
-	const doc = await document(config, location(config, path), args.includePrivate === true, signal);
+	const doc = await document(config, location(config, path), args.includePrivate === true, signal, storage);
 	const fromLine = args.fromLine ?? 1,
 		end = Math.min(doc.lines.length, fromLine - 1 + (args.lines ?? 200));
 	const text = doc.lines.slice(fromLine - 1, end).join("\n");
@@ -167,6 +176,31 @@ async function grep(root: string, term: string, signal: AbortSignal): Promise<Rg
 		throw new Error(`rg search failed: ${failure.stderr || (error as Error).message}`);
 	}
 }
+async function virtualGrep(
+	files: PluginFiles,
+	root: string,
+	zone: string,
+	term: string,
+	signal: AbortSignal,
+): Promise<RgRow[]> {
+	const rows: RgRow[] = [];
+	const needle = term.toLowerCase();
+	// ponytail: virtual text libraries are scanned literally; add indexed search only if measured libraries outgrow this.
+	for (const path of await textFiles(files)) {
+		if (zone && path !== zone && !path.startsWith(`${zone}/`)) continue;
+		signal.throwIfAborted();
+		const lines = (await readText(files, path)).split("\n");
+		for (const [index, line] of lines.entries()) {
+			const count = line.toLowerCase().split(needle).length - 1;
+			if (count)
+				rows.push({
+					type: "match",
+					data: { path: { text: join(root, path) }, line_number: index + 1, submatches: Array(count).fill(null) },
+				});
+		}
+	}
+	return rows;
+}
 const defaultZones = ["timeline", "life", "me", "mine", "raw", "projects"];
 interface Hit {
 	line: number;
@@ -174,7 +208,7 @@ interface Hit {
 	date?: string;
 	text: string;
 }
-export async function search(config: Config, args: SearchArgs, signal: AbortSignal) {
+export async function search(config: Config, args: SearchArgs, signal: AbortSignal, storage?: PluginStorage) {
 	for (const [field, value] of [
 		["since", args.since],
 		["until", args.until],
@@ -200,21 +234,25 @@ export async function search(config: Config, args: SearchArgs, signal: AbortSign
 		signal.throwIfAborted();
 		let root: string;
 		let base: string;
+		const source = storage?.open(loc.root) ?? memoryFiles(loc.root);
 		try {
-			base = await safePath(loc.root, "");
-			root = await safePath(base, loc.path);
-			await stat(root);
+			base = source.localRoot ? await safePath(source.localRoot, "") : loc.root;
+			root = source.localRoot ? await safePath(base, loc.path) : join(base, loc.path);
+			if (source.localRoot) await stat(root);
+			else if (!(await source.stat(loc.path))) continue;
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
 			throw error;
 		}
 		for (const [termIndex, term] of terms.entries())
 			for (const variant of new Set([term, term.normalize("NFKC")])) {
-				for (const row of await grep(root, variant, signal)) {
+				for (const row of await (source.localRoot
+					? grep(root, variant, signal)
+					: virtualGrep(source, loc.root, loc.path, variant, signal))) {
 					if (!row.data.path?.text || !row.data.line_number) continue;
 					const path = relative(base, row.data.path.text).replaceAll("\\", "/");
 					if (path.split(/[\\/]/).some((p) => p.startsWith(".") || p === "node_modules")) continue;
-					await safePath(base, path);
+					if (source.localRoot) await safePath(base, path);
 					const key = loc.prefix + path;
 					let entry = files.get(key);
 					if (!entry) {
@@ -234,7 +272,7 @@ export async function search(config: Config, args: SearchArgs, signal: AbortSign
 	for (const [path, entry] of files) {
 		let doc: Awaited<ReturnType<typeof document>>;
 		try {
-			doc = await document(config, entry.loc, args.includePrivate === true, signal);
+			doc = await document(config, entry.loc, args.includePrivate === true, signal, storage);
 		} catch (error) {
 			if ((error as Error).message === "Private content requires includePrivate: true") continue;
 			throw error;

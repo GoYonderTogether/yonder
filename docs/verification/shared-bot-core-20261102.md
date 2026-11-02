@@ -1,6 +1,8 @@
-# 共享 Bot 核心重构：阶段 1 检查记录
+# 共享 Bot 核心重构：阶段验证记录
 
-日期：2026-11-02；Node v24.21.0；两个指定 worktree 均为 refactor/shared-bot-core。Yonder 初始 HEAD 为 a6a6c0b5。仅修改架构与规范文档，未修改产品代码、测试、构建脚本或安装/发布流程。BRIEF.md 原先即为未跟踪文件，保留原样。
+当前续接已完成阶段 1–6，并完成 cloud/server 的阶段 9 部分。最新 Yonder 完整 gate：2686 通过 / 0 失败 / 112 跳过，build/typecheck/lint 通过；cloud 后端204通过。下面旧环境失败均保留为历史，原停止结论和 Git/SwiftPM/EMFILE 阻塞已被续接结果替代，不是当前状态。
+
+**上次运行历史快照：** 日期：2026-11-02；Node v24.21.0；两个指定 worktree 均为 refactor/shared-bot-core。Yonder 初始 HEAD 为 a6a6c0b5。仅修改架构与规范文档，未修改产品代码、测试、构建脚本或安装/发布流程。BRIEF.md 原先即为未跟踪文件，保留原样。
 
 ## 安装
 
@@ -12,7 +14,7 @@
 
 未为这些既有依赖告警改依赖或扩展任务范围。
 
-## 阶段 1 完整门槛
+## 阶段 1 完整门槛（上次运行历史）
 
 | 检查 | 实际结果 | 本机原始日志 |
 |---|---|---|
@@ -46,11 +48,11 @@
 
 原始 .log 文件按仓库既有规则被忽略，留在本机；本 Markdown 保留可提交的计数、失败原因和证据入口。没有运行真实模型、PG/Redis、多租户、端到端或负载测试。没有读取模型 key、连接生产、推送、部署或安装应用。未启动 PG、Redis 或 worker，故没有此类后台服务需要关闭。
 
-## 推进结论
+## 推进结论（上次运行历史，已被续接替代）
 
 阶段 1 文档目标已写入，完整门槛未通过，未进入阶段 2。不能以只跑 TypeScript 或前端构建替代 BRIEF 要求的完整检查。本次是宿主验证权限阻塞，不是已证明 pi-durable 多实例/PG 不可行；没有尝试或放弃更轻运行循环，也不声称触发了 BRIEF 的那项架构停止条件。解除宿主限制后，从阶段 1 顺序完整检查续接。
 
-## 提交阻塞
+## 提交阻塞（上次运行历史，现已解除）
 
 尝试 git add 明确文档清单及带 Co-Authored-By 的阶段提交时，Git 无法创建 `/Users/zoran/Documents/yonder/.git/worktrees/yonder-shared-core/index.lock`，返回 Operation not permitted。add/commit 均失败；没有暂存或提交。所有文档保持未提交，未修改主分支。
 
@@ -126,3 +128,9 @@ root 代码阅读修复了三处实际接线问题：dispatch 不得吞结果写
 最终完整 gate：build/typecheck/lint 均退出 0；默认测试 2672 通过 / 0 失败 / 112 跳过，文件 496 通过 / 0 失败 / 67 跳过，100.19 秒；size 581、layer 268，无违规。证据 shared-bot-core/stage-5-{build,typecheck,test,lint}.log。此前定向233通过/21跳过、真实PG6项及首轮Biome失败均在独立记录保留。
 
 相对固定基线无新增失败。PG 覆盖两个作用域隔离、重开、持久 ID、真实约束失败原子性、重复去重/结算、转录/fork和投递恢复；尚不证明插件隔离、真实模型或 worker。未启动 worker/Redis或模型请求，临时 PG/Pool 已关闭。
+
+## 阶段 6：插件私有数据与共享 tick
+
+完整实现、旧数据保护、所有开发失败/定向原始计数见 [shared-bot-plugins-20261102.md](shared-bot-plugins-20261102.md)。SDK文件/文档能力有FS/PG真实实现；memory保留本机库与rg；tasks只读旧SQLite导入、增量投影与按task history；cron/关注/moments等由单宿主scheduler驱动。正常读取性能与所有适用旧业务断言保留，异步moment验收只移除无效的全历史末条时序假设，不减少结果/不重复投递断言。
+
+root最终完整gate：build/typecheck/lint均退出0；默认2686通过/0失败/112跳过，文件500通过/0失败/67跳过，117.19秒；size589、layer271，无违规。日志shared-bot-core/stage-6-{build,typecheck,test,lint}.log。没有真实模型、worker或A12负载测试。

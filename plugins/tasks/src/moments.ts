@@ -1,4 +1,4 @@
-import type { PluginAPI, Trigger } from "@yonder/sdk";
+import type { PluginAPI, Trigger, TriggerIO } from "@yonder/sdk";
 import { STALL_NOTICE } from "./prompts.js";
 import type { Store } from "./store/index.js";
 import { countsAsActivity } from "./store/project.js";
@@ -17,7 +17,7 @@ export const stallWindow = (minutes?: number) => Math.min(30, Math.max(15, minut
 
 /** 投递前二次校验：claim 之后任务可能已经推进、关闭，或会话已经换绑。 */
 async function stallTarget(api: PluginAPI, store: Store, id: string, claimed: number) {
-	const current = store.taskById(id);
+	const current = await store.taskById(id);
 	if (!current || current.task.state !== "active") return undefined;
 	const progressed = current.history.some((event) => event.seq > claimed && countsAsActivity(event.kind));
 	if (progressed) return undefined;
@@ -25,7 +25,7 @@ async function stallTarget(api: PluginAPI, store: Store, id: string, claimed: nu
 }
 
 export async function tick(api: PluginAPI, store: Store, config: Config = {}, now = Date.now()) {
-	const due = store.claimMoments(
+	const due = await store.claimMoments(
 		now,
 		stallWindow(config.stallMinutes),
 		config.userWaitMinutes ?? 120,
@@ -55,11 +55,11 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 			} else {
 				result = await api.sessions.command(task.session, "compact");
 			}
-			store.momentResult(task.id, moment, { result }, now);
+			await store.momentResult(task.id, moment, { result }, now);
 		} catch (error) {
 			// 提醒只进任务自己的会话：origin 是记录来源，不是投递目标，旧的自由文本也不会被当成目标。
 			const reason = error instanceof Error ? error.message : String(error);
-			store.momentResult(task.id, moment, { error: reason }, now);
+			await store.momentResult(task.id, moment, { error: reason }, now);
 			api.log.warn("Task reminder failed; not retried until the task progresses", {
 				task: task.ref,
 				moment,
@@ -71,27 +71,30 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 }
 
 export function moments(api: PluginAPI, store: Store, config: Config): Trigger {
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	let running: Promise<void> = Promise.resolve();
-	let stopped = true;
-	const run = () => {
-		running = tick(api, store, config)
-			.catch((error) => api.log.error("Task moments failed", { error: String(error) }))
-			.finally(() => {
-				if (!stopped) timer = setTimeout(run, 60000);
-			});
-		return running;
-	};
+	let io: TriggerIO | undefined;
 	return {
 		id: "tasks-moments",
-		async start() {
-			stopped = false;
-			await run();
+		async start(triggerIO) {
+			io = triggerIO;
+			try {
+				await tick(api, store, config, triggerIO.startedAt);
+			} catch (error) {
+				api.log.error("Task moments failed", { error: String(error) });
+			}
+			io.schedule(Date.now() + 60000);
+		},
+		async tick(now) {
+			try {
+				await tick(api, store, config, now);
+			} catch (error) {
+				api.log.error("Task moments failed", { error: String(error) });
+			} finally {
+				io?.schedule(Date.now() + 60000);
+			}
 		},
 		async stop() {
-			stopped = true;
-			clearTimeout(timer);
-			await running;
+			io?.schedule(undefined);
+			io = undefined;
 		},
 	};
 }

@@ -1,10 +1,9 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import type { ToolContext } from "@yonder/sdk";
-import { tempHome } from "@yonder/sdk/testing";
+import { rm } from "node:fs/promises";
+import type { PluginFiles, ToolContext } from "@yonder/sdk";
+import { createFilePluginStorage, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { Store } from "../src/store/index.js";
+import { readAllHistory, readProjection, writeProjection } from "../src/store/ledger.js";
 import { replay, type Task, type TaskEvent } from "../src/store/project.js";
 
 const content = {
@@ -25,185 +24,196 @@ const caller = (
 	env: {} as never,
 	signal: new AbortController().signal,
 });
+const makeStore = (root: string) => new Store(createFilePluginStorage(root).open());
 
-/** 记录真实执行的 SQL，用来证明读路径没有退回全表扫或 N+1。 */
-function probe() {
-	const seen: string[] = [];
-	const original = DatabaseSync.prototype.prepare;
-	DatabaseSync.prototype.prepare = function (this: DatabaseSync, sql: string) {
-		seen.push(sql);
-		return original.call(this, sql);
-	};
-	return {
-		seen,
-		clear: () => {
-			seen.length = 0;
-		},
-		restore: () => {
-			DatabaseSync.prototype.prepare = original;
-		},
-	};
+async function savedEvents(root: string): Promise<TaskEvent[]> {
+	return readAllHistory(createFilePluginStorage(root).open());
 }
 
-function ledger(root: string) {
-	const db = new DatabaseSync(join(root, "tasks.sqlite"));
-	try {
-		return db
-			.prepare("SELECT * FROM events ORDER BY seq")
-			.all()
-			.map((row) => ({ ...row, data: JSON.parse(String(row.data)) }) as unknown as TaskEvent);
-	} finally {
-		db.close();
-	}
+function observed(files: PluginFiles, reads: string[]): PluginFiles {
+	return new Proxy(files, {
+		get(target, key) {
+			if (key === "read")
+				return (path: string) => {
+					reads.push(path);
+					return target.read(path);
+				};
+			if (key === "transaction")
+				return (change: (files: PluginFiles) => Promise<unknown>) =>
+					target.transaction((tx) => change(observed(tx, reads)));
+			return Reflect.get(target, key, target);
+		},
+	});
 }
 
 async function seed(store: Store) {
 	const main = caller(),
 		child = caller("child");
-	const active = store.open(content, main);
-	store.update(active.id, { state: "active", note: "working on it" }, main);
-	store.update(active.id, { state: "waiting-user", note: "need the fixture" }, main);
-	store.update(active.id, { state: "active" }, main);
-	const parent = store.open({ ...content, title: "Parent" }, main);
-	const nested = store.open({ ...content, parent: parent.id }, child);
-	store.update(nested.id, { state: "active" }, child);
-	const done = store.open(content, main);
-	store.update(done.id, { state: "active" }, main);
-	store.update(done.id, { state: "review" }, main);
-	store.done(done.id, "Delivered", ["one", "two"], main);
-	const cancelled = store.open(content, main);
-	store.update(cancelled.id, { state: "cancelled" }, main);
-	// wake 事件只在 replay 里影响 wakeups，投影必须跟上。
-	store.render({ agent: "main", session: "1", profile: "owner", workspace: { read: async () => undefined } });
-	store.render({ agent: "main", session: "1", profile: "owner", workspace: { read: async () => undefined } });
-	return { main, child, active, nested, done, cancelled };
+	const active = await store.open(content, main);
+	await store.update(active.id, { state: "active", note: "working on it" }, main);
+	await store.update(active.id, { state: "waiting-user", note: "need the fixture" }, main);
+	await store.update(active.id, { state: "active" }, main);
+	const parent = await store.open({ ...content, title: "Parent" }, main);
+	const nested = await store.open({ ...content, parent: parent.id }, child);
+	await store.update(nested.id, { state: "active" }, child);
+	const done = await store.open({ ...content, title: "Finished" }, main);
+	await store.update(done.id, { state: "active" }, main);
+	await store.update(done.id, { state: "review" }, main);
+	await store.done(done.id, "Delivered", ["one", "two"], main);
+	const cancelled = await store.open({ ...content, title: "Cancelled" }, main);
+	await store.update(cancelled.id, { state: "cancelled" }, main);
+	await store.render({ agent: "main", session: "1", profile: "owner", workspace: { read: async () => undefined } });
+	await store.render({ agent: "main", session: "1", profile: "owner", workspace: { read: async () => undefined } });
+	return { main, child, active, parent, nested, done, cancelled };
 }
 
-test("projection rows equal a full replay of the same ledger", async () => {
+function progressFromReplay(events: TaskEvent[], task: Task): string | null {
+	const rows = events.filter((event) => event.task === task.id).map((event) => event.data);
+	const stateIndex = rows.findLastIndex((data) => data.state !== undefined);
+	const relevant = ["waiting-user", "blocked"].includes(task.state) ? rows.slice(stateIndex) : rows;
+	const latest = relevant.findLast((data) => data.note?.trim() || data.deliverable?.trim());
+	return latest?.note ?? latest?.deliverable ?? null;
+}
+
+test("projection rows equal a full replay of the same event history", async () => {
 	const root = await tempHome("yonder-projection-");
-	const store = new Store(root);
+	const store = makeStore(root);
 	try {
 		const { main, child } = await seed(store);
-		const expected = replay(ledger(root));
+		const events = await savedEvents(root);
+		const expected = replay(events);
 		expect(expected.size).toBe(5);
 		for (const [id, projected] of expected) {
 			const owner = projected.task.ownerAgent === "child" ? child : main;
-			expect(store.get(id, owner).task).toEqual(projected.task);
+			expect((await store.get(id, owner)).task).toEqual(projected.task);
 		}
-		// 面板进度必须与逐任务读历史算出来的完全一致。
-		const tasks = store.list(main);
-		const progress = store.progress(tasks);
-		for (const task of tasks) {
-			const history = store.get(task.id, main).history;
-			const stateIndex = history.findLastIndex((event) => event.data.state !== undefined);
-			const relevant = ["waiting-user", "blocked"].includes(task.state) ? history.slice(stateIndex) : history;
-			const latest = relevant.findLast((event) => event.data.note?.trim() || event.data.deliverable?.trim());
-			expect(progress.get(task.id)).toBe(latest?.data.note ?? latest?.data.deliverable ?? null);
-		}
+		const tasks = await store.list(main);
+		const progress = await store.progress(tasks);
+		for (const task of tasks) expect(progress.get(task.id)).toBe(progressFromReplay(events, task));
 	} finally {
-		store.close();
+		await store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
 
-test("rebuild restores a damaged projection and backfill fills an empty one", async () => {
+test("rebuild restores a damaged projection and first use backfills an empty one", async () => {
 	const root = await tempHome("yonder-rebuild-");
-	const store = new Store(root);
+	const files = createFilePluginStorage(root).open();
+	const store = new Store(files);
 	try {
 		const { main, active, done } = await seed(store);
-		const before = store.list(main);
-		const raw = new DatabaseSync(join(root, "tasks.sqlite"));
-		try {
-			raw.prepare("DELETE FROM task_current WHERE id = ?").run(done.id);
-		} finally {
-			raw.close();
-		}
-		expect(store.list(main).map((task) => task.id)).not.toContain(done.id);
-		expect(store.rebuild()).toBe(5);
-		expect(store.list(main)).toEqual(before);
-		expect(store.get(active.id, main).task.state).toBe("active");
+		const before = await store.list(main);
+		await files.transaction(async (tx) => {
+			const projection = await readProjection(tx);
+			delete projection.tasks[done.id];
+			await writeProjection(tx, projection);
+		});
+		expect((await store.list(main).then((tasks) => tasks.map((task) => task.id))).includes(done.id)).toBe(false);
+		expect(await store.rebuild()).toBe(5);
+		expect(await store.list(main)).toEqual(before);
+		expect((await store.get(active.id, main)).task.state).toBe("active");
 
-		store.close();
-		const wipe = new DatabaseSync(join(root, "tasks.sqlite"));
+		await store.close();
+		await files.transaction((tx) => tx.remove("projection.json"));
+		const reopened = makeStore(root);
 		try {
-			wipe.prepare("DELETE FROM task_current").run();
+			expect(await reopened.list(main)).toEqual(before);
 		} finally {
-			wipe.close();
-		}
-		// 首次打开发现投影为空而账本非空，自动回填一次。
-		const reopened = new Store(root);
-		try {
-			expect(reopened.list(main)).toEqual(before);
-		} finally {
-			reopened.close();
+			await reopened.close();
 		}
 	} finally {
-		store.close();
+		await store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
 
-test("list and get read the projection, never the whole ledger", async () => {
-	const root = await tempHome("yonder-scan-");
-	const store = new Store(root);
-	const spy = probe();
+test("list and get read the projection and only the requested task history", async () => {
+	const root = await tempHome("yonder-projection-reads-");
+	const reads: string[] = [];
+	const store = new Store(observed(createFilePluginStorage(root).open(), reads));
+	const ctx = caller();
 	try {
-		const { main, active } = await seed(store);
-		spy.clear();
-		expect(store.list(main)).toHaveLength(5);
-		expect(spy.seen.some((sql) => /FROM events/.test(sql))).toBe(false);
-
-		spy.clear();
-		const { history } = store.get(active.id, main);
-		expect(history[0]!.kind).toBe("open");
-		expect(spy.seen.some((sql) => /FROM events\s+ORDER BY seq/.test(sql))).toBe(false);
-		expect(spy.seen.some((sql) => /FROM events WHERE task = \?/.test(sql))).toBe(true);
-		expect(spy.seen.some((sql) => /FROM task_current/.test(sql))).toBe(true);
-	} finally {
-		spy.restore();
-		store.close();
-		await rm(root, { recursive: true, force: true });
-	}
-});
-
-test("panel takes progress in one query instead of one get per task", async () => {
-	const root = await tempHome("yonder-panel-n1-");
-	const store = new Store(root);
-	const spy = probe();
-	try {
-		const main = caller();
+		const tasks: Task[] = [];
 		for (const title of ["One", "Two", "Three"]) {
-			const task = store.open({ ...content, title }, main);
-			store.update(task.id, { state: "active" }, main);
-			store.update(task.id, { state: "waiting-user", note: `waiting for ${title}` }, main);
+			const task = await store.open({ ...content, title }, ctx);
+			await store.update(task.id, { state: "active", note: `Progress ${title}` }, ctx);
+			tasks.push(task);
 		}
-		const tasks = store.list(main);
-		spy.clear();
-		const progress = store.progress(tasks);
-		expect(tasks.map((task) => progress.get(task.id))).toEqual([
-			"waiting for One",
-			"waiting for Two",
-			"waiting for Three",
-		]);
-		expect(spy.seen.filter((sql) => /FROM events WHERE task IN/.test(sql))).toHaveLength(1);
-		expect(spy.seen.some((sql) => /FROM events WHERE task = \?/.test(sql))).toBe(false);
+
+		reads.length = 0;
+		expect(await store.list(ctx)).toHaveLength(3);
+		expect(reads).toEqual(["projection.json"]);
+
+		reads.length = 0;
+		const target = tasks[1]!;
+		const result = await store.get(target.id, ctx);
+		expect(result.history).toHaveLength(2);
+		expect(reads.sort()).toEqual([`history/${target.id}.json`, "projection.json"].sort());
 	} finally {
-		spy.restore();
-		store.close();
+		await store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
 
-test("a closed store reopens on next use", async () => {
-	const root = await tempHome("yonder-reopen-");
+test("panel progress reads one projection without per-task history scans", async () => {
+	const root = await tempHome("yonder-panel-progress-");
+	const reads: string[] = [];
+	const store = new Store(observed(createFilePluginStorage(root).open(), reads));
+	const main = caller();
 	try {
-		const store = new Store(root);
-		const { main } = await seed(store);
-		store.close();
-		const tasks: Task[] = store.list(main);
-		expect(tasks).toHaveLength(5);
-		store.close();
-		store.close();
+		const tasks: Task[] = [];
+		for (const title of ["One", "Two", "Three"]) {
+			const task = await store.open({ ...content, title }, main);
+			await store.update(task.id, { state: "active" }, main);
+			await store.update(task.id, { state: "waiting-user", note: `waiting for ${title}` }, main);
+			tasks.push(task);
+		}
+		reads.length = 0;
+		expect(await store.progress(tasks)).toEqual(new Map(tasks.map((task) => [task.id, `waiting for ${task.title}`])));
+		expect(reads).toEqual(["projection.json"]);
+	} finally {
+		await store.close();
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test("a rejected batch leaves the persisted event history unchanged", async () => {
+	const root = await tempHome("yonder-event-transaction-");
+	const store = makeStore(root);
+	const ctx = caller();
+	try {
+		const first = await store.open(content, ctx);
+		const second = await store.open({ ...content, title: "Second" }, ctx);
+		const before = await savedEvents(root);
+		await expect(
+			store.updateMany(
+				[
+					{ id: first.id, title: "Changed" },
+					{ id: second.id, state: "review" },
+				],
+				ctx,
+			),
+		).rejects.toThrow("Invalid task transition");
+		expect(await savedEvents(root)).toEqual(before);
+	} finally {
+		await store.close();
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test("a closed store reads and writes again on its next use", async () => {
+	const root = await tempHome("yonder-reopen-");
+	const store = makeStore(root);
+	const main = caller();
+	try {
+		const { active } = await seed(store);
+		await store.close();
+		expect(await store.list(main)).toHaveLength(5);
+		expect((await store.get(active.id, main)).task.state).toBe("active");
+		await store.update(active.id, { title: "Updated after close" }, main);
+		expect((await store.get(active.id, main)).task.title).toBe("Updated after close");
+		await store.close();
+		await store.close();
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}

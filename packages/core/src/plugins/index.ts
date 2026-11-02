@@ -24,7 +24,10 @@ import type { YonderConfig } from "../config/index.js";
 import { CONSOLE, consoleChannel } from "../kernel/console.js";
 import { peerWorkspaceContext } from "../prompt/index.js";
 import { createViews } from "../views/index.js";
+import { type Lifecycle, stopContributions } from "./lifecycle.js";
 import type { KernelServices } from "./services.js";
+import { pluginStorage } from "./storage.js";
+import { createTriggerScheduler } from "./trigger-scheduler.js";
 import { instanceConfig, pluginEvent, validateConfig } from "./validation.js";
 
 export type { KernelServices } from "./services.js";
@@ -55,7 +58,6 @@ export interface LoadedPlugins {
 	observe(event: YEvent): Promise<void>;
 }
 
-type Lifecycle = { pluginId: string; stop(): Promise<void> };
 type Listener = { pluginId: string; type: string; handler: (event: YEvent) => void | Promise<void> };
 
 /** A plugin's private state directory (`api.paths.data`). */
@@ -94,6 +96,9 @@ export async function loadPlugins(
 	const listeners: Listener[] = [];
 	const observations = new Map<string, Promise<void>>();
 	const started: Lifecycle[] = [];
+	const scheduler = createTriggerScheduler((key, error) =>
+		services.log.error("Plugin scheduled tick failed", { trigger: key, error: String(error) }),
+	);
 	const pluginIds = new Set<string>();
 	const contributionOwners = new Map<string, string>();
 
@@ -305,6 +310,7 @@ export async function loadPlugins(
 			services: services.services,
 			models: services.models,
 			paths: { data: pluginDataPath(home, manifest.id) },
+			storage: pluginStorage(pluginDataPath(home, manifest.id), denySetupWrite),
 		};
 		try {
 			await plugin.setup(api);
@@ -378,16 +384,11 @@ export async function loadPlugins(
 	}
 
 	const stop = async () => {
-		let failure: unknown;
-		for (const item of started.splice(0).reverse()) {
-			try {
-				await item.stop();
-			} catch (error) {
-				services.log.error("Plugin contribution failed to stop", { plugin: item.pluginId, error: String(error) });
-				failure ??= error;
-			}
+		try {
+			await stopContributions(started, services.log);
+		} finally {
+			await scheduler.stop();
 		}
-		if (failure) throw failure;
 	};
 	return {
 		views,
@@ -455,8 +456,10 @@ export async function loadPlugins(
 					started.push({ pluginId: owner, stop: () => channel.stop() });
 				}
 				for (const { pluginId, trigger } of triggers) {
-					await trigger.start({ emit: (event) => io.emit(pluginEvent(pluginId, event)) });
-					started.push({ pluginId, stop: () => trigger.stop() });
+					const stop = await scheduler.start(`${pluginId}:${trigger.id}`, trigger, (event) =>
+						io.emit(pluginEvent(pluginId, event)),
+					);
+					started.push({ pluginId, stop });
 				}
 			} catch (error) {
 				try {

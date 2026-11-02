@@ -92,7 +92,7 @@ function budgetHook(store: Store): Hook {
 	return {
 		id: "tasks-budget",
 		async beforeRequest(messages, ctx) {
-			const tasks = store.list(ctx).filter((task) => own(task, ctx) && ongoing(task) && task.budget.tokens);
+			const tasks = (await store.list(ctx)).filter((task) => own(task, ctx) && ongoing(task) && task.budget.tokens);
 			if (!tasks.length) return undefined;
 			const spent = messages.reduce(
 				(sum, message) => (message.role === "assistant" ? sum + message.usage.input + message.usage.output : sum),
@@ -101,7 +101,7 @@ function budgetHook(store: Store): Hook {
 			const notes: string[] = [];
 			for (const task of tasks) {
 				const reached = spent >= (task.budget.tokens ?? 0) && !task.budget.warned;
-				const charged = store.spend(task.id, spent, reached);
+				const charged = await store.spend(task.id, spent, reached);
 				if (reached && charged) notes.push(budgetReached(charged, spent));
 			}
 			if (!notes.length) return undefined;
@@ -122,7 +122,7 @@ export default definePlugin({
 		[],
 	),
 	setup(api) {
-		const store = new Store(api.paths.data);
+		const store = new Store(api.storage.open());
 		registerTaskViews(api, store);
 		const config = (api.config ?? {}) as Config;
 		api.triggers.register({
@@ -194,17 +194,17 @@ export default definePlugin({
 					evidence = args.evidence as string[];
 				// 先审后关：审计员只看任务契约和这次交的证据，通过才真的关闭。
 				if (config.audit?.enabled !== false) {
-					const task = store.get(id, ctx).task;
+					const task = (await store.get(id, ctx)).task;
 					const result = await auditCompletion(api, config, ctx, task, deliverable, evidence);
-					store.recordAudit(task.id, result);
+					await store.recordAudit(task.id, result);
 					if (result.verdict !== "approved")
 						throw new Error(`An independent auditor rejected this completion: ${result.reason}`);
 				}
 				return store.done(id, deliverable, evidence, ctx);
 			},
 		);
-		add("list", LIST, obj({}), ["read"], (_args, ctx) =>
-			store.list(ctx).map((task) => ({
+		add("list", LIST, obj({}), ["read"], async (_args, ctx) =>
+			(await store.list(ctx)).map((task) => ({
 				...task,
 				recentlyDone: config.moments?.postRetain === true && store.recentlyDone(task),
 			})),
@@ -223,9 +223,9 @@ export default definePlugin({
 					throw new Error("Invalid target or view");
 				if (view === "detail" && !args.id) throw new Error("detail requires id");
 				const board = taskBoard(
-					store.list(ctx),
+					await store.list(ctx),
 					Date.now(),
-					view === "detail" ? store.get(args.id as string, ctx) : undefined,
+					view === "detail" ? await store.get(args.id as string, ctx) : undefined,
 					stallWindow(config.stallMinutes),
 				);
 				if (target === "json") return board;

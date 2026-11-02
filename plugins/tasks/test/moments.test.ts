@@ -119,7 +119,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		env: {} as never,
 		signal: new AbortController().signal,
 	};
-	const store = new Store(probe.api.paths.data);
+	const store = new Store(probe.api.storage.open());
 	const call = (name: string, args: object, caller = ctx) =>
 		probe.tools.find((tool) => tool.name === `tasks_${name}`)!.execute(args, caller);
 	return {
@@ -136,7 +136,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		},
 		async close() {
 			await kernel.close();
-			store.close();
+			await store.close();
 			await rm(home, { recursive: true, force: true });
 		},
 	};
@@ -160,21 +160,21 @@ async function waitForRequest(events: EventEmitter, signal: AbortSignal) {
 test("stall uses ledger windows, skips other states and survives a kernel restart", async ({ signal }) => {
 	const f = await fixture();
 	try {
-		const task = f.store.open(content, f.ctx);
-		f.store.update(task.id, { state: "active" }, f.ctx);
+		const task = await f.store.open(content, f.ctx);
+		await f.store.update(task.id, { state: "active" }, f.ctx);
 		for (const state of ["open", "waiting-user", "blocked", "review", "cancelled", "done"] as const) {
-			const other = f.store.open(content, f.ctx);
+			const other = await f.store.open(content, f.ctx);
 			if (state === "open") continue;
-			f.store.update(other.id, { state: "active" }, f.ctx);
+			await f.store.update(other.id, { state: "active" }, f.ctx);
 			if (state === "done") {
-				f.store.update(other.id, { state: "review" }, f.ctx);
-				f.store.done(other.id, "Delivered", ["one", "two"], f.ctx);
+				await f.store.update(other.id, { state: "review" }, f.ctx);
+				await f.store.done(other.id, "Delivered", ["one", "two"], f.ctx);
 			} else if (state === "blocked") {
 				// 阻塞要同一说法连续报三轮。
-				f.store.update(other.id, { note: "Missing input" }, f.ctx);
-				f.store.update(other.id, { note: "Missing input" }, f.ctx);
-				f.store.update(other.id, { state, note: "Missing input" }, f.ctx);
-			} else f.store.update(other.id, { state }, f.ctx);
+				await f.store.update(other.id, { note: "Missing input" }, f.ctx);
+				await f.store.update(other.id, { note: "Missing input" }, f.ctx);
+				await f.store.update(other.id, { state, note: "Missing input" }, f.ctx);
+			} else await f.store.update(other.id, { state }, f.ctx);
 		}
 		const now = Date.now() + 31 * 60000;
 		// Admission/rendering precedes the durable request phase; synchronize with the hook, not a 1s poll budget.
@@ -186,7 +186,7 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 		} catch (cause) {
 			const diagnostics = JSON.stringify({
 				requests: f.probe.requests.length,
-				reminder: f.store.get(task.id, f.ctx).history.at(-1),
+				reminder: (await f.store.get(task.id, f.ctx)).history.at(-1),
 				runEnds: (await f.kernel().events.query({ type: "run.end" })).events,
 				logs: f.logs,
 			});
@@ -211,18 +211,18 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 		await tick(f.probe.api, f.store, {}, now + 21 * 60000);
 		expect((await inputs()).events).toHaveLength(2);
 		// 取消之后即使窗口到了也不再催：二次校验要求任务仍 active。
-		f.store.update(task.id, { state: "cancelled" }, f.ctx);
+		await f.store.update(task.id, { state: "cancelled" }, f.ctx);
 		await tick(f.probe.api, f.store, {}, now + 60 * 60000);
 		expect((await inputs()).events).toHaveLength(2);
 		// Keep a second active task to verify persisted window claims across a real restart.
-		const active = f.store.open(content, f.ctx);
-		f.store.update(active.id, { state: "active" }, f.ctx);
+		const active = await f.store.open(content, f.ctx);
+		await f.store.update(active.id, { state: "active" }, f.ctx);
 		await tick(f.probe.api, f.store, {}, now);
 		const before = (await inputs()).events.length;
 		await f.restart();
-		const reopened = new Store(f.probe.api.paths.data);
+		const reopened = new Store(f.probe.api.storage.open());
 		await tick(f.probe.api, reopened, {}, now + 19 * 60000);
-		reopened.close();
+		await reopened.close();
 		expect((await inputs()).events).toHaveLength(before);
 		await tick(f.probe.api, f.store, {}, now + 21 * 60000);
 		expect((await inputs()).events).toHaveLength(before + 1);
@@ -248,8 +248,8 @@ test("request synchronization waits for the real hook across an asynchronous pre
 	const f = await fixture();
 	const release = f.probe.holdRequest();
 	try {
-		const task = f.store.open(content, f.ctx);
-		f.store.update(task.id, { state: "active" }, f.ctx);
+		const task = await f.store.open(content, f.ctx);
+		await f.store.update(task.id, { state: "active" }, f.ctx);
 		const entered = once(f.probe.requestEvents, "entered", { signal });
 		let reached = false;
 		const requested = waitForRequest(f.probe.requestEvents, signal).then(() => {
@@ -271,30 +271,36 @@ test("request synchronization waits for the real hook across an asynchronous pre
 test("user-wait submits one self-check per waiting state without sending reminders", async () => {
 	const f = await fixture();
 	try {
-		const task = f.store.open({ ...content, origin: "conv:reminder:person" }, f.ctx);
-		f.store.update(task.id, { state: "active" }, f.ctx);
-		f.store.update(task.id, { state: "waiting-user", note: "请提供 required-input.txt" }, f.ctx);
-		const second = f.store.open({ ...content, title: "Another task", origin: "conv:reminder:person" }, f.ctx);
-		f.store.update(second.id, { state: "active" }, f.ctx);
-		f.store.update(second.id, { state: "waiting-user", note: "需要回复" }, f.ctx);
-		const noOrigin = f.store.open(content, f.ctx);
-		f.store.update(noOrigin.id, { state: "active" }, f.ctx);
-		f.store.update(noOrigin.id, { state: "waiting-user" }, f.ctx);
+		const task = await f.store.open({ ...content, origin: "conv:reminder:person" }, f.ctx);
+		await f.store.update(task.id, { state: "active" }, f.ctx);
+		await f.store.update(task.id, { state: "waiting-user", note: "请提供 required-input.txt" }, f.ctx);
+		const second = await f.store.open({ ...content, title: "Another task", origin: "conv:reminder:person" }, f.ctx);
+		await f.store.update(second.id, { state: "active" }, f.ctx);
+		await f.store.update(second.id, { state: "waiting-user", note: "需要回复" }, f.ctx);
+		const noOrigin = await f.store.open(content, f.ctx);
+		await f.store.update(noOrigin.id, { state: "active" }, f.ctx);
+		await f.store.update(noOrigin.id, { state: "waiting-user" }, f.ctx);
 		const now = Date.now() + 121 * 60000;
 		await tick(f.probe.api, f.store, {}, now);
-		const late = f.store.open({ ...content, title: "Late task", origin: "conv:reminder:person" }, f.ctx);
-		f.store.update(late.id, { state: "active" }, f.ctx);
-		f.store.update(late.id, { state: "waiting-user", note: "稍后补充" }, f.ctx);
-		const reopened = new Store(f.probe.api.paths.data);
+		const late = await f.store.open({ ...content, title: "Late task", origin: "conv:reminder:person" }, f.ctx);
+		await f.store.update(late.id, { state: "active" }, f.ctx);
+		await f.store.update(late.id, { state: "waiting-user", note: "稍后补充" }, f.ctx);
+		const reopened = new Store(f.probe.api.storage.open());
 		await tick(f.probe.api, reopened, {}, now + 119 * 60000);
-		reopened.close();
+		await reopened.close();
 		expect(f.probe.sent).toHaveLength(0);
 		expect((await f.kernel().events.query({ type: "message.out" })).events).toHaveLength(0);
 		const inputs = await f.kernel().events.query({ type: "session.input", from: "plugin:tasks" });
 		expect(inputs.events).toHaveLength(3);
 		expect(String(inputs.events[0]?.data.text)).toContain("自检任务");
 		expect(String(inputs.events[0]?.data.text)).not.toContain("required-input.txt");
-		expect(f.store.get(task.id, f.ctx).history.at(-1)?.data).toMatchObject({ moment: "user-wait" });
+		const recorded = (await f.store.get(task.id, f.ctx)).history.findLast(
+			(event) => event.kind === "moment-result" && event.data.moment === "user-wait",
+		);
+		expect(recorded?.data).toEqual({
+			moment: "user-wait",
+			result: { event: inputs.events[0]!.id, session: f.ctx.session },
+		});
 		await tick(f.probe.api, f.store, {}, now + 24 * 60 * 60000);
 		expect(f.probe.sent).toHaveLength(0);
 		expect((await f.kernel().events.query({ type: "session.input", from: "plugin:tasks" })).events).toHaveLength(3);
@@ -308,15 +314,15 @@ test("a failed reminder is recorded once and not repeated until the task progres
 	try {
 		// 任务会话已经不在：提醒发不出去，origin 也只是记录来源，不会被当成投递目标。
 		const orphan = { ...f.ctx, session: "missing-session" };
-		const task = f.store.open({ ...content, title: "Orphan", origin: "conv:reminder:person" }, orphan);
-		f.store.update(task.id, { state: "active" }, orphan);
-		f.store.update(task.id, { state: "waiting-user", note: "请提供 required-input.txt" }, orphan);
-		const history = (id = task.id) => f.store.get(id, orphan).history;
+		const task = await f.store.open({ ...content, title: "Orphan", origin: "conv:reminder:person" }, orphan);
+		await f.store.update(task.id, { state: "active" }, orphan);
+		await f.store.update(task.id, { state: "waiting-user", note: "请提供 required-input.txt" }, orphan);
+		const history = async (id = task.id) => (await f.store.get(id, orphan)).history;
 		const warnings = () => f.logs.filter(([, msg]) => msg.startsWith("Task reminder failed"));
 		const window = Date.now() + 121 * 60000;
 		await tick(f.probe.api, f.store, {}, window);
 		expect(f.probe.requests).toHaveLength(0);
-		expect(history().at(-1)).toMatchObject({
+		expect((await history()).at(-1)).toMatchObject({
 			kind: "moment-result",
 			data: { moment: "user-wait", error: expect.stringContaining("session") },
 		});
@@ -324,19 +330,24 @@ test("a failed reminder is recorded once and not repeated until the task progres
 		// 同一批连续失败只记 1 次：再过几个窗口也不再发、不再记。
 		await tick(f.probe.api, f.store, {}, window + 121 * 60000);
 		await tick(f.probe.api, f.store, {}, window + 400 * 60000);
-		expect(history().filter((event) => event.kind === "moment")).toHaveLength(1);
-		expect(history().filter((event) => event.kind === "moment-result")).toHaveLength(1);
+		expect((await history()).filter((event) => event.kind === "moment")).toHaveLength(1);
+		expect((await history()).filter((event) => event.kind === "moment-result")).toHaveLength(1);
 		expect(warnings()).toHaveLength(1);
 		// 失败之后有了新进展，就允许再提醒一次。
-		const resumed = f.store.open({ ...content, title: "Resumed", origin: "conv:reminder:person" }, orphan);
-		f.store.update(resumed.id, { state: "active" }, orphan);
-		f.store.update(resumed.id, { state: "waiting-user", note: "等待确认" }, orphan);
-		f.store.momentResult(resumed.id, "user-wait", { error: "Not an open task session: missing-session" }, Date.now());
-		f.store.update(resumed.id, { note: "已补充证据" }, orphan);
+		const resumed = await f.store.open({ ...content, title: "Resumed", origin: "conv:reminder:person" }, orphan);
+		await f.store.update(resumed.id, { state: "active" }, orphan);
+		await f.store.update(resumed.id, { state: "waiting-user", note: "等待确认" }, orphan);
+		await f.store.momentResult(
+			resumed.id,
+			"user-wait",
+			{ error: "Not an open task session: missing-session" },
+			Date.now(),
+		);
+		await f.store.update(resumed.id, { note: "已补充证据" }, orphan);
 		await tick(f.probe.api, f.store, {}, window);
 		// 新进展之后重新提醒一次（再次失败，所以 moment-result 变成两条）。
-		expect(history(resumed.id).filter((event) => event.kind === "moment")).toHaveLength(1);
-		expect(history(resumed.id).filter((event) => event.kind === "moment-result")).toHaveLength(2);
+		expect((await history(resumed.id)).filter((event) => event.kind === "moment")).toHaveLength(1);
+		expect((await history(resumed.id)).filter((event) => event.kind === "moment-result")).toHaveLength(2);
 	} finally {
 		await f.close();
 	}
@@ -345,21 +356,21 @@ test("a failed reminder is recorded once and not repeated until the task progres
 test("postCompact is off by default, records the real command error once when enabled; postRetain marks recently done", async () => {
 	const f = await fixture({ moments: { postRetain: true } });
 	try {
-		const task = f.store.open(content, f.ctx);
-		f.store.update(task.id, { state: "active" }, f.ctx);
-		f.store.update(task.id, { state: "review" }, f.ctx);
-		f.store.done(task.id, "Delivered", ["one", "two"], f.ctx);
+		const task = await f.store.open(content, f.ctx);
+		await f.store.update(task.id, { state: "active" }, f.ctx);
+		await f.store.update(task.id, { state: "review" }, f.ctx);
+		await f.store.done(task.id, "Delivered", ["one", "two"], f.ctx);
 		const now = Date.now();
 		expect(JSON.parse((await f.call("list", {})).text)[0].recentlyDone).toBe(true);
-		expect(f.store.recentlyDone(f.store.get(task.id, f.ctx).task, now + 30 * 60000)).toBe(false);
+		expect(f.store.recentlyDone((await f.store.get(task.id, f.ctx)).task, now + 30 * 60000)).toBe(false);
 		await tick(f.probe.api, f.store, {}, now + 16 * 60000);
-		expect(f.store.get(task.id, f.ctx).history.filter((event) => event.kind === "moment")).toHaveLength(0);
+		expect((await f.store.get(task.id, f.ctx)).history.filter((event) => event.kind === "moment")).toHaveLength(0);
 		const config = { moments: { postCompact: true } };
 		await tick(f.probe.api, f.store, config, now + 16 * 60000);
-		const reopened = new Store(f.probe.api.paths.data);
+		const reopened = new Store(f.probe.api.storage.open());
 		await tick(f.probe.api, reopened, config, now + 32 * 60000);
-		reopened.close();
-		const history = f.store.get(task.id, f.ctx).history;
+		await reopened.close();
+		const history = (await f.store.get(task.id, f.ctx)).history;
 		expect(history.filter((event) => event.kind === "moment")).toHaveLength(1);
 		expect(history.at(-1)).toMatchObject({
 			kind: "moment-result",
@@ -375,13 +386,13 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	async () => {
 		const f = await fixture({}, true);
 		try {
-			const task = f.store.open(content, f.ctx);
-			f.store.update(task.id, { state: "active" }, f.ctx);
+			const task = await f.store.open(content, f.ctx);
+			await f.store.update(task.id, { state: "active" }, f.ctx);
 			await tick(f.probe.api, f.store, {}, Date.now() + 31 * 60000);
 			await expect
 				.poll(async () => (await f.kernel().events.query({ type: "run.end" })).events.length, { timeout: 90000 })
 				.toBeGreaterThan(0);
-			const current = f.store.get(task.id, f.ctx);
+			const current = await f.store.get(task.id, f.ctx);
 			const transcript = await f.kernel().sessions.transcript(f.ctx.session);
 			const tools = transcript.flatMap((entry) => entry.tools ?? []).map((tool) => tool.name);
 			console.log(

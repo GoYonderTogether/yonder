@@ -290,9 +290,14 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			},
 			models: new Proxy({} as PluginAPI["models"], { get: unavailable }),
 			paths: { data: resolve(dir, ".yonder-contract-data") },
+			storage: { open: () => new Proxy({} as import("./plugin-storage.js").PluginFiles, { get: unavailable }) },
 		});
 		return await checkRegistrations(manifest, registrations, dir);
 	} catch (error) {
 		return [`${id}: ${error instanceof Error ? error.message : String(error)}`];
 	}
 }
+
+export { createFilePluginStorage } from "./node-storage.js";
+
+export { createTriggerScheduler } from "./trigger-scheduler.js";

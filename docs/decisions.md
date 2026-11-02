@@ -2,7 +2,7 @@
 
 ## 2026-11-02：共享 Bot 核心与单进程云端 worker（维护者授权）
 
-维护者授权本次 BRIEF 架构变更：Bot schema、解析与配置求值归 `@yonder/bot-definition`，本机和云端共用，旧路径兼容导出而不复制实现。BotSource 复用现有 WorkspaceFiles 并提供 home、workspace、模板与 skill 来源，本机与 PG 使用同一加载/重载和解析算法；canonical 路径属于来源事实，不由核心猜测。运行状态以既有 pi Storage 与领域 Store 为边界；PG 先复用 pi-durable 的提交校验/读算法持久化增量批次，避免复制运行循环或 SQL 后端；持久 ID、原子提交、隔离和资源预算必须实测。本机与云端使用同一个 Bot 定义解析、提示词装配、路由/会话/投递和运行循环。宿主文件、进程与事实从核心移到存储与环境适配，保留唯一 pi 运行适配入口；本机目录 + 单连接 SQLite 行为保持，云端采用 PostgreSQL + Redis 与虚拟工作区，不为人格新开列。插件私有数据走按插件、租户隔离的存储能力。
+维护者授权本次 BRIEF 架构变更：Bot schema、解析与配置求值归 `@yonder/bot-definition`，本机和云端共用，旧路径兼容导出而不复制实现。BotSource 复用现有 WorkspaceFiles 并提供 home、workspace、模板与 skill 来源，本机与 PG 使用同一加载/重载和解析算法；canonical 路径属于来源事实，不由核心猜测。运行状态以既有 pi Storage 与领域 Store 为边界；PG 先复用 pi-durable 的提交校验/读算法持久化增量批次，避免复制运行循环或 SQL 后端；持久 ID、原子提交、隔离和资源预算必须实测。插件存储采用 open(root?) 的 FS/PG 文件/文档能力，保留 memory 已配置用户库与 tasks 旧 SQLite 只读事件导入；周期策略保留在插件，以宿主唯一调度器驱动相同 tick，避免每 Bot 常驻资源。本机与云端使用同一个 Bot 定义解析、提示词装配、路由/会话/投递和运行循环。宿主文件、进程与事实从核心移到存储与环境适配，保留唯一 pi 运行适配入口；本机目录 + 单连接 SQLite 行为保持，云端采用 PostgreSQL + Redis 与虚拟工作区，不为人格新开列。插件私有数据走按插件、租户隔离的存储能力。
 
 生产只有 2 核 2–4 GB、3 Mbps，故一个 worker 按消息激活全部 Bot，以 LRU 释放空闲实例，不为账号/Bot 启动容器、子进程、定时器或长连接。复用 channel-card、/ws/device 与 appendMessage，不使云端 server 依赖 @yonder 包。平台唯一模型为 RightAPI glm-5.3-flash；真实失败作为独立 error 消息，不能伪造回复，错误不进入模型历史。卡片支持每按钮链接，设备工具沿已有工作桥鉴权。完整契约与验收见 [22](spec/22-shared-bot-core.md)。本次只在两个指定 worktree 实施与本机验证，不推送、部署或改 Docker 托管逻辑、安装脚本和发布流水线。
 

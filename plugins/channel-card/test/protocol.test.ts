@@ -4,8 +4,14 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { hostname } from "node:os";
 import { join, resolve } from "node:path";
-import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
+import type { EventInput, PluginAPI, ToolContext, Trigger, YEvent } from "@yonder/sdk";
+import {
+	checkPlugin,
+	createFilePluginStorage,
+	createRegistrationCollector,
+	createTriggerScheduler,
+	tempHome,
+} from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import { WebSocket, WebSocketServer } from "ws";
 import { CardChannel, type Config } from "../src/channel.js";
@@ -102,13 +108,20 @@ async function fixture(config: Omit<Config, "endpoint"> = {}) {
 		await new Promise<void>((r) => server.close(() => r()));
 	});
 	const events: EventInput[] = [];
+	let scheduleSync: (at: number | undefined) => void = () => {};
 	let accept: (() => Promise<void>) | undefined;
 	const list = vi.fn(async () => [
 		{ id: "main", name: "Main", avatarUrl: "https://cdn.yonder.cn/main.png" },
 		{ id: "other", name: "Other" },
 	]);
-	const api = { paths: { data }, agents: { list }, log: { warn: vi.fn() } } as unknown as PluginAPI;
-	const channel = new CardChannel("card-local", { ...config, endpoint }, api);
+	const api = {
+		paths: { data },
+		storage: createFilePluginStorage(data),
+		agents: { list },
+		log: { warn: vi.fn() },
+	} as unknown as PluginAPI;
+	let channel!: CardChannel;
+	channel = new CardChannel("card-local", { ...config, endpoint }, api, () => scheduleSync(channel.nextSync()));
 	cleanups.push(() => channel.stop());
 	await channel.start({
 		emit: async (event) => {
@@ -156,6 +169,9 @@ async function fixture(config: Omit<Config, "endpoint"> = {}) {
 	};
 	return {
 		data,
+		setScheduleSync: (schedule: (at: number | undefined) => void) => {
+			scheduleSync = schedule;
+		},
 		calls,
 		frames,
 		events,
@@ -315,8 +331,7 @@ test("used and real invalid_code terminate polling; background confirmation and 
 	await f.channel.login("start", signal());
 	f.setPoll("confirmed");
 	await vi.waitFor(() => expect(f.calls.some((c) => c.path === "/api/device/agents")).toBe(true), { timeout: 4000 });
-	vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-	// Restart with the persisted credential to install a controlled sync timer.
+	// Restart with the persisted credential, then drive its host-scheduled sync tick.
 	await f.channel.stop();
 	await f.channel.start({
 		emit: async () => {
@@ -327,6 +342,28 @@ test("used and real invalid_code terminate polling; background confirmation and 
 		},
 	});
 	const count = f.list.mock.calls.length;
+	vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+	const host = createTriggerScheduler(() => {});
+	const trigger: Trigger = {
+		id: "card-sync",
+		async start(io) {
+			f.setScheduleSync(io.schedule);
+			io.schedule(f.channel.nextSync());
+		},
+		tick: (now) => f.channel.tick(now),
+		async stop() {
+			f.setScheduleSync(() => {});
+		},
+	};
+	const dispose = await host.start(
+		"card-sync",
+		trigger,
+		async (event) => ({ ...event, id: "sync", ts: new Date().toISOString() }) as YEvent,
+	);
+	cleanups.push(async () => {
+		await dispose();
+		await host.stop();
+	});
 	await vi.advanceTimersByTimeAsync(600000);
 	await vi.waitFor(() => expect(f.list.mock.calls.length).toBe(count + 1));
 });

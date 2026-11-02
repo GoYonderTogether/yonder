@@ -1,9 +1,8 @@
-import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import type { PluginAPI, ToolContext, Trigger } from "@yonder/sdk";
+import type { PluginAPI, ToolContext, Trigger, TriggerIO } from "@yonder/sdk";
 import { Type } from "typebox";
 import type { Config } from "./config.js";
-import { initialize, readText, safePath } from "./files.js";
+import { initialize, readText } from "./files.js";
 import { writeContext } from "./ingest.js";
 import { status } from "./status.js";
 import { Store, serial } from "./store.js";
@@ -43,7 +42,7 @@ interface Count {
 }
 export class Bootstrap {
 	readonly store: Store;
-	private timer: ReturnType<typeof setInterval> | undefined;
+	private io: TriggerIO | undefined;
 	private lifetime = new AbortController();
 	private work: Promise<void> = Promise.resolve();
 	constructor(
@@ -52,7 +51,7 @@ export class Bootstrap {
 		readonly wechat: Wechat,
 		readonly errors: string[],
 	) {
-		this.store = new Store(config.root);
+		this.store = new Store(config.root, api.storage.open(config.root));
 	}
 	async state(): Promise<State> {
 		try {
@@ -60,7 +59,7 @@ export class Bootstrap {
 				acked: {},
 				lastEmitted: {},
 				audited: [],
-				...JSON.parse(await readText(this.config.root, ".memory/state.json")),
+				...JSON.parse(await readText(this.store.files, ".memory/state.json")),
 			};
 		} catch (e) {
 			if ((e as NodeJS.ErrnoException).code === "ENOENT") return { acked: {}, lastEmitted: {}, audited: [] };
@@ -76,40 +75,35 @@ export class Bootstrap {
 	async audit(model: string | undefined, signal: AbortSignal) {
 		const { countTokens } = await import("gpt-tokenizer/encoding/o200k_base");
 		const unestimated: Array<{ path: string; reason: string }> = [];
-		const count = async (root: string, name: string, prefix = ""): Promise<Count> => {
+		const count = async (root: string, name: string, prefix = "", base = ""): Promise<Count> => {
+			const files = this.api.storage.open(root);
 			const result: Count = { name, files: 0, bytes: 0, chars: 0, tokens: 0 };
 			async function walk(path: string) {
-				let entries: import("node:fs").Dirent[];
-				try {
-					entries = await readdir(await safePath(root, path), { withFileTypes: true });
-				} catch (e) {
-					if ((e as NodeJS.ErrnoException).code === "ENOENT") return;
-					throw e;
-				}
+				const entries = await files.list(path);
 				for (const entry of entries) {
 					signal.throwIfAborted();
-					if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.isSymbolicLink()) continue;
+					if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
 					const child = join(path, entry.name);
-					if (entry.isDirectory()) {
+					if (entry.type === "directory") {
 						await walk(child);
 						continue;
 					}
-					if (!entry.isFile()) continue;
+					if (entry.type !== "file") continue;
 					result.files++;
-					result.bytes += (await stat(await safePath(root, child))).size;
+					result.bytes += (await files.stat(child))!.size;
 					if (/\.(md|markdown|txt)$/i.test(child)) {
-						const text = await readText(root, child);
+						const text = await readText(files, child);
 						result.chars += text.length;
 						result.tokens += countTokens(text, { disallowedSpecial: new Set() });
 					} else unestimated.push({ path: `${prefix}${child}`, reason: "not converted" });
 				}
 			}
-			await walk("");
+			await walk(base);
 			return result;
 		};
 		const zones: Count[] = [];
 		for (const name of ["mine", "raw", "inbox", "life", "timeline", "me", "projects", "private", "archive"])
-			zones.push(await count(this.config.root + "/" + name, name, name + "/"));
+			zones.push(await count(this.config.root, name, "", name));
 		const roots = await Promise.all((this.config.roots ?? []).map((r) => count(r.path, r.name, `${r.name}:`)));
 		const wechat: Array<{
 			chat: string;
@@ -193,11 +187,11 @@ export class Bootstrap {
 		return { path: ".memory/state.json", ids: [], ...(await this.state()) };
 	}
 	async check(emit: PluginAPI["events"]["emit"]) {
-		await serial(this.config.root + "/.memory/bootstrap", async () => {
+		await serial(this.store.files.localRoot ? this.config.root + "/.memory/bootstrap" : this, async () => {
 			const state = await this.state(),
 				now = Date.now(),
 				audit = await this.audit(undefined, this.lifetime.signal),
-				backlog = await status(this.config, this.lifetime.signal, this.errors);
+				backlog = await status(this.config, this.lifetime.signal, this.errors, this.api.storage);
 			const candidates: string[] = [];
 			if (!state.initialized) candidates.push("first-run");
 			if (this.sources().some((s) => !state.audited.includes(s))) candidates.push("source-new");
@@ -231,26 +225,26 @@ export class Bootstrap {
 		});
 	}
 	trigger(): Trigger {
+		const period = () => (this.config.bootstrap?.checkMinutes ?? 60) * 60000;
 		return {
 			id: "memory-bootstrap",
 			start: async (io) => {
-				clearInterval(this.timer);
-				await initialize(this.config.root);
+				this.io = io;
+				await initialize(this.store.files);
 				await this.check(io.emit);
-				this.timer = setInterval(
-					() => {
-						this.work = this.work
-							.then(() => this.check(io.emit))
-							.catch(() => {
-								this.errors.push("Bootstrap evaluation failed");
-							});
-					},
-					(this.config.bootstrap?.checkMinutes ?? 60) * 60000,
-				);
-				this.timer.unref();
+				io.schedule(Date.now() + period());
+			},
+			tick: async () => {
+				this.work = this.work
+					.then(() => this.check(this.io!.emit))
+					.catch(() => {
+						this.errors.push("Bootstrap evaluation failed");
+					});
+				await this.work;
+				this.io!.schedule(Date.now() + period());
 			},
 			stop: async () => {
-				clearInterval(this.timer);
+				this.io?.schedule(undefined);
 				this.lifetime.abort();
 				await this.work;
 			},

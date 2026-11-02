@@ -8,7 +8,7 @@
 
 BotSource 供应 Agent、agent.yaml、presets、prompt 模板、子 Agent、skills 与工作区文件。接口复用 WorkspaceFiles：home 来源含逻辑 root 与文件访问，workspace(entry) 选择 Agent 工作区，templates/skills 提供按既有优先序排列的文件来源。Skill 来源负责 canonical 路径事实，保留本机 symlink 边界；PG 来源使用受租户与 Bot 限定的虚拟路径。共享加载、重载、模板展开及 skill 发现算法均消费这些来源；旧本机离线命令可以保留 fs 兼容入口，但不能复制解析逻辑。定义来源 PG 实现位于 monorepo 的云端宿主包，内置及插件静态资产由宿主提供。本机目录来源与 PostgreSQL 来源使用同一解析器。WorkspaceFiles 的目录实现经 ExecutionEnv；DB 实现为按 bot_id/path 隔离的 bot_files 虚拟工作区。人格、用户资料与记忆仍使用 SOUL.md、AGENTS.md、USER.md、MEMORY.md、memories/*，每个 Bot 独立，不为人格建专用列。
 
-事件、会话、pi 转录/文档、模型健康与工具输出缓存由运行状态存储接口提供：本机继续每 home 单 SQLite 连接，PG 实现按租户和 Bot 隔离。会话与转录仍只归 pi-durable，不能另存一份历史。插件使用 SDK 的私有键值/文档/小文件存储，按插件与租户隔离；本机可以继续在原 api.paths.data 目录落盘，云端官方插件不得裸写宿主文件。
+事件、会话、pi 转录/文档、模型健康与工具输出缓存由运行状态存储接口提供：本机继续每 home 单 SQLite 连接，PG 实现按租户和 Bot 隔离。会话与转录仍只归 pi-durable，不能另存一份历史。插件使用 SDK storage.open(root?) 的私有文本文件/文档能力，按插件与宿主租户/Bot 隔离；本机默认保留原 api.paths.data 文件路径与格式，PG 使用 plugin_files 虚拟树，云端官方插件不得裸写宿主文件。memory 已配置个人库 root 保持本机原路径，PG 仅视为当前命名空间内的虚拟树名。tasks 的旧 SQLite 完整事件只读导入，经既有 replay 校验与新存储事务完成后才记标记，不删除旧库；详情见 04。本机与 worker 都由唯一宿主调度器驱动相同插件 tick，保留任务/cron/关注能力，不给云端 Bot 各自留 interval。
 
 轻量组合为核心 + 本机存储，完整组合追加本机环境层；零权限本机 Bot 与云端无环境 Bot 使用同一核心路径。本次不改安装脚本。新增抽象在本次必须有两个真实使用中的实现，不留占位实现。
 

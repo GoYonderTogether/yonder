@@ -1,5 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
-import type { RenderContext, ToolContext } from "@yonder/sdk";
+import type { PluginFiles, RenderContext, ToolContext } from "@yonder/sdk";
 import {
 	changeTask,
 	changeTasks,
@@ -12,91 +11,194 @@ import {
 	renderTurn,
 	spendTokens,
 } from "./append.js";
-import type { AuditResult, Moment, Open, Task, TaskEvent, Update, UpdateItem } from "./project.js";
-import { all, find, get, history, list, progress } from "./query.js";
-import { connect, needsBackfill, rebuild as replayInto } from "./schema.js";
+import {
+	createTaskLedger,
+	projectionDocument,
+	projectionFrom,
+	readAllHistory,
+	readHistory,
+	readProjection,
+	storedProjection,
+	writeHistory,
+	writeProjection,
+} from "./ledger.js";
+import type { AuditResult, Moment, Open, Projected, Task, TaskEvent, Update, UpdateItem } from "./project.js";
+import { replay } from "./project.js";
+import { all, get, history, list, moments, progress } from "./query.js";
 
 export type { AuditResult, Moment, Open, State, Task, TaskContent, TaskEvent, Update, UpdateItem } from "./project.js";
 
+function historiesByTask(events: TaskEvent[]): Map<string, TaskEvent[]> {
+	const histories = new Map<string, TaskEvent[]>();
+	for (const event of events) {
+		const history = histories.get(event.task) ?? [];
+		history.push(event);
+		histories.set(event.task, history);
+	}
+	return histories;
+}
+
 export class Store {
-	// 常驻连接：每次读都重开数据库要付打开、chmod、建表三份代价。
-	// 多个 Store 实例各持一条连接，写仍由 SQLite 串行化；close() 后下次调用自动重开。
-	#db: DatabaseSync | undefined;
-	constructor(private readonly data: string) {}
-
-	get #handle(): DatabaseSync {
-		if (!this.#db) {
-			const db = connect(this.data);
-			// 升级到投影表的第一件事：账本里有事件、投影为空，就一次性回填。
-			if (needsBackfill(db)) replayInto(db);
-			this.#db = db;
-		}
-		return this.#db;
+	#ready: Promise<void> | undefined;
+	constructor(private readonly files: PluginFiles) {}
+	#ensureReady(): Promise<void> {
+		if (!this.#ready) this.#ready = this.importLegacy();
+		return this.#ready;
 	}
 
-	close(): void {
-		this.#db?.close();
-		this.#db = undefined;
+	async #initialize<T>(
+		change: (ledger: ReturnType<typeof createTaskLedger>) => T,
+		taskIds: string[] | ((ledger: ReturnType<typeof createTaskLedger>) => string[]) = [],
+	): Promise<T> {
+		await this.#ensureReady();
+		return this.files.transaction(async (files) => {
+			const projection = await readProjection(files);
+			const ledger = createTaskLedger(projection);
+			const ids = typeof taskIds === "function" ? taskIds(ledger) : taskIds;
+			for (const id of ids) {
+				const entry = storedProjection(ledger, id);
+				if (!entry) continue;
+				const key = entry.task.id;
+				if (ledger.loadedHistories.has(key)) continue;
+				ledger.histories.set(key, await readHistory(files, key));
+				ledger.loadedHistories.add(key);
+			}
+			const result = change(ledger);
+			if (ledger.appended.length) {
+				for (const [id, events] of historiesByTask(ledger.appended)) {
+					const fullHistory = ledger.loadedHistories.has(id)
+						? (ledger.histories.get(id) ?? [])
+						: [...(await readHistory(files, id)), ...events];
+					await writeHistory(files, id, fullHistory);
+				}
+				await writeProjection(files, projectionDocument(ledger, projection.legacyImported));
+			}
+			return result;
+		});
 	}
 
-	rebuild(): number {
-		return replayInto(this.#handle);
+	async #projection() {
+		await this.#ensureReady();
+		return createTaskLedger(await readProjection(this.files));
 	}
 
-	open(args: Open, ctx: ToolContext): Task {
-		return openTask(this.#handle, args, ctx);
+	async importLegacy(): Promise<void> {
+		const localRoot = this.files.localRoot;
+		await this.files.transaction(async (files) => {
+			const projection = await readProjection(files);
+			const hasProjection = Object.keys(projection.tasks).length > 0;
+			if (hasProjection && projection.legacyImported) return;
+			if (!hasProjection && (await files.list("history")).some(({ type }) => type === "file")) {
+				const events = await readAllHistory(files);
+				if (events.length) {
+					await writeProjection(files, projectionFrom(events, true));
+					return;
+				}
+			}
+			if (!projection.legacyImported && localRoot) {
+				const { readLegacyEvents } = await import("./legacy.js");
+				const imported = readLegacyEvents(localRoot);
+				if (imported) {
+					if (hasProjection)
+						throw new Error("Both tasks projection and legacy SQLite history exist; refusing to choose one");
+					const events = [...imported];
+					replay(events);
+					for (const [id, history] of historiesByTask(events)) await writeHistory(files, id, history);
+					await writeProjection(files, projectionFrom(events, true));
+					return;
+				}
+			}
+			if (hasProjection) return;
+		});
 	}
-	update(id: string, args: Update, ctx: ToolContext): Task {
-		return changeTask(this.#handle, id, args, ctx);
+
+	async close(): Promise<void> {
+		await this.#ready;
 	}
-	/** 一批更新共用一个事务：任一条被拒就整批回滚。 */
-	updateMany(items: UpdateItem[], ctx: ToolContext): Task[] {
-		return changeTasks(this.#handle, items, ctx);
+
+	async rebuild(): Promise<number> {
+		await this.#ensureReady();
+		return this.files.transaction(async (files) => {
+			const events = await readAllHistory(files);
+			const projection = projectionFrom(events, (await readProjection(files)).legacyImported);
+			await writeProjection(files, projection);
+			return replay(events).size;
+		});
 	}
-	done(id: string, deliverable: string, evidence: string[], ctx: ToolContext): Task {
-		return changeTask(this.#handle, id, { state: "done", deliverable, evidence }, ctx);
+
+	open(args: Open, ctx: ToolContext): Promise<Task> {
+		return this.#initialize((ledger) => openTask(ledger, args, ctx));
 	}
-	list(ctx: ToolContext): Task[] {
-		return list(this.#handle, ctx);
+	update(id: string, patch: Update, ctx: ToolContext): Promise<Task> {
+		return this.#initialize((ledger) => changeTask(ledger, id, patch, ctx), [id]);
 	}
-	forSession(session: string) {
-		return all(this.#handle).filter(({ task }) => task.session === session);
+	updateMany(items: UpdateItem[], ctx: ToolContext): Promise<Task[]> {
+		return this.#initialize(
+			(ledger) => changeTasks(ledger, items, ctx),
+			items.map(({ id }) => id),
+		);
 	}
-	get(id: string, ctx: ToolContext): { task: Task; history: TaskEvent[] } {
-		return get(this.#handle, id, ctx);
+	done(id: string, deliverable: string, evidence: string[], ctx: ToolContext): Promise<Task> {
+		return this.#initialize((ledger) => changeTask(ledger, id, { state: "done", deliverable, evidence }, ctx), [id]);
 	}
-	progress(tasks: Task[]): Map<string, string | null> {
-		return progress(this.#handle, tasks);
+	async list(ctx: ToolContext): Promise<Task[]> {
+		return list(await this.#projection(), ctx);
+	}
+	async forSession(session: string): Promise<Projected[]> {
+		return all(await this.#projection()).filter(({ task }) => task.session === session);
+	}
+	async get(id: string, ctx: ToolContext): Promise<{ task: Task; history: TaskEvent[] }> {
+		await this.#ensureReady();
+		return this.files.transaction(async (files) => {
+			const ledger = createTaskLedger(await readProjection(files));
+			const entry = storedProjection(ledger, id);
+			if (entry) {
+				ledger.histories.set(entry.task.id, await readHistory(files, entry.task.id));
+				ledger.loadedHistories.add(entry.task.id);
+			}
+			return get(ledger, id, ctx);
+		});
+	}
+	async progress(tasks: Task[]): Promise<Map<string, string | null>> {
+		return progress(await this.#projection(), tasks);
 	}
 	claimMoments(now: number, stallMinutes: number, userWaitMinutes: number, postCompact: boolean) {
-		return claimMoments(this.#handle, now, stallMinutes, userWaitMinutes, postCompact);
+		return this.#initialize(
+			(ledger) => claimMoments(ledger, now, stallMinutes, userWaitMinutes, postCompact),
+			(ledger) => moments(ledger, postCompact).map(({ id }) => id),
+		);
 	}
-	/** stall 投递前的二次校验：读 claim 之后的任务与历史，不走按调用方过滤的 get。 */
-	taskById(id: string): { task: Task; history: TaskEvent[] } | undefined {
-		const task = find(this.#handle, id);
-		return task ? { task, history: history(this.#handle, task.id) } : undefined;
+	/** stall投递前二次校验：只读对应任务投影与历史。 */
+	async taskById(id: string): Promise<{ task: Task; history: TaskEvent[] } | undefined> {
+		await this.#ensureReady();
+		return this.files.transaction(async (files) => {
+			const ledger = createTaskLedger(await readProjection(files));
+			const entry = storedProjection(ledger, id);
+			if (!entry) return undefined;
+			ledger.histories.set(entry.task.id, await readHistory(files, entry.task.id));
+			ledger.loadedHistories.add(entry.task.id);
+			return { task: entry.task, history: history(ledger, entry.task.id) };
+		});
 	}
-	momentResult(id: string, moment: Moment, data: { result?: unknown; error?: string }, now: number): void {
-		momentResult(this.#handle, id, moment, data, now);
+	momentResult(id: string, moment: Moment, data: { result?: unknown; error?: string }, now: number): Promise<void> {
+		return this.#initialize((ledger) => momentResult(ledger, id, moment, data, now), [id]);
 	}
-	/** 记一条审计结论：驳回也落库，渲染与下一轮据此注入反对意见。 */
-	recordAudit(id: string, result: Omit<AuditResult, "at">, now = Date.now()): void {
-		recordAudit(this.#handle, id, result, now);
+	recordAudit(id: string, result: Omit<AuditResult, "at">, now = Date.now()): Promise<void> {
+		return this.#initialize((ledger) => recordAudit(ledger, id, result, now), [id]);
 	}
-	/** 结算生命周期 token 用量；用量只增不减，不算任务进展。 */
-	spend(id: string, used: number, warned: boolean, now = Date.now()): Task | undefined {
-		return spendTokens(this.#handle, id, used, warned, now);
+	spend(id: string, used: number, warned: boolean, now = Date.now()): Promise<Task | undefined> {
+		return this.#initialize((ledger) => spendTokens(ledger, id, used, warned, now), [id]);
 	}
 	recentlyDone(task: Task, now = Date.now()): boolean {
 		return task.state === "done" && now - Date.parse(task.lastActivityAt) < 30 * 60000;
 	}
-	render(ctx: RenderContext): string | undefined {
-		return renderTurn(this.#handle, ctx);
+	render(ctx: RenderContext): Promise<string | undefined> {
+		return this.#initialize((ledger) => renderTurn(ledger, ctx));
 	}
-	claimDigest(task: Task, destination: string, now: number): boolean {
-		return claimDigest(this.#handle, task, destination, now);
+	claimDigest(task: Task, destination: string, now: number): Promise<boolean> {
+		return this.#initialize((ledger) => claimDigest(ledger, task, destination, now), [task.id]);
 	}
-	digestSeen(task: Task, destination: string, now = Date.now()): boolean {
-		return digestSeen(this.#handle, task, destination, now);
+	digestSeen(task: Task, destination: string, now = Date.now()): Promise<boolean> {
+		return this.#initialize((ledger) => digestSeen(ledger, task, destination, now), [task.id]);
 	}
 }

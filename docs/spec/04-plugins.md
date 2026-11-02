@@ -135,7 +135,17 @@ interface RenderContext {
 ### 3.4 triggers — 定时、文件变化、Webhook 等事件源
 
 ```ts
-interface Trigger { id: string; start(io: { emit(e: EventInput): Promise<YEvent> }): Promise<void>; stop(): Promise<void> }
+interface TriggerIO {
+  emit(e: EventInput): Promise<YEvent>;
+  startedAt: number;                         // 宿主进程启动时点，不是每次 Bot 激活时点
+  schedule(at: number | undefined): void;    // 注册/移除下一次 tick，由宿主统一调度
+}
+interface Trigger {
+  id: string;
+  start(io: TriggerIO): Promise<void>;
+  tick?(now: number): Promise<void>;
+  stop(): Promise<void>;
+}
 ```
 
 触发器产生插件自定义类型的事件（如 `trigger-cron.fired`），`conv` 为 `conv:<triggerId>:<name>`。
@@ -238,7 +248,8 @@ interface PluginAPI {
     modelReady(agent: string): Promise<boolean>;
   };
   models: Models;                      // pi-ai 的模型集合，纯类型重新导出
-  paths: { data: string };             // <home>/.yonder/plugins/<id>/
+  storage: PluginStorage;              // open(root?)：宿主绑定的私有文本文件/文档能力
+  paths: { data: string };             // 旧本机路径兼容；共享插件新写入使用 storage
 }
 interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSchema?: TSchema }
 ```
@@ -254,6 +265,16 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 - `host.modelReady(agent)`：该 agent 默认 profile 解析出的模型是否有可用凭据，只返回布尔值，不需要 ctx；供触发器在无模型可用时不唤醒 agent。未知 agent 返回 false。
 
 `ExecutionOwner = { session: string; agent: string | null; profile: string }`，`ResolvedExecution = { capabilities: Capability[]; channelInstances?: string[] }`。核心按存储会话核对 owner 并取当前有效配置；不得伪造 ToolContext 或把全部无 ctx 调用视为模型授权。SDK 的 `allowsChannelInstance(scope, instance)` / `assertChannelInstance(scope, instance)` 接受携带可选 channelInstances 的作用域；插件在平台访问前使用，不能自己读 home 推导。飞书 status/history/message/card/task-card 共用检查，省略实例的 status 只枚举授权实例，保留原能力、来源与归属约束。
+
+### 宿主无关插件存储（共享核心重构，2026-11-02 授权）
+
+`PluginAPI.storage.open(root?)` 提供文本文件/文档的 read、write、append、list、stat、mkdir、remove 与同命名空间 transaction；省略 root 绑定原 api.paths.data。能力按插件与宿主租户/Bot 隔离，本机 FS 与 PG 使用同一插件算法，不将 SQL/进程能力交给插件存储接口。FS 保持原文件名、格式、原子替换和锁；PG 以私有 plugin_files 虚拟树承载，不解释为云端目录。read 对不存在文件返回 undefined；list 返回当前层级文件/目录条目；stat 返回类型、字节数与真实 mtimeMs。仅 FS 提供 localRoot，用于明确的旧数据只读导入和已有本机采集能力，PG 不提供它，不能据逻辑 root 打开宿主路径。
+
+memory 的已配置个人记忆 root 必须原样保留：本机 open(config.root) 绑定已有已校验用户库，PG 将该 root 作为当前插件/租户/Bot 内的虚拟树名。它不扩大模型的目录权限，原 capability/allowedRun 检查继续生效，不增加 core 的 memory 特判。
+
+tasks 旧 tasks.sqlite 只读导入完整事件账本，包含 seq/history/wake/audit/spend/digest/moment，经原 replay 校验后在新存储事务写入完成标记；失败不得标成功、删除或覆盖旧库。不按轮复制 SQLite blob。cron jobs/runs、market watch、channel-card 凭据/映射沿用旧文件名与语义。所有兼容/导入只作用于用户实际启动的宿主，本次验证仅临时数据，不触碰主人目录。
+
+周期任务以插件的确定性 tick 注册到宿主唯一调度器，替代插件各自的常驻 interval；本机驱动已加载插件，云端唯一调度器扫描 PG 到期记录、按需激活 Bot 并调用相同 tick。保留真实 start/stop 的外部资源触发器；云端无环境时本机 inbox/微信采集明确不可用，不能偷偷开子进程或假称采集成功。无需另建调度平台；现有 cron/watch/moment 算法继续负责自身策略。
 
 ## 5. 生命周期
 

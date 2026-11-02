@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { PluginAPI, Tool, ToolContext, ToolResult, Trigger, ViewDecl, ViewProvider } from "@yonder/sdk";
+import { createFilePluginStorage } from "@yonder/sdk/testing";
 
 export interface Call {
 	method: string;
@@ -123,6 +124,7 @@ export function fakeApi(options: {
 		config: options.config,
 		log: { info: () => {}, warn: () => {}, error: () => {} },
 		paths: { data: options.data },
+		storage: createFilePluginStorage(options.data),
 		tools: { register: (tool: Tool) => tools.set(tool.name, tool) },
 		views: { register: (decl: ViewDecl, provider: ViewProvider) => views.push({ decl, provider }) },
 		triggers: { register: (trigger: Trigger) => triggers.push(trigger) },

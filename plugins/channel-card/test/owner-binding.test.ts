@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import type { PluginAPI, Ref, YEvent } from "@yonder/sdk";
-import { tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { parseAgentConfig, parseYonderConfig } from "../../../packages/core/src/config/index.js";
@@ -104,6 +104,7 @@ async function linked(
 	const endpoint = await backend();
 	const api = {
 		paths: { data },
+		storage: createFilePluginStorage(data),
 		agents: {
 			list: async () => [
 				{ id: "main", name: "Main", owner: "person:owner" as Ref },

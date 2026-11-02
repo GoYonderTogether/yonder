@@ -6,7 +6,7 @@
 
 ## 共享 Bot 核心重构（2026-11-02，实施中）
 
-目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段 1–5 已完成文档、HostFacts/纯装配、唯一 Bot 定义包、fs/PG 来源与虚拟工作区、SQLite/PG 运行状态。真实 PG 对照证明默认人格装配逐字相同；同一个 Runtime 可用注入的 PG Storage 完成输入、转录、分叉和重开，用量与 run.end 同事务。完整 build/typecheck/lint 通过，默认测试 2672 通过、0 失败、112 跳过，相对 a6a6c0b5 固定基线无新增失败。插件存储、完整宿主无关核心、单进程 worker、卡片工具、前端错误与设备工具仍待实施；cloud/server 阶段 9 协议部分已先行提交 63b5a99，真实后端204项通过。局部存储测试不代表 worker 端到端、真实模型或资源验收。证据见[阶段检查](verification/shared-bot-core-20261102.md)、[定义来源](verification/shared-bot-source-20261102.md)、[运行状态](verification/shared-bot-state-20261102.md)，逐项进度见未提交的 `REFACTOR-REPORT.md`。不推送、不部署、不连接生产。
+目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段 1–6 已完成文档、HostFacts/纯装配、唯一定义包、fs/PG来源与工作区、SQLite/PG运行状态，以及FS/PG插件私有存储与单宿主tick。真实PG证明默认人格装配逐字一致、存储隔离/重开/原子提交；memory保留本机库与rg，tasks保留旧SQLite只读导入、完整事件和派生读取性能。完整build/typecheck/lint通过，默认2686通过、0失败、112跳过，相对a6a6c0b5无新增失败。完整宿主无关包边界、单进程worker、卡片工具、前端错误和设备工具仍待实施；cloud/server阶段9协议部分已提交63b5a99，真实后端204项通过。存储/tick层测试不代表worker、真实模型或资源验收。证据见[阶段检查](verification/shared-bot-core-20261102.md)及其链接的来源/状态/插件记录，逐项进度见未提交的REFACTOR-REPORT.md。不推送、不部署、不连接生产。
 
 ## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
 

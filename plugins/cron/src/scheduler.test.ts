@@ -2,10 +2,29 @@ import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type { PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
-import { tempHome } from "@yonder/sdk/testing";
+import type { EventInput, PluginAPI, ToolContext, Trigger, YEvent } from "@yonder/sdk";
+import { createFilePluginStorage, createTriggerScheduler, tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { Scheduler } from "./index.js";
+
+async function startScheduler(
+	scheduler: Scheduler,
+	emit: (event: EventInput) => Promise<YEvent>,
+	report: (key: string, error: unknown) => void = () => {},
+) {
+	const host = createTriggerScheduler(report);
+	const trigger: Trigger = {
+		id: "cron",
+		start: (io) => scheduler.start(io),
+		tick: (now) => scheduler.tick(now),
+		stop: () => scheduler.stop(),
+	};
+	const dispose = await host.start("cron", trigger, emit);
+	return async () => {
+		await dispose();
+		await host.stop();
+	};
+}
 
 // Real filesystem/process integration; no model is started. Kernel permission
 // re-resolution and channel delivery remain separate end-to-end acceptance.
@@ -21,6 +40,7 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 	} as ToolContext;
 	const api = {
 		paths: { data: dir },
+		storage: createFilePluginStorage(dir),
 		log: { error: (message: string, details: unknown) => errors.push({ message, details }) },
 		events: {
 			async emit(input: object) {
@@ -52,8 +72,8 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 		},
 	} as unknown as PluginAPI;
 	let scheduler = new Scheduler(api, 2);
+	let stopHost = await startScheduler(scheduler, api.events.emit, (_key, error) => errors.push(error));
 	try {
-		await scheduler.start();
 		const job = (await scheduler.manage(
 			{
 				action: "create",
@@ -87,9 +107,9 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 		await expect(scheduler.manage({ action: "run", id: job.id }, ctx, true)).rejects.toThrow("already running");
 		expect(await running).toMatchObject({ status: "done", text: "cron process completed" });
 		expect(await readFile(join(dir, "delivered.txt"), "utf8")).toBe("cron process completed");
-		await scheduler.stop();
+		await stopHost();
 		scheduler = new Scheduler(api, 2);
-		await scheduler.start();
+		stopHost = await startScheduler(scheduler, api.events.emit, (_key, error) => errors.push(error));
 		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({ runs: 1 });
 		ctx.capabilities = ["write", "message"];
 		expect(
@@ -135,10 +155,10 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 					false,
 				)) as { id: string },
 			);
-		await scheduler.stop();
+		await stopHost();
 		await new Promise((resolve) => setTimeout(resolve, 130));
 		scheduler = new Scheduler(api, 1);
-		await scheduler.start();
+		stopHost = await startScheduler(scheduler, api.events.emit, (_key, error) => errors.push(error));
 		await expect
 			.poll(
 				async () => {
@@ -182,12 +202,12 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 						?.status,
 			)
 			.toBe("running");
-		await scheduler.stop();
+		await stopHost();
 		expect(await longRun).toMatchObject({ status: "interrupted" });
 		await expect(scheduler.manage({ action: "run", id: long.id }, ctx, true)).rejects.toThrow("service stopped");
 		expect(errors).toEqual([]);
 	} finally {
-		await scheduler.stop();
+		await stopHost();
 		await rm(dir, { recursive: true, force: true });
 	}
 });
@@ -203,6 +223,7 @@ test("Agent jobs require the owning profile and history retains the newest bound
 	const lower = { ...owner, session: "2", profile: "readonly", capabilities: ["read", "write"] } as ToolContext;
 	const api = {
 		paths: { data: dir },
+		storage: createFilePluginStorage(dir),
 		log: { error: () => {} },
 		execution: {
 			async resolve(identity: { agent: string | null; profile: string; session: string }) {
@@ -222,8 +243,8 @@ test("Agent jobs require the owning profile and history retains the newest bound
 		},
 	} as unknown as PluginAPI;
 	const scheduler = new Scheduler(api);
+	const stopHost = await startScheduler(scheduler, api.events.emit);
 	try {
-		await scheduler.start();
 		await expect(
 			scheduler.manage(
 				{
@@ -288,7 +309,7 @@ test("Agent jobs require the owning profile and history retains the newest bound
 		}
 		expect(await scheduler.manage({ action: "history", id: job.id, limit: 1 }, owner, false)).toHaveLength(1);
 	} finally {
-		await scheduler.stop();
+		await stopHost();
 		await rm(dir, { recursive: true, force: true });
 	}
 });

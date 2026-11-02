@@ -1,5 +1,6 @@
 import type { AgentsAPI } from "./agent-bindings.js";
 import type { Attachment, TranscriptItem } from "./messages.js";
+import type { PluginStorage } from "./plugin-storage.js";
 import type { ToolContext } from "./tool-context.js";
 
 export type { ToolContext } from "./tool-context.js";
@@ -335,9 +336,18 @@ export interface RenderContext {
 	event?: YEvent;
 	signal?: AbortSignal;
 }
+export interface TriggerIO {
+	emit(e: EventInput): Promise<YEvent>;
+	/** Host process start, so idle Bot activation is not mistaken for a service restart. */
+	startedAt: number;
+	/** The host owns a single scheduler; undefined removes this trigger's next tick. */
+	schedule(at: number | undefined): void;
+}
 export interface Trigger {
 	id: string;
-	start(io: { emit(e: EventInput): Promise<YEvent> }): Promise<void>;
+	start(io: TriggerIO): Promise<void>;
+	/** Deterministic scheduled work, invoked by the host. No per-Bot timer is needed. */
+	tick?(now: number): Promise<void>;
 	stop(): Promise<void>;
 }
 export interface EnvProvider {
@@ -480,6 +490,7 @@ export interface PluginAPI extends PluginViewsAPI {
 	host: { status(ctx: ToolContext): Promise<HostStatus>; modelReady(agent: string): Promise<boolean> };
 	models: Models;
 	paths: { data: string };
+	storage: PluginStorage;
 }
 export interface PluginModule {
 	setup(api: PluginAPI): void | Promise<void>;

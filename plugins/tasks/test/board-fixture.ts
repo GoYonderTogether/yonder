@@ -102,7 +102,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		env: {} as never,
 		signal: new AbortController().signal,
 	};
-	const store = new Store(probe.api.paths.data);
+	const store = new Store(probe.api.storage.open());
 	const call = (name: string, args: object, caller = ctx) =>
 		probe.tools.find((tool) => tool.name === `tasks_${name}`)!.execute(args, caller);
 	return {
@@ -118,7 +118,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		},
 		async close() {
 			await kernel.close();
-			store.close();
+			await store.close();
 			await rm(home, { recursive: true, force: true });
 		},
 	};

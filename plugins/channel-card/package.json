@@ -28,6 +28,9 @@
 		"id": "channel-card",
 		"entry": "./dist/index.js",
 		"contributes": {
+			"triggers": [
+				"channel-card-sync"
+			],
 			"channels": [
 				"card"
 			],

@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
-import { join } from "node:path";
 import type {
 	Attachment,
 	Channel,
@@ -13,7 +11,7 @@ import type {
 	Ref,
 } from "@yonder/sdk";
 import WebSocket from "ws";
-import { lateNote, socialMentions, validateDeviceMessage } from "./message.js";
+import { cardEndpoint, lateNote, sameOrigin, socialMentions, validateDeviceMessage } from "./message.js";
 import { linkWorkOwner, openWorkBridge, parseDeviceFrame, type WorkBridge } from "./work.js";
 
 export interface Config {
@@ -44,7 +42,7 @@ export class CardChannel implements Channel {
 	private socket: WebSocket | undefined;
 	private reconnect?: ReturnType<typeof setTimeout>;
 	private pollTimer?: ReturnType<typeof setTimeout>;
-	private syncTimer?: ReturnType<typeof setInterval>;
+	private nextSyncAt: number | undefined;
 	private backoff = 1000;
 	private mappings = new Map<string, string>();
 	private pending = new Map<string, (delivery: Delivery) => void>();
@@ -56,26 +54,12 @@ export class CardChannel implements Channel {
 		readonly id: string,
 		private config: Config,
 		private api: PluginAPI,
+		private scheduleSync: () => void = () => {},
 	) {
-		let url: URL;
-		try {
-			url = new URL(config.endpoint ?? "https://yonderbot.net");
-		} catch {
-			throw new Error("Card endpoint must be an HTTP(S) origin without credentials");
-		}
-		if (
-			!["http:", "https:"].includes(url.protocol) ||
-			url.username ||
-			url.password ||
-			url.search ||
-			url.hash ||
-			url.pathname !== "/"
-		)
-			throw new Error("Card endpoint must be an HTTP(S) origin without credentials");
-		if (url.protocol === "http:" && !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname))
-			throw new Error("Card endpoint requires HTTPS outside loopback");
-		this.endpoint = url.origin;
+		this.files = api.storage.open();
+		this.endpoint = cardEndpoint(config.endpoint);
 	}
+	private readonly files: ReturnType<PluginAPI["storage"]["open"]>;
 
 	private async request(path: string, method = "GET", data?: unknown, signal?: AbortSignal): Promise<unknown> {
 		const response = await fetch(`${this.endpoint}${path}`, {
@@ -100,49 +84,38 @@ export class CardChannel implements Channel {
 		return response.json();
 	}
 
-	private get file(): string {
-		return join(this.api.paths.data, `${this.id}.json`);
-	}
 	private async save(): Promise<void> {
-		await mkdir(this.api.paths.data, { recursive: true, mode: 0o700 });
-		await chmod(this.api.paths.data, 0o700);
-		const temporary = `${this.file}.${randomUUID()}.tmp`;
-		await writeFile(temporary, JSON.stringify({ endpoint: this.endpoint, token: this.token }), { mode: 0o600 });
-		await rename(temporary, this.file);
+		await this.files.write(`${this.id}.json`, JSON.stringify({ endpoint: this.endpoint, token: this.token }));
 	}
 
 	async start(io: ChannelIO): Promise<void> {
 		this.io = io;
 		this.stopped = false;
 		this.controller = new AbortController();
-		try {
-			const state = JSON.parse(await readFile(this.file, "utf8"));
-			if (state.endpoint !== this.endpoint || typeof state.token !== "string" || !state.token)
-				throw new Error("Invalid card credentials");
-			this.token = state.token;
-			await chmod(this.api.paths.data, 0o700);
-			await chmod(this.file, 0o600);
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+		const stored = await this.files.read(`${this.id}.json`);
+		if (stored !== undefined) {
+			try {
+				const state = JSON.parse(stored);
+				if (state.endpoint !== this.endpoint || typeof state.token !== "string" || !state.token)
+					throw new Error("Invalid card credentials");
+				this.token = state.token;
+			} catch {
 				throw new Error("Card credential state invalid or endpoint changed");
+			}
 		}
 		// 名片服务不可达（如证书过期）只告警，由定时同步重试；不能让它拖垮整个 harness 启动。
 		if (this.token)
 			await this.syncAgents().catch((error: unknown) => this.warn(`Agent sync failed: ${(error as Error).message}`));
 		else await this.api.agents.list();
-		this.syncTimer = setInterval(() => {
-			if (this.token) void this.syncAgents().catch(() => this.warn("Agent sync failed"));
-		}, 600000);
-		this.syncTimer.unref();
+		this.scheduleSync();
 	}
 
-	/** 确认返回的确认链接属于本实例 origin；非法 URL 按响应不合法处理，不把解析异常抛给调用方。 */
-	private sameOrigin(value: string): boolean {
-		try {
-			return new URL(value).origin === this.endpoint;
-		} catch {
-			return false;
-		}
+	nextSync(): number | undefined {
+		return this.nextSyncAt;
+	}
+	async tick(now: number): Promise<void> {
+		if (!this.token || this.nextSyncAt === undefined || now < this.nextSyncAt) return;
+		await this.syncAgents().catch(() => this.warn("Agent sync failed"));
 	}
 
 	private warn(message: string): void {
@@ -160,29 +133,34 @@ export class CardChannel implements Channel {
 	}
 	async syncAgents(): Promise<void> {
 		if (!this.token || this.stopped) return;
-		const agents = await this.api.agents.list();
-		const rows = await this.request(
-			"/api/device/agents",
-			"PUT",
-			agents.map((a) => ({ key: a.id, name: a.name, avatarUrl: a.avatarUrl ?? null })),
-		);
-		if (
-			!Array.isArray(rows) ||
-			rows.length !== agents.length ||
-			rows.some((r) => !r || typeof r.id !== "string" || !agents.some((a) => a.id === r.key)) ||
-			new Set(rows.map((r) => r.key)).size !== agents.length
-		)
-			throw new Error("Invalid card Agent mapping");
-		if (this.stopped) return;
-		this.mappings = new Map(rows.map((r) => [r.key, r.id]));
-		// SOC01 G-02：授权完成后把设备主人自己的账号关联到各 Agent 的 owner，DM 才会判为 owner 进入主对话。
-		await this.linkOwner(agents).catch((error: unknown) => {
-			this.owners = [];
-			this.deviceId = undefined;
-			this.warn(`Owner identity link skipped: ${(error as Error).message}`);
-		});
-		if (this.socket) this.socket.close();
-		else this.connect();
+		try {
+			const agents = await this.api.agents.list();
+			const rows = await this.request(
+				"/api/device/agents",
+				"PUT",
+				agents.map((a) => ({ key: a.id, name: a.name, avatarUrl: a.avatarUrl ?? null })),
+			);
+			if (
+				!Array.isArray(rows) ||
+				rows.length !== agents.length ||
+				rows.some((r) => !r || typeof r.id !== "string" || !agents.some((a) => a.id === r.key)) ||
+				new Set(rows.map((r) => r.key)).size !== agents.length
+			)
+				throw new Error("Invalid card Agent mapping");
+			if (this.stopped) return;
+			this.mappings = new Map(rows.map((r) => [r.key, r.id]));
+			// SOC01 G-02：授权完成后把设备主人自己的账号关联到各 Agent 的 owner，DM 才会判为 owner 进入主对话。
+			await this.linkOwner(agents).catch((error: unknown) => {
+				this.owners = [];
+				this.deviceId = undefined;
+				this.warn(`Owner identity link skipped: ${(error as Error).message}`);
+			});
+			if (this.socket) this.socket.close();
+			else this.connect();
+		} finally {
+			this.nextSyncAt = this.stopped || !this.token ? undefined : Date.now() + 600000;
+			this.scheduleSync();
+		}
 	}
 
 	async login(
@@ -229,7 +207,12 @@ export class CardChannel implements Channel {
 				{ name: hostname(), kind: this.config.device?.kind ?? "desktop" },
 				signal,
 			)) as { code: string; url: string };
-			if (typeof data.code !== "string" || !data.code || typeof data.url !== "string" || !this.sameOrigin(data.url))
+			if (
+				typeof data.code !== "string" ||
+				!data.code ||
+				typeof data.url !== "string" ||
+				!sameOrigin(data.url, this.endpoint)
+			)
 				throw new Error("Invalid card login response");
 			this.code = { ...data, expiresAt: new Date(Date.now() + 600000).toISOString() };
 			this.loginState = "pending";
@@ -490,7 +473,8 @@ export class CardChannel implements Channel {
 		this.controller.abort();
 		clearTimeout(this.reconnect);
 		clearTimeout(this.pollTimer);
-		clearInterval(this.syncTimer);
+		this.nextSyncAt = undefined;
+		this.scheduleSync();
 		for (const done of this.pending.values())
 			done({ ok: false, uncertain: true, error: "Card stopped before confirmation" });
 		this.socket?.terminate();

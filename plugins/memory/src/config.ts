@@ -82,7 +82,7 @@ export function canonical(path: string): string {
 		return resolve(canonical(parent), relative(parent, path));
 	}
 }
-export function validateConfig(value: unknown): Config {
+export function validateConfig(value: unknown, local = true): Config {
 	const errors = [...Errors(configSchema, value)].map((e) => `${e.instancePath}: ${e.message}`);
 	if (errors.length) throw new Error(errors.join("\n"));
 	const config = value as Config;
@@ -98,7 +98,7 @@ export function validateConfig(value: unknown): Config {
 	} catch {
 		errors.push("timezone: invalid IANA timezone");
 	}
-	if (!errors.length) {
+	if (!errors.length && local) {
 		const root = canonical(config.root);
 		for (const [i, source] of (config.roots ?? []).entries()) {
 			const path = canonical(source.path);

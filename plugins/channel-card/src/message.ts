@@ -1,4 +1,35 @@
 import type { SocialMessageData } from "@yonder/sdk";
+
+export function cardEndpoint(endpoint?: string): string {
+	let url: URL;
+	try {
+		url = new URL(endpoint ?? "https://yonderbot.net");
+	} catch {
+		throw new Error("Card endpoint must be an HTTP(S) origin without credentials");
+	}
+	if (
+		!["http:", "https:"].includes(url.protocol) ||
+		url.username ||
+		url.password ||
+		url.search ||
+		url.hash ||
+		url.pathname !== "/"
+	)
+		throw new Error("Card endpoint must be an HTTP(S) origin without credentials");
+	if (url.protocol === "http:" && !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname))
+		throw new Error("Card endpoint requires HTTPS outside loopback");
+	return url.origin;
+}
+
+/** Confirm a returned link belongs to the configured card service origin. */
+export function sameOrigin(value: string, origin: string): boolean {
+	try {
+		return new URL(value).origin === origin;
+	} catch {
+		return false;
+	}
+}
+
 export interface Message {
 	id: string;
 	senderId: string;

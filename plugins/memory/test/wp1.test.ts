@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/prom
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
+import { checkPlugin, createFilePluginStorage, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it } from "vitest";
 import { validateConfig } from "../src/config.js";
 import plugin from "../src/index.js";
@@ -30,6 +30,7 @@ export async function setup(root: string, extra = {}) {
 	const { api, registrations } = createRegistrationCollector();
 	await plugin.setup({
 		...api,
+		storage: createFilePluginStorage(root),
 		config: {
 			root,
 			owner: "person:test",
@@ -58,6 +59,8 @@ it("initializes only on start and preserves every existing file byte on restart"
 	await writeFile(join(root, "SCHEMA.md"), "用户改写\r\n");
 	const r = await setup(root, { triggers: { bootstrap: true } });
 	await r.triggers[0]!.start({
+		startedAt: Date.now(),
+		schedule: () => {},
 		emit: async () => {
 			return {} as import("@yonder/sdk").YEvent;
 		},
@@ -65,6 +68,8 @@ it("initializes only on start and preserves every existing file byte on restart"
 	expect(await readFile(join(root, "SCHEMA.md"), "utf8")).toBe("用户改写\r\n");
 	await writeFile(join(root, "me/now.md"), "当前手记\n");
 	await r.triggers[0]!.start({
+		startedAt: Date.now(),
+		schedule: () => {},
 		emit: async () => {
 			return {} as import("@yonder/sdk").YEvent;
 		},
@@ -127,6 +132,8 @@ it("status returns readiness and counts without private content; denies missing 
 		source = await temp();
 	const r = await setup(root, { roots: [{ name: "notes", path: source }], triggers: { bootstrap: true } });
 	await r.triggers[0]!.start({
+		startedAt: Date.now(),
+		schedule: () => {},
 		emit: async () => {
 			return {} as import("@yonder/sdk").YEvent;
 		},

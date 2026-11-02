@@ -1,3 +1,4 @@
+import type { TriggerIO } from "@yonder/sdk";
 import { definePlugin } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Check } from "typebox/value";
@@ -33,13 +34,36 @@ const parameters = Type.Object(
 export default definePlugin({
 	setup(api) {
 		const instances = new Map<string, CardChannel>();
+		let triggerIO: TriggerIO | undefined;
+		const scheduleSync = () => {
+			const due = [...instances.values()].flatMap((channel) => {
+				const at = channel.nextSync();
+				return at === undefined ? [] : [at];
+			});
+			triggerIO?.schedule(due.length ? Math.min(...due) : undefined);
+		};
+		api.triggers.register({
+			id: "channel-card-sync",
+			async start(io) {
+				triggerIO = io;
+				scheduleSync();
+			},
+			async tick(now) {
+				await Promise.all([...instances.values()].map((channel) => channel.tick(now)));
+				scheduleSync();
+			},
+			async stop() {
+				triggerIO?.schedule(undefined);
+				triggerIO = undefined;
+			},
+		});
 		api.channels.register({
 			type: "card",
 			multiAgent: true,
 			configSchema,
 			create(id, config) {
 				if (instances.has(id)) throw new Error("Duplicate card instance");
-				const channel = new CardChannel(id, config as Config, api);
+				const channel = new CardChannel(id, config as Config, api, scheduleSync);
 				instances.set(id, channel);
 				return channel;
 			},
