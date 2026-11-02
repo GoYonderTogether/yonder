@@ -56,3 +56,10 @@ QQ目标为“智能眼镜 × personal AI”，GPT学姐来源conv:qq-gpt-senpai
 ## 最终结果
 
 发布、安装、真实群与Cloud端到端仍在执行，未通过项不得标为完成。
+
+## 后续共享修复与真实入口差异
+
+- 40e7a99b：飞书真实群目录只读工具，沿现有平台list接口、read/network/admin及实例范围，支持有界分页/名称过滤，输出真实name/chatId/conv与重名/截断。定向4/4、插件tsc、Biome通过，尚未真实API或正式安装验收。主用户消息只允许给真实群名，不填工程ID/操作算法。
+- afe81ff9：工作页UpdateNotice复用已有appUrl，根路径检查/version.json、Gateway挂载检查/console/version.json；两挂载的组件回归2/2、Biome通过。
+- 原生浏览器访问 https://yonderbot.net/console/，真实JSON403为forbidden/host not allowed。SSH核查该location代理到7690的独立Gateway（0.3.26102803），保留Host；其gateway.publicOrigins仅https://yonder.zethai.cn，因此对yonderbot.net的拒绝符合现有保护，不扩白名单、不改Host绕过。统一/work不走该旧Gateway，实际读取设备online/workProtocol=1并加载主人工作会话。是否与用户此前失败入口一致尚待其说明，不能把当前可用追溯为历史一定正常。
+- 第一版候选已推送5c7d25bc，包含本轮共享隔离修复与合法legacy测试夹具，不包含尚待后续发布的40e7/afe81。CI/Release与本机版本继续分开记录。
