@@ -111,6 +111,17 @@ identity:
 
 工作区读取沿执行环境，事实只投影当前 Agent 与 home 的安全状态和复查入口，不展示配置正文、凭据、其他 Agent 的私密内容或未经筛选的解析错误。脚本退出成功、文件读回、接纳、路由、运行与送达互不替代；宿主不根据工具命令或模型措辞猜测写入者、不自动回滚，也不替模型宣告任务完成。
 
+### 3.2 自管理的会话运行事实
+
+复用全局 `inspect` 与运行中已接纳快照，提供一份共享的只读会话运行投影；管理反馈、social 路由检查与已验证的 parent-request 上下文共用它，不各自重写匹配、参与策略或权限规则，不新增执行系统、意图匹配器或任务完成判官。
+
+- 样本来自存储中真实 `message.in`。显式 event 与 conv 必须一致；仅 conv 时取该目标的有界可信样本。无 selector 时只检查当前 Agent 已配置的有限精确 conv 来源，明确数量上限及截断；不枚举所有聊天、不输出样本正文、不从 opaque conv 猜 kind；内部仅为复用既有确定性匹配/策略读取必要的可信样本，不新增内容搜索或模型调用。无样本、离线或证据范围不足均标 unknown。
+- 历史 route/session/profile/wake 是历史事实；当前已接纳配置的首匹配、参与策略、consumer、实际 profile 能力与工具/渠道范围是预测，必须分栏。复用既有顺序匹配与精确 consumer resolver。`--profile` 只选择检查档，不替换目标绑定的实际 profile。磁盘候选、accepted revision 与当前运行快照继续区分，未知历史 revision 不借用当前值。
+- 明确区分仅入账、直接运行与策略控制的批次/折叠路径。`wake:write` 本身不证明运行，也不否定后续批次运行；`batch-read` 不证明模型已经执行。运行证明须关联真实 run 输入；批次按同一 Agent、插件、conv 的 `sourceEvents` 关联 batch-ready/folded-ready，再关联 run，不只搜索原消息 id。只凭同群、同会话或相近时间不能关联其他 Bot 的运行。
+- 发送能力与实际送达分别列出；`reply:none` 只关闭自动投递。只有具有来源关联的真实发送结果才能证明该次送达，旧公告、未关联的 message.out 或配置前发送均不能代替新配置验证。有界查询未发现只记未观察到，不宣称永远未执行。投影不替模型宣告完成，不写事件、创建/唤醒会话或发送消息。
+- 原生 validate/update 的既有结果可附独立运行 metadata；不把 derived 字段写回 AgentConfig。`agents show --json` 保持原 stdout 往返契约；仅本机 runtime inspect context 的 home、Agent 与目标吻合时，复用同一 inspect 将简短运行事实输出到独立 stderr。普通终端、其他 Agent 或跨 home 不自动追加；第二次查询失败或与磁盘版本分歧明确显示，不能冒充原子快照，不因此让成功的原始配置读取变失败。
+- parent 上下文只对既有 `parentOrigins` 验证通过且具备主人关系的原件投影目标 source conv/event；从 kernel 组合层注入共享查询，不在 prompt 层重算路由。事实不授予权限、不携带私有转录/正文/凭据，不改变群 profile、主人授权范围或私人 main 隔离。主会话可沿既有原生管理能力承办主人任务；不能因不能直绑私人 main 就宣称所有可行配置也不支持，也不能将 default 的 exec 能力自动开放给群成员。
+
 ## 4. 一个完整的 agent.yaml（QQ 场景）
 
 ```yaml

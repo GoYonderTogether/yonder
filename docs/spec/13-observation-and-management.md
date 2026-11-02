@@ -63,5 +63,5 @@ CLI 为 `sessions submit` 增加可重复的 `--attachment <本地路径>`，与
 ### 2.3 模型与有效工具配置
 
 - `models list`：通过现有 runtime 边界读取配置/原生模型目录，不输出凭据，不把目录中存在解释为账号已有访问权。
-- `inspect [--agent <id>] [--profile <name>]`：复用已解析配置和工具注册，显示 model/thinking/env/级别/能力、被选插件/上下文/skills、直接工具与按需工具及未暴露原因；运行中的查询明确区分“下次运行配置”与已有 session 的快照。只输出这些非秘密字段，不输出原始含密钥配置。
+- `inspect [--agent <id>] [--profile <name>] [--conv <ref>] [--event <id>]`：复用已解析配置和工具注册，显示 model/thinking/env/级别/能力、被选插件/上下文/skills、直接工具与按需工具及未暴露原因；运行中的查询明确区分“下次运行配置”与已有 session 的快照。只输出这些非秘密字段，不输出原始含密钥配置。 会话运行事实沿08 §3.2的共享投影：selector定位真实入站，输出独立operability metadata；不改变既有profile/tool检查语义或配置对象，不以历史入账冒充当前运行和送达。
 - 编辑沿用 YAML → 校验/重载；yonder.yaml 仍需重启。人的任务选择沿用 TUI 既有 preset。没有模型自动路由、自动供应商回退、当前会话 profile/权限热切换或批量配置 CRUD。
