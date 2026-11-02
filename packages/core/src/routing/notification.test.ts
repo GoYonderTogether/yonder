@@ -4,7 +4,7 @@ import type { YEvent } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseAgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
-import { openDatabase } from "../runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
@@ -82,7 +82,7 @@ test("routed inbound messages record one notification per session at the configu
 			config: { schema: 1 as const },
 			resolveSession: async () => ({ agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) }),
 		};
-		runtime = await Runtime.open({ ...options, db });
+		runtime = await Runtime.open({ ...options, storage: await openRuntimeStorage(db) });
 		const current = runtime;
 		const agent = parseAgentConfig(
 			`schema: 1

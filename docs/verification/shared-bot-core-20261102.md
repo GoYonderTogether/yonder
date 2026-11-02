@@ -112,3 +112,17 @@ cloud worktree 保持 `52692f57835032cb3a71b476d421f158293b0c94`，未改源码�
 - 最终完整 gate：build/typecheck/lint 退出 0；2666 通过 / 0 失败 / 112 跳过，文件 495 通过 / 0 失败 / 67 跳过，97.65 秒；size 573、layer 260，无违规。日志 shared-bot-core/stage-4-final-{build,typecheck,test,lint}.log。
 
 相对固定基线无新增失败；A2 有真实 fs/PG 逐字对照证据。4 项 PG 测试只证明定义与文件来源，不证明 worker 的运行状态/插件隔离或端到端。没有模型调用，未启动 worker/Redis，临时 PG 已关闭。
+
+## 阶段 9 服务端先行提交（cloud）
+
+cloud 提交 `63b5a99`，详情在该 worktree 的 `docs/verification/shared-bot-server-20261102.md`。根/server build/typecheck 全通过；最终后端真实 PG/Redis/WS 测试 204 通过 / 0 失败 / 0 取消 / 0 跳过，22 suites，63.93 秒。日志 shared-bot-core/stage-9-server-final-{cloud-build,cloud-typecheck,build,typecheck,test}.log。首次完整测试为 199 通过 / 4 失败（203 total），4 处历史迁移预期未包含020；仅追加实际新迁移，不削弱历史/拒绝顺序断言；初次日志 stage-9-server-test.log 保留。
+
+root 代码阅读修复了三处实际接线问题：dispatch 不得吞结果写入异常；旧 worker 清理 pending 完成前不得释放连接位（防误伤重连新输入）；quota 的 try 只包含 Redis 计数，写错误消息失败不能被误报为额度服务故障。另将已有 online/暂停开关接入云端 worker 状态。定向的原始 85/85、28/1、29/29、35/35 记录见 cloud 验证文件，只有子 Agent 工具输出，没有独立日志。没有真实 worker/模型或新 UI 验证；本提交只完成阶段 9 服务端部分，A7/A8 仍不能整体宣称通过。
+
+## 阶段 5：SQLite/PG 运行状态
+
+实现与开发/定向检查见 [shared-bot-state-20261102.md](shared-bot-state-20261102.md)。59 个 Runtime.open 调用方改为存储注入；本机仍以同一个 Db 连接构造 pi SQLite Storage，在线转录与父分叉读取使用 Storage，离线 SQL 查询保留。PG pi 提交为增量 JSON 日志＋持久 ID，复用现有校验/投影；领域 Store 使用静态 PG SQL 并按 Bot 锁定复合事务，额度与 run.end 原子结算。没有新运行循环。
+
+最终完整 gate：build/typecheck/lint 均退出 0；默认测试 2672 通过 / 0 失败 / 112 跳过，文件 496 通过 / 0 失败 / 67 跳过，100.19 秒；size 581、layer 268，无违规。证据 shared-bot-core/stage-5-{build,typecheck,test,lint}.log。此前定向233通过/21跳过、真实PG6项及首轮Biome失败均在独立记录保留。
+
+相对固定基线无新增失败。PG 覆盖两个作用域隔离、重开、持久 ID、真实约束失败原子性、重复去重/结算、转录/fork和投递恢复；尚不证明插件隔离、真实模型或 worker。未启动 worker/Redis或模型请求，临时 PG/Pool 已关闭。

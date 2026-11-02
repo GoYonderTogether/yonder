@@ -8,7 +8,7 @@ import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import { defineExtension, defineTask } from "@earendil-works/pi-durable";
 import { setAwake, startAwake } from "../packages/cli/dist/awake.js";
 import { resolveProfile } from "../packages/core/dist/config/index.js";
-import { openDatabase } from "../packages/core/dist/runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../packages/core/dist/runtime/db.js";
 import { Runtime } from "../packages/core/dist/runtime/index.js";
 
 const seconds = Number(process.argv[2] ?? 8);
@@ -19,7 +19,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 try {
 	runtime = await Runtime.open({
 		home,
-		db: await openDatabase(join(home, "state.db")),
+		storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 		config: { schema: 1 },
 		resolveSession: async () => ({
 			agent: null,

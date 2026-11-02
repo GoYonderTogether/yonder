@@ -17,7 +17,7 @@ import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { newEvent } from "../store/index.js";
 import type { createBackground } from "./background.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 import type { RuntimeSessionConfig } from "./types.js";
 
@@ -36,7 +36,7 @@ test.each(["scope", "full"])(
 		try {
 			runtime = await Runtime.open({
 				home,
-				db: await openDatabase(join(home, "state.db")),
+				storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 				config: { schema: 1 },
 				resolveSession: async () => ({
 					agent: null,

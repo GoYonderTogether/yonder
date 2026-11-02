@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 
 test.each([
@@ -57,7 +57,7 @@ test.each([
 		});
 		const runtime = await Runtime.open({
 			home,
-			db: await openDatabase(`${home}/state.db`),
+			storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 			config: {
 				schema: 1,
 				credentials: auth,

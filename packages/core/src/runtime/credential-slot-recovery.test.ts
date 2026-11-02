@@ -6,7 +6,7 @@ import { type ConversationId, type Harness, LiveDoc } from "@earendil-works/pi-d
 import { expect, it } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { CredentialSlotStore } from "./credential-slots.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { RunDoc } from "./docs.js";
 import { Runtime } from "./index.js";
 import type { RuntimeSessionConfig } from "./types.js";
@@ -33,7 +33,7 @@ it("a revoked recovered run faults locally while startup and another conversatio
 	};
 	let runtime: Runtime | undefined;
 	try {
-		runtime = await Runtime.open({ ...options, db: await openDatabase(path) });
+		runtime = await Runtime.open({ ...options, storage: await openRuntimeStorage(await openDatabase(path)) });
 		const session = await runtime.create({ agent: null, profile: "test", cwd: home });
 		let native = (runtime as unknown as { harness: Harness }).harness;
 		const conversation = await native.conversation(Number(session) as ConversationId, C);
@@ -50,7 +50,7 @@ it("a revoked recovered run faults locally while startup and another conversatio
 		await runtime.close();
 		runtime = undefined;
 		await slots.remove("openai", "a");
-		runtime = await Runtime.open({ ...options, db: await openDatabase(path) });
+		runtime = await Runtime.open({ ...options, storage: await openRuntimeStorage(await openDatabase(path)) });
 		await expect(runtime.recover()).resolves.toBeUndefined();
 		runtime.resume();
 		native = (runtime as unknown as { harness: Harness }).harness;

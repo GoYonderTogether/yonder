@@ -43,7 +43,7 @@ export async function fork(rt: RuntimeInternals, id: string, at: number): Promis
 	return forkConversation(await rt.conversation(id), id, at);
 }
 export async function parentOf(rt: RuntimeInternals, id: string): Promise<{ id: string; at: number } | undefined> {
-	return forkParent(rt.options.db, id);
+	return forkParent(rt.storage, id);
 }
 export async function sessionState(rt: RuntimeInternals, id: string): Promise<RuntimeSessionState | undefined> {
 	const state = await rt.harness.snapshot(SessionDoc, cid(id), C);

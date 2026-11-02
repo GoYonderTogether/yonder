@@ -18,7 +18,7 @@ import { resolveProfile } from "../config/test-support.js";
 import { createPermissions } from "../permissions.js";
 import { newEvent } from "../store/index.js";
 import { createPermissionsTool } from "../tools/permissions.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 import type { RuntimeSessionConfig } from "./types.js";
 
@@ -67,7 +67,7 @@ async function fixture(invoke: PermissionProvider["invoke"] = async () => raw) {
 		const tool = createPermissionsTool(permissions);
 		runtime = await Runtime.open({
 			home,
-			db: await openDatabase(`${home}/state.db`),
+			storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 			config: { schema: 1 },
 			plugins: [{ id: "permission-contract", tools: [], hooks: [] }],
 			resolveSession: async (id) => {

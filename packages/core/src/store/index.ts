@@ -1,29 +1,12 @@
-import { randomBytes } from "node:crypto";
 import type { AccountInfo, EventInput, EventPage, EventQuery, IdentityAPI, Ref, Route, YEvent } from "@yonder/sdk";
 import { parseRef, person } from "@yonder/sdk";
 import type { Db, DbExecutor, DbValue } from "./db.js";
+import { newEvent } from "./event.js";
 import { migrate } from "./migrations.js";
+import { type QuotaStore, quotaStore } from "./quota.js";
 import { sessionStore } from "./sessions.js";
 
-const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-let lastTime = 0;
-let entropy = 0n;
-function ulid() {
-	const now = Math.max(Date.now(), lastTime);
-	entropy = now === lastTime ? entropy + 1n : BigInt(`0x${randomBytes(10).toString("hex")}`);
-	lastTime = now;
-	let value = (BigInt(now) << 80n) | entropy;
-	let id = "";
-	for (let i = 0; i < 26; i++, value >>= 5n) id = alphabet[Number(value & 31n)] + id;
-	return id;
-}
-
-export const newEvent = (input: EventInput, routes?: Route[]): YEvent => ({
-	...input,
-	id: ulid(),
-	ts: new Date().toISOString(),
-	...(routes ? { routes } : {}),
-});
+export { newEvent } from "./event.js";
 
 type EventRow = Omit<YEvent, "data" | "routes"> & { data: string; routes: string | null };
 function defined<T extends object>(row: T): T {
@@ -204,7 +187,7 @@ export async function createStore(
 		/** Settlement and the completion marker share one transaction; duplicate runs do neither. */
 		async recordRun(
 			input: EventInput & { data: { session: string; runId: string; [key: string]: unknown } },
-			settle?: (tx: DbExecutor) => Promise<void>,
+			settle?: (quota: QuotaStore) => Promise<void>,
 		): Promise<boolean> {
 			const event = newEvent(input);
 			const added = await db.transaction(async (tx) => {
@@ -214,7 +197,7 @@ export async function createStore(
 					input.data.runId,
 				);
 				if (found) return false;
-				await settle?.(tx);
+				if (settle) await settle(quotaStore(tx));
 				await insert(tx, event);
 				return true;
 			});
@@ -428,6 +411,13 @@ export async function createStore(
 		};
 		return api;
 	}
-	return { events, sessions, identity };
+	return {
+		events,
+		sessions,
+		identity,
+		get quota() {
+			return quotaStore(db);
+		},
+	};
 }
 export type Store = Awaited<ReturnType<typeof createStore>>;

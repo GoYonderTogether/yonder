@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 import type { TodoUpdatedEvent } from "./todo.js";
 
@@ -26,7 +26,7 @@ test.skipIf(!real)(
 		const open = async () =>
 			Runtime.open({
 				home,
-				db: await openDatabase(dbPath),
+				storage: await openRuntimeStorage(await openDatabase(dbPath)),
 				config: {
 					schema: 1,
 					credentials: auth,

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { resolveProfile } from "../config/index.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { cid, SessionDoc } from "./docs.js";
 import { Runtime } from "./index.js";
 import type { Outbox } from "./outbox.js";
@@ -20,7 +20,7 @@ it("events owed at a crash are delivered after restart and then cleared", async 
 	}) =>
 		Runtime.open({
 			home,
-			db: await openDatabase(join(home, "state.db")),
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 			config: { schema: 1, credentials: "auth.json", compaction: { enabled: false } },
 			resolveSession: async () => ({
 				agent: null,
@@ -88,7 +88,7 @@ it("stores the actual run inputs with a fallback before handing it to the sink",
 	const config = { agent: null, profile: "outbox", cwd: home, resolved: resolveProfile({ model: "openai/primary" }) };
 	const runtime = await Runtime.open({
 		home,
-		db: await openDatabase(join(home, "state.db")),
+		storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 		config: { schema: 1, credentials: "auth.json", compaction: { enabled: false } },
 		resolveSession: async () => config,
 		onModelFallback: async () => {

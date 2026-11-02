@@ -7,7 +7,7 @@ export type SessionWorkbench = {
 };
 /** Sessions written before the workbench fields existed belong to the owner. */
 export const ownerIdentity: SessionOwner = { kind: "owner", id: "owner" };
-type SessionRow = Omit<
+export type SessionRow = Omit<
 	SessionInfo,
 	"archivedAt" | "channels" | "id" | "needsOwner" | "owner" | "parent" | "pinned" | "title"
 > & {
@@ -29,7 +29,7 @@ const decode = <T>(encoded: string | null, read: (value: unknown) => T): T | und
 		return undefined;
 	}
 };
-function sessionRow(row: SessionRow): SessionInfo {
+export function sessionRow(row: SessionRow): SessionInfo {
 	const { id, parent, agent, profile, mode, key, version, opened, closed } = row;
 	const owner = decode(row.owner, (value) => value as SessionOwner);
 	const needsOwner = decode(row.needs_owner, (value) => value as NonNullable<SessionInfo["needsOwner"]>);

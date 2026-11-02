@@ -12,7 +12,7 @@ import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins
 import { prepareInput } from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { createRouter } from "../routing/index.js";
-import { openDatabase } from "../runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { checkBudget } from "../sessions/budget.js";
 import { createSessions } from "../sessions/index.js";
@@ -230,7 +230,6 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			participationHooks: loaded.hooks,
 		});
 		const gate = quotaWire({
-			db,
 			config,
 			store,
 			sessions,
@@ -288,7 +287,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		);
 		for (const { decl, provider } of builtinViews(realRuntime)) loaded.views.register("core", decl, provider);
 		runtime = await Runtime.open({
-			db,
+			storage: await openRuntimeStorage(db!),
 			home,
 			config,
 			plugins: [...loaded.tools].map(([id, tools]) => ({ id, tools, hooks: loaded.hooks.get(id) ?? [] })),

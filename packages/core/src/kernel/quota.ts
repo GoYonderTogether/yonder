@@ -1,7 +1,6 @@
 import { defaultOutsiders } from "../config/defaults.js";
 import { tokenAmount, type YonderConfig } from "../config/index.js";
-import type { DbExecutor } from "../runtime/db.js";
-import { quotaStore } from "../store/quota.js";
+import type { QuotaStore } from "../store/quota.js";
 
 type Outsiders = NonNullable<YonderConfig["outsiders"]>;
 
@@ -39,7 +38,7 @@ export function quotaDay(now: number, timezone: string): string {
 }
 
 export interface QuotaOptions {
-	db: DbExecutor;
+	store: QuotaStore;
 	outsiders: Outsiders;
 	/** 主人时区；缺省与配置缺省一致。 */
 	timezone?: string;
@@ -51,10 +50,9 @@ export interface QuotaOptions {
  * 判定与记账都在这里，渠道怎么引导登录、内核什么时候调用由接入方决定（IMP-25）。
  */
 export function createQuota(options: QuotaOptions) {
-	const { db } = options;
+	const { store } = options;
 	const now = options.now ?? Date.now;
 	const timezone = options.timezone ?? "Asia/Shanghai";
-	const store = quotaStore(db);
 	// 配置解析已补齐缺省；这里再合一次，只为让缺省值只有一个来源（`config/defaults.ts`）。
 	const defaults = defaultOutsiders as Required<Outsiders>;
 	const settings = { ...defaults, ...options.outsiders };

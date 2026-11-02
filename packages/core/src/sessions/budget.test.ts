@@ -6,7 +6,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseYonderConfig } from "../config/index.js";
 import { resolveProfile } from "../config/test-support.js";
-import { openDatabase } from "../runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { createStore } from "../store/index.js";
 import { budgetBreaches, budgetEventType, budgetState, checkBudget } from "./budget.js";
@@ -102,7 +102,7 @@ test.skipIf(!real)(
 		const profile = resolveProfile({ model: "workbuddy/deepseek-v4.1-flash", thinking: "low", level: "readonly" });
 		const runtime = await Runtime.open({
 			home,
-			db,
+			storage: await openRuntimeStorage(db),
 			config: {
 				...config,
 				credentials: auth,

@@ -1,13 +1,12 @@
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
-import type { EntryId, Harness, Tx } from "@earendil-works/pi-durable";
-import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
+import type { EntryId, Harness, Storage, Tx } from "@earendil-works/pi-durable";
 import { cid, type OutboxEntry, SessionDoc } from "./docs.js";
 import { fallbackReason, splitModelRef } from "./model-chain.js";
 import type { ModelFallbackEvent, RuntimeOptions, RuntimeRun, RuntimeSessionConfig } from "./types.js";
 
 export interface OutboxOptions {
 	harness: Harness;
-	storage: SqliteStorage;
+	storage: Storage;
 	/** Observer sinks; a missing sink drops the event once its entry is removed. */
 	sinks: Pick<RuntimeOptions, "onTodo" | "onModelFallback">;
 	/** Commit bound to one conversation, the same handle the runtime uses for session state. */

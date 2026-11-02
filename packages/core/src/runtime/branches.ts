@@ -1,6 +1,5 @@
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
-import type { Conversation, EntryId } from "@earendil-works/pi-durable";
-import type { Db } from "./db.js";
+import type { Conversation, ConversationId, EntryId, Storage } from "@earendil-works/pi-durable";
 import { SessionDoc } from "./docs.js";
 
 export async function forkConversation(parent: Conversation, id: string, at: number): Promise<string> {
@@ -24,8 +23,7 @@ export async function forkConversation(parent: Conversation, id: string, at: num
 	return String(child.id);
 }
 
-export async function forkParent(db: Db, id: string): Promise<{ id: string; at: number } | undefined> {
-	const row = await db.get<{ record: string }>("SELECT record FROM pi_conversations WHERE id = ?", Number(id));
-	const parent = row && (JSON.parse(row.record) as { parent?: { conversationId: number; at: number } }).parent;
+export async function forkParent(storage: Storage, id: string): Promise<{ id: string; at: number } | undefined> {
+	const parent = (await storage.conversation(Number(id) as ConversationId, C))?.parent;
 	return parent ? { id: String(parent.conversationId), at: parent.at } : undefined;
 }

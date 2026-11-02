@@ -4,7 +4,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { systemPromptKeys, systemPromptParts } from "../prompt/index.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 
 test("runtime clocks persist in prepared inputs without changing stable system sections or source text", async () => {
@@ -13,7 +13,7 @@ test("runtime clocks persist in prepared inputs without changing stable system s
 	const config = { agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) };
 	const runtime = await Runtime.open({
 		home,
-		db,
+		storage: await openRuntimeStorage(db),
 		config: { schema: 1 },
 		resolveSession: async () => config,
 		sectionKeys: systemPromptKeys(new Map()),

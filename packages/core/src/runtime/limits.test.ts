@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import type { RunState } from "./docs.js";
 import { Runtime } from "./index.js";
 import { RunLimits } from "./limits.js";
@@ -24,7 +24,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			});
 			runtime = await Runtime.open({
 				home,
-				db: await openDatabase(`${home}/state.db`),
+				storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 				config: { schema: 1, credentials: auth },
 				onWarning: async (session, warning) => {
 					warnings.push({ session, kind: warning.kind, text: warning.text });

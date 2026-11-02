@@ -4,6 +4,7 @@
 import { join } from "node:path";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
+import type { Storage } from "@earendil-works/pi-durable";
 import {
 	createRegistry,
 	type Extension,
@@ -14,7 +15,6 @@ import {
 	type ToolExecutionApi,
 	type ToolRegistration,
 } from "@earendil-works/pi-durable";
-import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type {
 	Attachment,
@@ -141,7 +141,7 @@ export class Runtime {
 	private restartNotes = Promise.resolve();
 	private interrupted: Array<{ session: string; run: string }> = [];
 	private images?: Promise<ImageProcessor>;
-	private storage!: SqliteStorage;
+	private storage!: Storage;
 	private finishing = new Map<string, Promise<RuntimeRun>>();
 	private idleWaiters = new Map<string, Set<() => void>>();
 	private recovering: Array<{ session: string; id: import("@earendil-works/pi-durable").SubmissionId }> = [];

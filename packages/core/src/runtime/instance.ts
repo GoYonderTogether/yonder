@@ -5,12 +5,12 @@ import type {
 	Harness,
 	Registry,
 	RunReceiptState,
+	Storage,
 	Submission,
 	SubmissionId,
 	ToolExecutionApi,
 	ToolRegistration,
 } from "@earendil-works/pi-durable";
-import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type {
 	Capability,
@@ -111,7 +111,7 @@ export interface RuntimeInternals {
 	restartNotes: Promise<void>;
 	interrupted: Array<{ session: string; run: string }>;
 	images?: Promise<ImageProcessor>;
-	storage: SqliteStorage;
+	storage: Storage;
 	finishing: Map<string, Promise<RuntimeRun>>;
 	idleWaiters: Map<string, Set<() => void>>;
 	recovering: Array<{ session: string; id: SubmissionId }>;

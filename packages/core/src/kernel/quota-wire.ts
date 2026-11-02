@@ -2,7 +2,6 @@ import type { ChannelLoginResult, RunResult, SessionInfo, YEvent } from "@yonder
 import type { YonderConfig } from "../config/index.js";
 import type { DeliveryService } from "../delivery/index.js";
 import { runChannelCommand } from "../routing/commands.js";
-import type { Db } from "../runtime/db.js";
 import type { RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { createSessions } from "../sessions/index.js";
 import type { SkillsReport } from "../skills/index.js";
@@ -24,7 +23,6 @@ interface ChannelServices {
 }
 
 export interface QuotaWireOptions extends ChannelServices {
-	db: Db;
 	config: YonderConfig;
 	/** 已配置的渠道实例；其余来源不走渠道命令，也不消费额度。 */
 	channels?: { has(name: string): boolean };
@@ -74,9 +72,9 @@ async function resolve(store: Store, session: SessionInfo, event: YEvent): Promi
 }
 
 export function quotaWire(options: QuotaWireOptions): QuotaWire {
-	const { config, db, store } = options;
+	const { config, store } = options;
 	const quota = createQuota({
-		db,
+		store: store.quota,
 		outsiders: config.outsiders ?? {},
 		...(config.timezone ? { timezone: config.timezone } : {}),
 		...(options.now ? { now: options.now } : {}),
@@ -157,10 +155,10 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 					if (subject) break;
 				}
 			}
-			await store.events.recordRun(ending, async (tx) => {
+			await store.events.recordRun(ending, async (ledger) => {
 				if (subject) {
 					await createQuota({
-						db: tx,
+						store: ledger,
 						outsiders: config.outsiders ?? {},
 						...(config.timezone ? { timezone: config.timezone } : {}),
 						...(options.now ? { now: options.now } : {}),

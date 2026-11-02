@@ -5,7 +5,7 @@ import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { type KernelServices, loadPlugins } from "../plugins/index.js";
-import { openDatabase } from "../runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { createStore } from "../store/index.js";
 import { createViews } from "./index.js";
@@ -163,7 +163,7 @@ it("records session.settled once for a native failed run, including recovery and
 		store = await createStore(db);
 		return Runtime.open({
 			home,
-			db,
+			storage: await openRuntimeStorage(db),
 			config: { schema: 1, retry: { maxRetries: 0 } },
 			resolveSession: async () => ({ agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) }),
 			settled: async (session, runId) => Boolean(await store.events.runEnd(session, runId)),

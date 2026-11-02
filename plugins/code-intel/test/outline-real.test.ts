@@ -4,7 +4,7 @@ import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse } from "yaml";
 import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
-import { openDatabase } from "../../../packages/core/src/runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../../../packages/core/src/runtime/db.js";
 import { Runtime } from "../../../packages/core/src/runtime/index.js";
 import plugin from "../src/index.js";
 
@@ -33,7 +33,7 @@ test.skipIf(process.env.YONDER_OUTLINE_REAL !== "1")(
 		const events: Array<{ type: string; name?: string; phase?: string }> = [];
 		const runtime = await Runtime.open({
 			home,
-			db: await openDatabase(join(home, "state.db")),
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 			config: {
 				schema: 1,
 				credentials: join(home, "auth.json"),

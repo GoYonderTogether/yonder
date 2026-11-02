@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { parseAgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
 import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
-import { openDatabase } from "../runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
@@ -21,7 +21,7 @@ test("authorized owner mentions reach owner main once and revoked sources are di
 		const store = await createStore(db);
 		runtime = await Runtime.open({
 			home,
-			db,
+			storage: await openRuntimeStorage(db),
 			config: { schema: 1 },
 			resolveSession: async () => ({ agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) }),
 		});

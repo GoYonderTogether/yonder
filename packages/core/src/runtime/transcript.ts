@@ -1,5 +1,5 @@
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
-import type { Conversation, EntryId, EntryRecord } from "@earendil-works/pi-durable";
+import type { Conversation, Cursor, EntryId, EntryRecord, Storage } from "@earendil-works/pi-durable";
 import type { Attachment, TranscriptItem } from "@yonder/sdk";
 import type { Db } from "./db.js";
 import { notificationOf } from "./notifications.js";
@@ -78,6 +78,50 @@ async function projectEntries(entries: EntryRecord[], db?: Db): Promise<Transcri
 	);
 }
 
+// ponytail: one forward scan resolves prepared inputs; add a backend index if long unprepared tails become measurable.
+async function projectStorageEntries(
+	conversation: Conversation,
+	entries: EntryRecord[],
+	storage: Storage,
+): Promise<TranscriptItem[]> {
+	const items = entries.map(transcriptItem);
+	const pending = new Map<number, number>();
+	for (const [index, entry] of entries.entries())
+		if (entry.kind === "yonder.message") pending.set(Number(entry.id), index);
+	if (!pending.size) return items;
+	let cursor: Cursor | undefined;
+	const firstTarget = Math.min(...pending.keys());
+	do {
+		const page = await storage.scanEntries(
+			{
+				conversationId: conversation.id,
+				minEntryId: (firstTarget + 1) as EntryId,
+				order: "ascending",
+			},
+			256,
+			cursor,
+			C,
+		);
+		for (const entry of page.items) {
+			if (entry.kind !== "yonder.prepared") continue;
+			const target = Number((entry.data as { target?: number } | undefined)?.target);
+			const index = pending.get(target);
+			if (index === undefined) continue;
+			pending.delete(target);
+			const prepared = transcriptItem(entry);
+			const item = items[index]!;
+			const timestamp = item.timestamp ?? prepared.timestamp;
+			items[index] = {
+				...item,
+				...(prepared.prepared === undefined ? {} : { prepared: prepared.prepared }),
+				...(timestamp === undefined ? {} : { timestamp }),
+			};
+		}
+		cursor = page.next;
+	} while (cursor && pending.size);
+	return items;
+}
+
 /** Read the pinned pi-durable 1.3.0 entry format without migrations, recovery or writes. */
 export async function readTranscript(
 	db: Db,
@@ -113,7 +157,7 @@ export async function readTranscript(
 export async function transcriptPage(
 	conversation: Conversation,
 	range: { from?: number; limit?: number; before?: number } = {},
-	db?: Db,
+	storage: Storage,
 ): Promise<TranscriptItem[]> {
 	if (range.before !== undefined) {
 		const page = await conversation.entries(
@@ -125,7 +169,7 @@ export async function transcriptPage(
 			undefined,
 			C,
 		);
-		return (await projectEntries([...page.items], db)).reverse();
+		return (await projectStorageEntries(conversation, [...page.items], storage)).reverse();
 	}
 	const page = await conversation.entries(
 		{ order: "ascending", ...(range.from === undefined ? {} : { minEntryId: range.from as EntryId }) },
@@ -133,5 +177,5 @@ export async function transcriptPage(
 		undefined,
 		C,
 	);
-	return projectEntries([...page.items], db);
+	return projectStorageEntries(conversation, [...page.items], storage);
 }

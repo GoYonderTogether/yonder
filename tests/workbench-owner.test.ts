@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../packages/core/src/config/test-support.js";
 import { attachmentFromPath } from "../packages/core/src/runtime/attachments.js";
-import { openDatabase } from "../packages/core/src/runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../packages/core/src/runtime/db.js";
 import { Runtime } from "../packages/core/src/runtime/index.js";
 import { createStore } from "../packages/core/src/store/index.js";
 
@@ -19,7 +19,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		let id = "";
 		const runtime = await Runtime.open({
 			home,
-			db,
+			storage: await openRuntimeStorage(db),
 			config: { schema: 1, credentials: auth },
 			readEvent: store.events.get,
 			resolveSession: async () => ({

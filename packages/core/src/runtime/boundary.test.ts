@@ -7,7 +7,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { createStore } from "../store/index.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
@@ -22,7 +22,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		let profile = resolveProfile({ capabilities: ["exec"], tools: { offer: ["bash"] }, limits: { maxMinutes: 1 } });
 		const runtime = await Runtime.open({
 			home,
-			db,
+			storage: await openRuntimeStorage(db),
 			config: { schema: 1, credentials: auth },
 			onWarning: async (session, warning) => {
 				warnings.push({ session, kind: warning.kind });
@@ -131,7 +131,7 @@ test("the elapsed threshold warns without cancelling context rendering before a 
 	let cancelled: boolean | undefined;
 	const runtime = await Runtime.open({
 		home,
-		db,
+		storage: await openRuntimeStorage(db),
 		config: { schema: 1 },
 		onWarning: async (_session, warning) => {
 			warnings.push(warning.kind);
@@ -198,7 +198,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			const open = async (supportsImages: boolean) =>
 				Runtime.open({
 					home,
-					db: await openDatabase(`${home}/state.db`),
+					storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 					config: {
 						schema: 1,
 						credentials: auth,
@@ -260,7 +260,7 @@ test("the elapsed threshold warns without cancelling input preparation before a 
 	const store = await createStore(db);
 	const runtime = await Runtime.open({
 		home,
-		db,
+		storage: await openRuntimeStorage(db),
 		config: { schema: 1 },
 		onWarning: async (_session, warning) => {
 			warnings.push(warning.kind);
@@ -308,7 +308,7 @@ test("explicit abort still cancels context rendering before a model request", as
 	let cancelled = false;
 	const runtime = await Runtime.open({
 		home,
-		db: await openDatabase(`${home}/state.db`),
+		storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 		config: { schema: 1 },
 		resolveSession: async () => ({
 			agent: null,

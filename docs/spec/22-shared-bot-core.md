@@ -18,7 +18,7 @@ Worker 位于 yonder monorepo，一个进程服务全部云端 Bot，不为每�
 
 空载 RSS ≤150 MB；100 个 Bot 轮流对话、任何时刻最多 20 个活跃时 RSS ≤350 MB。负载脚本以回环模型传输 stub 测资源，再以真实模型跑少量轮次，记录每轮数据库往返。附件仅传引用，不下载大文件，浏览器下行数据量不超过既有消息路径。
 
-Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任的特殊设备接入；server 不依赖 @yonder 包。鉴权须把 worker 的服务身份与目标 Bot/owner 关联，不能信任帧内自报租户。default/cloud 且没有 device_id 的 Bot 消息交给 worker；不再返回固定引导或整段转给主人设备。设备自己的 Bot 仍是独立联系人。
+Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任的特殊设备接入；server 不依赖 @yonder 包。服务端 `CLOUD_BOT_WORKER_KEY_FILE` 指向独立的私有 32 字节原始凭据（不是模型 key 文本）；worker 以其 base64url 作为 Bearer 接入同一 /ws/device。hello 后服务端发送 `{type:'bots',bots:[{id,name,ownerId}]}` 完整映射，创建或暂停状态变更用同帧刷新；只包含 enabled 的云端 Bot。输入仍为原 message 帧，send 增加必填 sourceMessageId（原用户消息 UUID），ref 仅确认。服务端 cloud_bot_turns 按 sourceMessageId 唯一关联结果，并与 appendMessage 同事务完成；普通 HTTP/device 不可写 error。暂停 Bot 的新输入得到真实暂停错误，不派模型；其 online 以 enabled 和共享 worker 在线状态计算。单 server/worker 采用现有 Hub 的进程内在线状态，不据 Redis 广播宣称支持多 server 在线路由。鉴权须把 worker 的服务身份与目标 Bot/owner 关联，不能信任帧内自报租户。default/cloud 且没有 device_id 的 Bot 消息交给 worker；不再返回固定引导或整段转给主人设备。设备自己的 Bot 仍是独立联系人。
 
 旧 runtimes.ts 与 runtime-supervisor.mjs 原样保留，不扩展、不作为云端 Bot 路径。删除范围列入报告供维护者决定。
 

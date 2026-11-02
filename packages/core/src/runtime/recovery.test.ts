@@ -11,7 +11,7 @@ import { resolveProfile, testModel } from "../config/test-support.js";
 import { cliChannelEndpoint } from "../control/index.js";
 import { initHome, openKernel } from "../kernel/index.js";
 import { FileCredentials } from "./credentials.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 import { buildModels } from "./models.js";
 import { retryPolicy, transientModelError } from "./recovery.js";
@@ -230,7 +230,7 @@ test.skipIf(!real)(
 		const address = server.address() as { port: number };
 		const runtime = await Runtime.open({
 			home,
-			db: await openDatabase(`${home}/state.db`),
+			storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 			config: {
 				schema: 1,
 				credentials: auth,
@@ -340,10 +340,10 @@ test.skipIf(!real)(
 		await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
 		const address = server.address() as { port: number };
 		let db = await openDatabase(`${home}/state.db`);
-		const open = () =>
+		const open = async () =>
 			Runtime.open({
 				home,
-				db,
+				storage: await openRuntimeStorage(db),
 				config: {
 					schema: 1,
 					credentials: auth,

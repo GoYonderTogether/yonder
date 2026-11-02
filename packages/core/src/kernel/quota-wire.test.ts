@@ -45,7 +45,6 @@ async function setup(overrides: Partial<YonderConfig> = {}) {
 		...overrides,
 	} satisfies YonderConfig;
 	const wire = quotaWire({
-		db,
 		config,
 		store,
 		sessions: {} as ReturnType<typeof createSessions>,

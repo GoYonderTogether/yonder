@@ -5,7 +5,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { createStore } from "../store/index.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 import type { RuntimeRun } from "./types.js";
 
@@ -23,7 +23,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			const idle: string[] = [];
 			const runtime = await Runtime.open({
 				home,
-				db,
+				storage: await openRuntimeStorage(db),
 				config: { schema: 1, credentials: auth },
 				readEvent: store.events.get,
 				prepareInput: async (_id, event) => ({ text: String((event.data as { text: string }).text), event }),

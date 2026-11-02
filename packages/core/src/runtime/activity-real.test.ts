@@ -10,7 +10,7 @@ import { resolveProfile } from "../config/test-support.js";
 import { terminalApi } from "../kernel/terminal.js";
 import { createStore, type Store } from "../store/index.js";
 import { FileCredentials } from "./credentials.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 import { buildModels } from "./models.js";
 
@@ -95,7 +95,7 @@ test.skipIf(!real)(
 			store = await createStore(db);
 			return Runtime.open({
 				home,
-				db,
+				storage: await openRuntimeStorage(db),
 				config,
 				resolveSession: async () => ({ agent: "main", profile: "activity", cwd: home, resolved: profile }),
 				sections: async (session) => {

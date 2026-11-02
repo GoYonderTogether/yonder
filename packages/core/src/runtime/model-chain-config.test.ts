@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 
 // Real models only (WorkBuddy deepseek as primary, RightAPI glm as the fallback), both from the real catalog,
@@ -32,7 +32,7 @@ test.skipIf(!real)(
 		const profile = resolveProfile({ model: "workbuddy/deepseek-v4.1-flash", thinking: "low", level: "readonly" });
 		const runtime = await Runtime.open({
 			home,
-			db: await openDatabase(`${home}/state.db`),
+			storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 			config: {
 				schema: 1,
 				credentials: auth,

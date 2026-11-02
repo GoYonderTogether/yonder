@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime, readTranscript } from "./index.js";
 
 test("offline transcript matches the live conversation over an actual read-only SQLite connection", async () => {
@@ -13,7 +13,7 @@ test("offline transcript matches the live conversation over an actual read-only 
 	try {
 		runtime = await Runtime.open({
 			home,
-			db: await openDatabase(path),
+			storage: await openRuntimeStorage(await openDatabase(path)),
 			config: { schema: 1 },
 			resolveSession: async () => ({ agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) }),
 		});

@@ -7,7 +7,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { FileCredentials } from "./credentials.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 import { buildModels } from "./models.js";
 
@@ -20,7 +20,7 @@ test.skipIf(!real)(
 		const home = await tempHome("yonder-compact-");
 		const runtime = await Runtime.open({
 			home,
-			db: await openDatabase(`${home}/state.db`),
+			storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 			config: { schema: 1, credentials: auth, compaction: { enabled: false, keepRecentTokens: 1 } },
 			resolveSession: async () => ({ agent: null, profile: "compact", cwd: home, resolved: resolveProfile({}) }),
 		});
@@ -140,7 +140,7 @@ test.skipIf(!real)(
 		const open = async () =>
 			Runtime.open({
 				home,
-				db: await openDatabase(dbPath),
+				storage: await openRuntimeStorage(await openDatabase(dbPath)),
 				config,
 				resolveSession: async () => ({ agent: null, profile: "fallback", cwd: home, resolved: profile }),
 			});

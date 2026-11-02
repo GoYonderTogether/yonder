@@ -13,7 +13,10 @@
 
 - 事件账本、会话元数据、pi 转录与文档、模型健康和工具输出缓存通过运行状态存储接口访问。本机与云端使用同一运行循环，不复制转录，不建立第二套会话队列。
 - 本机实现：一个 home 一个 SQLite 文件 `<home>/.yonder/state.db`，使用 Node 内置 `node:sqlite`。`openNodeSqliteDatabase(path)` 的同一个连接供 pi 的 `SqliteStorage.open(db, { prefix: 'pi_' })` 与 Yonder 的 `y_` 表使用；禁止对同一文件再开第二个连接。每个 home 的锁与本地控制接口保持不变。
+- 运行时接收 pi Storage 与领域 Store，不在共享运行循环硬编码 SQLite 打开或裸 SQL 读取。目录宿主以原同一连接构造 SQLite Storage；离线转录查询可以留本机入口。
 - 云端实现：PostgreSQL 按租户与 Bot 隔离全部状态，Redis 供共享协调；一个 worker 进程按消息激活 Bot，空闲释放实例，不给每个 Bot 启动进程、定时器或长连接。会话仍由 pi-durable 管理，存储适配不得形成另一份转录。资源、配额和报错契约见 [22](22-shared-bot-core.md)。
+
+PostgreSQL 的 pi 存储复用 pi-durable `MemoryStorage.prepareCommit` 的提交校验与读算法：激活时回放当前 Bot 的持久增量日志，提交时按事务持久化本批与序列后再 apply；ID 分配持久化，不能重用已分配但未提交的 ID。实例关闭不关闭 worker 共用 Pool。不做每轮全库快照；活跃内存随该 Bot 历史增长，须以真实资源验收确认预算，超预算再改索引读取，不预建第二套转录。领域事件、会话和身份由真实 PG 实现既有 Store 契约，不能靠替换 SQLite SQL 字符串冒充适配。用量计数与 run.end 必须同一事务提交；结算回调接收既有 QuotaStore 能力，由各存储实现在该事务绑定，不向共享调用方泄漏 DbExecutor/具体 SQL。
 
 ## 3. 映射
 

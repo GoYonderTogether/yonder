@@ -6,6 +6,7 @@ import { finished as streamFinished } from "node:stream/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
+import type { Storage } from "@earendil-works/pi-durable";
 import {
 	defineExtension,
 	defineTask,
@@ -19,7 +20,6 @@ import {
 	type ToolRegistration,
 	type Tx,
 } from "@earendil-works/pi-durable";
-import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
 import { clean, failed, type Input, JobDoc, JobPointer, json, outcomeResult, type State } from "./background-docs.js";
@@ -443,7 +443,7 @@ export function createBackground(options: {
 				await harness().abortTask(Number(id) as TaskId, C);
 			},
 		}),
-		async list(session: string, storage: SqliteStorage) {
+		async list(session: string, storage: Storage) {
 			const page = await storage.scanTasks(
 				{ conversationId: cid(session), kind: "yonder.background" },
 				Number.MAX_SAFE_INTEGER,

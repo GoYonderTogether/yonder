@@ -8,7 +8,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { stopNotice } from "../delivery/index.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 import type { ModelFallbackEvent } from "./types.js";
 
@@ -69,7 +69,7 @@ test.skipIf(!real)(
 		});
 		const runtime = await Runtime.open({
 			home,
-			db: await openDatabase(`${home}/state.db`),
+			storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 			config: {
 				schema: 1,
 				credentials: auth,

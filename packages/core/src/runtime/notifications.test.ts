@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime, readTranscript } from "./index.js";
 
 test("native program notifications persist once without model messages and replay in transcript order", async () => {
@@ -26,7 +26,7 @@ test("native program notifications persist once without model messages and repla
 				runs++;
 			},
 		};
-		runtime = await Runtime.open({ ...options, db });
+		runtime = await Runtime.open({ ...options, storage: await openRuntimeStorage(db) });
 		const current = runtime;
 		const sessions = createSessions({
 			store,
@@ -102,7 +102,7 @@ test("native program notifications persist once without model messages and repla
 		} finally {
 			await offline.close();
 		}
-		runtime = await Runtime.open({ ...options, db: await openDatabase(path) });
+		runtime = await Runtime.open({ ...options, storage: await openRuntimeStorage(await openDatabase(path)) });
 		const replay: SessionUpdate[] = [];
 		stop = await runtime.observe(session.id, async (update) => {
 			replay.push(update);
@@ -137,7 +137,7 @@ test("an attachment-only notification is recorded while an empty one still fails
 			resolveSession: async () => ({ agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) }),
 			onRun: async () => {},
 		};
-		runtime = await Runtime.open({ ...options, db });
+		runtime = await Runtime.open({ ...options, storage: await openRuntimeStorage(db) });
 		const current = runtime;
 		const sessions = createSessions({
 			store,

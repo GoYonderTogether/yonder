@@ -6,7 +6,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { aggregateExecution } from "./activity.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { cid, SessionDoc } from "./docs.js";
 import { Runtime } from "./index.js";
 
@@ -22,7 +22,10 @@ test("terminal native failure persists; write-only admission and historical rece
 		},
 		resolveSession: async () => ({ agent: null, profile: "activity", cwd: home, resolved: resolveProfile({}) }),
 	};
-	const open = () => openDatabase(`${home}/state.db`).then((db) => Runtime.open({ ...options, db }));
+	const open = () =>
+		openDatabase(`${home}/state.db`).then(async (db) =>
+			Runtime.open({ ...options, storage: await openRuntimeStorage(db) }),
+		);
 	let runtime = await open();
 	try {
 		const session = await runtime.create({ agent: null, profile: "activity", cwd: home });
@@ -77,7 +80,7 @@ test("actual next run start clears old issue before the model request", async ()
 	});
 	const runtime = await Runtime.open({
 		home,
-		db: await openDatabase(`${home}/state.db`),
+		storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 		config: { schema: 1, retry: { maxRetries: 0 } },
 		resolveSession: async () => ({ agent: null, profile: "activity", cwd: home, resolved: resolveProfile({}) }),
 		sections: async () => {
@@ -132,7 +135,7 @@ test("terminal activity includes open blocked sessions, preserves legacy idle, a
 	});
 	const runtime = await Runtime.open({
 		home,
-		db,
+		storage: await openRuntimeStorage(db),
 		config: { schema: 1, retry: { maxRetries: 0 } },
 		resolveSession: async () => ({ agent: "main", profile: "activity", cwd: home, resolved: resolveProfile({}) }),
 		sections: async () => {

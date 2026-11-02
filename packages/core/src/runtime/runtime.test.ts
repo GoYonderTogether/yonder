@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import {
 	credentialPath,
 	FileCredentials,
@@ -79,7 +79,10 @@ test("real SQLite conversation lifecycle, workspace IO, credential lock and prov
 				resolved: resolveProfile({ level: "readonly" }),
 			}),
 		};
-		runtime = await Runtime.open({ ...options, db: await openDatabase(join(home, "state.db")) });
+		runtime = await Runtime.open({
+			...options,
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
+		});
 		const id = await runtime.create({ agent: null, profile: "default", cwd: home });
 		await runtime.setSessionState(id, {
 			agent: null,
@@ -93,7 +96,10 @@ test("real SQLite conversation lifecycle, workspace IO, credential lock and prov
 		expect((await runtime.transcript(id))[0]?.text).toBe("Runtime integration verification");
 		expect(await runtime.usage(id)).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
 		await runtime.close();
-		runtime = await Runtime.open({ ...options, db: await openDatabase(join(home, "state.db")) });
+		runtime = await Runtime.open({
+			...options,
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
+		});
 		expect((await runtime.sessionState(id))?.capabilities).toEqual(["read"]);
 		await runtime.configure(id);
 		expect(await runtime.transcript(id)).toHaveLength(1);

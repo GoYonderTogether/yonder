@@ -2,7 +2,6 @@ import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import { Harness, LiveDoc, type TaskId } from "@earendil-works/pi-durable";
 import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
-import { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type { ExecutionEnv, Models, ToolContext } from "@yonder/sdk";
 import { wrapCloudCredentials } from "./cloud-models.js";
@@ -20,7 +19,7 @@ import type { RuntimeSessionConfig } from "./types.js";
 
 export async function openRuntime<T extends RuntimeInternals>(rt: T, options: RuntimeOptions): Promise<T> {
 	rt.install();
-	const storage = await SqliteStorage.open(options.db, { prefix: "pi_" });
+	const storage = options.storage;
 	rt.storage = storage;
 	rt.harness = await Harness.open(
 		storage,

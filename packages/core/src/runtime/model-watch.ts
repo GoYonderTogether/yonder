@@ -1,6 +1,5 @@
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
-import type { EntryId } from "@earendil-works/pi-durable";
-import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
+import type { EntryId, Storage } from "@earendil-works/pi-durable";
 import type { Models } from "@yonder/sdk";
 import { cid } from "./docs.js";
 import {
@@ -232,7 +231,7 @@ export class ModelWatch {
 
 /** Read only attempts belonging to this receipt, stopping at the next run's user entry. */
 export async function runAttempts(
-	storage: SqliteStorage,
+	storage: Storage,
 	session: string,
 	placed: EntryId[],
 	answer?: EntryId,

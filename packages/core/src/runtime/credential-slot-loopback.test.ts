@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { CredentialSlotStore } from "./credential-slots.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 
 it("actual HTTP retry keeps the frozen account across a host configuration change", async () => {
@@ -31,7 +31,7 @@ it("actual HTTP retry keeps the frozen account across a host configuration chang
 	try {
 		runtime = await Runtime.open({
 			home,
-			db: await openDatabase(join(home, "state.db")),
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 			config: {
 				schema: 1,
 				credentials: "auth.json",

@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { openDatabase } from "../runtime/db.js";
+import { quotaStore } from "../store/quota.js";
 import { createQuota, guestLimitDefaults, type OutsiderSubject, quotaDay } from "./quota.js";
 
 const guest = (qr: string, source: string): OutsiderSubject => ({ kind: "guest", qr, source });
@@ -8,7 +9,7 @@ const person = (id: string): OutsiderSubject => ({ kind: "person", person: id })
 async function ledger(outsiders: Parameters<typeof createQuota>[0]["outsiders"], now?: () => number) {
 	const db = await openDatabase(":memory:");
 	const quota = createQuota({
-		db,
+		store: quotaStore(db),
 		outsiders,
 		timezone: "Asia/Shanghai",
 		...(now ? { now } : {}),

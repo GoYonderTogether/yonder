@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
 import { resolveProfile } from "../../packages/core/dist/config/index.js";
 import { openKernel } from "../../packages/core/dist/kernel/index.js";
-import { openDatabase } from "../../packages/core/dist/runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../../packages/core/dist/runtime/db.js";
 import { localEnvironment } from "../../packages/core/dist/runtime/env.js";
 import { createGrepTool } from "../../packages/core/dist/runtime/grep.js";
 import { hostedProcessSpawner } from "../../packages/core/dist/runtime/hosted-process.js";
@@ -246,7 +246,12 @@ if (mode === "contract") {
 	});
 	const db = await openDatabase(join(home, "runtime.db"));
 	const config = { agent: null, profile: "default", cwd: home, resolved: resolveProfile({ level: "bypass" }) };
-	const runtime = await Runtime.open({ home, db, config: { schema: 1 }, resolveSession: async () => config });
+	const runtime = await Runtime.open({
+		home,
+		storage: await openRuntimeStorage(db),
+		config: { schema: 1 },
+		resolveSession: async () => config,
+	});
 	try {
 		assert.deepEqual(
 			await runtime.executeCommand(config, {

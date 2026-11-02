@@ -7,7 +7,7 @@ import { type AgentConfig, resolveProfile } from "../config/index.js";
 import { testModel } from "../config/test-support.js";
 import { outsiderInstructions, outsiderTools, withDefaultOutsider } from "../kernel/peer.js";
 import { createPermissions } from "../permissions.js";
-import { openDatabase } from "../runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { createOutsiderGuard } from "./outsider-guard.js";
 
@@ -170,7 +170,7 @@ test.skipIf(!real)(
 		const profile = withDefaultOutsider(base(), { capabilities: ["chat"] }, "local", model).profiles.outsider!;
 		const runtime = await Runtime.open({
 			home,
-			db: await openDatabase(`${home}/state.db`),
+			storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
 			config: { schema: 1, credentials: auth },
 			resolveSession: async () => ({
 				agent: null,

@@ -1,4 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
+import type { Storage } from "@earendil-works/pi-durable";
+import { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import { NodeSqliteDatabase, openNodeSqliteDatabase } from "@earendil-works/pi-durable/storage/sqlite/node";
 import type { Db } from "../store/db.js";
 
@@ -12,4 +14,9 @@ export async function openDatabase(path: string, readOnly = false): Promise<Db> 
 	const db = new NodeSqliteDatabase(raw);
 	db.close = async () => raw.close();
 	return db;
+}
+
+/** Adapt the one host-owned connection to pi storage while retaining the shared pi_ namespace. */
+export function openRuntimeStorage(db: Db): Promise<Storage> {
+	return SqliteStorage.open(db, { prefix: "pi_" });
 }

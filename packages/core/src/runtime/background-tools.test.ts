@@ -14,7 +14,7 @@ import {
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 
 // A native task driver stands in only for the model choosing tool names and arguments;
@@ -26,7 +26,7 @@ test("bg_run/bg_status/bg_logs/bg_kill drive a real sleep+echo background job", 
 	try {
 		runtime = await Runtime.open({
 			home,
-			db: await openDatabase(join(home, "state.db")),
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 			config: { schema: 1 },
 			resolveSession: async () => ({
 				agent: null,

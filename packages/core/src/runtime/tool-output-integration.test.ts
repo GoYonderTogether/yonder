@@ -15,7 +15,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { Type } from "typebox";
 import { expect, test, vi } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 
 test("SDK context cache and automatic cache run through the native background wrapper", async () => {
@@ -26,7 +26,7 @@ test("SDK context cache and automatic cache run through the native background wr
 		let explicit = "";
 		runtime = await Runtime.open({
 			home,
-			db: await openDatabase(join(home, "state.db")),
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 			config: { schema: 1 },
 			resolveSession: async () => ({
 				agent: null,

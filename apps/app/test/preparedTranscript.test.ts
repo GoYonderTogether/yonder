@@ -9,7 +9,7 @@ import { resolveProfile } from "../../../packages/core/src/config/test-support";
 import { prepareInput } from "../../../packages/core/src/prompt";
 import { Runtime } from "../../../packages/core/src/runtime";
 import { FileCredentials } from "../../../packages/core/src/runtime/credentials";
-import { openDatabase } from "../../../packages/core/src/runtime/db";
+import { openDatabase, openRuntimeStorage } from "../../../packages/core/src/runtime/db";
 import { localEnvironment, workspaceFiles } from "../../../packages/core/src/runtime/env";
 import { buildModels } from "../../../packages/core/src/runtime/models";
 import { readTranscript, transcriptItem } from "../../../packages/core/src/runtime/transcript";
@@ -26,7 +26,12 @@ test("real preparation and stored edit project metadata without losing the origi
 		const text = "保留正文\n<turn>这是用户写的 XML</turn>";
 		const event = await store.events.record({ type: "message.in", from: "acct:console:owner", data: { text } });
 		const session = { agent: null, profile: "default", cwd: home, resolved: resolveProfile({ contexts: ["context"] }) };
-		runtime = await Runtime.open({ db, home, config: { schema: 1 }, resolveSession: async () => session });
+		runtime = await Runtime.open({
+			storage: await openRuntimeStorage(db),
+			home,
+			config: { schema: 1 },
+			resolveSession: async () => session,
+		});
 		const id = await runtime.create({ agent: null, profile: "default", cwd: home });
 		await runtime.submit(id, { text, event, wake: "write" });
 		const [original] = await runtime.transcript(id);

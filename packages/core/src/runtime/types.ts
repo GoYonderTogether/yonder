@@ -1,3 +1,4 @@
+import type { Storage } from "@earendil-works/pi-durable";
 import type {
 	Attachment,
 	Capability,
@@ -12,7 +13,6 @@ import type {
 	YEvent,
 } from "@yonder/sdk";
 import type { Binding, ResolvedProfile, YonderConfig } from "../config/index.js";
-import type { Db } from "./db.js";
 import type { TodoUpdatedEvent } from "./todo.js";
 export interface RuntimeSessionConfig {
 	ownerWorkbench?: boolean;
@@ -38,7 +38,7 @@ export interface PromptPart {
 }
 
 export interface RuntimeOptions {
-	db: Db;
+	storage: Storage;
 	home: string;
 	config: YonderConfig;
 	plugins?: Array<{ id: string; tools: Tool[]; hooks: Hook[] }>;

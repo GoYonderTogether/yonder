@@ -9,7 +9,7 @@ import { createDelivery } from "../delivery/index.js";
 import { loadPlugins } from "../plugins/index.js";
 import { peerWorkspaceContext, systemSections } from "../prompt/index.js";
 import { createRouter } from "../routing/index.js";
-import { openDatabase } from "../runtime/db.js";
+import { openDatabase, openRuntimeStorage } from "../runtime/db.js";
 import { localEnvironment } from "../runtime/env.js";
 import { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
@@ -320,7 +320,12 @@ test("actual router chooses generated ephemeral peer ahead of broad owner, paren
 			version: "test",
 			runtime: () => runtime!,
 		});
-		runtime = await Runtime.open({ home, db, config, resolveSession: sessions.resolveSession });
+		runtime = await Runtime.open({
+			home,
+			storage: await openRuntimeStorage(db),
+			config,
+			resolveSession: sessions.resolveSession,
+		});
 		const router = createRouter({ store, sessions, runtime: () => runtime!, agents });
 		const event = await router.emit({
 			type: "message.in",

@@ -27,7 +27,7 @@ export async function transcript(
 	id: string,
 	range: { from?: number; limit?: number; before?: number } = {},
 ): Promise<TranscriptItem[]> {
-	return transcriptPage(await rt.conversation(id), range, rt.options.db);
+	return transcriptPage(await rt.conversation(id), range, rt.storage);
 }
 export async function sessionUsage(rt: RuntimeInternals, id: string): Promise<RuntimeRun["usage"]> {
 	const state = await rt.harness.snapshot(UsageDoc, cid(id), C),

@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { presetSession } from "../config/index.js";
 import { presetProfile, resolveProfile } from "../config/test-support.js";
 import { inspectToolCatalog } from "./catalog.js";
-import { openDatabase } from "./db.js";
+import { openDatabase, openRuntimeStorage } from "./db.js";
 import { Runtime } from "./index.js";
 
 test("child scope survives runtime restart and a broader preset", async () => {
@@ -19,7 +19,7 @@ test("child scope survives runtime restart and a broader preset", async () => {
 	const open = async () =>
 		Runtime.open({
 			home,
-			db: await openDatabase(join(home, "state.db")),
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 			config: { schema: 1 },
 			resolveSession: async () => ({ agent: null, profile: "child", cwd: home, resolved: parent }),
 		});
