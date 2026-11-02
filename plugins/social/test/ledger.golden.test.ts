@@ -33,13 +33,30 @@ test("SQLite routing facts rebuild a pending batch across restart and retain the
 				name: "Main",
 				owner: "person:owner",
 				defaultProfile: "group",
-				profiles: { group: {} },
+				profiles: { group: { plugins: ["social"] } },
 				social: {
 					enabled: true,
 					authorized: { conversations: ["conv:test:group"] },
 					defaults: { group: { batch: { count: 1, run: true } } },
 				},
-				bindings: [{ id: "group", match: { kind: "group" }, session: { mode: "persistent", per: "conv" } }],
+				bindings: [
+					// 来源绑定：入站群消息经它进入 write 会话。
+					{
+						id: "group",
+						match: { kind: "group" },
+						session: { mode: "persistent", per: "conv" },
+						wake: "write",
+						reply: "none",
+					},
+					// 批次消费者：独立的 persistent/per:conv 运行绑定，消费 social.batch-ready（08 §192）。
+					{
+						id: "batch",
+						match: { type: "social.batch-ready" },
+						session: { mode: "persistent", per: "conv" },
+						reply: "none",
+						wake: "run",
+					},
+				],
 			}),
 		);
 		const sessions = {

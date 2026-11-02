@@ -83,11 +83,12 @@ test("real plugin caller identity and selected batch namespace govern replaceabl
 						wake: "write",
 					},
 					{
+						// 消费者必须是 wake:run + reply:none 的独立 persistent/per:conv 绑定（08 §192）。
 						id: "batch",
 						match: { type: "chosen.batch-ready", channel: "room" },
 						session: { mode: "persistent", per: "conv" },
 						reply: "none",
-						wake: "mention",
+						wake: "run",
 					},
 				],
 			}),
@@ -123,7 +124,8 @@ test("real plugin caller identity and selected batch namespace govern replaceabl
 			conv: source.conv!,
 			data: { ...request, msgId: randomUUID() },
 		});
-		expect(batch.routes).toMatchObject([{ agent: "main", session: route.session, wake: "write" }]);
+		// 批次沿消费者绑定自身的唤醒方式进入运行；消费者是 wake:run，不再伪装成 write。
+		expect(batch.routes).toMatchObject([{ agent: "main", session: route.session, wake: "run" }]);
 		const wrong = await other.events.emit({
 			type: "other.batch-ready",
 			from: "plugin:other",

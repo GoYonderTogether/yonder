@@ -3,6 +3,7 @@
 		"agent": "string",
 		"reason": "string",
 		"revision": "string",
+		"plugin": "string",
 		"policy": {
 			"batch": {
 				"count": "number",

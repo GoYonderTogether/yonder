@@ -32,6 +32,14 @@ test("batch admission rechecks authorization, quiet and binding without routing 
 						session: { mode: "persistent", per: "conv" },
 						reply: "none",
 					},
+					{
+						// 入站消息经这条绑定进入 write 会话；批次判定按路由里记录的 binding 解析消费者。
+						id: "group",
+						match: { type: "message.in", conv: "conv:test:g" },
+						session: { mode: "persistent", per: "conv" },
+						wake: "write",
+						reply: "none",
+					},
 				],
 			}),
 		);
