@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import lockfile from "proper-lockfile";
 import { parseDocument } from "yaml";
 import { loadYonderConfig, parseYonderConfig } from "./index.js";
@@ -14,6 +15,19 @@ export interface GatewaySettings {
 	trustProxy: boolean;
 	remoteOwner: boolean;
 	remoteAdmin: boolean;
+}
+
+async function replace(file: string, temp: string): Promise<void> {
+	for (let retries = 0; ; retries++) {
+		try {
+			await rename(temp, file);
+			return;
+		} catch (error) {
+			const code = error instanceof Error && "code" in error ? error.code : undefined;
+			if (process.platform !== "win32" || code !== "EPERM" || retries === 5) throw error;
+			await sleep(20 * 2 ** retries);
+		}
+	}
 }
 
 /** Gateway settings with defaults applied; read from yonder.yaml on every call so a rotated token takes effect without restart. */
@@ -41,8 +55,12 @@ export async function setAccessTokenHash(home: string, hash: string): Promise<vo
 		const text = document.toString();
 		parseYonderConfig(text, file);
 		const temp = `${file}.${randomUUID()}.tmp`;
-		await writeFile(temp, text, { mode: 0o600 });
-		await rename(temp, file);
+		try {
+			await writeFile(temp, text, { mode: 0o600, flag: "wx" });
+			await replace(file, temp);
+		} finally {
+			await rm(temp, { force: true });
+		}
 	} finally {
 		await unlock();
 	}

@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- gateway：Windows 上临时 rename EPERM 有界重试；hardening 测试在失败路径也关闭已连接的 WebSocket。
 - config：自配置按本次请求记录真实接纳与动态状态，语义候选修复沿原生 patch；有限精确 conv 前置接收绑定可遮蔽普通消息 fallback，batch/custom 事件仍须共享 profile，profile 改变时要求显式关闭 open session、保留历史后重开。
 
 ## [0.3.26110205] - 2026-11-02

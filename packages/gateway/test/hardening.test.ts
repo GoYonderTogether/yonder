@@ -1,4 +1,4 @@
-import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
 import { tempHome } from "@yonder/sdk/testing";
@@ -155,11 +155,20 @@ describe("gateway hardening", () => {
 		const remote = await connect({ cookie });
 		const local = await connect({ cookie: await localCookie() });
 		const code = closeCode(remote);
-		await setAccessTokenHash(home, tokenHash("rotated-token"));
-		expect(await code).toBe(4401);
-		expect(local.readyState).toBe(WebSocket.OPEN);
-		local.close();
-		await expect(connect({ cookie })).rejects.toThrow("HTTP 401");
+		try {
+			await setAccessTokenHash(home, tokenHash("rotated-token"));
+			expect(await code).toBe(4401);
+			expect(local.readyState).toBe(WebSocket.OPEN);
+			local.close();
+			await expect(connect({ cookie })).rejects.toThrow("HTTP 401");
+		} finally {
+			const closed = [remote, local].map((ws) =>
+				ws.readyState === WebSocket.CLOSED ? Promise.resolve() : closeCode(ws),
+			);
+			for (const ws of [remote, local]) if (ws.readyState !== WebSocket.CLOSED) ws.terminate();
+			await Promise.all(closed);
+			expect(await settled(() => gateway.stats().sockets === 0)).toBe(true);
+		}
 	}, 15_000);
 
 	it("closes sockets when their cookie expires", async () => {
@@ -175,13 +184,20 @@ describe("gateway hardening", () => {
 	it("refuses sockets beyond the global cap", async () => {
 		const cookie = await localCookie();
 		const held: WebSocket[] = [];
-		for (let i = 0; i < 32; i++) held.push(await connect({ cookie }));
-		await expect(connect({ cookie })).rejects.toThrow("HTTP 503");
-		expect(gateway.stats().sockets).toBe(32);
-		const closed = held.map((ws) => closeCode(ws));
-		for (const ws of held) ws.close();
-		await Promise.all(closed);
-		expect(await settled(() => gateway.stats().sockets === 0)).toBe(true);
+		try {
+			for (let i = 0; i < 32; i++) held.push(await connect({ cookie }));
+			await expect(connect({ cookie })).rejects.toThrow("HTTP 503");
+			expect(gateway.stats().sockets).toBe(32);
+			const closed = held.map((ws) => closeCode(ws));
+			for (const ws of held) ws.close();
+			await Promise.all(closed);
+			expect(await settled(() => gateway.stats().sockets === 0)).toBe(true);
+		} finally {
+			const closed = held.map((ws) => (ws.readyState === WebSocket.CLOSED ? Promise.resolve() : closeCode(ws)));
+			for (const ws of held) if (ws.readyState !== WebSocket.CLOSED) ws.terminate();
+			await Promise.all(closed);
+			expect(await settled(() => gateway.stats().sockets === 0)).toBe(true);
+		}
 	}, 30_000);
 
 	it("releases a feed whose subscriber leaves while the feed is still starting", async () => {
