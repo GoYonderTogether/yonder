@@ -181,7 +181,7 @@ test("a member asking not to answer pauses that interaction without banning the 
 });
 
 test("twenty eligible group messages trigger one real batch after quiet time with zero judge/model calls", async () => {
-	const fixture = await groupFixture({ social: true });
+	const fixture = await groupFixture({ social: true, initialBatchRun: null });
 	const { kernel, probe } = fixture;
 	try {
 		const sources: YEvent[] = [];

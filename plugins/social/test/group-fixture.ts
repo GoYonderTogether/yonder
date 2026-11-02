@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ChannelIO, Delivery, PluginAPI, ToolContext } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { stringify } from "yaml";
+import { parseAgentConfig } from "../../../packages/core/src/config/index.js";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
+import { withDefaultPeer } from "../../../packages/core/src/kernel/peer.js";
 import { groupInstructions } from "../../channel-qq/src/participation.js";
 
 export const mainConv = "conv:qq-main:group:main-group";
@@ -41,6 +43,8 @@ export async function groupFixture(
 		review?: { intervalHours?: number; minMessages?: number };
 		/** 官方 QQ 群形态：群原消息 write 旁观，运行只由 social.batch-ready 发起（spec 11 §15）。 */
 		officialGroup?: boolean;
+		ownerHandoff?: boolean;
+		initialBatchRun?: boolean | null;
 	} = {},
 ) {
 	const home = await tempHome("yonder-group-delivery-");
@@ -71,7 +75,7 @@ export default {...plugin,setup(api){globalThis[${JSON.stringify(`${key}:social`
 					apiVersion: 1,
 					id: "delivery-probe",
 					entry: "index.mjs",
-					contributes: { channels: ["group-delivery"], hooks: ["hold", "strategy"] },
+					contributes: { channels: [options.officialGroup ? "qq" : "group-delivery"], hooks: ["hold", "strategy"] },
 				},
 			}),
 		);
@@ -94,7 +98,7 @@ ctx.signal.throwIfAborted();if(state.onRequest)await state.onRequest(ctx);
 if(!${Boolean(options.allowProvider)})throw Error('GROUP_DELIVERY_PROBE_BEFORE_PROVIDER');
 }});
 api.channels.register({
-  type:'group-delivery',multiAgent:${Boolean(options.membership)},
+  type:${JSON.stringify(options.officialGroup ? "qq" : "group-delivery")},multiAgent:${Boolean(options.membership)},
   create(id){
     return {
       id,kinds:['group','dm'],output:{stream:false,attachments:false},
@@ -127,7 +131,10 @@ api.channels.register({
 					},
 					{ use: "./probe" },
 				],
-				channels: { "qq-main": { type: "group-delivery" }, "qq-gpt": { type: "group-delivery" } },
+				channels: {
+					"qq-main": { type: options.officialGroup ? "qq" : "group-delivery" },
+					"qq-gpt": { type: options.officialGroup ? "qq" : "group-delivery" },
+				},
 				identity: { persons: [{ id: "owner", name: "Owner", accounts: ["acct:qq-main:owner", "acct:qq-gpt:owner"] }] },
 				agents: [
 					{ id: "main", workspace: "./agents/main" },
@@ -163,70 +170,83 @@ api.channels.register({
 				instructions: groupInstructions,
 				tools: { offer: ["message_send"], search: [] },
 			};
-			await writeFile(
-				join(home, `agents/${id}/agent.yaml`),
-				stringify({
-					schema: 1,
-					id,
-					name: id === "main" ? "贾维斯" : "GPT 学姐",
-					owner: "person:owner",
-					defaultProfile: "group",
-					profiles: {
-						group: profile,
-						private: profile,
-						...(options.initialGroup
-							? { "card-group": { ...options.initialGroup.profile, channelInstances: [instance] } }
-							: {}),
-					},
-					...(options.social
-						? {
-								social: {
-									enabled: true,
-									scope: [conv],
-									authorized: { conversations: [conv] },
-									defaults: {
-										group: {
-											...(options.strategy ? { plugin: options.strategy } : {}),
-											mode: "batch",
-											batch: { run: true, delaySeconds: 3 },
-											minIntervalSeconds: 1,
-										},
+			const ownerProfile = options.ownerHandoff
+				? { ...profile, level: "bypass", instructions: "", tools: { offer: ["*"], search: [] } }
+				: profile;
+			const agentConfig = {
+				schema: 1,
+				id,
+				name: id === "main" ? "贾维斯" : "GPT 学姐",
+				owner: "person:owner",
+				defaultProfile: "group",
+				profiles: {
+					group: options.ownerHandoff
+						? { ...profile, tools: { offer: ["parent_ask", "message_send"], search: [] } }
+						: profile,
+					private: ownerProfile,
+					...(options.initialGroup
+						? { "card-group": { ...options.initialGroup.profile, channelInstances: [instance] } }
+						: {}),
+				},
+				...(options.social
+					? {
+							social: {
+								enabled: true,
+								scope: [conv],
+								authorized: { conversations: [conv] },
+								defaults: {
+									group: {
+										...(options.strategy ? { plugin: options.strategy } : {}),
+										mode: "batch",
+										batch:
+											options.initialBatchRun === null
+												? { delaySeconds: 3 }
+												: { run: options.initialBatchRun ?? true, delaySeconds: 3 },
+										minIntervalSeconds: 1,
 									},
 								},
-							}
-						: {}),
-					bindings: options.initialGroup
-						? [{ ...options.initialGroup.binding, match: { channel: instance, kind: "group" } }]
-						: options.noBindings
-							? []
-							: [
-									{
-										id: "group",
-										match: { channel: instance, kind: "group" },
-										session: { mode: "persistent", per: "conv" },
-										profile: "group",
-										// 官方 QQ 群是 write 旁观：内核不因 @ 启动运行，参与机会由 social 发起。
-										wake: options.officialGroup ? "write" : "mention",
-										reply: "none",
-									},
-									{
-										id: "group-batch",
-										match: { type: `${options.strategy ?? "social"}.batch-ready`, channel: instance },
-										session: { mode: "persistent", per: "conv" },
-										profile: "group",
-										reply: "none",
-									},
-									{
-										id: "private",
-										match: { channel: instance, kind: "dm" },
-										session: { mode: "persistent", per: "conv" },
-										profile: "private",
-										wake: "write",
-										reply: "none",
-									},
-								],
-				}),
-			);
+							},
+						}
+					: {}),
+				bindings: options.initialGroup
+					? [{ ...options.initialGroup.binding, match: { channel: instance, kind: "group" } }]
+					: options.noBindings
+						? []
+						: [
+								{
+									id: "group",
+									match: { channel: instance, kind: "group" },
+									session: { mode: "persistent", per: "conv" },
+									profile: "group",
+									// 官方 QQ 群是 write 旁观：内核不因 @ 启动运行，参与机会由 social 发起。
+									wake: options.officialGroup ? "write" : "mention",
+									reply: "none",
+								},
+								...(!options.ownerHandoff
+									? [
+											{
+												id: "group-batch",
+												match: { type: `${options.strategy ?? "social"}.batch-ready`, channel: instance },
+												session: { mode: "persistent", per: "conv" },
+												profile: "group",
+												reply: "none",
+											},
+										]
+									: []),
+								{
+									id: "private",
+									match: { channel: instance, kind: "dm" },
+									session: options.ownerHandoff ? "main" : { mode: "persistent", per: "conv" },
+									profile: "private",
+									wake: "write",
+									reply: "none",
+								},
+							],
+			};
+			const persistedAgent = options.ownerHandoff
+				? withDefaultPeer(parseAgentConfig(stringify(agentConfig), "agent.yaml", id), false, "local", profile.model)
+				: agentConfig;
+			await writeFile(join(home, `agents/${id}/agent.yaml`), stringify(persistedAgent));
 		}
 		kernel = await openKernel(home);
 		return {
