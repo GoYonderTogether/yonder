@@ -58,6 +58,7 @@ export function createReplies({
 	fromSession: (session: SessionInfo) => string | undefined;
 	retry: (event: YEvent) => void;
 }) {
+	const delivering = new Set<Promise<void>>();
 	const { attempt, record, unknown } = ledger;
 	const runtimeRef = options.runtime as () => Runtime;
 	const selected = (config?: RuntimeSessionConfig) => selectedHooks(hooks, config);
@@ -311,7 +312,7 @@ export function createReplies({
 		for (const [key] of owned) streams.delete(key);
 		// Model termination is durable and its slot released before awaiting any channel.
 		const deliver = () => {
-			void (async () => {
+			const pending = (async () => {
 				await ready;
 				for (const [, state] of owned)
 					if (state.current) closeMessage(session, state, state.message ? state.current.text : finalText);
@@ -345,8 +346,10 @@ export function createReplies({
 				await Promise.all(owned.map(([, state]) => state.tail));
 				await visibility.complete(session, completionNotices, profile);
 			})().catch(report);
+			delivering.add(pending);
+			void pending.then(() => delivering.delete(pending));
 		};
 		return { ending, deliver };
 	}
-	return { closeMessage, onStart, onRun };
+	return { closeMessage, onStart, onRun, close: () => Promise.all(delivering) };
 }

@@ -31,6 +31,7 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 		async stop() {
 			try {
 				await loaded.stop();
+				await loaded.drain();
 			} finally {
 				await scheduler.stop();
 			}

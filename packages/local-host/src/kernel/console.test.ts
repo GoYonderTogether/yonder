@@ -1,9 +1,11 @@
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import * as shared from "@yonder/bot-core";
 import { testModel } from "@yonder/local-host/config/test-support";
 import { initHome, openKernel } from "@yonder/local-host/kernel/index";
+import { Runtime } from "@yonder/runtime-adapter";
 import { tempHome } from "@yonder/sdk/testing";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { parse, stringify } from "yaml";
 
 // Real kernel, router and runtime. A real selected hook cancels the run before the provider request, so no model
@@ -172,6 +174,96 @@ test("a console turn replies in the console even when the agent restricts channe
 		expect(ending?.data).toMatchObject({ replied: "source", targets: ["conv:console:main"] });
 	} finally {
 		await kernel.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 90_000);
+
+// The official card observer removes a failed run's prepared reply through real file storage.
+// Hold that removal until native shutdown reaches its pre-storage-close boundary.
+test("kernel close joins native terminal observers before their real storage closes", async () => {
+	const home = await homeWithProbe();
+	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
+	let release!: () => void;
+	const gate = new Promise<void>((done) => {
+		release = done;
+	});
+	let entered!: () => void;
+	const removalStarted = new Promise<void>((done) => {
+		entered = done;
+	});
+	let finished!: () => void;
+	const removalFinished = new Promise<void>((done) => {
+		finished = done;
+	});
+	let removing = false,
+		removed = false,
+		storeReadable = false;
+	const create = shared.createBot;
+	const created = vi.spyOn(shared, "createBot").mockImplementation((options) =>
+		create({
+			...options,
+			plugins: {
+				...options.plugins,
+				storage(id) {
+					const storage = options.plugins.storage(id);
+					if (id !== "channel-card") return storage;
+					return {
+						...storage,
+						open(root) {
+							const files = storage.open(root);
+							return {
+								...files,
+								async remove(path) {
+									removing = true;
+									entered();
+									try {
+										await gate;
+										storeReadable = (await options.store.events.query({ type: "run.end" })).events.length > 0;
+										await files.remove(path);
+										removed = true;
+									} finally {
+										finished();
+									}
+								},
+							};
+						},
+					};
+				},
+			},
+		}),
+	);
+	const open = Runtime.open;
+	const opened = vi.spyOn(Runtime, "open").mockImplementation((options) => {
+		const close = options.storage.close.bind(options.storage);
+		options.storage.close = async (context) => {
+			try {
+				expect(removed).toBe(true);
+				expect(storeReadable).toBe(true);
+			} finally {
+				await close(context);
+			}
+		};
+		return open({
+			...options,
+			beforeStorageClose: async () => {
+				release();
+				await options.beforeStorageClose?.();
+			},
+		});
+	});
+	try {
+		kernel = await openKernel(home);
+		await kernel.bots.send("main", "你好");
+		await removalStarted;
+		await kernel.close();
+		expect(removed).toBe(true);
+		expect(storeReadable).toBe(true);
+	} finally {
+		release();
+		await kernel?.close();
+		if (removing) await removalFinished;
+		created.mockRestore();
+		opened.mockRestore();
 		await rm(home, { recursive: true, force: true });
 	}
 }, 90_000);

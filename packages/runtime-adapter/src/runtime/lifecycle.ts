@@ -15,6 +15,11 @@ import { modelTimeouts, retryPolicy } from "./recovery.js";
 export async function openRuntime<T extends RuntimeInternals>(rt: T, options: RuntimeOptions): Promise<T> {
 	rt.install();
 	const storage = options.storage;
+	const closeStorage = storage.close.bind(storage);
+	storage.close = async (context) => {
+		await options.beforeStorageClose?.();
+		await closeStorage(context);
+	};
 	rt.storage = storage;
 	rt.harness = await Harness.open(
 		storage,
@@ -184,6 +189,7 @@ export async function closeRuntime(rt: RuntimeInternals): Promise<void> {
 	rt.quotaPoller?.stop();
 	rt.watch.stop();
 	await rt.background.close();
+	await Promise.all(rt.finishing.values());
 	try {
 		await rt.harness.close(C);
 	} finally {

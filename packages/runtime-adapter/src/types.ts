@@ -44,6 +44,8 @@ export interface PromptPart {
 
 export interface RuntimeOptions {
 	storage: Storage;
+	/** Join host deliveries and event observers after native invocation shutdown, before closing storage. */
+	beforeStorageClose?(): Promise<void>;
 	home: string;
 	config: YonderConfig;
 	services: RuntimeServices;

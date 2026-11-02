@@ -53,6 +53,7 @@ export interface LoadedPlugins {
 	}>;
 	start(io: ChannelIO, workControl?: (id: string) => NonNullable<ChannelIO["control"]>): Promise<void>;
 	stop(): Promise<void>;
+	drain(): Promise<void>;
 	observe(event: YEvent): Promise<void>;
 }
 
@@ -95,6 +96,7 @@ export async function registerPlugins(
 	const triggers: Array<{ pluginId: string; trigger: Trigger }> = [];
 	const listeners: Listener[] = [];
 	const observations = new Map<string, Promise<void>>();
+	let observing = true;
 	const started: Lifecycle[] = [];
 	const scheduler = bindings.scheduler;
 	const pluginIds = new Set<string>();
@@ -442,7 +444,12 @@ export async function registerPlugins(
 			}
 		},
 		stop,
+		async drain() {
+			observing = false;
+			await Promise.all(observations.values());
+		},
 		async observe(event) {
+			if (!observing) return;
 			await Promise.all(
 				[...pluginIds].map((pluginId) => {
 					const next = (observations.get(pluginId) ?? Promise.resolve()).then(async () => {

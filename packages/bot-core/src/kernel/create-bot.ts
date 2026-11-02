@@ -188,6 +188,10 @@ export async function createBot(options: CreateBotOptions) {
 		// Budgets are a session concern; the kernel injects them so the runtime stays below sessions.
 		onUsageSettled: (id, usage) => checkBudget({ store, config }, id, { input: usage.input, output: usage.output }),
 		onRun: completeRun,
+		beforeStorageClose: async () => {
+			await delivery.close();
+			await loaded.drain();
+		},
 		onSessionSettled: async (data) => {
 			await store.events.record({ type: "session.settled", data });
 		},

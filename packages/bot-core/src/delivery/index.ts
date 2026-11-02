@@ -100,6 +100,7 @@ export function createDelivery(options: DeliveryOptions) {
 			lifetime.abort();
 			start();
 			await Promise.all(retries.values());
+			await replies.close();
 			await visibility.close();
 		},
 		async recover() {
