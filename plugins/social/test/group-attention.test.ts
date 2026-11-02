@@ -1,6 +1,7 @@
-import type { YEvent } from "@yonder/sdk";
+import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { GroupAttention } from "../src/group-attention.js";
+import { Groups } from "../src/groups.js";
 import { gptConv, groupFixture, mainConv } from "./group-fixture.js";
 
 const message = (text: string, sender = "owner", extra = {}) => ({
@@ -9,6 +10,75 @@ const message = (text: string, sender = "owner", extra = {}) => ({
 	conv: mainConv,
 	data: { kind: "group", text, msgId: crypto.randomUUID(), ...extra },
 });
+
+function floorCandidate(focused: boolean) {
+	const source: YEvent = {
+		id: "source-event",
+		ts: new Date().toISOString(),
+		type: "message.in",
+		from: "acct:qq-gpt:owner",
+		conv: gptConv,
+		data: { kind: "group", text: "ordinary request", mentioned: false },
+	};
+	const emitted: EventInput[] = [];
+	const batches: EventInput[] = [];
+	const api = {
+		id: "social",
+		config: {},
+		log: { info() {}, warn() {}, error() {} },
+		events: {
+			async emit(event: EventInput) {
+				emitted.push(event);
+				return { ...event, id: `emitted-${emitted.length}`, ts: new Date().toISOString() };
+			},
+			async ask(event: EventInput) {
+				batches.push(event);
+				return { event: { ...event, id: `asked-${batches.length}`, ts: new Date().toISOString() }, results: [] };
+			},
+			async query(query: { id?: string }) {
+				return { events: query.id === source.id ? [source] : [], next: null };
+			},
+		},
+		social: {
+			async admitBatch() {
+				return { session: "gpt-session" };
+			},
+		},
+	} as unknown as PluginAPI;
+	const groups = new Groups(api, { preset: "test" });
+	const candidate = {
+		agent: "gpt-senpai",
+		conv: gptConv,
+		session: "gpt-session",
+		revision: "r1",
+		policy: { batch: { run: true } },
+		entries: [source],
+		counter: 0,
+	};
+	const room = {
+		id: "shared-room",
+		convs: new Set([mainConv, gptConv]),
+		waiting: [],
+		wake: new Set(),
+		turn: { agent: "main", session: "main-session", direct: false, source: "main-source", decision: "main-source" },
+		candidates: new Map([[candidate.agent, candidate]]),
+		quietMs: 0,
+		lastHumanAt: Date.now() - 60000,
+	};
+	const internal = groups as unknown as {
+		aliases: Map<string, string>;
+		rooms: Map<string, typeof room>;
+		sessions: Map<string, typeof room>;
+		attention: GroupAttention;
+		flush(room: typeof room): Promise<void>;
+		offer(room: typeof room): Promise<void>;
+	};
+	internal.aliases.set(mainConv, room.id);
+	internal.aliases.set(gptConv, room.id);
+	internal.rooms.set(room.id, room);
+	internal.sessions.set(candidate.session, room);
+	return { api, groups, internal, source, candidate, room, emitted, batches, focused };
+}
 
 test("successful replies focus the actual participant for five minutes without extending on incoming messages", async () => {
 	const f = await groupFixture();
@@ -232,6 +302,60 @@ test("batch.run true admits one ordinary eligible message after its window", asy
 		await f.close();
 	}
 }, 30000);
+
+test("a peer reply consumes ordinary candidates but preserves focused candidates for their own batch", async () => {
+	for (const focused of [false, true]) {
+		const f = floorCandidate(focused);
+		try {
+			if (focused)
+				await f.internal.attention.replied(
+					{
+						id: "prior-reply",
+						ts: new Date().toISOString(),
+						type: "message.out",
+						from: "agent:gpt-senpai",
+						conv: gptConv,
+						data: { respondTo: f.source.id, delivery: { ok: true } },
+					},
+					f.room.id,
+				);
+			await f.internal.flush(f.room);
+			expect(f.emitted.find((event) => event.type === "social.rule-match")?.data).toMatchObject({ focused });
+			expect(f.candidate.willing).toMatchObject({ focused });
+			await f.groups.delivered({
+				id: "peer-reply",
+				ts: new Date().toISOString(),
+				type: "message.out",
+				from: "agent:main",
+				conv: mainConv,
+				data: { delivery: { ok: true } },
+			});
+			const peerRead = f.emitted.find((event) => event.type === "social.batch-read");
+			if (!focused) {
+				expect(peerRead).toMatchObject({
+					parent: "peer-reply",
+					conv: gptConv,
+					data: { agent: "gpt-senpai", through: f.source.id },
+				});
+				expect(f.candidate.willing).toBeUndefined();
+				expect(f.candidate.entries).toEqual([]);
+			} else {
+				expect(peerRead).toBeUndefined();
+				expect(f.candidate.willing).toMatchObject({ focused: true, entries: [f.source] });
+				if (f.room.timer) clearTimeout(f.room.timer);
+				delete f.room.timer;
+				delete f.room.turn;
+				await f.internal.offer(f.room);
+				expect(f.batches.find((event) => event.type === "social.batch-ready")).toMatchObject({
+					conv: gptConv,
+					data: { agent: "gpt-senpai", sourceEvents: [f.source.id], through: f.source.id },
+				});
+			}
+		} finally {
+			f.groups.stop();
+		}
+	}
+});
 
 test("same-window requests for two Bots preserve each one's own source instead of consuming the earlier task", async () => {
 	const f = await groupFixture({ social: true });

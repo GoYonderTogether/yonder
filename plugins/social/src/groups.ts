@@ -30,7 +30,7 @@ interface Candidate {
 	entries: YEvent[];
 	pause?: GroupPause;
 	counter: number;
-	willing?: { through: string; entries: YEvent[]; decision: string; notBefore?: number };
+	willing?: { through: string; entries: YEvent[]; decision: string; focused?: boolean; notBefore?: number };
 	lastSent?: number;
 	/** 08 官方群派生默认范围：没有硬触发就只记录，count 兜底不得自行唤醒。 */
 	derivedDefault?: boolean;
@@ -351,7 +351,7 @@ export class Groups {
 					through,
 					onRead: (covered, parent) => this.read(c, covered, parent),
 				});
-			} else c.willing = { through: relevant.at(-1)!.id, entries: relevant, decision: fact.id };
+			} else c.willing = { through: relevant.at(-1)!.id, entries: relevant, decision: fact.id, focused };
 		}
 		await this.offer(room);
 	}
@@ -443,7 +443,7 @@ export class Groups {
 		await this.attention.replied(event, room.id);
 		if (!live) return;
 		for (const peer of room.candidates.values())
-			if (peer.agent !== agent && peer.willing) {
+			if (peer.agent !== agent && peer.willing && !peer.willing.focused) {
 				delete peer.willing;
 				await this.read(peer, peer.entries, event.id);
 			}
