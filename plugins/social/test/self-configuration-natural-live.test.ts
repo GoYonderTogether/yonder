@@ -23,6 +23,116 @@ function sanitizeEvidence(value: unknown, paths: string[]) {
 	return JSON.parse(json);
 }
 
+function safeSocialUpdateArgs(value: unknown) {
+	if (!value || typeof value !== "object") return undefined;
+	const args = value as Record<string, unknown>;
+	const patch = args.patch && typeof args.patch === "object" ? (args.patch as Record<string, unknown>) : {};
+	const batch = patch.batch && typeof patch.batch === "object" ? (patch.batch as Record<string, unknown>) : {};
+	return {
+		...(typeof args.agent === "string" ? { agent: args.agent.slice(0, 100) } : {}),
+		...(typeof args.conv === "string" ? { conv: args.conv.slice(0, 300) } : {}),
+		...(typeof args.dryRun === "boolean" ? { dryRun: args.dryRun } : {}),
+		patch: {
+			...(typeof patch.mode === "string" ? { mode: patch.mode.slice(0, 40) } : {}),
+			...(Object.keys(batch).length
+				? {
+						batch: {
+							...(typeof batch.run === "boolean" ? { run: batch.run } : {}),
+							...(typeof batch.delaySeconds === "number" ? { delaySeconds: batch.delaySeconds } : {}),
+						},
+					}
+				: {}),
+			...(typeof patch.minIntervalSeconds === "number" ? { minIntervalSeconds: patch.minIntervalSeconds } : {}),
+		},
+	};
+}
+
+function safeSocialUpdateFailure(text: string) {
+	let result: unknown;
+	try {
+		result = JSON.parse(text);
+	} catch {
+		return { message: text.slice(0, 400), unparsed: true, textLength: text.length };
+	}
+	if (!result || typeof result !== "object") return { unparsed: true, textLength: text.length };
+	const data = result as Record<string, unknown>;
+	const details = data.details && typeof data.details === "object" ? (data.details as Record<string, unknown>) : {};
+	let preflight: Record<string, unknown> = {};
+	if (typeof details.preflight === "string") {
+		try {
+			const parsed = JSON.parse(details.preflight);
+			if (parsed && typeof parsed === "object") preflight = parsed as Record<string, unknown>;
+		} catch {
+			preflight = { unparsed: true };
+		}
+	} else if (details.preflight && typeof details.preflight === "object") {
+		preflight = details.preflight as Record<string, unknown>;
+	}
+	const gaps = Array.isArray(preflight.gaps)
+		? preflight.gaps.slice(0, 6).map((gap) => {
+				if (!gap || typeof gap !== "object") return { value: String(gap).slice(0, 240) };
+				const item = gap as Record<string, unknown>;
+				return Object.fromEntries(
+					[
+						"dependency",
+						"object",
+						"field",
+						"fields",
+						"conv",
+						"repair",
+						"profile",
+						"plugin",
+						"pluginSelected",
+						"matchingConsumer",
+					].flatMap((key) => {
+						const value = item[key];
+						if (typeof value === "string") return [[key, value.slice(0, 240)]];
+						if (
+							typeof value === "boolean" ||
+							(Array.isArray(value) && value.every((entry) => typeof entry === "string"))
+						)
+							return [[key, value]];
+						return [];
+					}),
+				);
+			})
+		: undefined;
+	return {
+		...(typeof data.code === "string" ? { code: data.code.slice(0, 80) } : {}),
+		...(typeof data.error === "string" ? { message: data.error.slice(0, 400) } : {}),
+		...(typeof data.message === "string" ? { message: data.message.slice(0, 400) } : {}),
+		...(typeof preflight.state === "string" ? { preflightState: preflight.state.slice(0, 40) } : {}),
+		...(typeof preflight.agent === "string" ? { preflightAgent: preflight.agent.slice(0, 100) } : {}),
+		...(typeof preflight.conv === "string" ? { preflightConv: preflight.conv.slice(0, 300) } : {}),
+		...(gaps?.length ? { preflightGaps: gaps } : {}),
+	};
+}
+
+function socialUpdateTranscriptEvidence(
+	items: readonly { kind: string; text: string; tools?: readonly { name: string; args: object }[] }[],
+) {
+	const calls: Array<{ name: string; args: ReturnType<typeof safeSocialUpdateArgs> }> = [];
+	const failures: Array<ReturnType<typeof safeSocialUpdateFailure>> = [];
+	const pending: string[] = [];
+	for (const item of items) {
+		if (item.kind === "pi.assistant") {
+			for (const tool of item.tools ?? []) {
+				pending.push(tool.name);
+				if (tool.name === "social_update" && calls.length < 8)
+					calls.push({ name: tool.name, args: safeSocialUpdateArgs(tool.args) });
+			}
+			continue;
+		}
+		if (item.kind !== "pi.tool-result" || pending.length === 0) continue;
+		const name = pending.shift();
+		if (name !== "social_update" || failures.length >= 8) continue;
+		const failure = safeSocialUpdateFailure(item.text);
+		if ("message" in failure || "code" in failure || "preflightState" in failure || "unparsed" in failure)
+			failures.push(failure);
+	}
+	return { calls, failures };
+}
+
 test.skipIf(!enabled)(
 	"real Luna handles the owner's natural group request through parent and batch routes",
 	async () => {
@@ -270,19 +380,10 @@ test.skipIf(!enabled)(
 						...events.flatMap((event) => event.routes?.map((route) => route.session).filter(Boolean) ?? []),
 						...(runs.events.map((event) => (event.data as { session?: string }).session).filter(Boolean) as string[]),
 					]);
-					const transcripts = await Promise.all(
+					const sessionToolEvidence = await Promise.all(
 						[...sessions].map(async (session) => ({
 							session,
-							items: await kernel.sessions
-								.transcript(session)
-								.then((items) =>
-									items.slice(-12).map((item) => ({
-										kind: item.kind,
-										text: item.text.slice(-2000),
-										tools: item.tools?.slice(-10).map((tool) => ({ name: tool.name, args: tool.args })),
-									})),
-								)
-								.catch(() => []),
+							evidence: socialUpdateTranscriptEvidence(await kernel.sessions.transcript(session).catch(() => [])),
 						})),
 					);
 					const currentAgent = parse(await readFile(resolve(fixture.home, "agents/main/agent.yaml"), "utf8")) as {
@@ -342,7 +443,7 @@ test.skipIf(!enabled)(
 								),
 							),
 						})),
-						transcripts,
+						sessionToolEvidence,
 						configuredPolicy: currentAgent.social?.conversations?.[mainConv],
 						groupProfile: currentAgent.profiles?.group,
 						effectiveSocial: (effectiveAgent as { social?: unknown } | undefined)?.social,
