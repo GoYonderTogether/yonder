@@ -236,3 +236,20 @@ v12后源码收口：15add313以内部必填类型把focused贯穿willing→Grou
 
 
 同批补修358122c3：公共goal句“任何时间/context提醒就wrap up”与已有14§1软阈值契约相反。v13实际warning01M6EVGKRZNWETTFMSKXVM52NW（main2，19:24:24，285250tokens）、01M6EVH8ANJ9KRBZZW8GJ6CCZ0（gpt155642，19:24:45，398730）、01M6EVP85SZQCG5B8NK4HWGHPK（19:27:28，204981）文本均明确继续工作。改公共句保持目标续办，不改真实limits；不能据此认定全部失败因果已确认。定向prompt/limits18通过1真实模型跳过、typecheck/Biome/diff通过，原7300预算保持。此前e564候选尚在CI，下一候选包含此补修后推送，由正常并发淘汰旧run，不安装缺补修的候选。
+
+
+## v14：已安装，真实群仍未完整交付
+
+候选5043338d正式发布为v0.3.26110214/tag 554ba68e3afbfe52509cb721714d407e8ff88e16。产品update回执01M6EZ2YXRJQZQZJ5DYFHV4VPW（updateId37b5ce87-4367-4afc-a39e-5ad35f79018c）verified=true、restartRequired=false，本机服务PID13524 ready；新Feishu四实例20:26:48Z就绪。QQ恢复会话不一定再次打印ready，不能据此判离线；20:31:38Z真实三入口入站证明本次连接可收消息。没有修改正式home来替Agent完成配置。
+
+候选CI41515585148成功；旧e564候选CI41514741178被新push淘汰，不是测试失败。AutoRelease41518493964首次dispatch HTTP500，仅重试失败派发步骤后成功；实际Release41518688116唯一派发。tag CI41518895905及Windows安装、Desktop、Android、iOS流水线成功，最终实查45资产包含APK、IPA、aarch64 DMG、x64 setup。Cloud同tag41519443117成功。root于21:13Z起用独立后台Chrome实际打开/work的本机贾维斯真实会话、历史和消息输入框；公网build-version读取version14/同完整SHA，builtAt20:28:38.272Z。历史连接失败原因仍未证实，不归因为版本不匹配。
+
+Feishu first01M6EZ7HWCKT1G9E2GSBXTYZ6X（20:29:21Z）仍无工具调用，回复01M6EZ89R8KXX8NXJ4RSR3SVF4称旧配置有效无需再改/再发；P1没有新配置或本轮发送。实际prepared190594含准确P1事实：scope排除、source仅write、无处理consumer；owner frame约8492字符，新处理语义及软提醒条款已在当前system。不能继续归因为旧prompt或P1事实被摘要省略。
+
+QQ first01M6EZBQQ3T0MSMEWKC18178MF（20:31:38Z）由GPT公开接手，parent请求01M6EZD3E4MS8N5QMED7Y8MSPT进入main150858。主会话20:32:58Z确实向GPT本群成功发送01M6EZE5FTMF8JHZPB6AMZS0KZ；本轮读回既有batch/run/plugin/consumer配置，无需重复写入重载。报告partial并保持平台状态unknown。这是本轮真实进展，不等于P1或全部普通消息处理通过。
+
+QQ second01M6F0098J70NH3DEKDE2PKD6D（20:42:52Z）、third01M6F00PT65KQ4QMSEG9JV9JVM（20:43:05Z）保持原话；后续Jarvis parent01M6F0219VHGHD7M3Q8P16DFC7与Feishu second01M6F03Y39QRNMAJDJ8ZZQQQAV（20:44:51Z）进入同一main2轮次，run.end01M6F04S16VYSP5FHDY6E9N2SW的inputs同时含两项。Feishu回复01M6F05PMWMDF7FSA777ZRBEC0只讲QQ外部设置，漏办P1。现有同session全局steer/all合并不保留执行来源边界；不能把一个最终答复复制给多个来源算各自交付。
+
+QQ普通probe01M6F1QPJWTKXARVCQG79XK00E（21:13:07Z）由GPT入口实际收到；Zfish成功回复01M6F1R0M50WTSHSM0YCCGHHEN后，GPT的social.batch-read01M6F1R0M84679HDBJ7CR9EZK0推进游标，本轮无GPT batch-ready/run。这再次证明发言竞争结束会吞掉明确batch.run=true所需的模型处理，之前只保留focused不能解决普通消息。P1 probe01M6F1X62ETE2TAYYV07QQVV28（21:16:07Z）仍只write。原文白名单导出.cache/private-delivery-20261102/v14-original-conversations.md（600）；源码、发布、云端连通与真实目标结果继续分开。
+
+用户确认“同一个Agent办事，群历史独立”，不合并私聊与群历史，也不把这项实现解释附加到真实测试user message。后续收敛为三个共同边界：既有typed配置操作补齐已授权目标的依赖；模型处理不被公开发言协调代替；同main执行中保留可信来源与交付归属。暂不增加独立意图模型、关键词分类器、第二runtime、转录库或任务账本；完成判断仍归实际Agent，配置/运行/投递事实由宿主记录。

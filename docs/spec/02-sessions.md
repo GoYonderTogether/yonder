@@ -37,12 +37,12 @@
 
 ### 1.2 并发
 
-- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`steer`（所有渠道通用默认，工具执行期间等本轮工具完成后并入；生成回复期间中止旧生成并并入，保留同一运行）、`followup`（本次答完后另起运行）或显式 `interrupt`（立即请求中止当前生成及工具，待原生取消收尾后并入当前运行）。这直接使用 pi-durable 的 inbox。steer 与 followup 队列均默认一次消费全部已排队消息（all），不增加定时收集窗口；只在同一会话内合并。interrupt 的取消不能撤销已发生的外部副作用，不自动重放工具。
+- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`steer`（所有渠道通用默认，工具执行期间等本轮工具完成后并入；生成回复期间中止旧生成并并入，保留同一运行）、`followup`（本次答完后另起运行）或显式 `interrupt`（立即请求中止当前生成及工具，待原生取消收尾后并入当前运行）。这直接使用 pi-durable 的 inbox。steer 与 followup 仍复用原生inbox与all消费设置，但一次只合并同一可信来源组的输入，不增加定时收集窗口。当前运行只接纳同源steer；异源输入持久留在同一个原生inbox，当前轮结束后按队首来源组分别开始后续轮次，不能在最终边界把异源steer与followup重新合成一轮。interrupt 的取消不能撤销已发生的外部副作用，不自动重放工具。
 - 不同会话并行。
 
-默认适用于路由到同一会话的渠道、console 和 CLI 输入；跨渠道只有实际路由到同一会话才合并，跨会话不合并。普通新消息是对当前工作的引导，不隐含停止或替换任务；是否能及时响应取决于当前工具及运行状态，不保证立即回复。明确停止/取消与按绑定策略选择 `interrupt` 区分于普通 steer；取消不能撤销已发生的外部副作用。
+默认适用于路由到同一会话的渠道、console和CLI输入；共享main仍保留跨渠道持续历史，但不同来源会话的执行轮次与投递分别归属，跨会话不合并。可信来源组仅由宿主核验的原始来源conv派生；parent-request不能用conv:agent包装代替来源，runtime.tool-result/runtime.continuation沿原任务的已验证来源。来源缺失、混合或核验失败按独立事件组排队，不从模型文本、姓名或未验证字段猜测归属；来源键只分组，不授予权限。显式busy:interrupt保留调用方有意跨源取消当前生成与工具并接纳该输入的原语义。普通新消息是对当前工作的引导，不隐含停止或替换任务；是否能及时响应取决于当前工具及运行状态，不保证立即回复。明确停止/取消与按绑定策略选择 `interrupt` 区分于普通 steer；取消不能撤销已发生的外部副作用。
 
-配置边界：agent 绑定的 `busy: steer | followup | interrupt` 可覆盖默认值；独立 task 输入可通过 `sessions.submit` 的 `opts.busy` 选择同样的模式，终端也提供 steer/followup 输入动作。原生 `steeringMode: all` 和 `followUpMode: all` 是运行时固定设置，不是 agent.yaml 的用户配置项；不增加聚合等待时间。`wake: write` 不唤醒运行，不因默认 steer 改变。
+配置边界：agent 绑定的 `busy: steer | followup | interrupt` 可覆盖默认值；独立 task 输入可通过 `sessions.submit` 的 `opts.busy` 选择同样的模式，终端也提供 steer/followup 输入动作。原生 `steeringMode: all` 和 `followUpMode: all` 是运行时固定设置，all仅在选定可信来源组内生效，不是agent.yaml的用户配置项；不增加聚合等待时间。来源组元数据随原生submission持久保存和恢复；无此元数据的旧Pi调用保持其原行为，Yonder不迁移既有转录或新建旁路队列。`wake: write` 不唤醒运行，不因默认 steer 改变。
 
 运行事实和输入回答关系由 pi 持有；恢复先还原事件/submission 关联与结束处理，再启动调度。稳定输入身份避免重启重复提交；取消等待与 abort 分开。具体恢复和终结规则见 10 §1，不另建模型队列。
 
