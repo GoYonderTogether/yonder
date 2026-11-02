@@ -1,0 +1,35 @@
+{
+	"sourceHead": "d4a3a32711f198f4c37c33a3e42eeb6bf0357a11",
+	"checks": [
+		{
+			"check": "build",
+			"command": ["npm", "run", "build"],
+			"exit": 0,
+			"seconds": 16.51
+		},
+		{
+			"check": "typecheck",
+			"command": ["npm", "run", "typecheck"],
+			"exit": 0,
+			"seconds": 5.72
+		},
+		{
+			"check": "lint",
+			"command": ["npm", "run", "lint"],
+			"exit": 0,
+			"seconds": 1.94
+		},
+		{
+			"check": "tests",
+			"command": ["npm", "test", "--", "--maxWorkers=4"],
+			"exit": 0,
+			"seconds": 137.52
+		},
+		{
+			"check": "node-tests",
+			"command": ["npm", "run", "test:node"],
+			"exit": 0,
+			"seconds": 1.53
+		}
+	]
+}

@@ -1,0 +1,71 @@
+{
+	"sourceHead": "d4a3a32711f198f4c37c33a3e42eeb6bf0357a11",
+	"checks": [
+		{
+			"check": "A6-live",
+			"command": ["agent-network", "run", "--", "node", "scripts/cloud-worker/verify.mjs", "--live"],
+			"exit": 0,
+			"seconds": 69.61
+		},
+		{
+			"check": "A8-live",
+			"command": ["agent-network", "run", "--", "node", "scripts/cloud-worker/verify.mjs", "--card", "--live"],
+			"exit": 0,
+			"seconds": 48.05
+		},
+		{
+			"check": "A9-live",
+			"command": ["agent-network", "run", "--", "node", "scripts/cloud-worker/device.mjs", "--live"],
+			"exit": 0,
+			"seconds": 93.09
+		},
+		{
+			"check": "A8-loopback",
+			"command": ["node", "scripts/cloud-worker/verify.mjs", "--card"],
+			"exit": 0,
+			"seconds": 2.46
+		},
+		{
+			"check": "A7-timeout",
+			"command": ["node", "scripts/cloud-worker/verify.mjs", "--case=timeout"],
+			"exit": 0,
+			"seconds": 2.06
+		},
+		{
+			"check": "A7-503",
+			"command": ["node", "scripts/cloud-worker/verify.mjs", "--case=503"],
+			"exit": 0,
+			"seconds": 2.23
+		},
+		{
+			"check": "A7-empty",
+			"command": ["node", "scripts/cloud-worker/verify.mjs", "--case=empty"],
+			"exit": 0,
+			"seconds": 1.98
+		},
+		{
+			"check": "A7-503-reflect",
+			"command": ["node", "scripts/cloud-worker/verify.mjs", "--case=503-reflect"],
+			"exit": 0,
+			"seconds": 2.03
+		},
+		{
+			"check": "A7-send-then-503",
+			"command": ["node", "scripts/cloud-worker/verify.mjs", "--case=send-then-503"],
+			"exit": 0,
+			"seconds": 2.1
+		},
+		{
+			"check": "A7-reply-none",
+			"command": ["node", "scripts/cloud-worker/verify.mjs", "--case=reply-none"],
+			"exit": 0,
+			"seconds": 1.98
+		},
+		{
+			"check": "A7-interrupt",
+			"command": ["node", "scripts/cloud-worker/verify.mjs", "--case=interrupt"],
+			"exit": 0,
+			"seconds": 1.88
+		}
+	]
+}
