@@ -4,7 +4,7 @@ import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writ
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-const { test } = await import(process.env.VITEST ? "vitest" : "node:test");
+const { test } = process.env.VITEST ? await import("vitest") : await import("node:test");
 const repository = "https://github.com/GoYonderTogether/pi.git";
 
 function fixture(run) {

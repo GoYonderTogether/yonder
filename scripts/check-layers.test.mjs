@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { findViolations, importedSpecifiers, MODULE_LAYERS, moduleOf, targetModule } from "./check-layers.mjs";
 
-const { test } = await import(process.env.VITEST ? "vitest" : "node:test");
+const { test } = process.env.VITEST ? await import("vitest") : await import("node:test");
 
 const files = (sources, exists = () => true) => {
 	const all = new Set(Object.keys(sources));

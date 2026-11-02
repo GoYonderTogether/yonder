@@ -56,7 +56,7 @@
 		"build": "node scripts/check-pi-ai-bundle.mjs && node scripts/build-tsc.mjs && node scripts/check-dist-sync.mjs && node plugins/devices/build.mjs && node scripts/build-macos.mjs && npm run build:app",
 		"build:app": "npm run build -w @yonder/app",
 		"typecheck": "tsc -b --force",
-		"build:clean": "rm -rf packages/*/dist plugins/*/dist apps/app/dist && npm run build",
+		"build:clean": "node scripts/clean-build.mjs && npm run build",
 		"check:dist": "node scripts/check-dist-sync.mjs",
 		"test": "vitest run --exclude '**/dist/**'",
 		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs scripts/test/names-consistency.test.mjs packages/macos/test/install-root.test.mjs scripts/release/ci-status.test.mjs scripts/release/changelog.test.mjs scripts/release/version.test.mjs scripts/release/bump-versions.test.mjs scripts/release/pack-runtime.test.mjs",

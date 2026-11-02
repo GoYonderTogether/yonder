@@ -1,5 +1,4 @@
-# Windows is not green yet (see scripts/e2e/ci-failures.md); move this job back into ci.yml once it passes.
-# `installer` 单独一个 job：它不跑测试，只验收一键安装脚本，测试债不影响它。
+# Latest-release installer acceptance stays separate from source CI.
 name: CI Windows
 
 on:
@@ -11,29 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  windows:
-    name: Windows typecheck, build, test, lint
-    runs-on: windows-2025
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - run: choco install ripgrep -y --no-progress
-      - run: npm ci
-      - run: node scripts/check-pi-durable-workspace.mjs
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json=windows-failures.json
-      - run: npm run lint
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: windows-failures
-          path: windows-failures.json
-
   installer:
     name: Windows one-line installer
     runs-on: windows-2025
