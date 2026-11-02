@@ -346,7 +346,7 @@ export function SessionOptions({
 						<span className="max-w-48 truncate font-medium text-ink">
 							{chosen ? `${chosen.provider} · ${chosen.name}` : (value.model ?? "选择模型")}
 						</span>
-						<span className="shrink-0 text-faint">{value.effort ?? "auto"}</span>
+						{chosen?.reasoning !== false && <span className="shrink-0 text-faint">{value.effort ?? "auto"}</span>}
 					</>
 				}
 			>
