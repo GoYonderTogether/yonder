@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Preset, Profile } from "@yonder/sdk";
@@ -21,6 +21,7 @@ export interface ObjectRequest {
 	action: string;
 	id?: string;
 	preset?: string;
+	expectedFileRevision?: string;
 	value?: unknown;
 }
 export interface ManagementState {
@@ -64,7 +65,9 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 		throw new Error("Unknown management action");
 	const unlock = await lockfile.lock(join(home, "yonder.yaml"));
 	try {
-		const document = parseDocument(await readFile(join(home, "yonder.yaml"), "utf8"));
+		const configFile = join(home, "yonder.yaml");
+		const yonderText = await readFile(configFile, "utf8");
+		const document = parseDocument(yonderText);
 		const disk = parseYonderConfig(document.toString(), join(home, "yonder.yaml"));
 		const { agents: _diskAgents, ...otherDisk } = disk;
 		const { agents: _runningAgents, ...otherRunning } = state.config;
@@ -127,6 +130,13 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 				} else {
 					const value = request.value as Record<string, unknown> | undefined;
 					if (!value) throw new Error("value: agent configuration patch required");
+					const files = state.files(config, id);
+					const diskAgentText = await files.readFile("agent.yaml");
+					if (
+						request.expectedFileRevision &&
+						createHash("sha256").update(diskAgentText).digest("hex") !== request.expectedFileRevision
+					)
+						throw new Error("Config changed while updating; retry with config.get");
 					const { workspace, env, ...patch } = value;
 					if (workspace !== undefined) entry.workspace = String(workspace);
 					if (env !== undefined) entry.env = String(env);
@@ -138,7 +148,9 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 						if (await state.files(config, id).exists("."))
 							throw new Error("New workspace already exists; directory migration/overwrite is not supported");
 					}
-					const { archivedAt: _, ...stored } = withoutRuntimeBindings(prior);
+					const { archivedAt: _, ...stored } = withoutRuntimeBindings(
+						parseAgentConfig(diskAgentText, "agent.yaml", id),
+					);
 					const candidate = parseAgentConfig(stringify({ ...stored, ...patch }), "agent.yaml", id);
 					agents.set(
 						id,
@@ -166,26 +178,86 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 		parseYonderConfig(stringify(config), join(home, "yonder.yaml"));
 		await state.validate(config, agents, presets);
 		if (action === "validate") return { valid: true, accepted: false, saved: false };
-		if (kind === "agents") {
-			if (generated) {
+		if ((await readFile(configFile, "utf8")) !== yonderText)
+			throw new Error("yonder.yaml changed while updating; retry with agents.show");
+		const rollback: Array<() => Promise<void>> = [];
+		const retained: string[] = [];
+		const rememberLocal = async (path: string, after: string | undefined) => {
+			const before = await readFile(path, "utf8").catch((error: NodeJS.ErrnoException) => {
+				if (error.code === "ENOENT") return undefined;
+				throw error;
+			});
+			if (after === undefined) await rm(path);
+			else await replace(path, after);
+			rollback.push(async () => {
+				const current = await readFile(path, "utf8").catch((error: NodeJS.ErrnoException) => {
+					if (error.code === "ENOENT") return undefined;
+					throw error;
+				});
+				if (current !== after) throw new Error(`${path} changed after this write; preserving concurrent content`);
+				if (before === undefined) await rm(path, { force: true });
+				else await replace(path, before);
+			});
+		};
+		try {
+			if (kind === "agents") {
 				const files = state.files(config, id);
-				await files.writeFile("agent.yaml", stringify(generated));
-				await state.scaffold(config, generated);
-			} else if (text) await state.files(config, id).writeFile(file, text);
-			document.set("agents", config.agents);
-			await replace(join(home, "yonder.yaml"), document.toString());
-		} else {
-			await mkdir(join(home, "presets"), { recursive: true });
-			if (action === "remove") await rm(file);
-			else await replace(file, text);
+				if (generated) {
+					const agentText = stringify(generated);
+					await files.writeFile("agent.yaml", agentText);
+					rollback.push(async () => {
+						if ((await files.readFile("agent.yaml")) !== agentText)
+							throw new Error(`agents/${id}/agent.yaml changed after this write; preserving concurrent content`);
+						retained.push(`new agents/${id} workspace retained after failed reload`);
+					});
+					await state.scaffold(config, generated);
+				} else if (text) {
+					const before = await files.readFile(file);
+					await files.writeFile(file, text);
+					rollback.push(async () => {
+						if ((await files.readFile(file)) !== text)
+							throw new Error(`${file} changed after this write; preserving concurrent content`);
+						await files.writeFile(file, before);
+					});
+				}
+				document.set("agents", config.agents);
+				await rememberLocal(configFile, document.toString());
+			} else {
+				await mkdir(join(home, "presets"), { recursive: true });
+				await rememberLocal(file, action === "remove" ? undefined : text);
+			}
+			await state.reload?.();
+		} catch (error) {
+			const failures: string[] = [];
+			for (const restore of rollback.reverse())
+				try {
+					await restore();
+				} catch (rollbackError) {
+					failures.push(rollbackError instanceof Error ? rollbackError.message : String(rollbackError));
+				}
+			if (failures.length)
+				throw new Error(
+					`management reload/write failed: ${error instanceof Error ? error.message : error}; rollback failed: ${failures.join("; ")}`,
+				);
+			if (retained.length)
+				throw new Error(
+					`management reload/write failed: ${error instanceof Error ? error.message : error}; ${retained.join("; ")}`,
+				);
+			throw error;
 		}
-		await state.reload?.();
+		const revisionText =
+			kind === "agents"
+				? await state.files(config, id).readFile("agent.yaml")
+				: action === "remove"
+					? `removed:${id}`
+					: await readFile(file, "utf8");
 		return {
 			id,
 			valid: true,
 			saved: true,
 			accepted: !!state.reload,
 			restartRequired,
+			revision: createHash("sha256").update(revisionText).digest("hex"),
 			...(kind === "agents"
 				? {
 						workspace: resolve(home, config.agents!.find((a) => a.id === id)!.workspace),

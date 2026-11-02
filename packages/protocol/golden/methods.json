@@ -105,6 +105,10 @@
 					"agent": {
 						"minLength": 1,
 						"type": "string"
+					},
+					"profile": {
+						"minLength": 1,
+						"type": "string"
 					}
 				},
 				"type": "object"
@@ -128,6 +132,10 @@
 							"^.*$": {}
 						},
 						"type": "object"
+					},
+					"profile": {
+						"minLength": 1,
+						"type": "string"
 					},
 					"scope": {
 						"anyOf": [
@@ -859,6 +867,10 @@
 									}
 								]
 							},
+							"plugin": {
+								"pattern": "^[a-z0-9][a-z0-9-]*$",
+								"type": "string"
+							},
 							"quiet": {
 								"additionalProperties": false,
 								"properties": {
@@ -998,6 +1010,36 @@
 												"type": "string"
 											}
 										]
+									}
+								},
+								"type": "object"
+							},
+							"triggers": {
+								"additionalProperties": false,
+								"properties": {
+									"exclude": {
+										"items": {
+											"minLength": 1,
+											"type": "string"
+										},
+										"type": "array"
+									},
+									"maxLength": {
+										"minimum": 0,
+										"type": "integer"
+									},
+									"minLength": {
+										"minimum": 0,
+										"type": "integer"
+									},
+									"regex": {
+										"items": {
+											"maxLength": 256,
+											"minLength": 1,
+											"type": "string"
+										},
+										"maxItems": 16,
+										"type": "array"
 									}
 								},
 								"type": "object"

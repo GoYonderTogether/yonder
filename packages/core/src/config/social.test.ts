@@ -200,6 +200,44 @@ test("reject unrunnable social group/main and batch shapes before publishing con
 	).toThrow(/参与批次/);
 });
 
+test("unrelated plugin batch-ready events keep their ordinary binding contract", () => {
+	expect(() =>
+		parseAgentConfig(
+			JSON.stringify({
+				...base,
+				bindings: [
+					{
+						id: "custom",
+						match: { type: "custom.batch-ready", kind: "dm" },
+						session: "main",
+					},
+				],
+			}),
+		),
+	).not.toThrow();
+	expect(() =>
+		parseAgentConfig(
+			JSON.stringify({
+				...base,
+				profiles: { main: {}, other: {} },
+				bindings: [
+					{
+						id: "custom",
+						match: { type: "custom.batch-ready", conv: "conv:qq:shared" },
+						session: { mode: "persistent", per: "conv" },
+					},
+					{
+						id: "dm",
+						match: { kind: "dm", conv: "conv:qq:shared" },
+						session: { mode: "persistent", per: "conv" },
+						profile: "other",
+					},
+				],
+			}),
+		),
+	).toThrow("同一会话");
+});
+
 test("default social batch profiles need the same plugin admission checks as explicit plugins", () => {
 	const agent = parseAgentConfig(
 		JSON.stringify({

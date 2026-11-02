@@ -29,7 +29,7 @@ import {
 	YonderSchema,
 } from "./schema.js";
 import { socialTriggerErrors } from "./social-schema.js";
-import { socialBindingIssues } from "./social-validation.js";
+import { isSocialBatchBinding, socialBindingIssues } from "./social-validation.js";
 import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
 export {
@@ -294,8 +294,7 @@ function sameSession(a: Binding, b: Binding): boolean {
 	if (typeof a.session === "string" || typeof b.session === "string" || a.session.per !== b.session.per) return false;
 	if (a.session.per === "conv" && !intersects(a.match.conv, b.match.conv)) return false;
 	// Batch admission only accepts a group/channel source; it can never reuse a DM conversation.
-	const kinds = (binding: Binding) =>
-		binding.match.type?.endsWith(".batch-ready") ? ["group", "channel"] : binding.match.kind;
+	const kinds = (binding: Binding) => (isSocialBatchBinding(binding) ? ["group", "channel"] : binding.match.kind);
 	return a.session.per === "person" || (intersects(a.match.channel, b.match.channel) && intersects(kinds(a), kinds(b)));
 }
 

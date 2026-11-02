@@ -62,15 +62,21 @@ interface AgentTarget {
 	config: YonderConfig;
 	file: string;
 	agent: AgentConfig;
+	profile: string;
+	source: string;
 }
 
-async function agentTarget(home: string, id: string): Promise<AgentTarget> {
+async function agentTarget(home: string, id: string, profile?: string): Promise<AgentTarget> {
 	const config = await loadYonderConfig(home);
 	const entry = config.agents?.find((item) => item.id === id);
 	if (!entry) throw new MethodError("not_found", `unknown agent: ${id}`);
 	const file = join(resolve(home, entry.workspace), "agent.yaml");
 	try {
-		return { config, file, agent: parseAgentConfig(await readFile(file, "utf8"), file, id) };
+		const source = await readFile(file, "utf8");
+		const agent = parseAgentConfig(source, file, id);
+		const selected = profile ?? agent.defaultProfile;
+		if (!agent.profiles[selected]) throw new MethodError("not_found", `unknown profile: ${id}/${selected}`);
+		return { config, file, agent, profile: selected, source };
 	} catch (error) {
 		throw configError(error);
 	}
@@ -85,10 +91,10 @@ function configError(error: unknown): Error {
 /** Redacted agent view (G-04): model routing, limits and social settings; never a credential or apiKey. */
 function agentView(target: AgentTarget) {
 	const { agent, config } = target;
-	const profile = { ...agent.defaults, ...agent.profiles[agent.defaultProfile] };
+	const profile = { ...agent.defaults, ...agent.profiles[target.profile] };
 	const view = {
 		agent: agent.id,
-		profile: agent.defaultProfile,
+		profile: target.profile,
 		model: profile.model ?? config.defaultModel ?? null,
 		cheap: profile.cheap ?? null,
 		simple: profile.simple ?? null,
@@ -120,8 +126,8 @@ function homeView(config: YonderConfig) {
 	return { ...view, revision: revisionOf(view) };
 }
 
-async function readView(home: string, agent: string) {
-	const target = await agentTarget(home, agent);
+async function readView(home: string, agent: string, profile?: string) {
+	const target = await agentTarget(home, agent, profile);
 	return { target, agent: agentView(target), home: homeView(target.config) };
 }
 
@@ -163,27 +169,35 @@ function checked(patch: unknown, schema: TSchema): Record<string, unknown> {
 }
 
 /** Agent scope: the same validated, atomic and reloaded write path the management method already uses. */
-async function applyAgentPatch(ctx: HostCtx, id: string, patch: Record<string, unknown>) {
-	const { file, agent } = await agentTarget(ctx.home, id);
-	const original = await readFile(file, "utf8");
-	const profile = { ...agent.profiles[agent.defaultProfile] };
+async function applyAgentPatch(
+	ctx: HostCtx,
+	id: string,
+	selectedProfile: string,
+	expectedFileRevision: string,
+	patch: Record<string, unknown>,
+) {
+	const { agent } = await agentTarget(ctx.home, id, selectedProfile);
+	const profile = { ...agent.profiles[selectedProfile] };
 	if (patch.model !== undefined) profile.model = patch.model as string;
 	if (patch.cheap !== undefined) profile.cheap = patch.cheap as string;
 	if (patch.simple !== undefined) profile.simple = patch.simple as string;
 	const limits = patch.limits as { maxTokens?: number } | undefined;
 	if (limits?.maxTokens !== undefined) profile.limits = { ...profile.limits, maxTokens: limits.maxTokens };
-	const value: Record<string, unknown> = { profiles: { ...agent.profiles, [agent.defaultProfile]: profile } };
+	const value: Record<string, unknown> = { profiles: { ...agent.profiles, [selectedProfile]: profile } };
 	if (patch.social !== undefined) value.social = { ...(agent.social ?? {}), ...(patch.social as object) };
 	try {
 		// SAFETY: ManagementRequest is a closed union in kernel/management.ts; the shape here is its agents.update arm.
 		await ctx.kernel.management({
 			action: "agents.update",
 			id,
+			expectedFileRevision,
 			value,
 		} as unknown as ManagementRequest);
 	} catch (error) {
-		// Rollback: the management path validates before writing, so only a post-write reload failure needs the restore.
-		if ((await readFile(file, "utf8")) !== original) await replace(file, original).catch(() => {});
+		if (error instanceof Error && error.message === "Config changed while updating; retry with config.get") {
+			const current = await readView(ctx.home, id, selectedProfile);
+			throw new MethodError("conflict", "Config revision changed", { currentRevision: current.agent.revision });
+		}
 		throw configError(error);
 	}
 	return { applied: Object.keys(patch), restartRequired: false };
@@ -213,10 +227,10 @@ export const configMethods: MethodDef[] = [
 	define({
 		name: "config.get",
 		scope: "read",
-		params: Type.Object({ agent: Type.Optional(text) }),
+		params: Type.Object({ agent: Type.Optional(text), profile: Type.Optional(text) }),
 		since: 1,
 		handler: async (params, ctx) => {
-			const { agent, home } = await readView(ctx.home, params.agent ?? "main");
+			const { agent, home } = await readView(ctx.home, params.agent ?? "main", params.profile);
 			return { ...agent, home };
 		},
 	}),
@@ -225,6 +239,7 @@ export const configMethods: MethodDef[] = [
 		scope: "admin",
 		params: Type.Object({
 			agent: Type.Optional(text),
+			profile: Type.Optional(text),
 			scope: Type.Optional(Type.Union([Type.Literal("agent"), Type.Literal("home")])),
 			expectedRevision: text,
 			patch: Type.Record(Type.String(), Type.Unknown()),
@@ -233,13 +248,22 @@ export const configMethods: MethodDef[] = [
 		handler: async (params, ctx) => {
 			const id = params.agent ?? "main";
 			const scope = params.scope ?? "agent";
-			const before = await readView(ctx.home, id);
+			const before = await readView(ctx.home, id, params.profile);
 			const current = scope === "home" ? before.home.revision : before.agent.revision;
 			if (params.expectedRevision !== current)
 				throw new MethodError("conflict", "Config revision changed", { currentRevision: current });
 			const patch = checked(params.patch, scope === "home" ? homePatch : agentPatch);
-			const result = scope === "home" ? await applyHomePatch(ctx, patch) : await applyAgentPatch(ctx, id, patch);
-			const after = await readView(ctx.home, id);
+			const result =
+				scope === "home"
+					? await applyHomePatch(ctx, patch)
+					: await applyAgentPatch(
+							ctx,
+							id,
+							before.agent.profile,
+							createHash("sha256").update(before.target.source).digest("hex"),
+							patch,
+						);
+			const after = await readView(ctx.home, id, before.agent.profile);
 			await auditChange(ctx, {
 				scope,
 				agent: id,

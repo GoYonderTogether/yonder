@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { Models, Preset, SessionInfo } from "@yonder/sdk";
+import type { Models, Preset, SessionInfo, YEvent } from "@yonder/sdk";
 import { stringify } from "yaml";
 import { bundleFor } from "../bundles.js";
 import {
@@ -14,6 +14,7 @@ import {
 import { socialReferenceErrors } from "../config/social-validation.js";
 import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
+import { sessionKey } from "../routing/matching.js";
 import { platformGroupProfile } from "../routing/platform-group.js";
 import { CREDENTIAL_MARK } from "../runtime/credential-failure.js";
 import { chainKey, modelChain } from "../runtime/model-chain.js";
@@ -31,6 +32,51 @@ export function profileContexts(agent: AgentConfig, defaultModel?: string): stri
 		(profile) => resolveProfile(profile, agent.defaults, "local", defaultModel).contexts,
 	);
 	return [...new Set(contexts)];
+}
+
+function bindingMapsSession(binding: AgentConfig["bindings"][number], session: SessionInfo) {
+	if (session.mode !== "persistent" || typeof binding.session === "string") return false;
+	const values = (value: string | string[] | undefined) =>
+		value === undefined ? [] : Array.isArray(value) ? value : [value];
+	const probes: Array<{ conv?: string; from?: string; person?: string }> =
+		binding.session.per === "conv"
+			? values(binding.match.conv).map((conv) => ({ conv }))
+			: binding.session.per === "from"
+				? values(binding.match.from)
+						.filter((from) => from.startsWith("acct:"))
+						.map((from) => ({ from }))
+				: values(binding.match.from)
+						.filter((from) => from.startsWith("person:"))
+						.map((person) => ({ person }));
+	return probes.some(({ conv, from, person }) => {
+		const event: YEvent = {
+			id: session.id,
+			ts: session.opened,
+			type: "message.in",
+			data: {},
+			...(conv ? { conv } : {}),
+			...((from ?? (person ? `acct:${person}` : undefined)) ? { from: from ?? `acct:${person}` } : {}),
+		};
+		return sessionKey(binding, event, person).key === session.key;
+	});
+}
+
+function changedSessionRouteProfile(
+	previous: AgentConfig | undefined,
+	next: AgentConfig | undefined,
+	session: SessionInfo,
+) {
+	if (!previous || !next || session.mode !== "persistent") return;
+	for (const oldBinding of previous.bindings) {
+		const nextBinding = next.bindings.find((binding) => binding.id === oldBinding.id);
+		if (!nextBinding) continue;
+		const { profile: _oldProfile, ...oldShape } = oldBinding;
+		const { profile: _nextProfile, ...nextShape } = nextBinding;
+		if (JSON.stringify(oldShape) !== JSON.stringify(nextShape) || !bindingMapsSession(oldBinding, session)) continue;
+		const oldProfile = oldBinding.profile ?? previous.defaultProfile;
+		const nextProfile = nextBinding.profile ?? next.defaultProfile;
+		if (session.profile === oldProfile && oldProfile !== nextProfile) return { oldProfile, nextProfile };
+	}
 }
 
 export function protectSessions(
@@ -53,6 +99,11 @@ export function protectSessions(
 				next = nextAgents.get(session.agent);
 			const oldProfile = previous?.profiles[session.profile],
 				newProfile = next?.profiles[session.profile];
+			const changedRoute = changedSessionRouteProfile(previous, next, session);
+			if (changedRoute)
+				errors.push(
+					`session ${session.id}: close before changing binding profile ${changedRoute.oldProfile} to ${changedRoute.nextProfile}`,
+				);
 			const envChanged =
 				oldProfile &&
 				newProfile &&

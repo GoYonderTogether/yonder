@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, expect, it } from "vitest";
@@ -115,6 +115,37 @@ it("config.update home scope rewrites yonder.yaml quotas and asks for a restart"
 		};
 		expect(yaml.outsiders?.guestMaxRounds).toBe(7);
 		expect(yaml.defaultModel).toBe(testModel);
+	} finally {
+		await kernel.close();
+	}
+});
+
+it("config.get/update target only the requested existing profile", async () => {
+	const { home, kernel, call } = await open();
+	try {
+		const file = join(home, "agents/main/agent.yaml");
+		const agent = parse(await readFile(file, "utf8")) as {
+			profiles: Record<string, Record<string, unknown>>;
+		};
+		agent.profiles.secondary = { model: "openai/gpt-6-luna" };
+		await kernel.management({ action: "agents.update", id: "main", value: { profiles: agent.profiles } });
+		const before = (await call("config.get", { profile: "secondary" })) as unknown as {
+			profile: string;
+			revision: string;
+		};
+		expect(before.profile).toBe("secondary");
+		await expect(call("config.get", { profile: "missing" })).rejects.toMatchObject({ code: "not_found" });
+		const updated = (await call("config.update", {
+			profile: "secondary",
+			expectedRevision: before.revision,
+			patch: { model: testModel },
+		})) as unknown as { profile: string; model: string };
+		expect(updated).toMatchObject({ profile: "secondary", model: testModel });
+		const saved = parse(await readFile(file, "utf8")) as {
+			profiles: Record<string, { model?: string }>;
+		};
+		expect(saved.profiles.secondary?.model).toBe(testModel);
+		expect(saved.profiles.owner?.model).toBeUndefined();
 	} finally {
 		await kernel.close();
 	}

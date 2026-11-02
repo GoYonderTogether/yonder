@@ -1,11 +1,20 @@
 import type { Channel } from "@yonder/sdk";
 import type { ConfigIssue } from "./index.js";
-import type { AgentConfig, YonderConfig } from "./schema.js";
+import type { AgentConfig, Binding, YonderConfig } from "./schema.js";
 
 /** Reject shapes the routing admission can never execute, before publishing them. */
 export function socialBindingIssues(agent: AgentConfig, file: string): ConfigIssue[] {
 	return agent.bindings.flatMap((binding, index) => {
-		const batch = binding.match.type?.endsWith(".batch-ready");
+		const plugin = binding.match.type?.endsWith(".batch-ready")
+			? binding.match.type.slice(0, -".batch-ready".length)
+			: undefined;
+		const profile = agent.profiles[binding.profile ?? agent.defaultProfile];
+		const selected = profile?.plugins ?? agent.defaults?.plugins ?? [];
+		const configuredPlugin = [
+			...Object.values(agent.social?.defaults ?? {}),
+			...Object.values(agent.social?.conversations ?? {}),
+		].some((policy) => policy.plugin === plugin);
+		const batch = plugin === "social" || (plugin !== undefined && configuredPlugin && selected.includes(plugin));
 		const kinds = [binding.match.kind].flat();
 		const scoped =
 			!agent.social?.scope ||
@@ -29,6 +38,10 @@ export function socialBindingIssues(agent: AgentConfig, file: string): ConfigIss
 			message = "social 群/频道不能进入私人 main；使用独立 per: conv 会话并以 parent_ask 交办执行";
 		return message ? [{ file, path: `/bindings/${index}`, message: `${binding.id}: ${message}` }] : [];
 	});
+}
+
+export function isSocialBatchBinding(binding: Binding): boolean {
+	return binding.match.type === "social.batch-ready";
 }
 
 /** Cross-file validation runs on the candidate before it is published. */
