@@ -259,3 +259,8 @@ export async function watchAgents({
 		},
 	};
 }
+
+export function reloadWatcher(watcher: Awaited<ReturnType<typeof watchAgents>> | undefined) {
+	if (!watcher) throw new Error("Config watcher unavailable");
+	return watcher.reload();
+}

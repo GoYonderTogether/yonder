@@ -1,9 +1,21 @@
+import type { Channel, Hook, YEvent } from "@yonder/sdk";
+import { type AgentConfig, matchesGlob, securityOf } from "../config/index.js";
+import { batchConsumerForSource } from "../routing/batch-consumer.js";
+import { batchPlugin, participationPlugin } from "../routing/participation.js";
+import { decideParticipation } from "../routing/social.js";
+import { resolveSourceBindings } from "../routing/source-binding.js";
+import type { Store } from "../store/index.js";
+
 export type OperabilitySelector = { conv?: string; eventId?: string };
 export type SessionOperabilityFact = {
 	status: "observed" | "unknown";
 	selector: OperabilitySelector;
 	reason?: string;
 	sample?: { eventId: string; conv: string; kind?: string };
+	management?: {
+		paths: ["agents.validate", "agents.update", "inspect", "agents.show"];
+		authority: "existing local agent management authorization required";
+	};
 	history?: {
 		route?: { binding: string | null; session?: string; profile?: string; wake?: string; dropped?: string };
 		participation?: {
@@ -26,7 +38,7 @@ export type SessionOperabilityFact = {
 	};
 	prediction?: {
 		state: "matched" | "no-match" | "unknown";
-		route?: "accepted" | "dropped";
+		route?: "not-evaluated" | "dropped";
 		dropReason?: "no-binding";
 		binding?: string;
 		profile?: string;
@@ -67,3 +79,378 @@ export type SessionOperabilityFact = {
 		state?: string;
 	};
 };
+export type AgentOperabilityFact = {
+	status: "observed" | "unknown";
+	limit: number;
+	truncated: boolean;
+	reason?: string;
+	conversations: SessionOperabilityFact[];
+};
+
+const exactConversations = (agent: AgentConfig) => [
+	...new Set(
+		agent.bindings.flatMap((binding) => {
+			const conv = binding.match.conv;
+			return typeof conv === "string" ? [conv] : (conv ?? []);
+		}),
+	),
+];
+async function sampleFor(store: Store, selector: OperabilitySelector): Promise<{ event?: YEvent; unknown?: string }> {
+	if (selector.eventId) {
+		const page = await store.events.query({
+			id: selector.eventId,
+			type: "message.in",
+			...(selector.conv ? { conv: selector.conv } : {}),
+			limit: 1,
+		});
+		const event = page.events[0];
+		if (!event) return { unknown: "event is not a stored message.in for the selected conversation" };
+		if (!event.conv) return { unknown: "message.in has no conversation" };
+		return { event };
+	}
+	if (!selector.conv) return { unknown: "no sample selector" };
+	const page = await store.events.query({ type: "message.in", conv: selector.conv, limit: 1000 });
+	if (page.next) return { unknown: "sample history exceeds the 1000 event bound; latest sample is unknown" };
+	const event = page.events.at(-1);
+	return event ? { event } : { unknown: "no stored message.in for the selected conversation" };
+}
+
+function routeView(event: YEvent, agentId: string, sessionProfile?: string) {
+	const route = event.routes?.find((item) => item.agent === agentId);
+	return route
+		? {
+				binding: route.binding,
+				...(route.session ? { session: route.session } : {}),
+				...(sessionProfile ? { profile: sessionProfile } : {}),
+				...(route.wake ? { wake: route.wake } : {}),
+				...(route.dropped ? { dropped: route.dropped } : {}),
+			}
+		: undefined;
+}
+
+export async function projectConversationOperability(options: {
+	agent: AgentConfig;
+	agents: Iterable<AgentConfig>;
+	selector: OperabilitySelector;
+	store: Store;
+	channels: Map<string, Channel>;
+	hooks: ReadonlyMap<string, readonly Hook[]>;
+	configuration?: SessionOperabilityFact["configuration"];
+}): Promise<SessionOperabilityFact> {
+	const { agent, selector, store } = options;
+	if (!selector.conv && !selector.eventId)
+		return { status: "unknown", selector, reason: "a conversation selector or trusted sample is required" };
+	const { event, unknown } = await sampleFor(store, selector);
+	if (!event) return { status: "unknown", selector, reason: unknown ?? "trusted sample unavailable" };
+	if (selector.conv && selector.conv !== event.conv)
+		return { status: "unknown", selector, reason: "event and conversation selectors do not match" };
+	const conv = event.conv!;
+	const storedRoute = event.routes?.find((route) => route.agent === agent.id);
+	const storedSession = storedRoute?.session ? await store.sessions.get(storedRoute.session) : undefined;
+	const eventsPage = await store.events.query({ conv, after: event.id, limit: 1000 });
+	const following = eventsPage.events;
+	const decisions = await store.events.query({ type: "routing.social-decision", after: event.id, limit: 1000 });
+	const decision = decisions.events.find(
+		(item) => item.parent === event.id && (item.data as { agent?: unknown }).agent === agent.id,
+	);
+	const decisionData = decision?.data as
+		| {
+				policy?: unknown;
+				reason?: string;
+				plugin?: string;
+				revision?: string;
+				repair?: string;
+				consumerIssue?: string;
+				profile?: string;
+		  }
+		| undefined;
+	const candidates = following.filter((item) => {
+		if (item.type.endsWith(".batch-ready") || item.type.endsWith(".folded-ready")) {
+			const plugin = item.type.endsWith(".batch-ready")
+				? batchPlugin(item)
+				: item.from?.startsWith("plugin:")
+					? item.from.slice(7)
+					: undefined;
+			const data = item.data as { agent?: unknown; sourceEvents?: unknown };
+			return (
+				!!plugin &&
+				item.type === `${plugin}.${item.type.endsWith(".batch-ready") ? "batch-ready" : "folded-ready"}` &&
+				data.agent === agent.id &&
+				Array.isArray(data.sourceEvents) &&
+				data.sourceEvents.includes(event.id)
+			);
+		}
+		if (item.type.endsWith(".group-batch")) {
+			const plugin = item.from?.startsWith("plugin:") ? item.from.slice(7) : undefined;
+			return (
+				!!plugin && item.type === `${plugin}.group-batch` && (item.data as { through?: unknown }).through === event.id
+			);
+		}
+		return false;
+	});
+	const paths: Array<{ id: string; session?: string; path: "direct" | "batch" }> = [];
+	if (storedRoute?.session) paths.push({ id: event.id, session: storedRoute.session, path: "direct" });
+	for (const batch of candidates) {
+		const route = batch.routes?.find((item) => item.agent === agent.id);
+		if (route?.session) paths.push({ id: batch.id, session: route.session, path: "batch" });
+	}
+	const runEndsPage = await store.events.query({ type: "run.end", conv, after: event.id, limit: 1000 });
+	const matchedRuns = runEndsPage.events.flatMap((run) => {
+		const data = run.data as { session?: unknown; runId?: unknown; inputs?: unknown; status?: unknown };
+		if (typeof data.session !== "string" || !Array.isArray(data.inputs)) return [];
+		const inputs = data.inputs as unknown[];
+		const linked = paths
+			.filter((path) => path.session === data.session && inputs.includes(path.id))
+			.sort((left, right) => Number(right.path === "batch") - Number(left.path === "batch"))[0];
+		return linked && run.conv === conv ? [{ event: run, data, path: linked.path, pathId: linked.id }] : [];
+	});
+	const sessions = await Promise.all(matchedRuns.map(({ data }) => store.sessions.get(String(data.session))));
+	const validRuns = matchedRuns.filter((_, index) => sessions[index]?.agent === agent.id);
+	const sent = await store.events.query({ type: "message.out", conv, after: event.id, limit: 1000 });
+	const receipts = sent.events.filter((item) => {
+		const data = item.data as { session?: unknown; delivery?: { ok?: unknown } };
+		return (
+			data.delivery?.ok === true &&
+			validRuns.some(({ data: run, pathId }) => {
+				return run.session === data.session && item.parent === pathId;
+			})
+		);
+	});
+	const routes =
+		options.agents instanceof Map ? options.agents : new Map([...options.agents].map((item) => [item.id, item]));
+	const currentAgent = routes.get(agent.id) ?? agent;
+	const match = (await resolveSourceBindings(event, [currentAgent], store)).get(agent.id);
+	let prediction: SessionOperabilityFact["prediction"] = match
+		? { state: "matched", binding: match.id }
+		: { state: "no-match" };
+	if (match) {
+		const profileId = match.profile ?? currentAgent.defaultProfile;
+		const profile = currentAgent.profiles[profileId];
+		if (!profile) prediction = { state: "unknown", binding: match.id, profile: profileId };
+		else {
+			const security = securityOf(profile, currentAgent.defaults);
+			const plugins = profile.plugins ?? currentAgent.defaults?.plugins ?? [];
+			const plugin = participationPlugin(currentAgent, event);
+			const instance = conv.split(":")[1];
+			const channel = options.channels.get(instance ?? "");
+			const person = event.from?.startsWith("acct:") ? (await store.identity().account(event.from))?.person : undefined;
+			const participation = decideParticipation(currentAgent, event, person, channel, options.hooks, {
+				sourceBinding: match,
+			});
+			let consumer: NonNullable<SessionOperabilityFact["prediction"]>["consumer"] = { state: "not-applicable" };
+			if (participation?.reason === "batch") {
+				const result = await batchConsumerForSource(currentAgent, event, match, channel, store, plugin);
+				consumer =
+					"issue" in result
+						? {
+								state: "unavailable",
+								issue: result.issue,
+								profile: result.profile,
+								plugin: result.plugin,
+								pluginSelected: result.pluginSelected,
+								matchingConsumer: result.matchingConsumer,
+							}
+						: {
+								state: "available",
+								binding: result.binding.id,
+								profile: result.profile,
+								plugin,
+								pluginSelected: true,
+								matchingConsumer: true,
+								derived: result.derived,
+							};
+			}
+			const tools = {
+				offer: profile.tools?.offer ?? currentAgent.defaults?.tools?.offer ?? ["*"],
+				search: profile.tools?.search ?? currentAgent.defaults?.tools?.search ?? [],
+			};
+			const scope = profile.channelInstances ?? currentAgent.defaults?.channelInstances;
+			const messageSend =
+				security.capabilities.includes("message") &&
+				(tools.offer.some((pattern: string) => matchesGlob(pattern, "message_send")) ||
+					tools.search.some((pattern: string) => matchesGlob(pattern, "message_send"))) &&
+				typeof channel?.send === "function" &&
+				(!scope || scope.includes(instance ?? ""));
+			const kind = (event.data as { kind?: string }).kind;
+			const socialScope = currentAgent.social?.scope;
+			const conversationOverride = currentAgent.social?.conversations?.[conv];
+			const socialDefaults =
+				kind === "dm" || kind === "group" || kind === "channel" ? currentAgent.social?.defaults?.[kind] : undefined;
+			const data = event.data as { mentioned?: unknown; social?: { mentions?: { bot?: boolean; owner?: boolean } } };
+			const mentioned = participation
+				? (data.social?.mentions?.bot ?? data.mentioned) === true
+				: data.mentioned === true;
+			const ownerMention = participation?.reason === "mention" && data.social?.mentions?.owner === true;
+			const policyDrops =
+				!!participation &&
+				!participation.run &&
+				participation.reason !== "batch" &&
+				participation.reason !== "folded" &&
+				!ownerMention;
+			const predictedWake =
+				participation?.reason === "batch" ||
+				participation?.reason === "folded" ||
+				ownerMention ||
+				(match.wake === "mention" && !mentioned) ||
+				match.wake === "write"
+					? "write"
+					: "run";
+			prediction = {
+				state: "matched",
+				route: policyDrops ? "dropped" : "not-evaluated",
+				...(policyDrops ? { dropReason: "no-binding" as const } : {}),
+				binding: match.id,
+				profile: profileId,
+				...(!policyDrops ? { wake: predictedWake } : {}),
+				participation: participation
+					? {
+							reason: participation.reason,
+							plugin,
+							revision: participation.revision,
+							run: participation.run,
+							...("policy" in participation ? { policy: participation.policy } : {}),
+						}
+					: { plugin },
+				participationScope: {
+					...(currentAgent.social?.enabled !== undefined ? { enabled: currentAgent.social.enabled } : {}),
+					...(socialScope ? { scope: socialScope } : {}),
+					includesConversation: socialScope?.includes(conv) ?? false,
+					...(conversationOverride ? { conversationOverride } : {}),
+					...(socialDefaults ? { defaults: socialDefaults } : {}),
+				},
+				consumer,
+				reply: match.reply ?? "auto",
+				...(match.deliver ? { deliver: match.deliver } : {}),
+				capabilities: {
+					values: security.capabilities,
+					plugins,
+					tools,
+					...(scope ? { channelInstances: scope } : {}),
+					messageSend,
+				},
+			};
+		}
+	}
+	const runState = validRuns.length
+		? validRuns.some((item) => item.path === "direct")
+			? "direct"
+			: "batch"
+		: eventsPage.next || runEndsPage.next
+			? "unknown"
+			: "not-observed";
+	const deliveryState = receipts.length ? "delivered" : sent.next ? "unknown" : "not-observed";
+	return {
+		status: "observed",
+		selector: { conv, ...(selector.eventId ? { eventId: selector.eventId } : {}) },
+		sample: {
+			eventId: event.id,
+			conv,
+			...(typeof (event.data as { kind?: unknown }).kind === "string"
+				? { kind: (event.data as { kind: string }).kind }
+				: {}),
+		},
+		history: {
+			...(routeView(event, agent.id, storedSession?.profile)
+				? { route: routeView(event, agent.id, storedSession?.profile)! }
+				: {}),
+			...(decisionData
+				? {
+						participation: {
+							...(decisionData.policy ? { policy: decisionData.policy } : {}),
+							...(decisionData.reason ? { reason: decisionData.reason } : {}),
+							...(decisionData.plugin ? { plugin: decisionData.plugin } : {}),
+							...(decisionData.revision ? { revision: decisionData.revision } : {}),
+							...(decisionData.repair ? { repair: decisionData.repair } : {}),
+							...(decisionData.consumerIssue ? { consumerIssue: decisionData.consumerIssue } : {}),
+							...(decisionData.profile ? { profile: decisionData.profile } : {}),
+						},
+					}
+				: {}),
+			execution: {
+				state: runState,
+				...(validRuns.length
+					? {
+							runs: validRuns.map(({ data, path }) => ({
+								...(typeof data.runId === "string" ? { runId: data.runId } : {}),
+								...(typeof data.status === "string" ? { status: data.status } : {}),
+								path,
+							})),
+						}
+					: {}),
+			},
+			delivery: {
+				state: deliveryState,
+				...(receipts.length
+					? {
+							receipts: receipts.map((item) => ({
+								eventId: item.id,
+								...((item.data as { session?: string }).session
+									? { session: (item.data as { session: string }).session }
+									: {}),
+							})),
+						}
+					: {}),
+			},
+		},
+		prediction,
+		management: {
+			paths: ["agents.validate", "agents.update", "inspect", "agents.show"],
+			authority: "existing local agent management authorization required",
+		},
+		...(options.configuration ? { configuration: options.configuration } : {}),
+	};
+}
+
+export async function projectAgentOperability(options: {
+	agent: AgentConfig;
+	agents: Iterable<AgentConfig>;
+	selector?: OperabilitySelector;
+	store?: Store;
+	channels?: Map<string, Channel>;
+	hooks?: ReadonlyMap<string, readonly Hook[]>;
+	configuration?: SessionOperabilityFact["configuration"];
+}): Promise<AgentOperabilityFact> {
+	const limit = 20;
+	if (!options.store || !options.channels || !options.hooks)
+		return {
+			status: "unknown",
+			limit,
+			truncated: false,
+			conversations: [
+				{ status: "unknown", selector: options.selector ?? {}, reason: "runtime session evidence is unavailable" },
+			],
+		};
+	const selector = options.selector ?? {};
+	const convs =
+		selector.conv || selector.eventId
+			? [selector.conv].filter((item): item is string => !!item)
+			: exactConversations(options.agent).slice(0, limit);
+	if (selector.eventId && !selector.conv) {
+		const sample = await sampleFor(options.store, selector);
+		if (sample.event?.conv) convs.push(sample.event.conv);
+	}
+	const unique = [...new Set(convs)];
+	const truncated = !selector.conv && !selector.eventId && exactConversations(options.agent).length > limit;
+	const conversations = await Promise.all(
+		unique.map((conv) =>
+			projectConversationOperability({
+				agent: options.agent,
+				agents: options.agents,
+				selector: { conv, ...(selector.eventId ? { eventId: selector.eventId } : {}) },
+				store: options.store!,
+				channels: options.channels!,
+				hooks: options.hooks!,
+				configuration: options.configuration,
+			}),
+		),
+	);
+	if (selector.eventId && !unique.length)
+		conversations.push({ status: "unknown", selector, reason: "event is not a stored message.in with a conversation" });
+	return {
+		status: conversations.some((item) => item.status === "observed") ? "observed" : "unknown",
+		limit,
+		truncated,
+		...(!unique.length && !selector.eventId ? { reason: "agent has no exact-conversation source bindings" } : {}),
+		conversations,
+	};
+}

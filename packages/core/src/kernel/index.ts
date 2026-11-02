@@ -24,7 +24,7 @@ import { migrateCardVisitor } from "./card-visitor.js";
 import { createChannelLogin } from "./channel-login.js";
 import { configRuntimeSections } from "./config-facts.js";
 import { loadHomeConfig, loadHomeSources } from "./config-sources.js";
-import { watchAgents } from "./config-watch.js";
+import { reloadWatcher, watchAgents } from "./config-watch.js";
 import { kernelPromptOptions, kernelTools } from "./conversation.js";
 import { deviceOperation } from "./device-operation.js";
 import { configurationErrors, profileContexts, protectSessions } from "./home.js";
@@ -32,6 +32,11 @@ import { type ManagementRequest, manageHome } from "./home-management.js";
 import { createNotificationPrefs } from "./notifications.js";
 import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
+import {
+	conversationOperabilityProjector,
+	extendKernelInspection,
+	managementOperabilityProjector,
+} from "./operability-adapters.js";
 import { pluginAgentManagement } from "./plugin-bindings.js";
 import { quotaWire } from "./quota-wire.js";
 import { resumeRecovered } from "./recovery.js";
@@ -58,6 +63,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 	let runtime: Runtime | undefined;
 	let plugins: LoadedPlugins | undefined;
 	let watcher: Awaited<ReturnType<typeof watchAgents>> | undefined;
+	const reloadConfig = () => reloadWatcher(watcher);
+	const agentStatus = (id: string) => watcher?.status(id) ?? Promise.resolve(undefined);
 	let db: Awaited<ReturnType<typeof openDatabase>> | undefined;
 	let stopDelivery: (() => Promise<void>) | undefined;
 	let closed = false;
@@ -194,6 +201,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			services,
 			skills,
 			packageVersion,
+			conversationOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
 		);
 		const { closeReason, completeRun } = createRunCompletion({
 			store,
@@ -245,10 +253,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			skills: skills.inspect,
 			loginChannel,
 			// 现有重载能力：watcher 在 watchConfig 之后赋值，调用时才解析。
-			reload: async () => {
-				if (!watcher) throw new Error("Config watcher unavailable");
-				await watcher.reload();
-			},
+			reload: reloadConfig,
 		});
 		router = createRouter({
 			channels: loaded.channels,
@@ -378,11 +383,17 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			presets: homePresets,
 			validate: validateCandidate,
 			scaffold: (candidate, agent) => scaffoldAgent(agent, candidate),
-			reload: () => watcher!.reload(),
+			reload: reloadConfig,
 			runtime: realRuntime,
 			resolve: resolveExecutionOwner,
 			identity: store.identity(),
 			delivery,
+			projectOperability: managementOperabilityProjector({
+				agents,
+				store,
+				loaded,
+				configStatus: agentStatus,
+			}),
 		});
 		social = createSocial({
 			home,
@@ -393,11 +404,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			target: (conv) => socialTarget(store, agents, loaded.channels, conv),
 			record: (event) => store.events.record(event),
 			validate: (next) => validateCandidate(config, next, homePresets),
-			reload: async () => {
-				if (!watcher) throw new Error("Config watcher unavailable");
-				await watcher.reload();
-			},
-			...createSocialSupport(store, agents, loaded.channels),
+			reload: reloadConfig,
+			...createSocialSupport(store, agents, loaded.channels, loaded.hooks),
 		});
 		watcher = await watchAgents({
 			home,
@@ -452,25 +460,15 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					return objectManagement.manage(request);
 				const result = await manageHome(home, request, loaded, { config, agents, presets: homePresets });
 				if (request.action !== "inspect") return result;
-				const agent = agents.get(request.agent ?? "main");
-				if (!agent) throw new Error("Unknown agent");
-				return {
-					...(result as object),
-					tools: (result as { tools: unknown }).tools,
-					runningSnapshots: (await store.sessions.list({ agent: agent.id, open: true })).flatMap((session) => {
-						const snapshot = realRuntime().currentConfig(session.id);
-						return snapshot
-							? [
-									{
-										session: session.id,
-										profile: snapshot.profile,
-										model: snapshot.resolved.model,
-										capabilities: snapshot.resolved.capabilities,
-									},
-								]
-							: [];
-					}),
-				};
+				return extendKernelInspection({
+					result,
+					request,
+					agents,
+					store,
+					loaded,
+					currentConfig: (session) => realRuntime().currentConfig(session),
+					configStatus: (id) => watcher!.status(id),
+				});
 			},
 			bots: await createBots(agents, store, (event) => router.emit(event as never), log),
 			close,

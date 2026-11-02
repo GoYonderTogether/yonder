@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { env } from "node:process";
+import { env, stderr } from "node:process";
 import { inspectSkills } from "@yonder/core";
-import { homeFor, managed, namedOptions, type Options, print, skillsUsage, UsageError } from "./context.js";
+import { homeFor, managed, namedOptions, type Options, output, print, skillsUsage, UsageError } from "./context.js";
 
 function currentInspectContext(home: string) {
 	try {
@@ -21,6 +21,123 @@ function currentInspectContext(home: string) {
 			return { home: runtimeHome, agent, profile };
 	} catch {}
 	return undefined;
+}
+
+const short = (value: unknown, max = 96) => (typeof value === "string" ? value.slice(0, max) : undefined);
+const shortList = (value: unknown, max = 12) =>
+	Array.isArray(value) ? value.filter((item) => typeof item === "string").slice(0, max) : undefined;
+function operabilitySummary(value: unknown) {
+	const report = value as {
+		status?: string;
+		limit?: number;
+		truncated?: boolean;
+		reason?: string;
+		conversations?: Array<Record<string, unknown>>;
+	};
+	return {
+		status: report.status ?? "unknown",
+		limit: report.limit,
+		truncated: report.truncated ?? false,
+		reason: short(report.reason),
+		conversations: (report.conversations ?? []).map((item) => {
+			const history = item.history as Record<string, unknown> | undefined;
+			const route = history?.route as Record<string, unknown> | undefined;
+			const policy = (history?.participation as Record<string, unknown> | undefined)?.policy as
+				| Record<string, unknown>
+				| undefined;
+			const prediction = item.prediction as Record<string, unknown> | undefined;
+			const predictedParticipation = prediction?.participation as Record<string, unknown> | undefined;
+			const scope = prediction?.participationScope as Record<string, unknown> | undefined;
+			const defaults = scope?.defaults as Record<string, unknown> | undefined;
+			const override = scope?.conversationOverride as Record<string, unknown> | undefined;
+			const consumer = prediction?.consumer as Record<string, unknown> | undefined;
+			const capabilities = prediction?.capabilities as Record<string, unknown> | undefined;
+			const tools = capabilities?.tools as Record<string, unknown> | undefined;
+			const execution = history?.execution as { state?: string; runs?: Array<Record<string, unknown>> } | undefined;
+			const delivery = history?.delivery as { state?: string; receipts?: Array<Record<string, unknown>> } | undefined;
+			return {
+				status: item.status ?? "unknown",
+				reason: short(item.reason),
+				management: item.management,
+				sample: item.sample
+					? {
+							eventId: short((item.sample as Record<string, unknown>).eventId),
+							conv: short((item.sample as Record<string, unknown>).conv, 120),
+							kind: short((item.sample as Record<string, unknown>).kind, 32),
+						}
+					: undefined,
+				history: {
+					route: route
+						? {
+								binding: short(route.binding),
+								session: short(route.session),
+								profile: short(route.profile),
+								wake: route.wake,
+								dropped: route.dropped,
+							}
+						: undefined,
+					participation: history?.participation
+						? {
+								reason: (history.participation as Record<string, unknown>).reason,
+								plugin: (history.participation as Record<string, unknown>).plugin,
+								mode: policy?.mode,
+								batchRun: (policy?.batch as Record<string, unknown> | undefined)?.run,
+							}
+						: undefined,
+					execution: execution
+						? {
+								state: execution.state,
+								runs: (execution.runs ?? []).slice(0, 3),
+								more: Math.max(0, (execution.runs?.length ?? 0) - 3),
+							}
+						: undefined,
+					delivery: delivery
+						? {
+								state: delivery.state,
+								receipts: (delivery.receipts ?? []).slice(0, 3),
+								more: Math.max(0, (delivery.receipts?.length ?? 0) - 3),
+							}
+						: undefined,
+				},
+				prediction: prediction
+					? {
+							state: prediction.state,
+							route: prediction.route,
+							dropReason: prediction.dropReason,
+							processing:
+								prediction.route === "dropped"
+									? "dropped"
+									: predictedParticipation?.reason === "batch" || predictedParticipation?.reason === "folded"
+										? "policy-controlled batch/folded candidate; final route/run unproven"
+										: prediction.wake === "write"
+											? "write wake configuration; final admission/execution unproven"
+											: "run wake configuration; final admission/execution unproven",
+							binding: short(prediction.binding),
+							profile: short(prediction.profile),
+							wake: prediction.wake,
+							participation: predictedParticipation,
+							participationScope: {
+								enabled: scope?.enabled,
+								includesConversation: scope?.includesConversation,
+								mode: override?.mode ?? defaults?.mode,
+								batchRun: ((override?.batch ?? defaults?.batch) as Record<string, unknown> | undefined)?.run,
+							},
+							consumer,
+							reply: prediction.reply,
+							capabilities: {
+								values: shortList(capabilities?.values),
+								plugins: shortList(capabilities?.plugins),
+								offer: shortList(tools?.offer),
+								search: shortList(tools?.search),
+								channelInstances: shortList(capabilities?.channelInstances),
+								messageSend: capabilities?.messageSend,
+							},
+						}
+					: undefined,
+				configuration: item.configuration,
+			};
+		}),
+	};
 }
 
 /** `agents`/`presets`, `plugins`/`models`/`inspect` and `skills`: management over the control socket. */
@@ -51,9 +168,36 @@ export async function runConfig(command: string, options: Options, rest: string[
 		const flags = namedOptions(rest.slice(operation === "list" ? 1 : 2), ["--file", "--preset"], usage);
 		if (["create", "update", "validate"].includes(operation) && !flags["--file"]) throw new UsageError(usage);
 		const value = flags["--file"] ? JSON.parse(await readFile(resolve(flags["--file"]), "utf8")) : undefined;
+		const home = homeFor(options);
+		if (command === "agents" && operation === "show") {
+			const config = await managed(home, { method: "management", params: { action: "agents.show", id } }, true);
+			output(config, options.json);
+			const runtime = currentInspectContext(home);
+			if (runtime && runtime.agent === id) {
+				try {
+					const inspection = (await managed(
+						home,
+						{
+							method: "management",
+							params: { action: "inspect", agent: id, profile: runtime.profile },
+						},
+						true,
+					)) as { operability?: unknown; runtimeLoaded?: unknown };
+					if (!Array.isArray(inspection.runtimeLoaded))
+						stderr.write("Session operability: unknown (runtime evidence unavailable; config stdout remains valid)\n");
+					else
+						stderr.write(
+							`Session operability (current runtime; may differ from config stdout): ${JSON.stringify(operabilitySummary(inspection.operability ?? { status: "unknown" }))}\n`,
+						);
+				} catch {
+					stderr.write("Session operability: unknown (runtime inspection unavailable)\n");
+				}
+			}
+			return 0;
+		}
 		return print(
 			managed(
-				homeFor(options),
+				home,
 				{ method: "management", params: { action: `${command}.${operation}`, id, preset: flags["--preset"], value } },
 				true,
 			),
@@ -65,7 +209,11 @@ export async function runConfig(command: string, options: Options, rest: string[
 		let flags: Record<string, string> = {};
 		if (command === "inspect") {
 			action = "inspect";
-			flags = namedOptions(rest, ["--agent", "--profile"], "Usage: yonder inspect [--agent <id>] [--profile <name>]");
+			flags = namedOptions(
+				rest,
+				["--agent", "--profile", "--conv", "--event"],
+				"Usage: yonder inspect [--agent <id>] [--profile <name>] [--conv <ref>] [--event <id>]",
+			);
 		} else if (command === "models") {
 			if (rest.length !== 1 || rest[0] !== "list") throw new UsageError("Usage: yonder models list");
 			action = "models.list";
@@ -99,6 +247,8 @@ export async function runConfig(command: string, options: Options, rest: string[
 					...(source ? { source } : {}),
 					...(agent ? { agent } : {}),
 					...(profile ? { profile } : {}),
+					...(flags["--conv"] ? { conv: flags["--conv"] } : {}),
+					...(flags["--event"] ? { eventId: flags["--event"] } : {}),
 				},
 			},
 			true,

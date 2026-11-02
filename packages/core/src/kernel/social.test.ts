@@ -71,10 +71,9 @@ test("social inspection separates stored route facts from configured match predi
 	const policy = agent.social?.defaults?.group;
 	if (!policy) throw new Error("Expected group policy");
 	const result = await inspect.inspectRoute("main", "conv:test:group", undefined, policy);
-	expect(result.detail).toContain("stored route: agent=main, binding=group, session=session-1, profile=default");
-	expect(result.detail).toContain(
-		"prediction (configured matching against this sample, not a future event): configured binding=group",
-	);
+	const detail = JSON.parse(result.detail) as { history: { route: object }; prediction: object };
+	expect(detail.history.route).toMatchObject({ binding: "group", session: "session-1", profile: "default" });
+	expect(detail.prediction).toMatchObject({ state: "matched", binding: "group", profile: "default" });
 	expect(result.capabilityGaps).toEqual([
 		"unknown: channel capabilities for test are not declared",
 		"unknown: inbound bot mention capability for test is not declared",
@@ -86,8 +85,10 @@ test("social inspection separates stored route facts from configured match predi
 	expect(diagnosed.policySource).toContain("select social in profile feishu-p1");
 	history = [];
 	const empty = await inspect.inspectRoute("main", "conv:test:group", undefined, policy);
-	expect(empty.detail).toContain("history: unknown (no message.in");
-	expect(empty.detail).toContain("prediction: unknown (no sample event)");
+	expect(JSON.parse(empty.detail)).toMatchObject({
+		status: "unknown",
+		reason: "no stored message.in for the selected conversation",
+	});
 });
 
 test("social support verifies direct owner and continuation sources and rejects visitors or mixed inputs", async () => {

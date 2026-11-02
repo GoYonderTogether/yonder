@@ -1,17 +1,17 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { Channel, SocialAPI, SocialPolicy, ToolContext } from "@yonder/sdk";
+import type { Channel, Hook, SocialAPI, SocialPolicy, ToolContext } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
 import { type AgentConfig, parseAgentConfig, type YonderConfig } from "../config/index.js";
 import { socialDefaults, socialPolicySchema, socialTriggerErrors } from "../config/social-schema.js";
 import type { Principal } from "../control/method-types.js";
-import { matches } from "../routing/matching.js";
 import { membershipGroup } from "../routing/platform-group.js";
 import type { Store } from "../store/index.js";
 import { requestSources } from "../tools/parent-origin.js";
+import { projectConversationOperability } from "./operability.js";
 
 type Inspect = Parameters<SocialAPI["inspect"]>[0];
 type Update = Parameters<SocialAPI["update"]>[0];
@@ -304,7 +304,12 @@ export function createSocial(options: {
 	return { inspect, update, auditDenied, botGate };
 }
 
-export function createSocialSupport(store: Store, agents: Map<string, AgentConfig>, channels: Map<string, Channel>) {
+export function createSocialSupport(
+	store: Store,
+	agents: Map<string, AgentConfig>,
+	channels: Map<string, Channel>,
+	hooks: ReadonlyMap<string, readonly Hook[]> = new Map(),
+) {
 	return {
 		ownerInput: async (agent: string, caller: ToolContext) => {
 			if (!caller.agent || !caller.event?.id) return false;
@@ -327,72 +332,29 @@ export function createSocialSupport(store: Store, agents: Map<string, AgentConfi
 			);
 		},
 		inspectRoute: async (agentId: string, conv: string, requestedEvent: string | undefined, policy: SocialPolicy) => {
+			const agent = agents.get(agentId);
+			if (!agent) return { detail: "unknown: Agent is unavailable", capabilityGaps: ["unknown: Agent is unavailable"] };
+			const fact = await projectConversationOperability({
+				agent,
+				agents: agents.values(),
+				selector: { conv, ...(requestedEvent ? { eventId: requestedEvent } : {}) },
+				store,
+				channels,
+				hooks,
+			});
+			const history = fact.history;
+			const gaps = fact.status === "unknown" ? [fact.reason ?? "unknown: no trusted sample"] : [];
 			const instance = conv.split(":")[1];
 			const channel = channels.get(instance ?? "");
-			const page = requestedEvent
-				? await store.events.query({ id: requestedEvent, type: "message.in", conv, limit: 1 })
-				: await store.events.query({ type: "message.in", conv, limit: 1000 });
-			const input = page.events.at(-1);
-			const gaps: string[] = [];
-			if (!channel) gaps.push(`unknown: channel instance ${instance ?? "?"} is not loaded`);
-			else if (!channel.features) gaps.push(`unknown: channel capabilities for ${instance} are not declared`);
-			if (!input)
-				return {
-					detail: requestedEvent
-						? `history: unknown (event ${requestedEvent} is not a message.in for ${conv}); prediction: unknown (no sample event)`
-						: `history: unknown (no message.in for ${conv}); prediction: unknown (no sample event)`,
-					capabilityGaps: gaps,
-				};
-			const agent = agents.get(agentId);
-			if (!agent)
-				return { detail: `history: event ${input.id}; prediction: unknown (agent missing)`, capabilityGaps: gaps };
-			const route = input.routes?.find((item) => item.agent === agentId);
-			let historical = route
-				? `agent=${agentId}, binding=${route.binding ?? "none"}, session=${route.session ?? "unknown"}${route.dropped ? `, dropped=${route.dropped}` : ""}`
-				: `no stored route for ${agentId}`;
-			if (route?.session) {
-				const session = await store.sessions.get(route.session);
-				historical += session ? `, profile=${session.profile}` : ", profile=unknown (session missing)";
-			}
-			const decisions = await store.events.query({ type: "routing.social-decision", after: input.id, limit: 1000 });
-			const decision = decisions.events.find((event) => {
-				const data = event.data as { agent?: unknown };
-				return event.parent === input.id && data.agent === agentId;
-			});
-			const decisionData = decision?.data as
-				| {
-						policy?: unknown;
-						revision?: unknown;
-						reason?: unknown;
-						plugin?: unknown;
-						batchBinding?: unknown;
-						consumerIssue?: unknown;
-						profile?: unknown;
-						repair?: unknown;
-				  }
-				| undefined;
-			const hasPolicy = !!decisionData?.policy && typeof decisionData.policy === "object";
-			const policySource = hasPolicy
-				? `historical routing.social-decision ${decision?.id ?? "unknown"}; revision=${String(decisionData?.revision ?? "unknown")}; reason=${String(decisionData?.reason ?? "unknown")}; plugin=${String(decisionData?.plugin ?? "unknown")}${decisionData?.batchBinding === "missing" ? `; batch consumer missing (${String(decisionData.consumerIssue ?? "unknown")}, profile=${String(decisionData.profile ?? "unknown")}); ${String(decisionData.repair ?? "inspect the source profile and exact-conversation batch binding")}` : ""}`
+			if (fact.status === "observed" && !channel)
+				gaps.push(`unknown: channel instance ${instance ?? "?"} is not loaded`);
+			else if (fact.status === "observed" && channel && !channel.features)
+				gaps.push(`unknown: channel capabilities for ${instance} are not declared`);
+			if (fact.status === "observed" && !history?.participation)
+				gaps.push("unknown: effective participation policy is not recorded for the sample event");
+			const policySource = history?.participation?.revision
+				? `historical routing.social-decision; revision=${history.participation.revision}; reason=${history.participation.reason ?? "unknown"}; plugin=${history.participation.plugin ?? "unknown"}${history.participation.consumerIssue ? `; batch consumer missing (${history.participation.consumerIssue}, profile=${history.participation.profile ?? "unknown"}); ${history.participation.repair ?? "inspect source profile and exact-conversation batch binding"}` : ""}`
 				: "unknown: runtime policy not recorded for sample event; displayed policy is configured merge only";
-			if (!hasPolicy) gaps.push("unknown: effective participation policy is not recorded for the sample event");
-			if (page.next) gaps.push("history sample is limited to the first 1000 events; it is not latest or exhaustive");
-			const binding = (
-				await Promise.all(
-					agent.bindings.map(async (candidate) =>
-						(await matches(candidate, input, agent, store)) ? candidate : undefined,
-					),
-				)
-			).find(Boolean);
-			let prediction: string;
-			if (!binding) prediction = "no configured binding matched sample event";
-			else {
-				const profile = binding.profile ?? agent.defaultProfile;
-				prediction = `configured binding=${binding.id}, session=${JSON.stringify(binding.session)}, profile=${agent.profiles[profile] ? profile : `${profile} (missing)`}`;
-				if (!agent.profiles[profile]) gaps.push(`missing profile ${agentId}/${profile} for binding ${binding.id}`);
-			}
-			const kind = String((input.data as { kind?: unknown }).kind ?? "unknown");
-			if (channel && !channel.kinds.includes(kind)) gaps.push(`channel ${instance} does not declare kind ${kind}`);
 			if (policy.mode === "mention" && policy.signals?.botMention === "respond") {
 				if (!channel?.features?.mentions)
 					gaps.push(`unknown: inbound bot mention capability for ${instance ?? "?"} is not declared`);
@@ -400,7 +362,13 @@ export function createSocialSupport(store: Store, agents: Map<string, AgentConfi
 					gaps.push(`channel ${instance} does not report bot mentions`);
 			}
 			return {
-				detail: `history sample event=${input.id}; stored route: ${historical}; effective policy evidence: ${hasPolicy ? JSON.stringify(decisionData?.policy) : "unknown"}; prediction (configured matching against this sample, not a future event): ${prediction}`,
+				detail: JSON.stringify({
+					status: fact.status,
+					reason: fact.reason,
+					history,
+					prediction: fact.prediction,
+					selector: fact.selector,
+				}),
 				capabilityGaps: gaps,
 				policySource,
 			};
