@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { loadYonderConfig } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import type { LoadedPlugins } from "../plugins/index.js";
 import { localEnvironment } from "../runtime/env.js";
+import { configRuntimeSections } from "./config-facts.js";
 import { watchAgents } from "./config-watch.js";
 import { initHome } from "./home.js";
 import { loadAgents } from "./workspace.js";
@@ -16,6 +18,39 @@ function plugins(envs = new Map()) {
 		envs,
 	} as unknown as LoadedPlugins;
 }
+
+test("kernel section callback resolves the current watcher for every request", async () => {
+	let current:
+		| {
+				status(agentId?: string): Promise<{ home: { state: "effective" | "pending"; revision: string; file: string } }>;
+		  }
+		| undefined;
+	const options: Parameters<typeof configRuntimeSections>[1] = {
+		contexts: new Map(),
+		workspace: () => {
+			throw new Error("No workspace should be needed for an empty prompt");
+		},
+	};
+	const wired = configRuntimeSections(() => current, options, new Map());
+	const session = {
+		id: "session:config-facts",
+		agent: "main",
+		profile: "owner",
+		cwd: "/tmp",
+		resolved: resolveProfile({ model: "openai/gpt-6-luna", prompt: { sections: [] } }),
+	};
+	const render = async () =>
+		(await wired.sections(session)).find((part) => part.key === "runtime-config-acceptance")?.text;
+	expect(await render()).toContain('"state":"unknown"');
+	current = {
+		status: async () => ({ home: { state: "effective", revision: "accepted-1", file: "yonder.yaml" } }),
+	};
+	expect(await render()).toContain('"revision":"accepted-1"');
+	current = {
+		status: async () => ({ home: { state: "pending", revision: "pending-2", file: "yonder.yaml" } }),
+	};
+	expect(await render()).toContain('"revision":"pending-2"');
+});
 
 async function watcherFor(home: string, loaded: LoadedPlugins) {
 	const config = await loadYonderConfig(home);

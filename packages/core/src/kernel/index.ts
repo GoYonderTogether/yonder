@@ -338,7 +338,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					.flatMap((file) => (file.protect ? [{ path: file.path, capability: file.protect }] : []));
 				return { ...session, protectedFiles };
 			},
-			...configRuntimeSections(watcher, promptOptions, loaded.contexts),
+			...configRuntimeSections(() => watcher, promptOptions, loaded.contexts),
 			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
 			...observedRuntimeEvents(store, forwardUpdate, delivery.modelNotice),
 			onReport: observability.report,

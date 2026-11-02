@@ -27,14 +27,14 @@ import type { PromptPart } from "../runtime/types.js";
 export const sourceRevision = (text: string) => createHash("sha256").update(text).digest("hex");
 
 export function configRuntimeSections(
-	reader: { status(agentId?: string): Promise<ConfigStatus> } | undefined,
+	reader: () => { status(agentId?: string): Promise<ConfigStatus> } | undefined,
 	options: Parameters<typeof systemPromptParts>[1],
 	contexts: ReadonlyMap<string, ContextContribution>,
 ) {
 	return {
 		sections: async (session: Parameters<typeof systemPromptParts>[0], signal?: AbortSignal): Promise<PromptPart[]> => [
 			...(await systemPromptParts(session, { ...options, ...(signal ? { signal } : {}) })),
-			await runtimeConfigFact(reader, session.agent),
+			await runtimeConfigFact(reader(), session.agent),
 		],
 		sectionKeys: [...systemPromptKeys(contexts), "runtime-config-acceptance"],
 	};
