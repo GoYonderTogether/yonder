@@ -400,6 +400,72 @@ test("custom events retain complete data and message labels cannot break the tur
 	}
 });
 
+test("owner, parent, and late tool inputs keep distinct host contexts", async () => {
+	const directory = await tempHome("yonder-turn-context-");
+	const db = await openDatabase(join(directory, "state.db"));
+	try {
+		const store = await createStore(db);
+		const row = {
+			id: "1",
+			agent: "helper",
+			profile: "default",
+			mode: "main" as const,
+			key: "main",
+			version: "0.1.0",
+			opened: new Date().toISOString(),
+		};
+		const session = { agent: "helper", profile: "default", cwd: directory, resolved: resolveProfile({}) };
+		const owner = newEvent({
+			type: "message.in",
+			from: "acct:feishu:owner",
+			conv: "conv:feishu:private",
+			data: { kind: "dm", text: "owner input" },
+		});
+		const parent = newEvent({
+			type: "message.in",
+			from: "acct:agent:helper",
+			conv: "conv:agent:helper",
+			data: { kind: "parent-request", text: "parent input" },
+		});
+		const tool = newEvent({
+			type: "runtime.tool-result",
+			conv: "conv:qq:group",
+			data: { session: "1", job: "old-qq-job", text: "late result" },
+		});
+		const options: PromptOptions = {
+			home: directory,
+			version: row.version,
+			locale: "zh-CN",
+			timezone: "Asia/Shanghai",
+			contexts: new Map(),
+			workspace: () => workspaceFiles(localEnvironment(directory)),
+			identity: store.identity(),
+			models: buildModels(new FileCredentials(join(directory, "auth.json"))),
+			setVersion: store.sessions.setVersion,
+			conversationContext: async (event) => {
+				if (event.id === owner.id) return JSON.stringify({ source: owner.id, conv: owner.conv, contextOnly: true });
+				if (event.id === parent.id)
+					return JSON.stringify({ source: parent.id, conv: parent.conv, verifiedParent: true });
+				return undefined;
+			},
+		};
+		const ownerPrepared = await prepareInput(row, session, owner, "run", options);
+		const parentPrepared = await prepareInput(row, session, parent, "run", options);
+		const toolPrepared = await prepareInput(row, session, tool, "run", options);
+		expect(ownerPrepared.text).toContain(owner.id);
+		expect(ownerPrepared.text).toContain("conv:feishu:private");
+		expect(ownerPrepared.text).not.toContain("conv:agent:helper");
+		expect(parentPrepared.text).toContain(parent.id);
+		expect(parentPrepared.text).toContain("conv:agent:helper");
+		expect(parentPrepared.text).not.toContain("conv:feishu:private");
+		expect(toolPrepared.text).not.toContain("conversation:");
+		expect(toolPrepared.text).toContain("late result");
+	} finally {
+		await db.close();
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
 test("an expired attachment URL is reported to the model instead of failing the whole turn", async () => {
 	const directory = await tempHome("yonder-expired-attachment-");
 	const db = await openDatabase(join(directory, "state.db"));
