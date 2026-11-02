@@ -427,25 +427,23 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 		};
 		const error = await rpc(device, "device.describe", {}, ctx.signal).catch((error) => error);
 		expect(error.diagnostic).toEqual({
-			stage: "authentication",
+			stage: "exchange",
 			reason: "UNAUTHORIZED",
-			verification: "future",
-			offsetMs: 1,
 		});
 		expect(JSON.stringify(error)).not.toContain("private transport detail");
 		expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN" });
 	});
 	it("retains only safe timing diagnostics from authenticated response verification", async () => {
 		const { peer, controller, ctx } = await setup();
-		peer.state.alterResponse = (r) => ({ ...r, issuedAt: Date.now() + 30_000, expiresAt: Date.now() + 60_000 });
+		peer.state.alterResponse = (r) => ({ ...r, issuedAt: Date.now() - 30_000, expiresAt: Date.now() - 1 });
 		const error = await controller.describe(peer.device.deviceId, ctx).catch((error) => error);
 		expect(error.diagnostic).toEqual({
 			stage: "authentication",
 			reason: "UNAUTHORIZED",
-			verification: "future",
+			verification: "expired",
 			offsetMs: expect.any(Number),
 		});
-		expect(error.diagnostic.offsetMs).toBeGreaterThan(0);
+		expect(error.diagnostic.offsetMs).toBeLessThan(0);
 		expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN" });
 	});
 	it("rejects wrong signed response identity and wrong result target, keeping unknown honest", async () => {

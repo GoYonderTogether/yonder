@@ -1,4 +1,5 @@
 import { type KeyObject, randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import {
 	type ExecutionError,
 	type Grant,
@@ -55,6 +56,38 @@ const queries = new Set<RpcRequest["method"]>([
 	"commands.status",
 ]);
 
+async function verifyResponse(
+	answer: unknown,
+	key: KeyObject,
+	expected: Parameters<typeof verifyMessage>[2],
+	signal: AbortSignal,
+	onWait: () => void,
+) {
+	for (;;) {
+		signal.throwIfAborted();
+		try {
+			return verifyMessage(answer, key, { ...expected, now: Date.now() });
+		} catch (error) {
+			const cause = error instanceof Error ? error.cause : undefined;
+			if (
+				!cause ||
+				typeof cause !== "object" ||
+				!("verification" in cause) ||
+				cause.verification !== "future" ||
+				!("offsetMs" in cause) ||
+				typeof cause.offsetMs !== "number" ||
+				!Number.isSafeInteger(cause.offsetMs) ||
+				cause.offsetMs <= 0
+			)
+				throw error;
+			// Only our verifier can reach here, after signature, binding and all other time-window checks.
+			// Wait for real local time, never adjust it or resend. The original route budget owns cancellation.
+			onWait();
+			await delay(Math.min(1_000, cause.offsetMs), undefined, { signal });
+		}
+	}
+}
+
 export async function rpc<M extends RpcRequest["method"]>(
 	device: RegisteredDevice,
 	method: M,
@@ -83,17 +116,27 @@ export async function rpc<M extends RpcRequest["method"]>(
 	for (const route of queries.has(method) ? device.routes : device.routes.slice(0, 1)) {
 		const budget = AbortSignal.any([signal, AbortSignal.timeout(15_000)]);
 		let stage: "exchange" | "authentication" = "exchange";
+		let waitingForClock = false;
 		try {
 			budget.throwIfAborted();
-			const answer = await route.exchange(envelope, budget);
+			// Snapshot adapter output before verification; accessors cannot impersonate verifier errors.
+			const answer = structuredClone(await route.exchange(envelope, budget));
 			stage = "authentication";
-			const response = verifyMessage(answer, device.deviceKey, {
-				kind: "response",
-				principalId,
-				deviceId: device.deviceId,
-				requestId,
-				now: Date.now(),
-			});
+			const response = await verifyResponse(
+				answer,
+				device.deviceKey,
+				{
+					kind: "response",
+					principalId,
+					deviceId: device.deviceId,
+					requestId,
+					now: Date.now(),
+				},
+				budget,
+				() => {
+					waitingForClock = true;
+				},
+			);
 			if (response.kind !== "response") throw new Error("WRONG_TARGET");
 			if (!response.ok) throw new RemoteError(response.error.code, response.error.message);
 			return response.result;
@@ -141,7 +184,7 @@ export async function rpc<M extends RpcRequest["method"]>(
 						diagnostic.offsetMs = offsetMs;
 				}
 			}
-			if (signal.aborted) break;
+			if (signal.aborted || waitingForClock) break;
 		}
 	}
 	throw new UnconfirmedRequest(requestId, device.routes.length ? "unknown" : "offline", diagnostic);

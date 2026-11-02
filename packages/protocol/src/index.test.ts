@@ -89,7 +89,7 @@ describe("paired endpoint signatures (isolated ephemeral keys)", () => {
 		["expired", { issuedAt: now - 10_000, expiresAt: now }, now, 0],
 		["expired", { issuedAt: now - 10_000, expiresAt: now - 1 }, now, -1],
 		["invalid-window", { expiresAt: now + 60_001 }, now, undefined],
-		["future", { expiresAt: now }, now - 1, 1],
+		["invalid-window", { expiresAt: now }, now - 1, undefined],
 	] as const)(
 		"classifies rejected time windows without relaxing authorization: %s",
 		(verification, times, clock, offsetMs) => {

@@ -73,12 +73,12 @@ export function verifyMessage(
 	)
 		throw new Error("WRONG_TARGET");
 	if (!Number.isSafeInteger(expected.now)) throw new Error("UNAUTHORIZED", { cause: { verification: "invalid-now" } });
-	if (message.issuedAt > expected.now)
-		throw new Error("UNAUTHORIZED", { cause: { verification: "future", offsetMs: message.issuedAt - expected.now } });
-	if (message.expiresAt <= expected.now)
-		throw new Error("UNAUTHORIZED", { cause: { verification: "expired", offsetMs: message.expiresAt - expected.now } });
 	if (message.expiresAt <= message.issuedAt || message.expiresAt - message.issuedAt > MAX_MESSAGE_AGE_MS)
 		throw new Error("UNAUTHORIZED", { cause: { verification: "invalid-window" } });
+	if (message.expiresAt <= expected.now)
+		throw new Error("UNAUTHORIZED", { cause: { verification: "expired", offsetMs: message.expiresAt - expected.now } });
+	if (message.issuedAt > expected.now)
+		throw new Error("UNAUTHORIZED", { cause: { verification: "future", offsetMs: message.issuedAt - expected.now } });
 	return message;
 }
 
