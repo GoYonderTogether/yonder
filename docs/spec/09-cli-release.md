@@ -152,7 +152,7 @@ Windows 状态栏是一个常驻托盘 `Yonder Status`，用户级登录自启�
 
 ### 6.3 安卓分发与更新
 
-- CI 由 `android-release.yml` 在正式 Release 发布后构建签名 APK，上传 GitHub Release 资产 `yonder-android.apk`，并上传 OSS `https://yonder-release.oss-cn-hangzhou.aliyuncs.com/android/yonder-<version>.apk` 与清单 `.../android/latest.json`（字段：version、versionCode、url、sha256、size、publishedAt）。
+- CI 由 `android-release.yml` 在正式 Release 发布后构建签名 APK，上传 GitHub Release 资产 `yonder-android.apk`，并上传 OSS `https://yonder-release.oss-cn-hangzhou.aliyuncs.com/android/yonder-<version>.apk` 与清单 `.../android/latest.json`（字段：version、versionCode、url、sha256、size、publishedAt）。清单的 `url` 指向同一 Release 的 GitHub 资产：阿里云不允许经 OSS 默认域名对外分发 APK（`ApkDownloadForbidden`，需绑定 CNAME），OSS 上的 APK 保留给已绑定域名的镜像；修正已发布清单时只允许同 versionCode、同摘要的覆盖。
 - App 内更新：拉 `latest.json` 比较 versionCode，下载后校验 sha256，再交 Android 系统安装器。系统确认框必须由用户点击，不声称静默安装；安装完成后系统重启应用。
 
 ### 6.4 桌面安装包分发
