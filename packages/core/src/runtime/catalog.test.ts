@@ -42,6 +42,21 @@ test("only resident Agents can offer agent_ask even when a preset selects every 
 	).toBe("not-selected");
 });
 
+test("parent_ask is unavailable in main sessions but remains available in non-main sessions", () => {
+	const config = {
+		agent: "main",
+		profile: "owner",
+		cwd: process.cwd(),
+		resolved: resolveProfile({ level: "bypass", tools: { offer: ["*"], search: ["parent_ask"] } }),
+	};
+	const exposure = (sessionMode: "main" | "persistent" | "ephemeral") =>
+		inspectToolCatalog({ ...config, sessionMode }, new Map()).find((tool) => tool.name === "parent_ask")?.exposure;
+
+	expect(exposure("main")).toBe("not-selected");
+	expect(exposure("persistent")).toBe("offer");
+	expect(exposure("ephemeral")).toBe("offer");
+});
+
 test("an identity-less preset cannot expose agent_ask through tool search", () => {
 	const config = {
 		agent: null,

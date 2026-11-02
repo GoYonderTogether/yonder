@@ -5,6 +5,7 @@ import type {
 	Hook,
 	OutputPart,
 	RunEndData,
+	SessionInfo,
 	SessionModels,
 	Tool,
 	ToolResult,
@@ -16,6 +17,8 @@ import type { TodoUpdatedEvent } from "./todo.js";
 export interface RuntimeSessionConfig {
 	agent: string | null;
 	profile: string;
+	/** Stored session mode when this resolves a real session rather than a profile preview. */
+	sessionMode?: SessionInfo["mode"];
 	cwd: string;
 	resolved: ResolvedProfile;
 	protectedFiles?: Array<{ path: string; capability: Capability }>;

@@ -49,6 +49,7 @@ export function describeCatalog(
 			(explicit
 				? config.resolved.tools.search.includes(tool.name)
 				: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name)));
+		const mainBlocked = config.sessionMode === "main" && tool.name === "parent_ask";
 		return {
 			...tool,
 			missing,
@@ -56,13 +57,15 @@ export function describeCatalog(
 				? "plugin-not-selected"
 				: missing.length
 					? "capability-denied"
-					: !config.agent && tool.name === "agent_ask"
+					: mainBlocked
 						? "not-selected"
-						: offered
-							? "offer"
-							: searched
-								? "search"
-								: "not-selected",
+						: !config.agent && tool.name === "agent_ask"
+							? "not-selected"
+							: offered
+								? "offer"
+								: searched
+									? "search"
+									: "not-selected",
 		};
 	});
 	// X7 懒加载：分组内的工具默认只在 tool_search 命中后才载入，显式激活（active）后恢复常驻。

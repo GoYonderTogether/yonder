@@ -90,6 +90,7 @@ export function createSessions({
 			return {
 				agent: null,
 				profile: row.profile,
+				sessionMode: row.mode,
 				cwd: state.cwd,
 				resolved,
 			};
@@ -103,6 +104,7 @@ export function createSessions({
 		return {
 			agent: row.agent,
 			profile: row.profile,
+			sessionMode: row.mode,
 			cwd,
 			resolved: resolveProfile(selected, agent.defaults, env, config.defaultModel),
 			bindings: agent.bindings,
