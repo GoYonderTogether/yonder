@@ -24,7 +24,7 @@ function Die($Message) { Write-Error "安装失败：$Message"; exit 1 }
 function Step($Message) { Write-Host "`n== $Message" }
 
 Step '检查环境'
-foreach ($tool in @('git', 'npm', 'node')) {
+foreach ($tool in @('git', 'npm.cmd', 'node')) {
 	if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
 		Die "缺少 $tool。请先安装 Git（https://git-scm.com）与 Node.js 22.19 或更新版本（https://nodejs.org）。"
 	}
@@ -88,9 +88,10 @@ if (Test-Path $RecordPath) {
 	Say '安装依赖并构建（首次通常需要几分钟）'
 	Push-Location $Dir
 	try {
-		& npm ci --no-audit --no-fund
+		# npm.ps1 reparses "& npm" as "pm" in npm 10.9.3; use the Windows command shim.
+		& npm.cmd ci --no-audit --no-fund
 		if ($LASTEXITCODE -ne 0) { throw 'npm ci 失败' }
-		& npm run build
+		& npm.cmd run build
 		if ($LASTEXITCODE -ne 0) { throw 'npm run build 失败' }
 		$Commit = (& git rev-parse HEAD).Trim()
 	} catch {

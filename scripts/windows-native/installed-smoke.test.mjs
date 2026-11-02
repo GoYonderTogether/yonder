@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import { verifyServiceInfo } from "./installed-smoke.mjs";
@@ -16,4 +17,12 @@ test("service proof requires the installed version, commit, process and home", (
 		{ home: resolve("other-smoke-home") },
 	])
 		assert.throws(() => verifyServiceInfo({ ...info, ...patch }, 123, record, home));
+});
+
+test("Windows installer uses npm.cmd and retains failure checks for both build commands", () => {
+	const source = readFileSync(new URL("../install.ps1", import.meta.url), "utf8");
+	assert.match(source, /@\('git', 'npm.cmd', 'node'\)/);
+	assert.match(source, /& npm\.cmd ci --no-audit --no-fund\r?\n\s*if \(\$LASTEXITCODE -ne 0\)/);
+	assert.match(source, /& npm\.cmd run build\r?\n\s*if \(\$LASTEXITCODE -ne 0\)/);
+	assert.doesNotMatch(source, /^\s*& npm /m);
 });
