@@ -27,6 +27,7 @@ const output = [];
 const rssSamples = [];
 const modelInputs = [];
 let sampler;
+let peakSample;
 const report = {
 	mode: live ? "real-glm-5.3-flash" : "loopback-transport",
 	scenario: scenario ?? "reply",
@@ -58,7 +59,10 @@ async function start() {
 		},
 	});
 	child.on("message", (message) => {
-		if (message.state?.rss) rssSamples.push(message.state.rss);
+		if (message.state?.rss) {
+			rssSamples.push(message.state.rss);
+			if (!peakSample || message.state.rss > peakSample.rss) peakSample = message.state;
+		}
 		if (message.type === "model-input") modelInputs.push(message);
 	});
 	sampler = setInterval(() => {
@@ -151,7 +155,14 @@ async function turn(bot, text, expectError = false) {
 	await until(async () => (await state()).completed > before.completed);
 	await pause(30);
 	const after = await state();
-	report.rounds.push({ bot: bot.id, queries: after.queries - before.queries, active: after.active, rss: after.rss });
+	report.rounds.push({
+		bot: bot.id,
+		queries: after.queries - before.queries,
+		active: after.active,
+		rss: after.rss,
+		memory: after.memory,
+		diagnostics: after.diagnostics,
+	});
 	assert.ok(after.active <= 20 && after.highWater <= 20, "active Bot cap exceeded");
 	assert.equal(
 		(
@@ -472,6 +483,7 @@ try {
 			console.log(
 				JSON.stringify({
 					phase: "source-diagnostic",
+					...(load ? { measurement: report.rounds.at(-1) } : {}),
 					bot: index + 1,
 					profiles,
 					modelInputs: inspected,
@@ -497,6 +509,7 @@ try {
 		report.final = final;
 		report.rssPeakBytes = Math.max(...rssSamples);
 		report.rssPeakMB = report.rssPeakBytes / 1_000_000;
+		report.rssPeakState = peakSample;
 		assert.ok(report.rssPeakBytes <= 350_000_000, `peak RSS exceeds 350 MB: ${report.rssPeakBytes}`);
 		assert.ok(final.rss <= 350_000_000, `loaded RSS exceeds 350 MB: ${final.rss}`);
 		const [first, second] = bots;
@@ -556,6 +569,11 @@ try {
 		}
 		console.log(JSON.stringify(report, null, 2));
 	}
+} catch (error) {
+	report.failure = redactError(error instanceof Error ? error.message : String(error));
+	report.rssPeakState = peakSample;
+	console.log(JSON.stringify(report, null, 2));
+	throw error;
 } finally {
 	await stop();
 	await transport?.close();
