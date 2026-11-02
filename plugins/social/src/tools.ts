@@ -60,7 +60,7 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	api.tools.register({
 		name: "social_inspect",
 		description:
-			"Read a conversation's effective social reply policy, its source and current revision; use the same agent/conv to preview or apply a change, then inspect again to verify.",
+			"Read a conversation's effective social reply policy, its source and current revision; use the same agent/conv to preview or apply a change, then inspect again to verify. Unknown channel capability metadata is not proof of denied policy-write permission or a failed write; distinguish reported unknowns from actual validation and authorization errors.",
 		capabilities: ["read"],
 		parameters: Type.Object({ ...target, event: Type.Optional(text) }, { additionalProperties: false }),
 		async execute(args, ctx) {
