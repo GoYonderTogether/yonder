@@ -1,4 +1,4 @@
-# 工作台多端实现与验收（进行中）
+# 工作台多端实现与阶段验收（2026-11-02）
 
 ## 原始目标与授权
 
@@ -31,16 +31,16 @@
 
 | ID | 必须证明的行为 | 当前证据 |
 |---|---|---|
-| W01 | 新会话运行位置真实，已有会话不暗中迁移 | 本机真实新会话、云登录导航和草稿保留通过；升级云内核后的选择待验收 |
+| W01 | 新会话运行位置真实，已有会话不暗中迁移 | 本机真实新会话、云登录导航和草稿保留通过；云Linux实际新会话与持久化通过，正式网页选择待验收 |
 | W02 | 未指定/设备/多目录/多设备选择在运行中生效 | 浏览器设备与两目录、双TLS executor及完整kernel远程调用通过；混合本机资源回归已补 |
-| W03 | 宿主模型与云模型真实调用，其他设备模型不可选 | 本机Luna、云proxy DeepSeek、本机完整Runtime经云目录调用DeepSeek均成功；云内核回合待完成 |
+| W03 | 宿主模型与云模型真实调用，其他设备模型不可选 | 本机Luna、云proxy DeepSeek、本机及云端完整Runtime真实DeepSeek会话均成功 |
 | W04 | effort按模型能力展示、下一运行生效并恢复 | 结构化API与浏览器菜单通过；真实模型按实际目录能力展示 |
 | W05 | 主人默认bypass、readonly和自定义，渠道隔离 | owner真实Luna运行快照、访客伪造及steer隔离、child权限边界通过 |
 | W06 | 文件/图片/拖拽通过真实宿主附件进入模型 | 真实上传、拖放、Luna读原PNG、刷新持久化、授权下载逐字节核对通过 |
 | W07 | 设备失联、撤销、重复命令无重复副作用 | controller20例，双真实TLS取消、重启账本去重，多Card同账本真实4/4；云设备失联场景待验收 |
 | W08 | 桌面/窄屏真实页面可操作并有截图 | 1440与390真实Gateway验收通过，无pageerror/横向溢出；生产静态待发布 |
-| W09 | Linux完整内核和execution-only实际安装 | Linux ARM64裸容器离线四包安装execution-only及真实配对/工具已通过；amd64完整内核构建中 |
-| W10 | 真实模型本机/云端与远程设备链 | 本机Luna双设备、完整kernel、owner隔离均通过；用户批准云端改用DeepSeek/GLM，proxy成功，完整云回合待完成 |
+| W09 | Linux完整内核和execution-only实际安装 | Linux ARM64裸容器离线四包execution-only通过；Linux amd64完整Harness实际安装且online/workProtocol=1 |
+| W10 | 真实模型本机/云端与远程设备链 | 本机Luna双TLS executor、完整kernel、owner隔离通过；云DeepSeek真实session通过。物理云Linux→Mac配对/中继通过，工具回合未通过，见下文 |
 | W11 | 完整build/typecheck/test/lint及发布版本 | 固定8f620a0a全门禁通过；后续服务补丁28610177 build/typecheck/lint与定向通过；Windows CI一处路径断言待修，正式发布待完成 |
 | W12 | 线上静态/后端/本机安装状态分别核对 | 待实现验证 |
 
@@ -52,9 +52,19 @@
 
 目录资源选择约束文件工具和执行目标，不宣称任意shell被cwd隔离；云端凭据受信服务能在调用时解密。设备保留最小命令账本，会话权威仍在所属Harness的pi-durable。
 
-## 检查、失败与未完成
+## 当前阶段与后续清单
 
-实现进行中。此文档不是验收通过报告。每次实际运行结果随后记录，不以源码存在代替真实多端、模型、生产验证。
+核心功能已实现并推送；云端后端与Linux内核已部署，真实模型会话与附件通过。**尚未完成本轮正式Harness发版、新静态网页发布、本机正式服务升级以及物理云Linux→Mac工具回合。** 此文档是阶段证据，不是全部验收通过声明。
+
+下一步按顺序完成：
+
+1. 主分支并发群聊/Windows任务修复各自发布门禁，等待精确提交的完整CI通过。本轮不扩大修复范围。
+2. 沿既有Release流程正式发版，再触发云仓Deploy web，核对线上build-version与正式tag/SHA。
+3. 按正常 `yonder update --to <正式tag>` 更新本机，核home、source、PID/ready以及已准备的进程代理环境，验证常驻服务读取云模型。
+4. 重新创建短期验收登录，验证正式网页运行位置、工作区、模型/effort与附件后立即撤销。
+5. 物理Mac工具回合单列未通过项：先解决真实时钟/会话有效期条件，再进行一次云Linux→Mac实际工具与断线验收；不放宽签名、不把同机测试充当物理多机成功。
+
+2026-11-02用户要求阶段汇报、避免在不重要过程耗时，并将子Agent改用Terra/Luna。已按此交接；临时执行器和验收登录已清理，正式云实例/模型/历史保留，可据本清单继续。
 
 ## 首批实现与定向检查
 
@@ -112,6 +122,21 @@
 - `28610177` CI的Linux和macOS通过；Windows x64首次2614通过、1失败、131跳过，失败为remote-search完整路径断言使用本地反斜杠而输出统一正斜杠。正在修正跨平台预期，保留真实路径和anchor断言；Windows ARM64尚未完成。
 - Linux ARM64、Node24.22.2裸容器 `--network none`：独立安装device/protocol/typebox/ws四包，真实TLS双向配对、默认provider读写、重复commandId append仅一次、真实process stdout/exit7、只读写拒绝及授权根外读取拒绝均通过。未启动Agent/model、未复制Mac原生库；临时容器/配对材料已清理。证据 `yonder-review-artifacts/workbench-20261102/LINUX-EXECUTION-ONLY.md` 与同目录日志。
 - Linux amd64完整构建：镜像回传过慢后改用服务器独立Docker，限制1CPU、1536MiB RAM/1792MiB含swap。npm ci成功565包/53秒；首轮原生TypeScript编译器被cgroup OOM终止，只有构建容器受影响，前后线上健康。下一次保持硬限制，按已证实的Go编译器内存问题设置GOMEMLIMIT/GOGC再验证，不提高生产资源配额。
+
+## 云端完成项与物理多端未通过项
+
+- 在原硬限制下，Go编译器内存参数修正后Linux amd64完整build、prune、打包成功。实际包 `yonder-0.3.26110207-8f620a0.tar.gz`，SHA256 `532dd55737427d97fb54dba27ebbd245cc667e5b46c61b1787400f037e096f0d`，Node24.21.0；原服务前后健康。已安装到云Runtime，running/online/workProtocol=1，owner HTTPS work bridge查询bots/models/workspaces成功。
+- 云Linux真实session2使用cloud DeepSeek，返回done和 `ATTACHMENT_RECEIVED`；95,381字节真实PNG经HTTPS工作桥上传、提交、取回，字节长度与SHA256一致。证明附件传输及模型接受，不声称视觉识别质量。会话宿主是Linux容器 `/home/node/harness`。
+- 云仓 `52692f57835032cb3a71b476d421f158293b0c94` 已推送并部署至 `/opt/yonder-card/backend/releases/20261102T121305Z-52692f578350`；模型代理与其nginx路径单独32MiB，其他入口限制不变。构建/类型检查、实际HTTP边界2/2、nginx校验通过。公网11MiB模型请求到应用鉴权、33MiB为413，附件11MiB与普通API2MiB仍413。部署后真实DeepSeek chat/completions为200且返回验证标记。回滚与备份见外部证据 `CLOUD-FINAL.md`。
+- 真实云Linux Controller私钥在云生成，Mac签批临时grant；两端公网Card relay连接成功，云端未配置direct route。HTTPS资源预检先超30秒；原生control socket的一次长deadline尝试返回 `Device session expired; start a new operation`。Mac实测落后标准时钟约10.34秒，云NTP正常；没有调整系统时钟、签名容差或伪造时间。**物理云Linux→Mac模型工具回合，以及此拓扑的断线/重连验收未通过**，不把同机双TLS测试冒充物理两机成功。
+- 按用户“不钻牛角尖、减少无关耗时”要求停止深入时钟排查。Mac临时executor、Card设备、云配对/auth slot与本机临时材料已清理；正式云Runtime、模型连接、原WorkBuddy通道与会话保留。临时owner网页登录待正式网页验收后显式撤销。
+- 用户要求子Agent改用Terra/Luna后，原实现Agent停止工作并交接；剩余云部署由Terra完成，发布故障的有限定位由Luna执行。既有成功用例未重新扩大运行。
+
+## 阶段发布阻塞与清理
+
+- 共享主分支随后合入群聊路由及桌面分发改动。最近核对CI为 `41443608695`，源码 `84c1833e`：群聊 `admit-batch.test.ts`、`participation-plugin.test.ts`、`plugins/social/test/ledger.golden.test.ts` 各1项失败；lint为social batches507行、kernel home504行、kernel index501行。Windows已编译成功，但托盘smoke缺产物 `YonderStatus.dll`。这是本轮正式发布的当前前置阻塞，不改断言或关闭门禁绕过。
+- 之前Windows尾逗号、Disposable/Timer/构造可见性与品牌资源引用已作最小修复；ARM SDK bootstrap曾崩溃，主分支已改用runner预装SDK。上述修复不等于最新整仓CI通过；后续由对应改动收敛后重新核验。
+- 临时owner登录已logout204，原cookie再查 `/api/session` 为null；本机与服务器的私有storageState、上下文和临时凭据已删除。正式Runtime、模型连接、原WorkBuddy tunnel、云session及业务进程保留。
 
 ## 已知实现边界
 
