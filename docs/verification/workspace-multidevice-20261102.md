@@ -16,16 +16,16 @@
 
 | ID | 必须证明的行为 | 当前证据 |
 |---|---|---|
-| W01 | 新会话运行位置真实，已有会话不暗中迁移 | 待实现验证 |
-| W02 | 未指定/设备/多目录/多设备选择在运行中生效 | 待实现验证 |
-| W03 | 宿主模型与云模型真实调用，其他设备模型不可选 | 待实现验证 |
-| W04 | effort按模型能力展示、下一运行生效并恢复 | 待实现验证 |
-| W05 | 主人默认bypass、readonly和自定义，渠道隔离 | 待实现验证 |
-| W06 | 文件/图片/拖拽通过真实宿主附件进入模型 | 待实现验证 |
-| W07 | 设备失联、撤销、重复命令无重复副作用 | 待实现验证 |
-| W08 | 桌面/窄屏真实页面可操作并有截图 | 待实现验证 |
+| W01 | 新会话运行位置真实，已有会话不暗中迁移 | 本机真实新会话、云登录导航和草稿保留通过；升级云内核后的选择待验收 |
+| W02 | 未指定/设备/多目录/多设备选择在运行中生效 | 浏览器设备与两目录、双TLS executor及完整kernel远程调用通过；混合本机资源回归已补 |
+| W03 | 宿主模型与云模型真实调用，其他设备模型不可选 | 本机Luna、云proxy DeepSeek真实成功；本机读取云目录和云内核回合待完成 |
+| W04 | effort按模型能力展示、下一运行生效并恢复 | 结构化API与浏览器菜单通过；真实模型按实际目录能力展示 |
+| W05 | 主人默认bypass、readonly和自定义，渠道隔离 | owner真实Luna运行快照、访客伪造及steer隔离、child权限边界通过 |
+| W06 | 文件/图片/拖拽通过真实宿主附件进入模型 | 真实上传、拖放、Luna读原PNG、刷新持久化、授权下载逐字节核对通过 |
+| W07 | 设备失联、撤销、重复命令无重复副作用 | controller20例，双真实TLS取消、重启账本去重，多Card同账本真实4/4；云设备失联场景待验收 |
+| W08 | 桌面/窄屏真实页面可操作并有截图 | 1440与390真实Gateway验收通过，无pageerror/横向溢出；生产静态待发布 |
 | W09 | Linux完整内核和execution-only实际安装 | 待实现验证 |
-| W10 | Luna实际本机/云端与远程设备链 | 待实现验证 |
+| W10 | 真实模型本机/云端与远程设备链 | 本机Luna双设备、完整kernel、owner隔离均通过；用户批准云端改用DeepSeek/GLM，proxy成功，完整云回合待完成 |
 | W11 | 完整build/typecheck/test/lint及发布版本 | 待实现验证 |
 | W12 | 线上静态/后端/本机安装状态分别核对 | 待实现验证 |
 
@@ -79,3 +79,16 @@
 - 完整kernel真实Luna主链1/1（39.05s）：owner console bots.send经绑定进入Bot会话，远程资源、task-general context读取远端AGENTS，默认read/bash实际在executor执行，返回真实规则/包名/shell输出。最初Jarvis未启用task-general时规则断言不命中，补启用真实已有context后验证，不把上下文未选误报为远程失败。
 - attachments.get真实上传/持久化/取回逐字节一致与跨session拒绝1/1；网页图片查看/文件取回最终验收待记录。
 - `b9dacdec`多Card连接：两个真实controller经PG/Redis/WS同时访问同一executor/ledger，第二路查询第一路结果且副作用只一次；连CLI HTTPS配对生命周期4/4，device tsc通过。首次错误匹配.cache旧副本缺dist导致失败，排除验证副本后当前源码通过。
+
+## 干净提交门禁与前端最终附件验收
+
+- 在批准的一批实现后的固定提交验证目录 `yonder-review-artifacts/workbench-20261102/verify-19eb6451` 检出 `19eb6451`，独立 npm ci、完整 build、typecheck 均通过。没有包含主工作区其他任务的未提交代码。
+- 首次全量 Vitest：485文件通过、2失败、67跳过；2630测试通过、2失败、112跳过，用时233.81s。失败分别为新控制方法未登记到契约文档、SDK ToolContext拆分后golden解析仍查旧文件；修复契约/解析，不降低断言。
+- Node测试65/65。首次完整lint有2个error：附件列表使用index key、remote-search测试import排序；其余warning不当作error，两处已交实现者修正。最终门禁另记。
+- `19eb6451`真实浏览器验证图片820×121、下载PNG SHA256与用户原附件相同，txt逐字匹配；刷新后可查看。390×844无横向溢出、无pageerror；截图为 `attachments-preview-download-desktop.png` 与 `attachments-preview-download-mobile.png`。
+- 云端发布前预览仅覆盖真实新静态，API/WS仍为生产真实服务：owner模型连接GET与名称PUT200后恢复，key输入始终为空，实例页真实展示“工作台未就绪”。这不是新静态已上线或云模型浏览器回合验收。
+- Docker Hub的amd64镜像首轮拉取未完整，报缺layer，尚未进入Linux构建；正在使用已验证Linux工具链准备替代构建路径，不混用Mac原生产物。
+
+## 已知实现边界
+
+远程完整读文件当前上限512 KiB；超限明确报错或在搜索结果报告跳过数。只读远程grep/find使用受限文件API与JS正则、基础ignore语义（非本机rg/fd完全等价），正则worker超时1秒，扫描上限10000项。远程进程不支持stdin；输出在进程完成时返回，大输出溢写文件。权限目录限定不等于shell沙箱。云端WorkBuddy测试连接依赖Mac在线，正式独立云模型需使用云端可达供应商API连接。
