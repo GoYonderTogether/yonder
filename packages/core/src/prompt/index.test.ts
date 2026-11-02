@@ -55,6 +55,9 @@ test("tool discovery guidance follows effective exposure for residents and prese
 		]);
 		const guide = toolDiscoveryGuide(catalog) ?? "";
 		expect(guide).toContain("cron_manage, write");
+		expect(guide).toContain("Do not invent tools or enable plugins merely to discover a tool");
+		expect(guide).toContain("authorized configuration changes use the existing management path");
+		expect(guide).not.toContain("Do not invent tools or enable plugins.");
 		expect(guide).not.toContain("native-automation");
 		expect(guide).not.toContain("memory_search");
 		const options = {
