@@ -5,13 +5,8 @@ import type { Pool } from "pg";
 import { postgresDirectory } from "./files.js";
 
 /** PostgreSQL definition source; no cloud directory is exposed to the Bot. */
-export function createPostgresBotSource(
-	pool: Pool,
-	tenant: string,
-	bot: string,
-	options: { root?: string; builtinSkills?: SkillSource[] } = {},
-): BotSource {
-	const root = options.root ?? `/bots/${encodeURIComponent(bot)}`;
+export function createPostgresBotSource(pool: Pool, tenant: string, bot: string): BotSource {
+	const root = `/bots/${encodeURIComponent(bot)}`;
 	const home = postgresDirectory(pool, tenant, bot, root);
 	const directory = (workspace: string) => {
 		const path = posix.normalize(posix.isAbsolute(workspace) ? posix.relative(root, workspace) : workspace);
@@ -42,7 +37,6 @@ export function createPostgresBotSource(
 				...(session.agent ? [skill(posix.relative(root, session.cwd), "workspace")] : []),
 				skill(".", "home"),
 				...plugins,
-				...(options.builtinSkills ?? []),
 			];
 		},
 	};

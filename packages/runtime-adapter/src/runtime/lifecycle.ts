@@ -171,8 +171,8 @@ export function pollQuota(
 		for (const slot of slots) if (stops[slot] !== undefined) accounts.push({ provider, slot });
 	for (const [provider, slot] of Object.entries(selection ?? {}))
 		if (stops[slot] !== undefined) accounts.push({ provider, slot });
-	rt.quotaPoller.watch(accounts);
-	void rt.quotaPoller.tick(Date.now());
+	rt.quotaPoller?.watch(accounts);
+	void rt.quotaPoller?.tick(Date.now());
 }
 
 export async function closeRuntime(rt: RuntimeInternals): Promise<void> {
@@ -181,7 +181,7 @@ export async function closeRuntime(rt: RuntimeInternals): Promise<void> {
 		clearTimeout(state.timer);
 	}
 	await rt.restartNotes;
-	rt.quotaPoller.stop();
+	rt.quotaPoller?.stop();
 	rt.watch.stop();
 	await rt.background.close();
 	try {

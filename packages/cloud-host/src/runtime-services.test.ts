@@ -58,7 +58,7 @@ test("shared platform health and usage persist across reopening, while closing a
 		updatedAt: Date.now(),
 	});
 	a.watch.stop();
-	a.quotaPoller.stop();
+	expect(a.quotaPoller).toBeUndefined();
 	await b.watch.tick(Date.now());
 	expect(b.health.held("rightapi-glm/glm-5.3-flash")).toBe(true);
 	await host.close();

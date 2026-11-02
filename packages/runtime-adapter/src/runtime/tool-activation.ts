@@ -37,7 +37,7 @@ export interface RuntimeToolHost {
 	cacheTools?: boolean;
 	cacheOutput?(config: string): boolean;
 	createBackground(options: RuntimeBackgroundOptions): RuntimeBackground;
-	processTool(
+	processTool?(
 		home: string,
 		running: Map<number, RuntimeLiveOutput>,
 		config: (id: string) => Promise<import("./types.js").RuntimeSessionConfig>,
@@ -226,7 +226,7 @@ export function installExtensions(rt: RuntimeInternals, host: RuntimeToolHost) {
 		name: "yonder.files",
 		tools: [
 			...codingRegistrations.filter((t) => t.name !== "bash"),
-			host.processTool(rt.options.home, rt.background.running, (id) => rt.sessionConfig(id)),
+			...(host.processTool ? [host.processTool(rt.options.home, rt.background.running, (id) => rt.sessionConfig(id))] : []),
 		].map((t) => rt.backgroundTool({ ...t, deferred: true })),
 	});
 	rt.registry.install(coding);

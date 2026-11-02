@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { CredentialInfo, CredentialStore } from "@earendil-works/pi-ai";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
-import type { ToolExecutionApi, ToolExecutionResult, ToolRegistration } from "@earendil-works/pi-durable";
-import { getOrThrow } from "@earendil-works/pi-durable/env";
 import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
 import type { Pool } from "pg";
-import { Type } from "typebox";
 import type { RuntimeServices } from "../contracts.js";
 import { createBackground } from "../runtime/background.js";
 import type { RuntimeInternals } from "../runtime/instance.js";
@@ -203,44 +200,7 @@ function createPostgresToolHost(pool: Pool, tenant: string, bot: string, outputP
 				},
 			});
 		},
-		processTool(_home, _running, _resolveSession): ToolRegistration {
-			return {
-				name: "bash",
-				deferred: true,
-				description: "Run a command in this environment. Command execution is unavailable.",
-				parameters: Type.Object({
-					command: Type.String(),
-					cwd: Type.Optional(Type.String()),
-					background: Type.Optional(Type.Boolean()),
-					stdin: Type.Optional(Type.Boolean()),
-					timeout: Type.Optional(Type.Number()),
-				}),
-				async execute(value, api: ToolExecutionApi, context) {
-					const args = value as { command: string; cwd?: string };
-					const environment = api.env;
-					if (!environment) throw new Error("Execution environment is unavailable");
-					const output: string[] = [];
-					const result = getOrThrow(
-						await environment.exec(
-							args.command,
-							{
-								...(args.cwd ? { cwd: args.cwd } : {}),
-								onOutput: (text) => {
-									output.push(text);
-									api.output(text);
-								},
-							},
-							context,
-						),
-					);
-					const response: ToolExecutionResult = {
-						output: [{ type: "text", text: JSON.stringify({ output: output.join(""), exitCode: result.exitCode }) }],
-						isError: result.exitCode !== 0,
-					};
-					return response;
-				},
-			};
-		},
+
 		async cacheSdkResult(result, _context, _input, _options) {
 			const value = fromResult(result);
 			const bytes = new TextEncoder().encode(value.text);
@@ -347,12 +307,10 @@ export async function createPostgresRuntimeServices(options: {
 		models: (selection) => modelsForSelection(selection),
 		...(options.onReport ? { onReport: options.onReport } : {}),
 	});
-	const quotaPoller = { watch() {}, async tick() {}, stop() {} };
 	let images: ReturnType<typeof createNodePhotonImages> | undefined;
 	let closed = false;
 	return {
 		forBot(tenant, bot): RuntimeServices {
-			if (closed) throw new Error("PostgreSQL runtime services are closed");
 			const slots: RuntimeServices["credentialSlots"] = {
 				defaults: credential,
 				async capture(selection) {
@@ -386,7 +344,6 @@ export async function createPostgresRuntimeServices(options: {
 					tick: (...args) => watch.tick(...args),
 					stop() {},
 				},
-				quotaPoller: { ...quotaPoller, stop() {} },
 				models,
 				async modelsFor(config) {
 					return modelsForSelection(config.resolved.credentialSlots, {
@@ -427,7 +384,6 @@ export async function createPostgresRuntimeServices(options: {
 			if (closed) return;
 			closed = true;
 			watch.stop();
-			quotaPoller.stop();
 			await quota.flush();
 		},
 	};

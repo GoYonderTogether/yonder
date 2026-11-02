@@ -29,7 +29,7 @@ beforeAll(async () => {
 	root = await mkdtemp(join(tmpdir(), "yonder-definition-fs-"));
 	await mkdir(join(root, "agents/main"), { recursive: true });
 	disk = createFsBotSource(root, { agents: () => [{ id: "main", workspace: "agents/main" }] });
-	postgres = createPostgresBotSource(database.pool, "owner-a", "bot-a", { root });
+	postgres = createPostgresBotSource(database.pool, "owner-a", "bot-a");
 	const templates = resolve(import.meta.dirname, "../../../plugins/agent-presets/prompts/default-agent");
 	for (const [path, content] of [
 		["yonder.yaml", configText],
@@ -56,7 +56,7 @@ test("fs and PostgreSQL definitions assemble byte-identical system prompt parts"
 		const session = {
 			agent: agent.id,
 			profile: agent.defaultProfile,
-			cwd: join(root, entry.workspace),
+			cwd: `${source.home.root}/${entry.workspace}`,
 			id: "2",
 			resolved: resolveProfile(agent.profiles[agent.defaultProfile]!, agent.defaults, entry.env, config.defaultModel),
 		};
@@ -81,8 +81,8 @@ test("fs and PostgreSQL definitions assemble byte-identical system prompt parts"
 });
 
 test("virtual files isolate both tenant and Bot and reject paths escaping the workspace", async () => {
-	const foreignTenant = createPostgresBotSource(database.pool, "owner-b", "bot-a", { root });
-	const foreignBot = createPostgresBotSource(database.pool, "owner-a", "bot-b", { root });
+	const foreignTenant = createPostgresBotSource(database.pool, "owner-b", "bot-a");
+	const foreignBot = createPostgresBotSource(database.pool, "owner-a", "bot-b");
 	for (const source of [foreignTenant, foreignBot]) {
 		expect(await source.home.files.exists("yonder.yaml")).toBe(false);
 		await expect(source.home.files.readFile("yonder.yaml")).rejects.toMatchObject({ code: "ENOENT" });
@@ -126,7 +126,7 @@ test("PG source supplies presets, Markdown children, prompt templates and select
 	const session = {
 		agent: "main",
 		profile: "default",
-		cwd: join(root, "agents/main"),
+		cwd: `${postgres.home.root}/agents/main`,
 		resolved: resolveProfile(agent.profiles.default!),
 	};
 	const skills = createSkills({ home: root, pluginDirs: [], source: postgres });

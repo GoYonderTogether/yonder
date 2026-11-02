@@ -147,7 +147,7 @@ export interface RuntimeInternals {
 	readonly quota: RuntimeModelQuota;
 	readonly gate: RuntimeModelGate;
 	readonly watch: RuntimeModelWatch;
-	readonly quotaPoller: RuntimeQuotaPoller;
+	readonly quotaPoller: RuntimeQuotaPoller | undefined;
 	readonly credentials: import("@earendil-works/pi-ai").CredentialStore;
 	readonly policy: RuntimePolicy;
 	readonly limits: RuntimeLimits;
