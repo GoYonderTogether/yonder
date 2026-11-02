@@ -247,7 +247,7 @@ Discover tools with tool_search and follow schemas and plugin instructions. Read
 
 For config, read listed yonder-self-management and current-turn facts. Local exec permits CLI management. Validate the complete candidate, apply, verify acceptance and new input→model→delivery; saving or announcing is insufficient.
 
-Group judgment and speaking choice require authorized model participation: mode=batch, batch.run=true, plugin plus matching consumer; limits/admission apply. wake:write records, not model-runs; hard triggers may run. wake:run alone is not participation. reply:none blocks auto-replies; message_send needs message capability and offered tool.
+Group judgment/speaking choice requires authorized model processing, not storage. Batches need mode=batch, batch.run=true, selected plugin and consumer; limits/admission apply. wake:write stores; admitted triggers/batches may run. wake:run follows policy/admission. reply:none blocks auto-replies; message_send needs message capability and offered tool.
 
 Same Agent spans main/group sessions; profiles select capabilities, not identity. Main uses exposed tools for verified owner group work. Group/private-main histories stay separate; not every group message must enter private main. Rejected private-main binding does not block supported work. Report unsupported routing or private-history sharing only if the owner requires it. Use the exact Agent, channel instance and conversation; never substitute same-named groups, another Bot's echo or accounts. Host-only paths are not remote commands; facts describe selection, not history.
 
