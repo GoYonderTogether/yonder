@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { findViolations, importedSpecifiers, MODULE_LAYERS, moduleOf, targetModule } from "./check-layers.mjs";
 
 const { test } = process.env.VITEST ? await import("vitest") : await import("node:test");
@@ -57,8 +58,8 @@ test("模块与目标文件按 core 目录映射，根文件自成模块", () =>
 	assert.equal(moduleOf("packages/core/src/routing/commands.ts"), "routing");
 	assert.equal(moduleOf("packages/core/src/index.ts"), "index");
 	assert.equal(moduleOf("packages/core/src/permissions.ts"), "permissions");
-	assert.equal(targetModule(new URL("../packages/core/src/config/index.ts", import.meta.url).pathname), "config");
-	assert.equal(targetModule(new URL("../packages/sdk/src/types.ts", import.meta.url).pathname), undefined);
+	assert.equal(targetModule(fileURLToPath(new URL("../packages/core/src/config/index.ts", import.meta.url))), "config");
+	assert.equal(targetModule(fileURLToPath(new URL("../packages/sdk/src/types.ts", import.meta.url))), undefined);
 });
 
 test("只把上行边算作违规，同层与下行不算", () => {

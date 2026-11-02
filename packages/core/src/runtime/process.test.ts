@@ -72,7 +72,11 @@ test("truncated bash output is indexed with its complete original", async () => 
 		const path = value.cache.split("; ")[0];
 		expect(value.cache).toContain("lines 1-2");
 		expect(await readFile(path, "utf8")).toBe(`BEGIN\n${"x".repeat(70000)}END\n`);
-		expect(await readFile(join(f.home, "cache/tool-output/1/index.jsonl"), "utf8")).toContain(path);
+		const index = (await readFile(join(f.home, "cache/tool-output/1/index.jsonl"), "utf8"))
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line));
+		expect(index).toContainEqual(expect.objectContaining({ path }));
 	} finally {
 		await f.close();
 	}

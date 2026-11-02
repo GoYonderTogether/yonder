@@ -1,4 +1,4 @@
-import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
@@ -15,9 +15,11 @@ test("launches an isolated Node protocol fixture from a spaced PATH, including W
 			script,
 			`
 const readline = require("node:readline");
+// Stay alive after stdin ends: shutdown must terminate the owned process, not just its shell.
+setInterval(() => {}, 1000);
 readline.createInterface({input:process.stdin}).on("line", line => {
  const message = JSON.parse(line);
- if (message.id !== undefined) process.stdout.write(JSON.stringify({id:message.id,result:{args:process.argv.slice(2),params:message.params}})+"\\n");
+ if (message.id !== undefined) process.stdout.write(JSON.stringify({id:message.id,result:{args:process.argv.slice(2),params:message.params,pid:process.pid,cwd:process.cwd()}})+"\\n");
 });
 `,
 		);
@@ -32,7 +34,12 @@ readline.createInterface({input:process.stdin}).on("line", line => {
 		const signal = AbortSignal.timeout(5000);
 		client = await AppServer.open(signal);
 		const params = { literal: 'spaces & echo BAD | < > %PATH% !value! "quoted"' };
-		expect(await client.request("echo", params, signal)).toEqual({ args: ["app-server"], params });
+		const reply = (await client.request("echo", params, signal)) as { pid: number; cwd: string };
+		expect(reply).toEqual({ args: ["app-server"], params, pid: expect.any(Number), cwd: expect.any(String) });
+		expect(await realpath(reply.cwd)).toBe(await realpath(client.cwd));
+		await client.close();
+		expect(() => process.kill(reply.pid, 0)).toThrow();
+		await expect(stat(client.cwd)).rejects.toMatchObject({ code: "ENOENT" });
 	} finally {
 		await client?.close();
 		vi.unstubAllEnvs();

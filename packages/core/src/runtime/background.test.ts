@@ -151,7 +151,8 @@ test.each(["scope", "full"])(
 				const id = JSON.parse(
 					text(await call(first, "bash", { command: "printf ready; sleep 30", executionMode: "background" })),
 				).background as string;
-				await expect.poll(() => internal.background.running.get(Number(id))?.output).toBe("ready");
+				// Immediate background yield precedes Git Bash discovery/startup on Windows.
+				await expect.poll(() => internal.background.running.get(Number(id))?.output, { timeout: 5000 }).toBe("ready");
 				expect(await runtime.backgroundList(first)).toContainEqual(expect.objectContaining({ id, name: "bash" }));
 				expect(await runtime.backgroundList(other)).toEqual([]);
 				expect(await runtime.backgroundAction(first, { action: "log", id })).toMatchObject({ output: "ready" });

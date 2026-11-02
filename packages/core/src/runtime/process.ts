@@ -13,13 +13,18 @@ async function bashPath() {
 	const candidates = [process.env.ProgramFiles, process.env["ProgramFiles(x86)"]]
 		.filter((path): path is string => Boolean(path))
 		.map((path) => join(path, "Git", "bin", "bash.exe"));
+	for (const candidate of candidates) {
+		try {
+			await access(candidate);
+			return candidate;
+		} catch {}
+	}
 	const onPath = await new Promise<string>((resolve) => {
 		execFile("where.exe", ["bash.exe"], { windowsHide: true, timeout: 5000 }, (_error, stdout) =>
 			resolve(stdout ?? ""),
 		);
 	});
-	candidates.push(...onPath.trim().split(/\r?\n/).filter(Boolean));
-	for (const candidate of candidates) {
+	for (const candidate of onPath.trim().split(/\r?\n/).filter(Boolean)) {
 		// WSL's launcher has different cwd/stdin/PID semantics, not a local Bash process.
 		if (/^[a-z]:\\windows\\(?:system32|sysnative)\\bash\.exe$/i.test(candidate.replaceAll("/", "\\"))) continue;
 		try {

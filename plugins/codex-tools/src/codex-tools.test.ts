@@ -103,7 +103,7 @@ it("connection cleanup is idempotent and removes only its owned temporary direct
 			cwd,
 			pending: new Map(),
 			listeners: new Set(),
-			exited: Promise.resolve(),
+			closed: Promise.resolve(),
 			child: { stdin: { end: vi.fn() }, kill },
 			lines: { close: vi.fn() },
 		});
