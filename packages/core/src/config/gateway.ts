@@ -55,12 +55,29 @@ export async function setAccessTokenHash(home: string, hash: string): Promise<vo
 		const text = document.toString();
 		parseYonderConfig(text, file);
 		const temp = `${file}.${randomUUID()}.tmp`;
+		let operationError: unknown;
+		let operationFailed = false;
 		try {
 			await writeFile(temp, text, { mode: 0o600, flag: "wx" });
 			await replace(file, temp);
-		} finally {
-			await rm(temp, { force: true });
+		} catch (error) {
+			operationError = error;
+			operationFailed = true;
 		}
+		let cleanupError: unknown;
+		let cleanupFailed = false;
+		try {
+			await rm(temp, { force: true });
+		} catch (error) {
+			cleanupError = error;
+			cleanupFailed = true;
+		}
+		if (operationFailed && cleanupFailed)
+			throw new AggregateError([operationError, cleanupError], "Gateway config update and temp cleanup failed", {
+				cause: operationError,
+			});
+		if (operationFailed) throw operationError;
+		if (cleanupFailed) throw cleanupError;
 	} finally {
 		await unlock();
 	}

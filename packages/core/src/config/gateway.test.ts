@@ -7,20 +7,24 @@ import { parseYonderConfig } from "./index.js";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
 	const fs = await importOriginal<typeof import("node:fs/promises")>();
-	return { ...fs, rename: vi.fn(fs.rename) };
+	return { ...fs, rename: vi.fn(fs.rename), rm: vi.fn(fs.rm) };
 });
 
 const renameMock = vi.mocked(rename);
 const realRename = renameMock.getMockImplementation();
+const rmMock = vi.mocked(rm);
+const realRm = rmMock.getMockImplementation();
 const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
 let home: string | undefined;
 
 afterEach(async () => {
 	if (originalPlatform) Object.defineProperty(process, "platform", originalPlatform);
-	if (home) await rm(home, { recursive: true, force: true });
-	home = undefined;
 	renameMock.mockClear();
 	if (realRename) renameMock.mockImplementation(realRename);
+	rmMock.mockClear();
+	if (realRm) rmMock.mockImplementation(realRm);
+	if (home) await rm(home, { recursive: true, force: true });
+	home = undefined;
 });
 
 async function setup() {
@@ -71,6 +75,29 @@ it("does not retry EPERM outside Windows and keeps the original config", async (
 
 	await expect(setAccessTokenHash(home, `sha256:${"c".repeat(64)}`)).rejects.toMatchObject({ code: "EPERM" });
 
+	expect(renameMock).toHaveBeenCalledTimes(1);
+	expect(await readFile(file, "utf8")).toBe(original);
+});
+
+it("keeps the rename error primary and exposes temp cleanup failure", async () => {
+	const { home, file } = await setup();
+	const original = await readFile(file, "utf8");
+	setPlatform("darwin");
+	const renameError = temporaryEperm();
+	const cleanupError = new Error("temp cleanup failed");
+	renameMock.mockRejectedValueOnce(renameError);
+	rmMock.mockRejectedValueOnce(cleanupError);
+
+	let thrown: unknown;
+	try {
+		await setAccessTokenHash(home, `sha256:${"d".repeat(64)}`);
+	} catch (error) {
+		thrown = error;
+	}
+
+	expect(thrown).toBeInstanceOf(AggregateError);
+	expect((thrown as AggregateError).cause).toBe(renameError);
+	expect((thrown as AggregateError).errors).toEqual([renameError, cleanupError]);
 	expect(renameMock).toHaveBeenCalledTimes(1);
 	expect(await readFile(file, "utf8")).toBe(original);
 });

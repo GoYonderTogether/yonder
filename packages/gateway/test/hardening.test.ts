@@ -152,20 +152,21 @@ describe("gateway hardening", () => {
 
 	it("closes remote sockets when the access token is rotated", async () => {
 		const cookie = cookieOf(await login(ACCESS, { "x-forwarded-for": "198.51.100.7" }));
-		const remote = await connect({ cookie });
-		const local = await connect({ cookie: await localCookie() });
-		const code = closeCode(remote);
+		const sockets: WebSocket[] = [];
 		try {
+			const remote = await connect({ cookie });
+			sockets.push(remote);
+			const code = closeCode(remote);
+			const local = await connect({ cookie: await localCookie() });
+			sockets.push(local);
 			await setAccessTokenHash(home, tokenHash("rotated-token"));
 			expect(await code).toBe(4401);
 			expect(local.readyState).toBe(WebSocket.OPEN);
 			local.close();
 			await expect(connect({ cookie })).rejects.toThrow("HTTP 401");
 		} finally {
-			const closed = [remote, local].map((ws) =>
-				ws.readyState === WebSocket.CLOSED ? Promise.resolve() : closeCode(ws),
-			);
-			for (const ws of [remote, local]) if (ws.readyState !== WebSocket.CLOSED) ws.terminate();
+			const closed = sockets.map((ws) => (ws.readyState === WebSocket.CLOSED ? Promise.resolve() : closeCode(ws)));
+			for (const ws of sockets) if (ws.readyState !== WebSocket.CLOSED) ws.terminate();
 			await Promise.all(closed);
 			expect(await settled(() => gateway.stats().sockets === 0)).toBe(true);
 		}
