@@ -1104,3 +1104,13 @@ v10已确认私聊来源帧正确装配，模型仍把P1 write旁观误认完整
 ### 2026-11-03：保留关注候选的来源与消费边界
 
 v10 GPT原生账号第三条原话与探针成为focused候选，但Zfish一句普通“在。”成功出站后，social delivered()清除了GPT willing并推进其batch-read，GPT从未获得该批模型运行。flush已算focused却未随willing保存，导致普通候选与关注候选生命周期混用。复用既有focused事实与offer流程，只让兄弟成功回复结束普通候选；关注候选保留来源至自身既有准入/运行，暂停/对象/权限/发送协调不变。不用正文猜任务、不新增调度器或任务判官，batch-read仍不得冒充模型已读。见11的发言协调。
+
+
+### 2026-11-03：关注事实从调度连续进入模型
+
+v12真实首个跟进批次的focused已保留至willing，兄弟发言后成功运行；但offer构造turn没带该事实，groupContext仍写independent contribution，调度与模型的互动语义断开。把现有focused贯穿willing→GroupTurn→compact groupContext，内部构造以类型约束避免再次漏传；旧记录缺字段保留兼容，不伪造@、任务归属或授权。另一批虽入站在300秒内，实际consider时已超期，真实focused=false；保留该事实，不为了验收重标成跟进。见11共同视野。
+
+
+### 2026-11-03：同一投影的有界索引与按需详情
+
+v12实测owner prepared约52k字符，其中owner-private frame原始18k、escaped约30k；8个完整operability事实约17k，主因是重复预测能力/工具/scope及管理与配置对象，不是近期原话或运行历史。其他已选turn contributions约20k另计，不把它们全部算进本修复。把已有CLI摘要映射提升到core让宿主/CLI复用同一有界索引，完整projector/inspect仍保留；明确本Agent精确binding视图不是全局成员目录，避免把缺少GPT原生conv误判未入群。省略结构项有计数，不断截身份/权限做假完整，不改Bot配置、persona或用户原话。边界见08 §3.2。

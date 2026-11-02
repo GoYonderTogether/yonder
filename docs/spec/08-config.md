@@ -124,6 +124,8 @@ identity:
 
 投影的样本还须保留已核验的来源身份事实（from、已知的owner关系、渠道提供的senderIsBot及原生提及事实），未知不猜测。最近样本是Bot回声时仍保留样本，不筛选成功原件来掩盖失败；展示其真实参与原因，将合法防互刷记录与主人入站缺路由区分。CLI与宿主沿同一投影解释当前仅入账、scope排除或未形成模型处理路径，不能仅以consumer=not-applicable或write配置冒充已处理；历史执行/投递证据继续独立，不从预测宣布已运行。旁观配置保持合法，不强制所有群启用模型，不凭群名映射账号或扩大权限。
 
+主人宿主上下文与CLI的默认运行事实视图使用同一核心有界摘要，不把完整profile工具目录、重复scope数组或每会话重复的管理/revision对象全部内联。原始projector与inspect详细查询保持可用。摘要明确agent与current-agent/exact-binding范围，不是全局群成员目录；未出现另一Agent或conversation只能表示本视图未覆盖，不能推出未入群。保留样本身份、来源binding/profile/wake/reply、当前scope/参与/consumer原因、实际run/delivery状态及少量可核验ID、显式发送能力和既有修复入口；相同元数据去重，不把不同revision合并成同一快照。默认仍最多8个精确conv，序列化摘要最多8000字符；超额整项省略并标记omitted/truncated，不截断ID或权限约束后假称完整。完整原话与Pi历史不删改，细节沿真实inspect按需取。
+
 ### 3.3 原始来源上下文连续
 
 关键自管理事实不能只依赖命令的 stderr；Agent 合法使用管道或丢弃错误流时，原 stdout/命令语义不变，宿主仍须沿既有动态 conversationContext 提供可信来源事实。所有内容仍在稳定提示词之后，不生成新用户输入，不新增意图解析器、任务状态判官、第二存储或运行系统。

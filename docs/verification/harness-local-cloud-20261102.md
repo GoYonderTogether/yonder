@@ -194,3 +194,25 @@ v10进一步查到实际消费链缺陷：GPT第三条原话01M6EMWXCK1KADQPD7R6
 
 
 79ae89ca完成关注候选修复：运行代码6行，flush保存已算出的focused，delivered只结束非focused兄弟候选；继续复用offer/batch-ready。没有新增任务模型、文本分类器、调度器或权限。真实Groups+GroupAttention单元行为覆盖replied→flush→delivered→offer；不会把手填willing标记或plugin测试出站假称真实Agent回复，保留普通候选结束语义。关注/节奏13项通过。加入投递、恢复、来源上下文、parent与提示词的最终组合13文件/54项全通过（65.04秒，排除.cache），全量typecheck、size、diff通过；相关Biome无错误，保留既有non-null assertion warnings。SVG已重新渲染核对。下一正式版本更新及原话真人渠道验收仍待执行，不能把这些单元检查算作真实交付。
+
+
+## v12 发布完成，原话复验仍失败
+
+候选11c492b8的CI41496846912首次macOS因hosted ARM容量不足取消（无runner分配、非测试失败）；其余Linux/Windows通过，受限attempt2仅重跑macOS，最终全绿。AutoRelease41500047068唯一派发Release41500075423；正式v0.3.26110212/tag commit5e94c9204c92e3c7c895f44bbc8bb299685773ec，精确pin产品update，receipt01M6ER6DQB3DMJ5WR54Q73QGFM/updateId7265ea2c-2297-42e1-9887-51013bd7195f verified=true/restartRequired=false，服务PID30998 ready。Feishu四实例及QQ gateways均有本次新PID连接就绪证据。
+
+发布平台最终均通过：tag CI41500277613，Windows双架构真实安装41500282275，Desktop41500290515，Android41500285991，iOS TestFlight41500294830，Cloud精确同tag部署41500744455。GitHub Release最终实查45资产（38个tgz、SHA256SUMS、两个install脚本、APK、DMG、Windows setup.exe、iOS IPA）；初始41是native上传前读数，不能当最终资产数。Chrome后台实测/work加载贾维斯18:35新回复及消息输入框，无设备请求失败；公网build-version为v12/完整同SHA、builtAt18:28:19.299Z。
+
+飞书最初18:26:45客户端消息气泡带红色失败标记，原生重发提示some_error_occurs；未计Yonder入站。重新加载这个独立网页会话后，失败气泡不存在，同一句原话18:32:16成功入账01M6ERH576QCMETJYKB8PY3XFR；second01M6ERPPDRBVGEZB7X56XJN9NJ18:35:17也成功。两轮run均done但无工具调用，DM reply01M6ERHYXMSD5KDMPRQ1B2GR96及01M6ERQCCR56PYR7KZHFSBM5H7仍称P1纯write配置完整、无需再发、GPT不在QQ群要重新邀请、深夜/离电脑65分钟可明早办；没有本轮P1出站，也没有配置/重载。P1probe01M6ERSTK0DX35JD9STXEM4ZQF只write，不算模型处理。
+
+QQ原生first01M6ER7V6ST3G0094JVBNEJS5618:27:11收到并由GPT发“会核查”公开ack，但无parent_ask。second01M6ERC5VVF4PBERQTJ40X360B18:29:33→batch01M6ERE2PKKT3H4M7VT2YED1F318:30:35→run01M6EREDFA7NKGP4QMG8B61X1E18:30:46；Jarvis在18:30:06成功发言未再吞其focused候选，79ae89ca生命周期修复有真实效果。third01M6ERFXDRJZNQPW72R2ETNYAF18:31:35→batch01M6ERHXVKDTEK95W3P122G7ES18:32:41→run01M6ERJ7M35TCFN3RNAR2WQPQV18:32:51。两批GPT均NO_REPLY、无工具，无配置/主发送交付；不能信用Jarvis或Zfish代答。普通probe01M6ERVMY72PY3C78V6366G5DV18:38在关注过期后由Zfish回答，只属其运行，不计GPT模型已读。原对话见.cache/private-delivery-20261102/v12-original-conversations.md（600）。
+
+实际模型上下文核验排除了旧prompt缓存：main2最新pi.system190017与gpt155642最新pi.system189946含a090/82新同Agent/配置验收文案、旧within-its-own-profile不存在，parent_ask已提供且非旧“分身”描述。两条Feishu prepared190152/190206有owner-private-main、8个own-conv投影、P1 source=write与新增consumer.reason/from/relation字段；分别约52411/52090字符，需继续查摘要体积/聚焦边界。当前prepared和system均没有idle/65min/owner全局offline字段，不能把回复的AFK判断归因本轮host。未抓provider HTTP wire-body，不将durable实际系统上下文冒充独立传输审计。
+
+新断点：首批rule-match真实focused=true保留到了willing，offer创建GroupTurn时却只传direct:false，最终social.group-turn/context仍标independent contribution；因此调度互动状态没有传到模型。另第三条虽在300秒窗口内到达，consider实际执行时已过期4.7秒，真实focused=false，不能将它重标focused来刷验收。下一修复贯穿既有focused至模型输入、保留direct/普通与权限语义；暂不改过期策略、不增加意图分类器，不声称此一项能独立解决全部NO_REPLY。完整群交付仍未完成。
+
+
+v12后源码收口：15add313以内部必填类型把focused贯穿willing→GroupTurn→social.group-turn→compact groupContext，区分explicit address、recent interaction follow-up、independent和旧缺字段unknown；不伪造mention/addressedTo，不改变300秒处理时点或权限。f2790622将CLI纯summary映射移至core，宿主和CLI复用同一受限摘要，raw projector/inspect与CLI原始配置stdout保留；summary明确current-agent-exact-binding作用域而非全局membership。默认8项/8000序列化字符，超预算整项省略并计数，不截断身份/权限。
+
+同一只读prepared190206快照：operability JSON对象17091字符/字节→7237字符/字节；整个owner frame JSON字符18346→8492。8条完整fact保留7、omitted=1/truncated=true；详情仍可inspect。原有3条owner历史窗口不改，约20k post-turn其他上下文未改；未重测最终新prepared turn总大小，不把原escaped conversation行与新raw JSON混同比较。
+
+当前源树最终构建scripts/build-tsc.mjs通过；整合来源、私有主会话、摘要预算/unknown/revision、parent、公共提示词、CLI、群关注/context/rhythm/delivery/recovery：15文件59项全部通过（69.15秒，排除.cache）。最终全量typecheck、size、相关Biome与diff通过，stable prompt原7300词上限保持。下一正式版/本机更新和两端原话实测仍未执行，不将此源码阶段计作完整交付。
