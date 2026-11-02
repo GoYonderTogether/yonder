@@ -184,6 +184,18 @@ test("agents show summarizes scope and bot source facts without changing config 
 						participationScope: { includesConversation: true },
 					},
 				},
+				{
+					status: "observed",
+					sample: { eventId: "owner-mention", conv: "conv:qq:group:owner", relation: "owner" },
+					history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+					prediction: {
+						state: "matched",
+						route: "not-evaluated",
+						wake: "write",
+						participation: { reason: "mention", run: false },
+						participationScope: { includesConversation: true },
+					},
+				},
 			],
 		},
 	};
@@ -203,6 +215,7 @@ test("agents show summarizes scope and bot source facts without changing config 
 		expect(stderrText).toContain("senderIsBot=true");
 		expect(stderrText).toContain("nativeKind");
 		expect(stderrText).toContain("participation reason=record");
+		expect(stderrText).toContain("no model run predicted by this participation decision");
 		expect(stderrText).toContain("relation");
 		expect(stderrText).not.toContain("bot sender caused");
 	} finally {

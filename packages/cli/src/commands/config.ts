@@ -71,7 +71,7 @@ function operabilitySummary(value: unknown) {
 				if (reason === "batch" || reason === "folded")
 					return `policy-controlled ${reason} candidate; final route/run unproven${senderFact}`;
 				if (reason && predictedParticipation?.run === false)
-					return `record-only: participation reason=${reason}; no model run on this input${senderFact}`;
+					return `record-only: participation reason=${reason}; no model run predicted by this participation decision${senderFact}`;
 				if (prediction?.wake === "write")
 					return `wake=write records input without direct model execution; later batch processing unproven${senderFact}`;
 				return `wake=run configuration; current admission/execution unproven${senderFact}`;
