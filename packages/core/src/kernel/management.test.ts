@@ -1,10 +1,66 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
+
+test("agent management can repair a semantically invalid YAML mapping without a model call", async () => {
+	const home = await tempHome("ya-repair-");
+	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
+	try {
+		await initHome(home, "owner", { model: testModel });
+		kernel = await openKernel(home);
+		await kernel.management({
+			action: "presets.create",
+			id: "repair",
+			value: { description: "Repair test", model: "openai/gpt-6-luna", level: "readonly" },
+		});
+		await kernel.management({
+			action: "agents.create",
+			id: "managed",
+			preset: "repair",
+			value: { name: "Repair", work: "Repair test", owner: "person:owner", bindings: [] },
+		});
+		const file = join(home, "agents/managed/agent.yaml");
+		const before = parse(await readFile(file, "utf8"));
+		const observer = {
+			id: "feishu-observer",
+			match: {},
+			session: { mode: "persistent", per: "conv" },
+			profile: "default",
+		};
+		const candidate = {
+			...before,
+			profiles: { ...before.profiles, feishuP1: before.profiles.default },
+			bindings: [
+				observer,
+				{
+					...observer,
+					id: "feishu-p1-acceptance",
+					match: { ...observer.match, conv: "conv:feishu:acceptance" },
+					profile: "feishuP1",
+				},
+			],
+		};
+		const invalidText = stringify(candidate);
+		await writeFile(file, invalidText, { mode: 0o600 });
+		const expectedFileRevision = createHash("sha256").update(invalidText).digest("hex");
+		const patch = { profiles: before.profiles, bindings: [observer] };
+		await expect(
+			kernel.management({ action: "agents.validate", id: "managed", expectedFileRevision, value: patch }),
+		).resolves.toMatchObject({ valid: true, accepted: false, saved: false });
+		await expect(
+			kernel.management({ action: "agents.update", id: "managed", expectedFileRevision, value: patch }),
+		).resolves.toMatchObject({ valid: true, accepted: true, saved: true });
+		expect(parse(await readFile(file, "utf8"))).toMatchObject({ bindings: [observer], profiles: before.profiles });
+	} finally {
+		await kernel?.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 30000);
 
 test("real home publishes agent and preset management without restarting or invoking a model", async () => {
 	const home = await tempHome("ya-");

@@ -6,6 +6,7 @@ import lockfile from "proper-lockfile";
 import { parseDocument, stringify } from "yaml";
 import {
 	type AgentConfig,
+	ConfigError,
 	parseAgentConfig,
 	parsePresetConfig,
 	parseYonderConfig,
@@ -77,6 +78,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 			presets = new Map(state.presets);
 		let text = "",
 			file = "",
+			agentSource: string | undefined,
 			generated: AgentConfig | undefined;
 		if (kind === "agents") {
 			const prior = agents.get(id),
@@ -132,6 +134,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 					if (!value) throw new Error("value: agent configuration patch required");
 					const files = state.files(config, id);
 					const diskAgentText = await files.readFile("agent.yaml");
+					agentSource = diskAgentText;
 					if (
 						request.expectedFileRevision &&
 						createHash("sha256").update(diskAgentText).digest("hex") !== request.expectedFileRevision
@@ -150,15 +153,24 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 								"New workspace already exists; workspace/env request a location or environment change. If the request only changes the model or group policy, omit workspace/env from agents.update and keep only the requested fields, then run agents.validate/update and verify with agents.show. Only when the original request explicitly asks for a migration, choose an unused workspace path, handle open sessions, then validate/update and read back with agents.show; never overwrite or move the existing workspace implicitly.",
 							);
 					}
-					const { archivedAt: _, ...stored } = withoutRuntimeBindings(
-						parseAgentConfig(diskAgentText, "agent.yaml", id),
-					);
+					const source = parseDocument(diskAgentText, { prettyErrors: false });
+					if (source.errors.length)
+						throw new ConfigError(source.errors.map(({ message }) => ({ file: "agent.yaml", path: "/", message })));
+					const mapping: unknown = source.toJS();
+					if (!mapping || typeof mapping !== "object" || Array.isArray(mapping))
+						throw new ConfigError([{ file: "agent.yaml", path: "/", message: "必须为 YAML mapping" }]);
+					const stored = mapping as Record<string, unknown>;
+					if (stored.id !== id)
+						throw new ConfigError([
+							{ file: "agent.yaml", path: "/id", message: "必须等于 yonder.yaml 登记的 agent id" },
+						]);
 					const candidate = parseAgentConfig(stringify({ ...stored, ...patch }), "agent.yaml", id);
+					const { archivedAt: _, ...effective } = withoutRuntimeBindings(candidate);
 					agents.set(
 						id,
-						withConsoleBinding({ ...candidate, ...(entry.archivedAt ? { archivedAt: entry.archivedAt } : {}) }, config),
+						withConsoleBinding({ ...effective, ...(entry.archivedAt ? { archivedAt: entry.archivedAt } : {}) }, config),
 					);
-					text = stringify(candidate);
+					text = stringify(effective);
 					file = "agent.yaml";
 				}
 			}
@@ -215,6 +227,8 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 					await state.scaffold(config, generated);
 				} else if (text) {
 					const before = await files.readFile(file);
+					if (kind === "agents" && before !== agentSource)
+						throw new Error("Config changed while updating; retry with config.get");
 					await files.writeFile(file, text);
 					rollback.push(async () => {
 						if ((await files.readFile(file)) !== text)
