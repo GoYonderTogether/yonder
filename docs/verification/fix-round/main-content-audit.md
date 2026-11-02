@@ -1,8 +1,8 @@
 # Main content preservation after merge
 
-Merge commit: `990bef27`; main snapshot and recheck: `ae197ecbf97ab23da3262c63c607b15e4e259364`. There are **73 commits** since `a6a6c0b5` (including merges).
+Merge commit: `990bef27`; initial main snapshot: `ae197ecbf97ab23da3262c63c607b15e4e259364`; refresh merge `31215dd2`, current main and recheck: `4e58ceb85f52df472d19efbe59232caaf77b8703`. There are **75 commits** since `a6a6c0b5` (including merges).
 
-For each of 73 main commits, compare additions with latest main, excluding later superseded additions; compare exact final main blobs when possible, otherwise verify surviving additions as whitespace-normalized substrings in mapped real packages. Imports/re-exports are relocated and excluded from line-substring matching; fragments under 12 non-whitespace characters are ignored. Explicit async/plugin-package transformations are asserted separately. Detailed source/target paths and counts retained per commit.
+For each of 75 main commits, compare additions with latest main, excluding later superseded additions; compare exact final main blobs when possible, otherwise verify surviving additions as whitespace-normalized substrings in mapped real packages. Imports/re-exports are relocated and excluded from line-substring matching; fragments under 12 non-whitespace characters are ignored. Explicit async/plugin-package transformations are asserted separately. Detailed source/target paths and counts retained per commit.
 
 Later-main replacements (including versions and prompt iterations) are judged against final main, not an earlier superseded string. Only BRIEF-required environment wording, host/package adaptation and the explicit review fixes differ.
 
@@ -82,6 +82,21 @@ Later-main replacements (including versions and prompt iterations) are judged ag
 | `6189a34e` | capture bounded social update failure evidence | 1 final main blob identical. `plugins/social/test/self-configuration-natural-live.test.ts` |
 | `ae197ecb` | initialize conversation policy YAML mapping | 3 surviving additions present. `CHANGELOG.md`, `packages/local-host/src/kernel/social.test.ts`, `packages/local-host/src/kernel/social.ts` |
 
+| `e423078f` | feat: bundle Yonder Pi durable D3 source | 11 surviving additions present; 9 final main blob identical; 1 D3 provenance and upstream anchor reconciliation preserved; retain authorized local program overlay; 5 main deletion preserved; full targets/adaptations in JSON. |
+| `4e58ceb8` | docs: record complete source candidate checks and Pi provenance | 3 surviving additions present; 2 final main blob identical; full targets/adaptations in JSON. |
+
 All entries have a checked final-main equivalent; no unresolved content mismatch. This is source/content evidence, separate from the full gate and runtime checks.
 
 Targeted source checks are in `main-targeted-greps.txt`. Detailed checks and mapped paths for every changed file are in `main-content-audit.json`.
+
+Refresh preserves D3 `91e8c7a9` in both provenance records and the matching bundled pi-ai artifact. The former anchor overlay is upstream in main; only the already authorized native program overlay remains. D3 source grouping now enters the one shared createBot, and its finishIdle helper is reused by both hosts. Main-deleted vendored hashline tests remain deleted.
+
+Continuation verification (before the root full gate):
+
+- [New main log/stat](main-refresh-log-stat.txt) and [new commit file checks](main-refresh-audit.json).
+- [Targeted typecheck](main-refresh-typecheck.log): exit 0 for runtime-adapter, bot-core and local-host.
+- [Focused tests](main-refresh-focused.log): 12 passed / 0 failed / 4 skipped; console, parent-origin and real-Luna input-queue suites (real Luna not enabled).
+- [Safe formatting](main-refresh-format.log): exit 0, no unsafe fixes.
+- Existing shutdown change: [22/0 focused proof](../review-shutdown-focused-final.log), [negative control 1 failed / 7 skipped](../review-shutdown-negative-control.log), and [targeted build exit 0](../review-shutdown-build-final.log). The negative control disables the new observer drain and fails the storage-close assertion, then restores the final code.
+
+These are focused/source checks; the primary agent owns the final full gate, real GLM and extended A12 results.

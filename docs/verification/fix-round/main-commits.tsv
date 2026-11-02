@@ -71,3 +71,5 @@ e2577e3b28651e5bbe11be051ac2802328f34d70	Report ordinary batch preflight confide
 bd63bc2c0aec20f56b1079270125b210c4525853	docs: record exact Pi provenance and batch activation checks
 6189a34eec40bcd59aa0b12621766785e6ce4556	capture bounded social update failure evidence
 ae197ecbf97ab23da3262c63c607b15e4e259364	initialize conversation policy YAML mapping
+e423078f537f23aec99ad0aaa85563c03132ae59	feat: bundle Yonder Pi durable D3 source
+4e58ceb85f52df472d19efbe59232caaf77b8703	docs: record complete source candidate checks and Pi provenance

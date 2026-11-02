@@ -1,7 +1,7 @@
 {
 	"strategy": "merge",
 	"base": "a6a6c0b5",
-	"main": "ae197ecbf97ab23da3262c63c607b15e4e259364",
+	"main": "4e58ceb85f52df472d19efbe59232caaf77b8703",
 	"branchBefore": "bb8bc7d830f52c9c2cb97fe186300edbfdb791ef",
 	"mainVersion": "0.3.26110214",
 	"workingVersion": "0.3.26110214",
@@ -18,5 +18,15 @@
 		"store/index.ts": "local-host/src/store/index.ts",
 		"tools/index.ts": "bot-core/src/tools/index.ts"
 	},
-	"checks": ["tsc -b packages/bot-core packages/local-host --force: exit 0"]
+	"checks": [
+		"tsc -b packages/bot-core packages/local-host --force: exit 0",
+		"refresh tsc runtime-adapter/bot-core/local-host --force: exit 0",
+		"refresh focused console/parent-origin/input-queue: 12 passed, 0 failed, 4 skipped",
+		"matching D3 pi-ai artifact provenance/integrity: pass"
+	],
+	"previousMain": "ae197ecbf97ab23da3262c63c607b15e4e259364",
+	"refreshMerge": "d4a3a32711f198f4c37c33a3e42eeb6bf0357a11",
+	"refreshBranchBefore": "6dc3fa3a",
+	"mainCommitCount": 75,
+	"piSource": "91e8c7a958ad15a7f5a4be9e6a76c0162ee77c1c"
 }

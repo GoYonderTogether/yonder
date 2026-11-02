@@ -1,5 +1,5 @@
 {
-	"main": "ae197ecbf97ab23da3262c63c607b15e4e259364",
+	"main": "4e58ceb85f52df472d19efbe59232caaf77b8703",
 	"base": "a6a6c0b5",
 	"commits": [
 		{
@@ -4713,9 +4713,238 @@
 					"missing": []
 				}
 			]
+		},
+		{
+			"commit": "e423078f537f23aec99ad0aaa85563c03132ae59",
+			"title": "feat: bundle Yonder Pi durable D3 source",
+			"files": [
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/core/src/kernel/index.ts",
+					"targets": ["packages/local-host/src/kernel/index.ts", "packages/bot-core/src/kernel/create-bot.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 3,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/core/src/kernel/input-queue.test.ts",
+					"targets": ["packages/local-host/src/kernel/input-queue.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 101,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/core/src/kernel/run-completion.ts",
+					"targets": ["packages/bot-core/src/kernel/run-completion.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 9,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/core/src/runtime/submit.ts",
+					"targets": ["packages/runtime-adapter/src/runtime/submit.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 8,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/core/src/runtime/types.ts",
+					"targets": ["packages/runtime-adapter/src/types.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/core/src/tools/parent-origin.test.ts",
+					"targets": ["packages/local-host/src/tools/parent-origin.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 4,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/core/src/tools/parent-origin.ts",
+					"targets": ["packages/bot-core/src/tools/parent-origin.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 16,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/pi-durable/CHANGELOG.md",
+					"targets": ["packages/pi-durable/CHANGELOG.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/FORK.md",
+					"targets": ["packages/pi-durable/FORK.md"],
+					"status": "D3 provenance and upstream anchor reconciliation preserved; retain authorized local program overlay",
+					"survivingAddedLines": 0,
+					"adaptation": "The synced fork README describes an npm-only consumer; this Harness keeps its actual bundled matching D3 artifact and existing program overlay per CONTRIBUTING."
+				},
+				{
+					"source": "packages/pi-durable/FORK_SOURCE.json",
+					"targets": ["packages/pi-durable/FORK_SOURCE.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/src/harness/generation.ts",
+					"targets": ["packages/pi-durable/src/harness/generation.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 26,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/pi-durable/src/harness/inbox.ts",
+					"targets": ["packages/pi-durable/src/harness/inbox.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/src/harness/live.ts",
+					"targets": ["packages/pi-durable/src/harness/live.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/src/harness/submissions.ts",
+					"targets": ["packages/pi-durable/src/harness/submissions.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/src/harness/types.ts",
+					"targets": ["packages/pi-durable/src/harness/types.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "packages/pi-durable/src/tools/hashline/edit.ts",
+					"targets": ["packages/pi-durable/src/tools/hashline/edit.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/src/types.ts",
+					"targets": ["packages/pi-durable/src/types.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/test/hashline/anchors.test.ts",
+					"targets": ["packages/pi-durable/test/hashline/anchors.test.ts"],
+					"status": "main deletion preserved",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/test/hashline/tools.test.ts",
+					"targets": ["packages/pi-durable/test/hashline/tools.test.ts"],
+					"status": "main deletion preserved",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/test/hashline/transfer.test.ts",
+					"targets": ["packages/pi-durable/test/hashline/transfer.test.ts"],
+					"status": "main deletion preserved",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/test/hashline/undo.test.ts",
+					"targets": ["packages/pi-durable/test/hashline/undo.test.ts"],
+					"status": "main deletion preserved",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/pi-durable/test/hashline/write-gate.test.ts",
+					"targets": ["packages/pi-durable/test/hashline/write-gate.test.ts"],
+					"status": "main deletion preserved",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "third_party/pi-ai/FORK_SOURCE.json",
+					"targets": ["third_party/pi-ai/FORK_SOURCE.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "third_party/pi-ai/pi-ai-91e8c7a958ad15a7f5a4be9e6a76c0162ee77c1c-b4c444bf31f5.tgz",
+					"targets": ["third_party/pi-ai/pi-ai-91e8c7a958ad15a7f5a4be9e6a76c0162ee77c1c-b4c444bf31f5.tgz"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "4e58ceb85f52df472d19efbe59232caaf77b8703",
+			"title": "docs: record complete source candidate checks and Pi provenance",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "CONTRIBUTING.md",
+					"targets": ["CONTRIBUTING.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "THIRD_PARTY_NOTICES.md",
+					"targets": ["THIRD_PARTY_NOTICES.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": [],
+					"adaptations": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
 		}
 	],
-	"method": "For each of 73 main commits, compare additions with latest main, excluding later superseded additions; compare exact final main blobs when possible, otherwise verify surviving additions as whitespace-normalized substrings in mapped real packages. Imports/re-exports are relocated and excluded from line-substring matching; fragments under 12 non-whitespace characters are ignored. Explicit async/plugin-package transformations are asserted separately. Detailed source/target paths and counts retained per commit.",
-	"mainRecheck": "ae197ecbf97ab23da3262c63c607b15e4e259364",
-	"branchContainsMain": true
+	"method": "For each of 75 main commits, compare additions with latest main, excluding later superseded additions; compare exact final main blobs when possible, otherwise verify surviving additions as whitespace-normalized substrings in mapped real packages. Imports/re-exports are relocated and excluded from line-substring matching; fragments under 12 non-whitespace characters are ignored. Explicit async/plugin-package transformations are asserted separately. Detailed source/target paths and counts retained per commit. Refresh: reran the original 73 commit surviving-addition checks against final main; only existing approved boardRecords await and @yonder/core-to-real-package dependency transformations differ. Added both new main commits with explicit per-file provenance, source-group/finishIdle migrations, deletion checks and program-overlay adaptations.",
+	"mainRecheck": "4e58ceb85f52df472d19efbe59232caaf77b8703",
+	"branchContainsMain": true,
+	"previousMain": "ae197ecbf97ab23da3262c63c607b15e4e259364",
+	"refreshMerge": "d4a3a32711f198f4c37c33a3e42eeb6bf0357a11"
 }

@@ -1,0 +1,46 @@
+commit 4e58ceb85f52df472d19efbe59232caaf77b8703
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 06:30:59 2026 +0800
+
+    docs: record complete source candidate checks and Pi provenance
+
+ CHANGELOG.md                                      |  1 +
+ CONTRIBUTING.md                                   |  2 +-
+ THIRD_PARTY_NOTICES.md                            |  2 +-
+ docs/decisions.md                                 |  2 +-
+ docs/verification/harness-local-cloud-20261102.md | 19 +++++++++++++++++++
+ 5 files changed, 23 insertions(+), 3 deletions(-)
+
+commit e423078f537f23aec99ad0aaa85563c03132ae59
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 06:29:02 2026 +0800
+
+    feat: bundle Yonder Pi durable D3 source
+
+ package-lock.json                                  |  31 +--
+ package.json                                       |   2 +-
+ packages/core/src/kernel/index.ts                  |  15 +-
+ packages/core/src/kernel/input-queue.test.ts       | 177 ++++++++++++++---
+ packages/core/src/kernel/run-completion.ts         |  12 +-
+ packages/core/src/runtime/submit.ts                |  13 ++
+ packages/core/src/runtime/types.ts                 |   2 +
+ packages/core/src/tools/parent-origin.test.ts      |   6 +-
+ packages/core/src/tools/parent-origin.ts           |  20 ++
+ packages/pi-durable/CHANGELOG.md                   |   1 +
+ packages/pi-durable/FORK.md                        |  22 +--
+ packages/pi-durable/FORK_SOURCE.json               |   2 +-
+ packages/pi-durable/src/harness/generation.ts      |  64 +++---
+ packages/pi-durable/src/harness/inbox.ts           |  31 ++-
+ packages/pi-durable/src/harness/live.ts            |   2 +
+ packages/pi-durable/src/harness/submissions.ts     |  28 ++-
+ packages/pi-durable/src/harness/types.ts           |   2 +
+ packages/pi-durable/src/tools/hashline/edit.ts     |  19 +-
+ packages/pi-durable/src/types.ts                   |   2 +
+ packages/pi-durable/test/hashline/anchors.test.ts  |  49 -----
+ packages/pi-durable/test/hashline/tools.test.ts    | 161 ---------------
+ packages/pi-durable/test/hashline/transfer.test.ts | 217 ---------------------
+ packages/pi-durable/test/hashline/undo.test.ts     | 174 -----------------
+ .../pi-durable/test/hashline/write-gate.test.ts    |  70 -------
+ third_party/pi-ai/FORK_SOURCE.json                 |   6 +-
+ ...ad15a7f5a4be9e6a76c0162ee77c1c-b4c444bf31f5.tgz | Bin 0 -> 817756 bytes
+ 26 files changed, 322 insertions(+), 806 deletions(-)
