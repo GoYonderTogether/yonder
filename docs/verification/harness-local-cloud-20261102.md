@@ -86,3 +86,12 @@ parent_ask正确进入同一Agent的main150858/default，而不是全局main Age
 - afe81ff9：工作页UpdateNotice复用已有appUrl，根路径检查/version.json、Gateway挂载检查/console/version.json；两挂载的组件回归2/2、Biome通过。
 - 原生浏览器访问 https://yonderbot.net/console/，真实JSON403为forbidden/host not allowed。SSH核查该location代理到7690的独立Gateway（0.3.26102803），保留Host；其gateway.publicOrigins仅https://yonder.zethai.cn，因此对yonderbot.net的拒绝符合现有保护，不扩白名单、不改Host绕过。统一/work不走该旧Gateway，实际读取设备online/workProtocol=1并加载主人工作会话。用户已确认此前失败的是/work，因此旧/console的403是独立入口问题，不能用于解释历史/work中断；当前可用也不能追溯为历史一直正常。
 - 首版候选5c7d25bc后，正式Windows CI还暴露了路径断言及regex VM复用问题。后续1f3a7fb0改用原生path.join，16643295沿现有VM Script复用每次ruleMatch的隔离上下文，保持逐规则10ms和Unicode/病态regex断言；最终四平台CI通过的166候选包含40e7/afe81，随后发布v0.3.26110204。
+
+
+## v0.3.26110206 发布与真实复验
+
+官方 CI 41420386987 对候选 56794662 四平台通过；Release 41422186770 发布 v0.3.26110206，tag e3051562 的直接父提交为该候选，41 附件齐全。本机产品更新返回 verified，新服务 ready。Cloud 静态 Deploy web 41423443596 同 tag/SHA 上线，两个版本端点均200。
+
+飞书真人原话再次触发主会话，自行写候选并发出真实群公告；但候选再次因精确群绑定带 kind 条件而拒绝，随后普通群消息仍进入原 observer/wake:write，完整验收失败。原生 Pi 请求实际包含 agent rejected 与 aggregate candidate pending，不能归因为事实未传入；聚合状态在解析提前失败时漏记拒绝，并缺少清晰有效版本和修复线索。QQ新一轮尚未发送。
+
+同版 /work 又真实复现：设备及Agent列表200，capabilities.get工作RPC400。安装版control.sock同调用抛出被拒绝候选的绑定校验错误：运行态能力查询经 management plugins.list 无关地重解析磁盘 Agent，Cloud仅把设备错误转成泛化文案。当前故障已定位到运行态读取边界；历史/work中断是否同因仍未确证。共享修复继续进行，不能以网页静态200或群出站成功冒充完整交付。原话、完整消息关联和浏览器有界错误证据只保留在私有验收目录。

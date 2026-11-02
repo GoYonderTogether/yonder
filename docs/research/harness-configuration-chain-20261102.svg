@@ -40,7 +40,7 @@
 <text x="68" y="649" font-size="18" font-weight="700">失败恢复属于同一条链</text>
 <text x="68" y="677" font-size="17">拒绝时给出可操作错误；修复 patch 后重新完整校验。保留旧有效配置、历史与并发修改。</text>
 <text x="48" y="754" font-size="22" font-weight="700">Cloud：按真实入口判断，不能只比较产品版本号</text>
-<text x="68" y="790" font-size="18" fill="#166534">/work 已恢复：设备在线、RPC 200、真实会话已加载；历史中断原因未确认</text>
+<text x="68" y="790" font-size="18" fill="#166534">/work 再复现：设备 GET 200，能力 RPC 400；运行态查询误读被拒绝候选</text>
 <text x="68" y="824" font-size="18" fill="#991b1b">/console/ 是另一入口：旧 Gateway 返回 403 host not allowed，与 /work 故障分开</text>
 <text x="48" y="880" font-size="15" fill="#475569">边界：不教用户写配置；不按 Bot 打补丁；不提升权限；群上下文独立；宿主记录事实，模型决定行动与完成。</text>
 </g></svg>
