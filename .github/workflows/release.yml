@@ -197,27 +197,56 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # 正式版公开后通知网页部署。本仓的 GITHUB_TOKEN 只覆盖本仓（向私有仓派发会 404），
-      # 而除正式发版外没有别的跨仓写入需求，因此不在两仓之间长期放一把 App/PAT 凭据：
-      # 这一步在「拿到 GitHub App 的跨仓派发凭据之前」是显式的未完成项，失败不让发版本身变红，
-      # 结束语里如实写明失败原因。
+      # 正式版公开后可选通知网页部署；没有跨仓凭据时由私有 Cloud 工作流从公开 Release 协调。
       - name: 派发网页部署
         id: dispatch
         continue-on-error: true
         run: |
+          tag="v$VERSION"
+          sha="$(git rev-parse HEAD)"
+          if [ -z "${GH_TOKEN:-}" ]; then
+            result=web-pending-reconcile
+            reason="CLOUD_DISPATCH_TOKEN is not configured; Cloud schedule is the fallback"
+          else
+            if dispatch_error=$(gh api "repos/GoYonderTogether/yonder-cloud/dispatches" \
+              -f event_type=deploy-web \
+              -f "client_payload[tag]=$tag" \
+              -f "client_payload[sha]=$sha" 2>&1); then
+              result=dispatched
+              reason="Cloud accepted the deployment notification; verify the Cloud run separately"
+            else
+              status=$?
+              http_status=$(printf '%s\n' "$dispatch_error" | grep -Eo 'HTTP [0-9]{3}' | tail -1 || true)
+              result=web-pending-reconcile
+              reason="repository_dispatch failed (${http_status:-gh exit $status}); Cloud schedule is the fallback"
+            fi
+          fi
           {
-            echo "tag=v$VERSION"
-            echo "sha=$(git rev-parse HEAD)"
-            echo "result=failed"
+            echo "release=published"
+            echo "tag=$tag"
+            echo "sha=$sha"
+            echo "result=$result"
+            echo "reason=$reason"
           } > "$GITHUB_STEP_SUMMARY"
-          gh api "repos/GoYonderTogether/yonder-cloud/dispatches" \
-            -f event_type=agent-web-deploy \
-            -f "client_payload[tag]=v$VERSION" \
-            -f "client_payload[sha]=$(git rev-parse HEAD)"
-          echo "result=dispatched" > "$GITHUB_STEP_SUMMARY"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          if [ "$result" = web-pending-reconcile ]; then
+            echo "::warning::Release $tag is public; web deployment remains pending reconciliation: $reason"
+          fi
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          GH_TOKEN: ${{ secrets.CLOUD_DISPATCH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CLOUD_DISPATCH_TOKEN }}
       - name: 网页部署未派发时说明
         if: ${{ steps.dispatch.outcome == 'failure' }}
-        run: echo "::warning::未派发网页部署：GITHUB_TOKEN 不能访问私有仓 yonder-cloud；需要跨仓 App 凭据（见 docs/spec/09 §5.1）"
+        run: |
+          tag="v$VERSION"
+          sha="$(git rev-parse HEAD)"
+          {
+            echo "release=published"
+            echo "tag=$tag"
+            echo "sha=$sha"
+            echo "result=web-pending-reconcile"
+            echo "reason=dispatch step failed unexpectedly; Cloud schedule is the fallback"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::Release $tag is public; web deployment notification failed unexpectedly, and Cloud reconciliation remains pending."
+        env:
+          VERSION: ${{ steps.version.outputs.version }}

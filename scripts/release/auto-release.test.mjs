@@ -120,3 +120,18 @@ test("published release dispatches both Windows installers with the exact versio
 	assert.match(installer, /installed-smoke\.mjs \$installed \$env:YONDER_HOME/);
 	assert.doesNotMatch(installer, /continue-on-error|service install|--no-gateway/);
 });
+
+test("web release notification matches Cloud and reconciles without a cross-repository token", () => {
+	const release = readFileSync(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+	assert.match(release, /-f event_type=deploy-web/);
+	assert.doesNotMatch(release, /event_type=agent-web-deploy/);
+	assert.match(release, /GH_TOKEN: \$\{\{ secrets\.CLOUD_DISPATCH_TOKEN \}\}/);
+	assert.doesNotMatch(release, /secrets\.CLOUD_DISPATCH_TOKEN\s*\|\|\s*secrets\.GITHUB_TOKEN/);
+	assert.match(release, /if \[ -z "\$\{GH_TOKEN:-\}" \]; then/);
+	assert.match(release, /echo "release=published"/);
+	assert.match(release, /echo "tag=\$tag"/);
+	assert.match(release, /echo "sha=\$sha"/);
+	assert.match(release, /result=web-pending-reconcile/);
+	assert.match(release, /Cloud schedule is the fallback/);
+	assert.match(release, /Cloud accepted the deployment notification; verify the Cloud run separately/);
+});
