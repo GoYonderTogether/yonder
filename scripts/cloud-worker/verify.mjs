@@ -7,6 +7,7 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
 import { redactError } from "../../packages/bot-core/dist/delivery/model-notice.js";
+import { seedHistory } from "./history.mjs";
 import { localCloud } from "./services.mjs";
 import { modelTransport } from "./transport.mjs";
 
@@ -174,6 +175,7 @@ async function turn(bot, text, expectError = false) {
 }
 try {
 	const bots = await Promise.all(Array.from({ length: load ? 100 : card ? 1 : 2 }, createBot));
+	if (load) report.history = await seedHistory(backend.pool, bots);
 	await start();
 	if (card && transport) {
 		const bot = bots[0];
