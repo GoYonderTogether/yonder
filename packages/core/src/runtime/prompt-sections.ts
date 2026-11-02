@@ -1,6 +1,7 @@
 import type { Context } from "@earendil-works/chord";
 import { type PromptInput, section, type ToolRegistration } from "@earendil-works/pi-durable";
 import { SessionDoc } from "./docs.js";
+import { parseAccountProvider } from "./model-chain.js";
 import { promptParts } from "./prompt-parts.js";
 import type { RuntimeOptions, RuntimeSessionConfig } from "./types.js";
 
@@ -34,6 +35,21 @@ export function promptSections(
 	return [
 		...keys.map((key) =>
 			section(key, async (input, context) => (await parts(input, context)).get(key), { tag: false }),
+		),
+		section(
+			"yonder-runtime-model",
+			(input) => {
+				const current = config(String(input.conversationId));
+				if (!current) throw new Error("Missing active configuration");
+				const selected = input.agent.model;
+				const provider = selected && (parseAccountProvider(selected.provider)?.provider ?? selected.provider);
+				return `Runtime model facts: ${JSON.stringify({
+					configuredModel: current.resolved.model,
+					requestModel: selected ? `${provider}/${selected.modelId}` : null,
+					thinking: input.agent.thinkingLevel,
+				})}\nThese are the host's selection for this request, including fallback, not a provider-verified response identity. Current YAML and saved persona text do not establish which model handled a past run.`;
+			},
+			{ tag: false },
 		),
 		section(
 			"yonder-tool-guidelines",

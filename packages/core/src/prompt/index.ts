@@ -378,11 +378,13 @@ export async function prepareInput(
 	);
 	const images: Attachment[] = [];
 	const limits = model?.inputLimits;
-	for (const attachment of attachments) {
+	const attachmentReader = options.offeredTools?.(session).includes("conversation_attachment_read");
+	for (const [index, attachment] of attachments.entries()) {
 		const bytes = attachment.bytes;
+		const reference = `message=${label(event.id)} index=${index}`;
 		if (unavailable.has(attachment))
 			lines.push(
-				`attachment: ${label(attachment.name ?? attachment.kind)} (${label(attachment.mime)}) unavailable: download failed or expired`,
+				`attachment: ${label(attachment.name ?? attachment.kind)} (${label(attachment.mime)}) unavailable: download failed or expired; ${reference}`,
 			);
 		else if (
 			attachment.kind === "image" &&
@@ -390,10 +392,17 @@ export async function prepareInput(
 			images.length < Math.min(limits?.images?.maxPerMessage ?? Infinity, limits?.images?.maxPerRequest ?? Infinity)
 		) {
 			images.push(attachment);
-		} else
+		} else {
 			lines.push(
-				`attachment: ${label(attachment.name ?? attachment.kind)} (${label(attachment.mime)}${attachment.bytes === undefined ? "" : `, ${Math.ceil((bytes ?? 0) / 1024)} KB`}) ${label(attachment.uri)}`,
+				`attachment: ${label(attachment.name ?? attachment.kind)} (${label(attachment.mime)}${attachment.bytes === undefined ? "" : `, ${Math.ceil((bytes ?? 0) / 1024)} KB`}) ${label(attachment.uri)}; ${reference}`,
 			);
+			if (event.type === "message.in")
+				lines.push(
+					attachmentReader
+						? `attachment access: use conversation_attachment_read with message="${label(event.id)}" and attachment=${index} for supported text; cached paths do not grant workspace access or parse binary formats`
+						: "attachment access: conversation_attachment_read is not offered in this profile; a cached path does not grant workspace access or prove the file has been read",
+				);
+		}
 	}
 	if (wake === "run" && row.version !== options.version) {
 		lines.push(

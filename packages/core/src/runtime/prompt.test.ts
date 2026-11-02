@@ -55,8 +55,11 @@ test("runtime clocks persist in prepared inputs without changing stable system s
 			.flatMap((message) => Object.keys(message.sections ?? {}));
 		expect(keys).toContain("framework");
 		expect(keys).toContain("common-writing");
+		expect(keys).toContain("yonder-runtime-model");
 		expect(keys).not.toContain("yonder");
 		expect(new Set(systems).size).toBe(1);
+		expect(systems[0]).toContain(`"configuredModel":"${config.resolved.model}"`);
+		expect(systems[0]).toContain(`"requestModel":"${config.resolved.model}"`);
 		expect(systems.join("\n")).not.toContain('<runtime_clock utc="');
 		const prepared = entries
 			.filter((entry) => entry.kind === "yonder.prepared")
