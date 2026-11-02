@@ -29,6 +29,14 @@
 LRU只在真实工作全部结束后释放：Runtime pending与scheduler tick/Trigger.busy共同判定，异步cron/market任务包含结果持久化和投递；忙状态解除唤醒等候激活，不能把launch返回当完成。复用现有Trigger生命周期，不引入第二任务管理器。
 
 维护者同日澄清阶段门槛：先在原始 a6a6c0b5 记录完整测试与 build 基线，后续不得新增测试失败，build/typecheck/lint 必须通过；基线已有的机器原因失败可保留，不再因这些失败停止。
+## 2026-11-03 已配置会话的精确平台标签（主人要求）
+
+v15 P1原话包含完整群名，但宿主operability只有conv/binding/profile，存储事件无群名、session title为空；配置标签不能证明平台群名。为补这项明确缺失的身份映射，在现有Channel上新增可选只读describeConversation，飞书复用现有客户端精确GET群信息，QQ无接口保持unknown。仅核验owner私有main时，对当前Agent已有精确绑定且摘要限量的至多8个已知群补标签；保留当前8K摘要预算、取消signal及旧CLI/inspect无被动网络语义。标签是身份帮助，不授权、不证明membership/收发可用，不改BOT配置/人设，不增加意图模型、名称解析正则、目录存储或缓存。见04 §3.1与11飞书能力。
+
+## 2026-11-03 parent 原始目标与转述分层（主人要求）
+
+v15真实交接将模型自行加入的“不重复发送”放在main输入的主任务段，而已核验owner原件仅作为conversation JSON辅助事实。代码能证明这一优先级缺口；不能据此认定每次误办均由它导致。复用parentOrigins，全部owner原件核验成功时，以内部结构化任务帧把原文作为主要目标区，模型转述作为辅助说明；不解析自然语言意图、不新增goal ledger、解释模型、授权层或存储。原文不重复装配，未核验、guest及混合来源保持原有限权与来源上下文。该修复只改变同Agent parent请求的宿主输入结构，不修改BOT persona/home，群历史仍独立。见02 parent_ask契约。
+
 ## 2026-11-03 普通批次配置复用完整依赖预检（主人要求）
 
 不新增目标解释模型、reconcile API或配置DSL。现有social.update仍负责会话policy局部补丁，完整scope/profile/binding由既有agents.update原子处理；明确启用普通批次处理（设置mode=batch或batch.run=true，合并后两者均生效）的候选必须在写入前检查真实处理依赖，可确定缺件一次给出具体路径与现有修复入口，不保存已知无效的普通处理目标。不自动修改共享profile、权限或群历史；模型从原话选择既有工具执行，宿主负责候选校验、重载、事实回读。代价是实际存在跨字段缺口时需要Agent形成完整候选，而不是对多个Bot的home打预置补丁。见11配置入口契约。

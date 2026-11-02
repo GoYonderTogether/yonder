@@ -49,6 +49,7 @@ interface Channel {
   id: string;
   kinds: string[];                     // 会产生的 message.in kind，如 ['dm','group']
   output: { stream: boolean; attachments: boolean; singleResult?: boolean };
+  describeConversation?(conv: Ref, signal?: AbortSignal): Promise<{ displayName: string; kind?: 'dm' | 'group' | 'channel'; basis: 'platform-exact' } | undefined>; // 可选，只读精确会话标签，不是权限或成员资格证明
   start(io: ChannelIO): Promise<void>;
   stop(signal?: AbortSignal): Promise<void>;
   send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>; // conv: 发到会话；acct: 由渠道解析为该账号私聊
@@ -77,7 +78,8 @@ interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boole
 
 - 一个插件注册提供者，`yonder.yaml` 的 `channels` 决定开几个实例：同一个 QQ 插件接两个号就是两个实例。实例 id 格式 `[a-z0-9-]+`，`agent` 保留给内核的内部渠道（06 §6）。
 - 实例配置里的密钥写成凭据名（例如 `credential: feishu-main`），插件用 `api.credentials.get` 读取（07 §6.2）。
-- 渠道只负责把外部消息变成 `message.in`、把输出交到外部。它**不**决定进哪个会话、要不要回复——那是绑定和投递的事（02、06）。
+- 渠道负责把外部消息变成message.in、把输出交到外部，并可提供精确会话的只读平台显示名。它不决定进哪个会话、要不要回复，也不以名称授予权限——这些仍由绑定、安全与投递负责（02、05、06）。
+- describeConversation仅接收本实例的精确conv，返回平台实际displayName及可确定的kind；不按名字搜索、不列成员、不接入群、不改配置或发送。宿主仅在已核验owner的私有main事实帧内，为当前Agent已配置精确绑定、摘要限量的至多8个已知群会话按需并行补标签；沿当前取消signal与渠道既有请求超时，未知/失败/不支持保持label unknown并保留原operability。普通CLI/inspect、capabilities和群/访客事实读取不因此自动访问网络。标签只帮助自然名称对齐已有conv，既不是membership、权限、模型处理或完整入站的证明；不改变插件选择/账号/绑定范围，不建目录数据库或缓存。
 - 外部系统调用 agent 并要拿到返回值（例如 MCP 服务端）时，渠道用 `io.ask`。
 - `output.singleResult` 表示渠道每条用户输入只接收一个最终回复或error，云端worker启用；保留绑定对模型正常回复的决定和io.ask语义。原生运行失败仍优先给真实失败原因；正常结束但waiting=false且binding.reply=none时，该渠道须以系统error明确“本轮来源关闭自动回复，未投递模型回复”，以完成该输入唯一结果；不带模型正常文本，也不声称操作没有执行。普通本机reply:none与waiting=true的caller不发送此错误。同来源的即时模型工具发送明确返回失败并指导写入最终回复，不能先占结果槽后隐藏模型错误；跨会话主动消息仍沿原授权和deliveryId发送。中间模型回退提示不额外发送，本机普通渠道保持既有多段输出。官方卡片工具准备最终卡片时须如实说明仅已准备，最终投递仍由共享delivery完成。
 

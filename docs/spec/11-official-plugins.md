@@ -153,6 +153,8 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 
 提供只读 `channel-feishu_chats`，沿已选实例与既有飞书客户端列举机器人实际可见的群名、原生chat ID和conv引用，支持有界分页及可选名称筛选。能力要求read/network/admin，跨会话目录不对受限群档或访客开放；沿channelInstances检查，不扩大应用权限，不枚举未知私聊，不读消息或成员正文。实例、分页、名称与目标引用只来自真实平台响应，截断/hasMore/权限缺失如实说明。
 
+飞书Channel的可选describeConversation复用既有FeishuApi，对属于本实例的已知群conv作GET /im/v1/chats/{chat_id}精确读取，只返回真实name及可确定的kind，遵守已有signal/请求超时；失败、无名或非群保持unknown，不返回成员/凭据。平台可能向非成员返回群名，因此成功标签不作为入群、准入、全量接收或发送权限依据。QQ无已实现的同类平台描述时保持unknown，不从room index、配置profile名或model生成session title伪造平台群名。
+
 主人仅给群名时，由该工具把自然目标定位到可核验引用；重名或结果不完整不能自动选第一个，必要时仅问目标歧义。缺scope沿已有scopes工具和平台授权入口诊断，不把用户知道chat ID作为前置条件。工具只发现，不接入、不改绑定、不发送消息；后续仍由既有配置管理、独立群上下文和原授权执行。
 
 ## 8. 上游复用
