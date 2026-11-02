@@ -4,6 +4,7 @@
 
 ### Added
 
+- app：与 Bot 的会话在输入条上方显示一行「内容由 AI 生成」，含 Bot 成员的群聊同样显示，按《人工智能生成合成内容标识办法》作可见标识；与人的会话不显示。
 - 安装脚本新增 `--desktop` / `-Desktop`：核心装完后一并安装桌面应用（macOS dmg、Windows 安装程序）并注册后台服务，关掉桌面窗口即回到只装核心。
 - 桌面应用启动时先连接本机 Yonder，服务未运行时才打开 yonderbot.net。
 - Windows 新增 `Yonder Status` 托盘，随 `service install` 注册，显示服务状态、检查更新、停止服务并退出。

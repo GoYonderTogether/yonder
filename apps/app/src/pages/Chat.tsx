@@ -9,6 +9,7 @@ import type { Actor, Conversation as Conv, Message, Session } from "../api/types
 import { selectAccount } from "../cache";
 import { AppBar, BackButton } from "../components/AppBar";
 import { AiBadge } from "../components/chat/AiBadge";
+import { AiGeneratedNotice } from "../components/chat/AiGeneratedLabel";
 import { AnonHint } from "../components/chat/AnonHint";
 import { ChatDetail } from "../components/chat/ChatDetail";
 import { OwnerTranscript, useOwnerConversation } from "../components/chat/OwnerTranscript";
@@ -718,6 +719,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 				</div>
 			)}
 			{offlineAgent && <p className="mx-auto mb-2 text-center text-small text-muted">{OFFLINE_HINT}</p>}
+			<AiGeneratedNotice conv={conv} actors={actors} />
 			{conv?.kind !== "notice" && (
 				<Composer
 					key={id}
