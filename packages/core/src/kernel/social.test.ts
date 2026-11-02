@@ -444,15 +444,20 @@ test("explicit ordinary batches preflight the candidate before preview or write"
 		const scopedRevision = (await service.inspect({ agent: "main", conv }, owner)).revision;
 		await expect(request({ mode: "batch", batch: { run: true } }, scopedRevision)).resolves.toMatchObject({
 			after: { mode: "batch" },
+			preflight: { state: "unknown", reason: "no trusted sample" },
 		});
 		routeState = "ready";
 		const readyRevision = (await service.inspect({ agent: "main", conv }, owner)).revision;
 		await expect(request({ batch: { run: true } }, readyRevision, false)).resolves.toMatchObject({
 			after: { mode: "batch" },
+			preflight: { state: "ready" },
 		});
 
 		const afterReady = (await service.inspect({ agent: "main", conv }, owner)).revision;
-		await expect(request({ mode: "batch" }, afterReady)).resolves.toMatchObject({ after: { mode: "batch" } });
+		await expect(request({ mode: "batch" }, afterReady)).resolves.toMatchObject({
+			after: { mode: "batch" },
+			preflight: { state: "ready" },
+		});
 		await request({ mode: "record" }, afterReady);
 		await request({ mode: "mute" }, afterReady);
 		expect(candidateChecks).toBe(5);

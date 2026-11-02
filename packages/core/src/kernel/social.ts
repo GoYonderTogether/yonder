@@ -169,7 +169,7 @@ export function createSocial(options: {
 			...(route?.nextAt ? { nextAt: route.nextAt } : {}),
 		};
 	};
-	const update = async (request: Update, caller: Caller) => {
+	const update = async (request: Update, caller: Caller): Promise<Awaited<ReturnType<SocialAPI["update"]>>> => {
 		let before: SocialPolicy = {},
 			after: SocialPolicy = {},
 			current = "unknown";
@@ -182,7 +182,7 @@ export function createSocial(options: {
 				actor = caller.event?.from ?? `agent:${caller.agent ?? "unknown"}`;
 				sourceEvent = caller.event?.id;
 			}
-			const { kind } = await authorize(request.agent, request.conv, caller, true);
+			const { target: agent, kind } = await authorize(request.agent, request.conv, caller, true);
 			const trustedActor = "transport" in caller ? actor : (caller.event?.from ?? actor);
 			unlock = await lockfile.lock(join(options.home, "yonder.yaml"));
 			const entry = options.config.agents?.find((a) => a.id === request.agent);
@@ -215,27 +215,30 @@ export function createSocial(options: {
 			}
 			const candidate = parseAgentConfig(document.toString(), file, request.agent);
 			const agents = new Map(options.agents);
-			agents.set(request.agent, candidate);
+			agents.set(request.agent, { ...candidate, bindings: agent.bindings });
+			let preflight: { state: "ready" | "unknown"; reason?: string } | undefined;
 			if (
 				after.mode === "batch" &&
 				after.batch?.run === true &&
 				(patch.mode === "batch" || patch.batch?.run === true)
 			) {
-				const preflight = await batchPreflightData(
+				const check = await batchPreflightData(
 					request.agent,
 					request.conv,
 					after,
 					agents.get(request.agent),
 					options.inspectRoute,
 				);
-				if (preflight)
+				if (check.state === "blocked")
 					throw new SocialError(
 						"invalid_params",
 						"Ordinary batch processing is blocked by known configuration gaps; inspect and update the Agent configuration, then retry",
-						preflight,
+						check.data,
 					);
+				preflight = { state: check.state, ...(check.reason ? { reason: check.reason } : {}) };
 			}
-			if (request.dryRun !== false) return { before, after, affected: [request.conv], revision: current };
+			if (request.dryRun !== false)
+				return { before, after, affected: [request.conv], revision: current, ...(preflight ? { preflight } : {}) };
 			await options.validate(agents);
 			const temp = `${file}.${randomUUID()}.tmp`;
 			try {
@@ -332,7 +335,14 @@ export function createSocial(options: {
 					result: "applied",
 				},
 			});
-			return { before, after, affected: [request.conv], revision: current, postcondition };
+			return {
+				before,
+				after,
+				affected: [request.conv],
+				revision: current,
+				...(preflight ? { preflight } : {}),
+				postcondition,
+			};
 		} catch (error) {
 			await options.record({
 				type: "social.policy-change",

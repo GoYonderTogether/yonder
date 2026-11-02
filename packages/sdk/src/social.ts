@@ -128,6 +128,7 @@ export interface SocialAPI {
 		after: SocialPolicy;
 		affected: Ref[];
 		revision: string;
+		preflight?: { state: "ready" | "unknown"; reason?: string };
 		postcondition?: SocialUpdatePostcondition;
 	}>;
 	resume(

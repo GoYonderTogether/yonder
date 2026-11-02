@@ -276,7 +276,48 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 			batchPreflightData("main", conv, { mode: "batch", batch: { run: true } }, qqOutsideScopeAgent, async () => ({
 				operability: qqOutsideScope,
 			})),
-		).resolves.toBeUndefined();
+		).resolves.toMatchObject({ state: "ready" });
+		const qqMention = await store.events.record(
+			{
+				type: "message.in",
+				from: "acct:qq:user",
+				conv,
+				data: {
+					kind: "group",
+					mentioned: true,
+					social: { mentions: { bot: true }, nativeKind: "GROUP_MESSAGE_CREATE" },
+				},
+			},
+			[{ agent: "main", binding: "qq-source", session: "101", wake: "write" }],
+		);
+		const qqMentionAgent = parseAgentConfig(
+			JSON.stringify({
+				...qqOutsideScopeAgent,
+				social: {
+					...qqOutsideScopeAgent.social,
+					defaults: { group: { ...qqOutsideScopeAgent.social?.defaults?.group, signals: { botMention: "respond" } } },
+				},
+			}),
+		);
+		const qqMentionFact = await projectConversationOperability({
+			agent: qqMentionAgent,
+			agents: [qqMentionAgent, foreign],
+			selector: { conv, eventId: qqMention.id },
+			store,
+			channels: new Map([["qq", channel]]),
+			hooks,
+			batchRequested: true,
+		});
+		expect(qqMentionFact.prediction).toMatchObject({
+			participation: { reason: "bot-mention", run: true },
+			participationScope: { includesConversation: false },
+			consumer: { state: "available" },
+		});
+		await expect(
+			batchPreflightData("main", conv, { mode: "batch", batch: { run: true } }, qqMentionAgent, async () => ({
+				operability: qqMentionFact,
+			})),
+		).resolves.toMatchObject({ state: "ready" });
 		const recordAgent = parseAgentConfig(
 			JSON.stringify({
 				schema: 1,

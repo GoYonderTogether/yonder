@@ -20,15 +20,25 @@ export async function batchPreflightData(
 	policy: SocialPolicy,
 	candidate: AgentConfig | undefined,
 	inspectRoute: InspectRoute | undefined,
-): Promise<Record<string, string> | undefined> {
+): Promise<{ state: "blocked"; data: Record<string, string> } | { state: "ready" | "unknown"; reason?: string }> {
 	const route = await inspectRoute?.(agentId, conv, undefined, policy, candidate);
-	const gaps = batchProcessingGaps(agentId, conv, candidate, route);
-	return gaps.length ? { preflight: JSON.stringify({ state: "blocked", agent: agentId, conv, gaps }) } : undefined;
+	const gaps = batchProcessingGaps(agentId, conv, policy, candidate, route);
+	if (gaps.length)
+		return { state: "blocked", data: { preflight: JSON.stringify({ state: "blocked", agent: agentId, conv, gaps }) } };
+	const fact = route?.operability;
+	if (
+		fact?.status === "observed" &&
+		fact.prediction?.state === "matched" &&
+		fact.prediction.consumer?.state === "available"
+	)
+		return { state: "ready" };
+	return { state: "unknown", reason: fact?.reason ?? "candidate source or batch consumer was not fully observed" };
 }
 
 function batchProcessingGaps(
 	agentId: string,
 	conv: string,
+	policy: SocialPolicy,
 	candidate: AgentConfig | undefined,
 	route: Route | undefined,
 ) {
@@ -47,8 +57,8 @@ function batchProcessingGaps(
 		];
 	if (prediction?.state !== "matched") return gaps;
 	const profileId = prediction.profile ?? candidate?.defaultProfile ?? "unknown";
-	const plugin = prediction.participation?.plugin ?? "social";
-	if (prediction.participationScope?.includesConversation === false && prediction.participation?.reason !== "batch")
+	const plugin = prediction.consumer?.plugin ?? prediction.participation?.plugin ?? policy.plugin ?? "social";
+	if (prediction.participationScope?.includesConversation === false && !prediction.participation?.reason)
 		gaps.push({
 			dependency: "social.scope",
 			object: `agent:${agentId}`,
