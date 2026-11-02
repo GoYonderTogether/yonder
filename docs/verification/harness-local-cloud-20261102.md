@@ -127,3 +127,20 @@ v7后台Chrome /work可加载贾维斯真实历史和消息输入框。本机原
 
 
 发布前发现独立Windows门禁阻塞：托盘构建脚本引用不存在的无后缀品牌PNG。Luna提交5d9f7ebe，复用已跟踪512源图并保留原运行时目标文件名；Biome、真实复制与字节核验2/2通过。Windows ARM64在setup-dotnet阶段出现PowerShell CLR错误，尚无源码关联证据，待新候选CI复测；未加入猜测性workaround。
+
+
+## v08 正式发布、本机核验与第二轮原话复验
+
+- 正式版0.3.26110208：输入候选7d5b2b7，tag提交92c30164fef621b82fe7a79ec41a6b42c5a67a9d。候选CI41452545670与tag CI41455287342四平台均全绿；Windows安装验收41455291727、Desktop Release41455300016成功，正式资产43项。Android41455296088因desktop npm缺tauri script失败；主线9e1281ca已修，但不可变v08 tag没有该修复，APK未通过/未交付。
+- Windows前置缺陷依次修复了品牌图源名、完整.NET输出保留、WinExe真实退出码与生成目录lint。全量4-worker两次出现独立测试超时；7d5b2b7降为2-worker，保留所有测试/断言/原超时，后续x64及ARM64全量通过。保留失败而不把原样复跑计作修复；一次旧run复跑曾占CI-main取消最新run，随后取消旧轮、恢复最新完整run。
+- 本机同版同tag、原home、PID83640、ready=true。发起更新的v07 CLI仍执行旧30秒核验，重启窗ECONNREFUSED导致首次receipt01M6E83E8E7WRFQ0R2XP1PS53H未知；不覆盖它。使用已安装v08官方verifyRelease只核验一次、不重装/重启，成功receipt01M6E878NRTXWKHY6EGA2JM65V（13:47:15Z）verified=true。新60秒实现会重试所有control请求错误，包含ECONNREFUSED；不能据旧invoker首失败认定新窗口失效。
+- Cloud Release的dispatch步骤实际只警告token未配置；其step success不等于已派发。复用了独立Deploy web41455429274，发布0.3.26110208-92c30164fef6。Chrome实际读取build-version.json为同版同SHA，/work加载本机region、贾维斯真实会话和消息输入框，无设备请求错误。CLI代理TLS失败不作为站点故障。
+
+完整群需求仍失败。飞书原话输入后模型只读配置，用v7旧probe入账声称v08验证完成；新普通probe01M6E8MZZ37VB0H8AAGTE1P8K5（13:54:44Z）实际仅write、无参与decision/batch/run。关于“直接改文件导致更新覆盖”的模型叙述没有相应发布证据，不认作根因。
+
+QQ首条原生@进入群模型并真实parent_ask至主会话，后者仍以私人main禁止直绑为由返回blocked；没有完成配置或热重载。第二、三条原话的来源route虽为write，但分别经batch-ready再进入模型，不能仅凭write认定未运行。普通probe01M6E8XTAHGTXASJP2GCJAEKC9（13:59:33Z）被策略batch-read，截至有界检查未观察到该账号对应的batch-ready/run。主会话配置前测试发送和其他Bot同物理群送达都不能代替本目标完成。原文导出仅在.cache/private-delivery-20261102/v8-original-conversations.md（600），不含thinking/工具参数/凭据。
+
+已更新08 §3.2、13 §2.3及decision（558173a2）：一个权威operability投影供现有全局inspect、原生管理反馈、social路由检查与验证后的parent上下文复用。保留raw show stdout，自管理stderr独立附事实；历史与预测分栏、批次按sourceEvents关联run、发送须有来源关联回执。未知保留unknown，不创建新runtime/意图parser/完成判官、不自动扩群权限。此层Luna实现已提交e124ba74，parent接入为c14b2313/0a93b1f3：全量typecheck通过；有界caller检查57文件通过、10跳过，334项通过、14跳过；最终小集7文件通过、22项通过、2跳过；file-size与diff检查通过。来源匹配正向仅标not-evaluated，不冒充经过全部router准入；工具pattern沿实际glob规则，明确policy no-run。尚待下一正式版及原话真实群复验，不能据源码检查宣称任务通过。SVG已更新并用独立临时Chrome渲染检查，布局完整。
+
+
+补充收口a6823f7b：批次校验错误改为两个真实CLI入口，保持未配置social.scope即不限范围；social/operability相关27项通过，Biome与size通过。内部自管理指引同步说明共享metadata、来源write与批次run的关系、主会话管理与私人历史的区别；提示词/模板/装配既有4文件22项检查通过，原7300词上限未变。尚待正式发版后的两端真实原话验收。
