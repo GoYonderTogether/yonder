@@ -1,20 +1,15 @@
-import { agentOperabilityProjector, conversationOperabilityProjector, extendKernelInspection, managementOperabilityProjector } from "./operability-adapters.js";
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createBot } from "@yonder/bot-core";
 import type { createDelivery } from "@yonder/bot-core/delivery/index";
 import type { outboundQueue } from "@yonder/bot-core/delivery/outbound";
-import { createPermissions } from "@yonder/bot-core/permissions";
-import { prepareInput } from "@yonder/bot-core/prompt/index";
+import { resolveExecutionOwner as resolveStoredOwner } from "@yonder/bot-core/kernel/services-wiring";
 import type { createRouter } from "@yonder/bot-core/routing/index";
-import { checkBudget } from "@yonder/bot-core/sessions/budget";
 import type { createSessions } from "@yonder/bot-core/sessions/index";
-import { builtinViews } from "@yonder/bot-core/views/builtin";
 import { shippedChannelsFor } from "@yonder/local-host/bundles";
 import type { AgentConfig, YonderConfig } from "@yonder/local-host/config/index";
 import { lockHome } from "@yonder/local-host/control/home-lock";
 import { createKernelWorkHost } from "@yonder/local-host/control/work-stream";
-import { backgroundHandlers } from "@yonder/local-host/kernel/background";
 import { createBots } from "@yonder/local-host/kernel/bots";
 import { migrateCardVisitor } from "@yonder/local-host/kernel/card-visitor";
 import { createChannelLogin } from "@yonder/local-host/kernel/channel-login";
@@ -26,29 +21,22 @@ import {
 	seedIdentities,
 } from "@yonder/local-host/kernel/config-sources";
 import { reloadWatcher, watchAgents } from "@yonder/local-host/kernel/config-watch";
-import { kernelPromptOptions, kernelTools } from "@yonder/local-host/kernel/conversation";
+import { kernelPromptOptions } from "@yonder/local-host/kernel/conversation";
 import { deviceOperation } from "@yonder/local-host/kernel/device-operation";
 import { configurationErrors, protectSessions } from "@yonder/local-host/kernel/home";
 import { type ManagementRequest, manageHome } from "@yonder/local-host/kernel/home-management";
 import { createNotificationPrefs } from "@yonder/local-host/kernel/notifications";
 import { createObservability } from "@yonder/local-host/kernel/observability";
-import {
-	observedRuntimeEvents,
-	sessionObserver,
-	type TerminalSends,
-	terminalUpdates,
-} from "@yonder/local-host/kernel/observation-events";
+import { sessionObserver, type TerminalSends, terminalUpdates } from "@yonder/local-host/kernel/observation-events";
 import { pluginAgentManagement } from "@yonder/local-host/kernel/plugin-bindings";
-import { quotaWire } from "@yonder/local-host/kernel/quota-wire";
 import { resumeRecovered } from "@yonder/local-host/kernel/recovery";
-import { createRunCompletion } from "@yonder/local-host/kernel/run-completion";
 import { createKernelServices } from "@yonder/local-host/kernel/services-wiring";
 import { createSocial, createSocialSupport, socialTarget } from "@yonder/local-host/kernel/social";
 import { terminalApi } from "@yonder/local-host/kernel/terminal";
-import { type KernelOptions, ticks } from "@yonder/local-host/kernel/tick";
+import type { KernelOptions } from "@yonder/local-host/kernel/tick";
 import { createWorkbenchOptions } from "@yonder/local-host/kernel/workbench-options";
 import { credentialsAndModels, skillsFor, sourceFor } from "@yonder/local-host/kernel/workspace";
-import { type KernelServices, type LoadedPlugins, loadPlugins } from "@yonder/local-host/plugins/index";
+import type { KernelServices, LoadedPlugins } from "@yonder/local-host/plugins/index";
 import { type UpdateResult, updateResultEvent } from "@yonder/local-host/release/result";
 import { createStore } from "@yonder/local-host/store/index";
 import { noEnvironment } from "@yonder/runtime-adapter";
@@ -59,6 +47,12 @@ import type { Preset, TriggerIO } from "@yonder/sdk";
 import { createFilePluginStorage } from "@yonder/sdk/node-storage";
 import { createTriggerScheduler } from "@yonder/sdk/trigger-scheduler";
 import { pluginDataPath, resolvePlugins } from "../plugins/index.js";
+import {
+	agentOperabilityProjector,
+	conversationOperabilityProjector,
+	extendKernelInspection,
+	managementOperabilityProjector,
+} from "./operability-adapters.js";
 import { createProgramTools } from "./program-tools.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
@@ -139,20 +133,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		let delivery: ReturnType<typeof createDelivery>;
 		let outbound: ReturnType<typeof outboundQueue>;
 		let social: ReturnType<typeof createSocial>;
-		const resolveExecutionOwner = async (owner: { session: string; agent: string | null; profile: string }) => {
-			const session = await store.sessions.get(owner.session);
-			if (!session || session.agent !== owner.agent || session.profile !== owner.profile)
-				throw new Error("Execution owner does not match the stored session");
-			if (owner.agent && agents.get(owner.agent)?.archivedAt) throw new Error(`Agent archived: ${owner.agent}`);
-			return sessions.resolveSession(owner.session);
-		};
-		const permissions = createPermissions(async (ctx) => {
-			realRuntime().assertToolContext(ctx);
-			const row = await store.sessions.get(ctx.session);
-			if (!row || row.agent !== ctx.agent || row.profile !== ctx.profile)
-				throw new Error("Permission context does not match stored session");
-			return (await realRuntime().sessionConfig(ctx.session)).resolved.plugins;
-		});
+		const resolveExecutionOwner = (owner: import("@yonder/sdk").ExecutionOwner) =>
+			resolveStoredOwner(store, agents, sessions, owner);
 		const services: KernelServices = createKernelServices({
 			home,
 			config,
@@ -160,20 +142,15 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			agents,
 			log,
 			...credentialsAndModels(home, config),
-			permissions,
 			observeSession,
-			resolveExecutionOwner,
 			runtime: realRuntime,
 			loaded: () => loaded,
-			tools: () => tools,
-			router: () => router,
+			bot: () => core,
 			social: () => social,
-			delivery: () => delivery,
-			outbound: () => outbound,
-			sessions: () => sessions,
 			objectManagement: () => objectManagement,
 			services: () => services,
 		});
+		const permissions = services.permissions;
 		let source!: ReturnType<typeof sourceFor>;
 		let homePresets!: Map<string, Preset>;
 		let skills!: ReturnType<typeof skillsFor>;

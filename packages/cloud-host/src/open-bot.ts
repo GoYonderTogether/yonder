@@ -7,9 +7,8 @@ import { createNotificationPrefs } from "@yonder/bot-core/kernel/notifications";
 import { sessionObserver, terminalUpdates } from "@yonder/bot-core/kernel/observation-events";
 import { createPluginBindings } from "@yonder/bot-core/kernel/plugin-bindings";
 import { resumeRecovered } from "@yonder/bot-core/kernel/recovery";
-import { createKernelServices } from "@yonder/bot-core/kernel/services-wiring";
+import { createKernelServices, resolveExecutionOwner } from "@yonder/bot-core/kernel/services-wiring";
 import { loadHomeSources, scaffoldAgentWorkspace, seedIdentities } from "@yonder/bot-core/kernel/source";
-import { createPermissions } from "@yonder/bot-core/permissions";
 import type { LoadedPlugins, PluginDescriptor } from "@yonder/bot-core/plugins/index";
 import { createSkills } from "@yonder/bot-core/skills/index";
 import { type AgentConfig, parseAgentConfig, resolveProfile } from "@yonder/bot-definition";
@@ -72,16 +71,6 @@ export async function openCloudBot(options: CloudBotOptions) {
 	const devices = options.deviceBridge
 		? createDeviceTools({ ...options.deviceBridge, botId: identity.id, store, agents, runtime: realRuntime })
 		: undefined;
-	const resolve = async (owner: { session: string; agent: string | null; profile: string }) => {
-		const row = await store.sessions.get(owner.session);
-		if (!row || row.agent !== owner.agent || row.profile !== owner.profile)
-			throw new Error("Execution owner does not match stored session");
-		return core.sessions.resolveSession(owner.session);
-	};
-	const permissions = createPermissions(async (ctx) => {
-		runtime.assertToolContext(ctx);
-		return (await resolve(ctx)).resolved.plugins;
-	});
 	const log = (level: "info" | "warn" | "error", text: string, data?: object) => {
 		const detail = data && "error" in data ? `: ${String(data.error)}` : "";
 		if (level !== "info") options.report(new Error(`${text}${detail}`));
@@ -106,16 +95,10 @@ export async function openCloudBot(options: CloudBotOptions) {
 		log,
 		credentials,
 		models: runtimeServices.models,
-		permissions,
 		observeSession: sessionObserver(store, ends, realRuntime),
-		resolveExecutionOwner: resolve,
 		runtime: realRuntime,
 		loaded: () => loaded,
-		tools: () => core.tools,
-		router: () => core.router,
-		delivery: () => core.delivery,
-		outbound: () => core.outbound,
-		sessions: () => core.sessions,
+		bot: () => core,
 		social: () => ({ inspect: unavailable, update: unavailable }),
 		objectManagement: () => ({ bindings }),
 		services: () => services,
@@ -135,11 +118,21 @@ export async function openCloudBot(options: CloudBotOptions) {
 						known,
 						authConfigured,
 					},
-					channels: [{ instance: "card", type: "card", login: false }],
+					channels: [...loaded.channels].map(([instance, channel]) => ({
+						instance,
+						type: config.channels?.[instance]?.type ?? instance,
+						login: typeof channel.login === "function",
+					})),
 					plugins: descriptors.map((entry) => ({ id: entry.manifest.id, use: entry.use })),
 					shippedChannels: [],
 					gateway: { enabled: false },
-					credentials: [{ provider: "rightapi-glm", slot: "default", configured: true }],
+					credentials: await Promise.all(
+						(await runtimeServices.credentials.list()).map(async ({ providerId }) => ({
+							provider: providerId,
+							slot: "default",
+							configured: !!(await runtimeServices.credentials.read(providerId)),
+						})),
+					),
 				};
 			},
 			async modelReady(id) {
@@ -159,6 +152,7 @@ export async function openCloudBot(options: CloudBotOptions) {
 			},
 		},
 	});
+	const permissions = services.permissions;
 	try {
 		core = await createBot({
 			home,
@@ -250,7 +244,7 @@ export async function openCloudBot(options: CloudBotOptions) {
 			config,
 			agents,
 			assert: (ctx) => runtime.assertToolContext(ctx),
-			resolve,
+			resolve: (owner) => resolveExecutionOwner(store, agents, core.sessions, owner),
 			owner: async (agent, account) => (await store.identity().relation(agent, account)) === "owner",
 			target: async (request, agent, current) => (await core.delivery.resolveTarget(request, agent, current)).target,
 			hasSend: (current) =>
@@ -277,7 +271,7 @@ export async function openCloudBot(options: CloudBotOptions) {
 			},
 		});
 		await resumeRecovered(core.delivery, core.router, core.sessions, runtime);
-		await loaded!.start(core.router);
+		await loaded.start(core.router);
 		core.delivery.start();
 		await core.outbound.start(scheduler);
 		return {
@@ -287,15 +281,13 @@ export async function openCloudBot(options: CloudBotOptions) {
 			source,
 			identity,
 			async busy() {
-				for (const session of await store.sessions.list({ open: true }))
-					if (await runtime.hasPendingWork(session.id)) return true;
-				return scheduler.busy();
+				return scheduler.busy() || (await runtime.busy());
 			},
 			async close() {
 				await scheduler.stop(); // detach before contribution.stop(), preserving persisted deadlines
 				await core.outbound.stop();
 				await core.delivery.close();
-				await loaded!.stop();
+				await loaded.stop();
 				await runtime.close();
 			},
 		};

@@ -19,6 +19,7 @@ import type { createNotificationPrefs } from "./notifications.js";
 import { observedRuntimeEvents, type terminalUpdates } from "./observation-events.js";
 import { quotaWire } from "./quota-wire.js";
 import { createRunCompletion } from "./run-completion.js";
+import { resolveExecutionOwner } from "./services-wiring.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import type { KernelLog } from "./types.js";
 export interface PreparedBot {
@@ -73,13 +74,6 @@ export async function createBot(options: CreateBotOptions) {
 	let router: ReturnType<typeof createRouter>;
 	let delivery: ReturnType<typeof createDelivery>;
 	let outbound: ReturnType<typeof outboundQueue>;
-	const resolveExecutionOwner = async (owner: { session: string; agent: string | null; profile: string }) => {
-		const session = await store.sessions.get(owner.session);
-		if (!session || session.agent !== owner.agent || session.profile !== owner.profile)
-			throw new Error("Execution owner does not match the stored session");
-		if (owner.agent && agents.get(owner.agent)?.archivedAt) throw new Error(`Agent archived: ${owner.agent}`);
-		return sessions.resolveSession(owner.session);
-	};
 	const { closeReason, completeRun } = createRunCompletion({
 		store,
 		runtime: realRuntime,
@@ -142,7 +136,7 @@ export async function createBot(options: CreateBotOptions) {
 		notificationLevel: notifications.level,
 		onOwnerMention: async (session, event) => {
 			const owner = { session: session.id, agent: session.agent, profile: session.profile };
-			const current = await resolveExecutionOwner(owner);
+			const current = await resolveExecutionOwner(store, agents, sessions, owner);
 			if (!current.resolved.capabilities.includes("message"))
 				throw new Error("Owner notification requires message capability");
 			const result = await outbound.enqueue(owner, "yonder", `群消息提及了主人：${event.conv}`, {
