@@ -71,7 +71,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		if (typeof loaded.createBackendProvider !== "function") throw new Error("UNSUPPORTED_OPERATION");
 		const backend = await loaded.createBackendProvider({ home });
 		if (!backend || typeof backend.describe !== "function" || !backend.actions) throw new Error("INVALID_REQUEST");
-		const executor = new DeviceExecutor(home, backend);
+		const executor = new DeviceExecutor(home, backend, (diagnostic) => {
+			process.stderr.write(`${JSON.stringify({ executionDiagnostic: diagnostic })}\n`);
+		});
 		let card: CardDaemonConnection | undefined;
 		try {
 			const host = options.host ?? "127.0.0.1";
@@ -86,7 +88,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 				const config = JSON.parse(readFileSync(options["card-config"], "utf8")) as CardConnectionConfig;
 				card = new CardDaemonConnection(
 					config,
-					(envelope) => executor.handle(envelope),
+					(envelope, signal) => executor.handle(envelope, signal),
 					(state) => process.stderr.write(`${JSON.stringify({ card: state })}\n`),
 				);
 				card.start();

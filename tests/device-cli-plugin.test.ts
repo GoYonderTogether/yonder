@@ -144,6 +144,18 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 		};
 		const confirmation = run(["pair", "approve", "--home", deviceHome], { proof, code: offer.code, grants: [grant] });
 		const started = await startDaemon(deviceHome, provider, key, cert);
+		const executorDiagnostics = () =>
+			started
+				.cardState()
+				.split("\n")
+				.flatMap((line) => {
+					try {
+						const value = JSON.parse(line);
+						return value.executionDiagnostic ? [value.executionDiagnostic] : [];
+					} catch {
+						return [];
+					}
+				});
 		child = started.child;
 		expect(started.ready.deviceId).toBe(deviceId);
 		expect(started.ready.tlsFingerprint).toBe(offer.tlsFingerprint);
@@ -190,6 +202,7 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 						elapsedMs: Date.now() - startedAt,
 						aborted: context.signal.aborted,
 						diagnostics,
+						executorDiagnostics: executorDiagnostics(),
 						persistedReceipt:
 							state === null ? "unreadable" : receipt ? { ok: receipt.ok, errorCode: receipt.error?.code } : null,
 						exitCode: child?.exitCode,
@@ -214,6 +227,7 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 		await tool("execute", args);
 		expect(await readFile(effect, "utf8")).toBe("once");
 		expect(await tool("close", { deviceId, deviceSessionId: session.deviceSessionId })).toEqual({ closed: true });
+		for (const diagnostic of executorDiagnostics()) console.info("Executor diagnostic", diagnostic);
 	} finally {
 		await stopPlugin?.();
 		if (child && child.exitCode === null && child.signalCode === null) {
