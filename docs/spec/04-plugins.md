@@ -268,7 +268,7 @@ interface PluginAPI {
     modelReady(agent: string): Promise<boolean>;
   };
   models: Models;                      // pi-ai 的模型集合，纯类型重新导出
-  storage: PluginStorage;              // open(root?)：宿主绑定的私有文本文件/文档能力
+  storage: PluginStorage;              // open(root?)：宿主绑定的私有文本文件/文档与附件能力
   paths: { data: string };             // 旧本机路径兼容；共享插件新写入使用 storage
 }
 interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSchema?: TSchema }
@@ -288,7 +288,7 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 
 ### 宿主无关插件存储（共享核心重构，2026-11-02 授权）
 
-`PluginAPI.storage.open(root?)` 提供文本文件/文档的 read、write、append、list、stat、mkdir、remove 与同命名空间 transaction；省略 root 绑定原 api.paths.data。能力按插件与宿主租户/Bot 隔离，本机 FS 与 PG 使用同一插件算法，不将 SQL/进程能力交给插件存储接口。FS 保持原文件名、格式、原子替换和锁；PG 以私有 plugin_files 虚拟树承载，不解释为云端目录。read 对不存在文件返回 undefined；list 返回当前层级文件/目录条目；stat 返回类型、字节数与真实 mtimeMs。仅 FS 提供 localRoot，用于明确的旧数据只读导入和已有本机采集能力，PG 不提供它，不能据逻辑 root 打开宿主路径。
+`PluginAPI.storage.open(root?)` 提供文本文件/文档的 read、write、append、list、stat、mkdir、remove 与同命名空间 transaction；省略 root 绑定原 api.paths.data。能力按插件与宿主租户/Bot 隔离，本机 FS 与 PG 使用同一插件算法，不将 SQL/进程能力交给插件存储接口。FS 保持原文件名、格式、原子替换和锁；PG 以私有 plugin_files 虚拟树承载，不解释为云端目录。read 对不存在文件返回 undefined；list 返回当前层级文件/目录条目；stat 返回类型、字节数与真实 mtimeMs。仅 FS 提供 localRoot，用于明确的旧数据只读导入和已有本机采集能力，PG 不提供它，不能据逻辑 root 打开宿主路径。`writeAttachment(path, bytes, mime)` 在同一私有命名空间保存生成的二进制附件并返回渠道可用的 URI；本机以原子写保存真实文件并返回 file URI，PG 保存编码内容并返回 data URI。插件不自行写 `api.paths.data` 或为云端构造 file URI；不支持附件的渠道沿现有文本呈现能力输出。
 
 memory 的已配置个人记忆 root 必须原样保留：本机 open(config.root) 绑定已有已校验用户库，PG 将该 root 作为当前插件/租户/Bot 内的虚拟树名。它不扩大模型的目录权限，原 capability/allowedRun 检查继续生效，不增加 core 的 memory 特判。
 
