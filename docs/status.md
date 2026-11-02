@@ -10,6 +10,10 @@
 
 已验证本机真实Luna、云端真实DeepSeek、Linux完整Harness与独立execution-only安装，以及物理云Linux→Mac的模型read/bash和结果回读；设备离线明确返回unknown，重连原commandId的测试副作用仅一次。云端后端已部署，现有云Runtime实际构建来源为 `8f620a0`，不是新版静态的正式发行身份。WorkBuddy测试模型仍依赖Mac在线。`7d5b2b7a` 全平台CI通过，正式 **v0.3.26110208** 已公开；线上静态精确对应tag92c30164，本机正式升级重验verified且真实云模型调用通过。生产浏览器闭环通过后发现模型按钮的effort和原始供应商ID显示问题，已修源码，等待后续正常发版与定向复验。发行后的tag CI与桌面/安卓追加构建另记，不以派发代替完成。原始失败、实际计数、部署来源和剩余清单见[完整验收记录](verification/workspace-multidevice-20261102.md)。
 
+## 当前 main 的 CI 状态（2026-11-02 核对）
+
+`v0.3.26110208` 由 `7d5b2b7a` 全平台通过的 CI 门禁发布，本轮安装与分发改动包含在该 tag 里。此后 main 上的 `0a93b1f3` / `c14b2313`（父会话可操作性投影）提交了引用 `packages/core/src/kernel/operability.ts` 的代码，但没有提交该文件，导致后续 CI 在所有平台报 `TS2307: Cannot find module './operability.js'`。修复提交 `fa3028a8` 只存在于本机、尚未推送；这属于另一条在途工作，本页不代它宣布已修复。
+
 ## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
 
 设计见 [09 §3.1、§6.1–§6.4](spec/09-cli-release.md)：安装分“只装核心”与 `--desktop` 两种形态；桌面壳启动时先探测本机核心，可达直连本机控制面，否则回落 `https://yonderbot.net/`；状态栏扩展到 Windows（`Yonder Status` 托盘），Linux 不做；安卓 APK 与桌面 dmg/nsis 由 Release 后的 CI 构建，连同 OSS 清单一起分发到 bucket `yonder-release`。
