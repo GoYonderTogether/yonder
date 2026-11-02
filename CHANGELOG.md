@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- 安装脚本新增 `--desktop` / `-Desktop`：核心装完后一并安装桌面应用（macOS dmg、Windows 安装程序）并注册后台服务，关掉桌面窗口即回到只装核心。
+- 桌面应用启动时先连接本机 Yonder，服务未运行时才打开 yonderbot.net。
+- Windows 新增 `Yonder Status` 托盘，随 `service install` 注册，显示服务状态、检查更新、停止服务并退出。
+- 正式 Release 后由 CI 构建签名安卓 APK 与桌面安装包，并发布应用内更新清单。
+
+### Changed
+
+- 发布产物同步上传到阿里云 OSS `yonder-release`，供下载页与应用内更新读取。
+- 安卓应用内更新会校验安装包摘要后交系统安装器确认，不静默安装。
 - 新账号默认 Bot 的中文名改为「小未」（取自 Yonder 的中文名“未至之境”），英文名仍为 Yonder Bot；已有账号保持原名。
 
 ## [0.3.26110207] - 2026-11-02
