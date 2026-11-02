@@ -404,6 +404,7 @@ bindings:
   - id: qq-legacy
     match: { type: channel-qq.group-batch }
     session: { mode: persistent, per: conv }
+    reply: none
 `);
 		const agents = new Map([[agent.id, agent]]);
 		const keys = new Map<string, string>();
