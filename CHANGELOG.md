@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.26110215] - 2026-11-02
+
 ### Fixed
 
 - runtime：原生持久 Inbox 按核验来源分轮，同源 steer 续办，异源独立交付；显式 interrupt 保留跨源取消并入当前轮，保持群历史隔离。
@@ -9,6 +11,10 @@
 - prompt：明确工具搜索不能扩权，但主人授权的配置变更可走现有管理路径。
 - social：仅对明确启用 `batch.run=true` 的更新预检候选来源、scope、profile 插件和批次 consumer；已知缺项预览与应用均返回可修复字段且不写入。
 - social：`batch.run=true` 时将输入处理与公开发言协调分开；指向其他 Bot 的合格来源仍进入自身批次，兄弟 Bot 回复不会提前推进其已读游标。
+
+### Added
+
+- bundle Yonder Pi durable D3 source
 
 ## [0.3.26110214] - 2026-11-02
 
