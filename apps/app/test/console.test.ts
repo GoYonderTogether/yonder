@@ -64,7 +64,7 @@ describe("ConsoleSwitcher 渲染", () => {
 	it("explains it only controls this machine when no remote node is added", async () => {
 		const { ConsoleSwitcher } = await import("../src/work/features/console/ConsoleSwitcher");
 		const html = render(createElement(ConsoleSwitcher));
-		expect(html).toContain("只控制本机");
+		expect(html).toContain("当前仅保存本机网关");
 		expect(html).toContain("添加设备");
 		expect(html).toContain("打开本机控制台");
 		expect(html).not.toContain("远程节点的限制");

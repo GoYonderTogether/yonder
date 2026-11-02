@@ -1,4 +1,4 @@
-import { Brain, Check, ChevronRight, Copy, Info, Layers, Reply, Wrench } from "lucide-react";
+import { Brain, Check, ChevronRight, Copy, FileText, Info, Layers, Reply, Wrench } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChannelIcon } from "../features/messages/ChannelIcon";
@@ -227,7 +227,7 @@ function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => v
 					</Fold>
 				</div>
 			)}
-			{(it.text || (!mine && it.streaming)) && (
+			{(it.text || it.attachments?.length || (!mine && it.streaming)) && (
 				<div className="relative max-w-[85%]">
 					{it.metadata && it.metadata.length > 0 && (
 						<Popover.Root>
@@ -281,6 +281,16 @@ function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => v
 							<TypingText text={it.text} />
 						) : (
 							<Markdown text={it.text} />
+						)}
+						{!!it.attachments?.length && (
+							<ul aria-label="消息附件" className="mt-1 space-y-1 text-small">
+								{it.attachments.map((attachment, index) => (
+									<li key={`${attachment.uri}-${index}`} className="flex items-center gap-2 break-all">
+										<FileText size={16} className="shrink-0" aria-hidden />
+										<span>{attachment.name ?? attachment.kind}</span>
+									</li>
+								))}
+							</ul>
 						)}
 						{copied && (
 							<span

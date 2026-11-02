@@ -4,6 +4,7 @@ import { RpcError, rpc } from "../api/client";
 import { useActiveNode } from "../api/nodes";
 import { useWorkOnline } from "../lib/workOnline";
 import { AssistBar, AssistMenu, parseSlash, runCommand } from "./ComposerAssist";
+import { AttachmentButton, AttachmentList, useAttachments } from "./ComposerAttachments";
 
 const savedDrafts: Record<string, string> = {};
 const unknownSends: Record<string, { text: string; method: string; params: Record<string, unknown> }> = {};
@@ -28,16 +29,24 @@ export function Composer({ session, running, bot }: { session: string; running: 
 	};
 	const [mode, setMode] = useState<Busy>("steer");
 	const [err, setErr] = useState("");
+	const [busy, setBusy] = useState(false);
+	const [dragging, setDragging] = useState(false);
+	const files = useAttachments(node);
 	const sending = useRef(false);
+	const changeFiles = (action: () => void) => {
+		delete unknownSends[draftKey];
+		action();
+	};
 
 	const send = async () => {
 		const t = text.trim();
-		if (!online || !t || sending.current) return;
+		if (!online || (!t && !files.items.length) || !files.ready || sending.current) return;
 		sending.current = true;
+		setBusy(true);
 		setErr("");
 		try {
 			const cmd = parseSlash(t);
-			if (cmd) {
+			if (cmd && !files.items.length) {
 				setText("");
 				await runCommand(session, cmd);
 				return;
@@ -50,30 +59,60 @@ export function Composer({ session, running, bot }: { session: string; running: 
 							text: t,
 							method: bot ? "bots.send" : "sessions.submit",
 							params: bot
-								? { agent: bot, text: t, requestId: crypto.randomUUID() }
-								: { id: session, text: t, requestId: crypto.randomUUID(), ...(running ? { busy: mode } : {}) },
+								? {
+										agent: bot,
+										text: t,
+										requestId: crypto.randomUUID(),
+										...(files.attachments.length ? { attachments: files.attachments } : {}),
+									}
+								: {
+										id: session,
+										text: t,
+										requestId: crypto.randomUUID(),
+										...(files.attachments.length ? { attachments: files.attachments } : {}),
+										...(running ? { busy: mode } : {}),
+									},
 						};
 			try {
 				await rpc(request.method, request.params);
 				delete unknownSends[draftKey];
 			} catch (error) {
-				if (error instanceof RpcError && error.code === "outcome_unknown" && savedDrafts[draftKey]?.trim() === t)
+				if (error instanceof RpcError && error.code === "outcome_unknown" && (savedDrafts[draftKey] ?? "").trim() === t)
 					unknownSends[draftKey] = request;
 				else delete unknownSends[draftKey];
 				throw error;
 			}
 			setText("");
+			files.clear();
 		} catch (e) {
 			setErr(e instanceof Error ? e.message : "发送失败");
 		} finally {
 			sending.current = false;
+			setBusy(false);
 		}
 	};
 	const abort = () =>
 		void rpc("sessions.abort", { id: session }).catch((e) => setErr(e instanceof Error ? e.message : "中止失败"));
 
 	return (
-		<div className="bg-ground px-3 pt-1.5 pb-2">
+		<fieldset
+			aria-label="消息和附件"
+			className={`m-0 min-w-0 border-0 bg-ground px-3 pt-1.5 pb-1 ${dragging ? "ring-2 ring-inset ring-accent" : ""}`}
+			onDragOver={(event) => {
+				if (event.dataTransfer.types.includes("Files")) {
+					event.preventDefault();
+					setDragging(true);
+				}
+			}}
+			onDragLeave={(event) => {
+				if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false);
+			}}
+			onDrop={(event) => {
+				event.preventDefault();
+				setDragging(false);
+				if (online && !busy && event.dataTransfer.files.length) changeFiles(() => files.add(event.dataTransfer.files));
+			}}
+		>
 			{running && (
 				<div
 					className="mx-auto mb-2 flex max-w-[720px] items-center gap-2 text-caption text-muted"
@@ -114,8 +153,16 @@ export function Composer({ session, running, bot }: { session: string; running: 
 					{err}
 				</p>
 			)}
+			<AttachmentList
+				items={files.items}
+				disabled={busy}
+				onRemove={(id) => changeFiles(() => files.remove(id))}
+				onRetry={(item) => void files.retry(item)}
+			/>
+			{dragging && <p className="mx-auto mb-1 max-w-[900px] text-caption text-accent-ink">松开以添加图片或文件</p>}
 			{/* 输入条是一整块浮起的纸面：聚焦时整块出现双环咬合，而不是只框住 textarea */}
-			<div className="field mx-auto flex max-w-[720px] items-end gap-2 rounded-field bg-tone p-1.5 pl-1">
+			<div className="field mx-auto flex max-w-[900px] items-end gap-2 rounded-field border border-hairline bg-raised p-1.5 pl-1 shadow-soft">
+				<AttachmentButton disabled={!online || busy} onFiles={(selected) => changeFiles(() => files.add(selected))} />
 				<textarea
 					value={text}
 					rows={1}
@@ -128,18 +175,18 @@ export function Composer({ session, running, bot }: { session: string; running: 
 					}}
 					placeholder={running ? "继续输入…" : "发消息"}
 					aria-label="消息输入框"
-					className="max-h-40 min-h-9 flex-1 resize-none rounded-field bg-transparent px-3 py-1.5 text-body outline-none placeholder:text-faint"
+					className="max-h-40 min-h-9 min-w-0 flex-1 resize-none rounded-field bg-transparent px-1 py-1.5 text-body outline-none placeholder:text-faint"
 				/>
 				<button
 					type="button"
 					onClick={() => void send()}
-					disabled={!online || !text.trim()}
+					disabled={!online || busy || !files.ready || (!text.trim() && !files.items.length)}
 					aria-label="发送"
 					className="press grid size-9 shrink-0 place-items-center rounded-full bg-accent text-on-accent transition-opacity disabled:opacity-25"
 				>
 					<ArrowUp size={18} aria-hidden />
 				</button>
 			</div>
-		</div>
+		</fieldset>
 	);
 }

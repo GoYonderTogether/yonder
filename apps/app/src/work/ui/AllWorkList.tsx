@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../api";
 import type { Device } from "../../api/types";
@@ -13,10 +14,12 @@ import { cloudBotEntries, groupWork, TIME_ORDER } from "../lib/work";
 import { DragScroll } from "./DragScroll";
 import { toast } from "./kit/Toast";
 
+const NewTask = lazy(() => import("../features/work/NewTask").then((module) => ({ default: module.NewTask })));
 type Props = { accountId: string; devices: Device[]; onOpen(device: Device, session: string): void };
 
 function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: Device; onOpen: Props["onOpen"] }) {
 	const navigate = useNavigate();
+	const [opening, setOpening] = useState(false);
 	const available = device.online && device.workProtocol === 1;
 	const sessions = useQuery({
 		queryKey: ["all-work", accountId, device.id, "sessions"],
@@ -47,6 +50,20 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 	];
 	return (
 		<section className="px-4 py-3" aria-label={device.name}>
+			{opening && (
+				<Suspense fallback={null}>
+					<NewTask
+						initial={{
+							id: `account:${accountId}:device:${device.id}`,
+							deviceId: device.id,
+							name: device.name,
+							online: device.online,
+							workProtocol: device.workProtocol,
+						}}
+						onClose={() => setOpening(false)}
+					/>
+				</Suspense>
+			)}
 			<h2 className="text-small font-semibold">{device.name}</h2>
 			{!available && (
 				<p className="mt-1 text-caption text-muted">{device.online ? "需要更新 Yonder" : "离线 · 显示已加载内容"}</p>
@@ -65,13 +82,7 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 						type="button"
 						disabled={!available}
 						className="mt-2 rounded-control bg-tone px-3 py-1 text-small"
-						onClick={() =>
-							void rpc<{ id: string }>("sessions.open", { preset: "default", close: "manual" }, undefined, {
-								deviceId: device.id,
-							})
-								.then((session) => onOpen(device, session.id))
-								.catch(() => toast("新建失败", true))
-						}
+						onClick={() => setOpening(true)}
 					>
 						新任务
 					</button>

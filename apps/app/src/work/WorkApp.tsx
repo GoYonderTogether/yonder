@@ -52,6 +52,7 @@ function LocalWorkApp() {
 	const node = useActiveNode();
 	const qc = useQueryClient();
 	const navigate = useNavigate();
+	const route = useWorkRoute();
 	const [readyNode, setReadyNode] = useState(node.id);
 	const previous = useRef(node.id);
 	useEffect(() => {
@@ -59,9 +60,9 @@ function LocalWorkApp() {
 		mux.reset();
 		qc.clear();
 		previous.current = node.id;
-		void navigate("/work", { replace: true });
+		if (!route.session || route.deviceId !== node.deviceId) void navigate("/work", { replace: true });
 		setReadyNode(node.id);
-	}, [node.id, qc, navigate]);
+	}, [node.id, node.deviceId, qc, navigate, route.deviceId, route.session]);
 	if (readyNode !== node.id) return null;
 	return <GatewayWorkApp key={node.id} />;
 }

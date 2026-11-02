@@ -70,14 +70,16 @@ export async function probeSocialService(): Promise<SocialService> {
 /** VITE_API=http 明确配置了社交服务；否则探测一次同源网关。 */
 export function useSocialService(): SocialService {
 	const configured = import.meta.env.VITE_API === "http";
+	const localGateway = gatewayHosted() && !import.meta.env.VITE_SOCIAL_BASE;
 	const probe = useQuery({
 		queryKey: ["social-service"],
-		enabled: !configured,
+		enabled: !configured && !localGateway,
 		staleTime: Number.POSITIVE_INFINITY,
 		retry: false,
 		refetchOnWindowFocus: false,
 		queryFn: probeSocialService,
 	});
+	if (localGateway) return "none";
 	if (configured) return "present";
 	return probe.data ?? "pending";
 }

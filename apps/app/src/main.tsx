@@ -18,7 +18,7 @@ import {
 	selectAccount,
 } from "./cache";
 import { upgradeLegacyLocation } from "./legacyLinks";
-import { appBase, routerBasename } from "./lib/base";
+import { appBase, gatewayHosted, routerBasename } from "./lib/base";
 import { lockZoom, watchKeyboard } from "./lib/viewport";
 import { $session } from "./store";
 import { registerConsoleWorker } from "./work/pwa";
@@ -75,7 +75,8 @@ function PersistenceProvider({ children }: { children: React.ReactNode }) {
 }
 
 upgradeLegacyLocation(appBase());
-$session.set(readCachedSession());
+const localGateway = gatewayHosted() && !import.meta.env.VITE_SOCIAL_BASE;
+$session.set(localGateway ? null : readCachedSession());
 // 页面缩放锁死；手机输入法弹出时把可见高度写进 --app-height（见 lib/viewport.ts）。
 lockZoom();
 watchKeyboard();
@@ -86,6 +87,7 @@ function Bootstrap() {
 	const [error, setError] = useState(false);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: attempt 变化时重试加载
 	useEffect(() => {
+		if (localGateway) return;
 		let active = true;
 		const initial = $session.get();
 		setError(false);

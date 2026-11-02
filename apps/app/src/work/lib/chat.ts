@@ -1,3 +1,4 @@
+import type { Attachment } from "@yonder/gateway/protocol";
 import type { TranscriptItem } from "../api/types";
 
 // 把内核两种形态（分页读的 TranscriptItem、实时流的 pi Message）统一成界面用的 ChatItem。
@@ -13,6 +14,7 @@ export interface ChatItem {
 	id: string;
 	role: "user" | "assistant" | "summary" | "notice" | "tool-result";
 	text: string;
+	attachments?: Attachment[];
 	thinking?: string;
 	tools: ToolCall[];
 	/** 用户消息的来源渠道（<turn channel="…"> 或内核给的 channel），无则是本机控制台 */
@@ -46,6 +48,7 @@ interface PiMessage {
 	channel?: string;
 	fromName?: string;
 	timestamp?: number;
+	attachments?: Attachment[];
 }
 
 const TURN = /^<turn\b([^>]*)>[\s\S]*?<\/turn>\s*/;
@@ -151,6 +154,7 @@ export function applyMessage(
 			id,
 			role: "user",
 			text: details.body,
+			attachments: m.attachments,
 			...details,
 			channel: details.channel ?? m.channel,
 			fromName: m.fromName ?? details.fromName,
@@ -245,14 +249,15 @@ export function fromTranscript(items: TranscriptItem[]): ChatItem[] {
 						? { body: t.text, channel: undefined, from: undefined, metadata: [], ts: undefined }
 						: inputDetails(t.text);
 			const { body, channel } = details;
-			const meta = t as TranscriptItem & { channel?: string; fromName?: string };
+			const meta = t as TranscriptItem & { channel?: string; fromName?: string; attachments?: Attachment[] };
 			const last = out.at(-1);
-			if (last?.role === "user" && last.text === body) continue;
-			if (body.trim())
+			if (last?.role === "user" && last.text === body && !meta.attachments?.length) continue;
+			if (body.trim() || meta.attachments?.length)
 				out.push({
 					id,
 					role: "user",
 					text: body,
+					attachments: meta.attachments,
 					...details,
 					ts: details.ts ?? t.timestamp ?? input?.timestamp,
 					channel: channel ?? meta.channel,

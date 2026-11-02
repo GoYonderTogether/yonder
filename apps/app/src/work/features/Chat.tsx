@@ -193,6 +193,7 @@ function Live({
 					<p className="py-3 text-center text-small text-faint">会话已结束</p>
 				) : (
 					<Composer
+						key={id}
 						session={id}
 						running={v.running}
 						bot={s?.mode === "main" && s.agent && !isImported(s) ? s.agent : undefined}

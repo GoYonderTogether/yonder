@@ -173,9 +173,9 @@ export function ConsoleSwitcher() {
 					</>
 				) : (
 					<>
-						<h2 className="mb-1 text-body font-medium">只控制本机</h2>
+						<h2 className="mb-1 text-body font-medium">当前仅保存本机网关</h2>
 						<p className="text-caption text-faint">
-							还没有添加远程设备。当前能控制的只有这台设备（同源网关）；添加设备后，可以在这里进入对方的控制台。
+							还没有保存其他网关地址。添加后可进入对方控制台；Bot 可操控哪些设备由工作区和授权决定。
 						</p>
 					</>
 				)}

@@ -1,87 +1,94 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { rpc } from "../api/client";
+import { useActiveNode } from "../api/nodes";
+import type { SessionOptions as Options, RuntimeChoice } from "../api/session-options";
 import { footerStats } from "../api/session-state";
+import { NewTask } from "../features/work/NewTask";
 import { footerSegments } from "../lib/format";
 import type { SessionView } from "../lib/useSession";
-import { runCommand } from "./ComposerAssist";
+import { useWorkOnline } from "../lib/workOnline";
+import { RuntimePicker, SessionOptions } from "./SessionOptions";
 
-const LEVELS = ["auto", "low", "medium", "high"];
-
-/** 底栏模型：点开选思考档位或输入模型，写同一条 sessions.command（与 /思考 /模型 相同）。 */
-function ModelPicker({ id, label }: { id: string; label: string }) {
-	const [open, setOpen] = useState(false);
-	const [model, setModel] = useState("");
-	const run = (c: string) => void runCommand(id, c);
-	return (
-		<span className="relative ml-auto">
-			<button type="button" onClick={() => setOpen(!open)} aria-expanded={open} data-testid="model-pick">
-				{label}
-			</button>
-			{open && (
-				<div
-					className="absolute right-0 bottom-full z-10 mb-1 w-64 rounded-card bg-raised p-2 shadow-float"
-					data-testid="model-menu"
-				>
-					<div className="flex gap-1">
-						{LEVELS.map((l) => (
-							<button
-								key={l}
-								type="button"
-								onClick={() => run(`effort ${l}`)}
-								className="press rounded-full bg-tone px-2 py-0.5"
-							>
-								{l}
-							</button>
-						))}
-					</div>
-					<form
-						className="mt-2 flex gap-1"
-						onSubmit={(e) => {
-							e.preventDefault();
-							if (model.trim()) run(`model ${model.trim()}`);
-						}}
-					>
-						<input
-							value={model}
-							onChange={(e) => setModel(e.target.value)}
-							placeholder="provider/model"
-							aria-label="模型"
-							className="field min-w-0 flex-1 rounded-control bg-tone px-2 py-0.5"
-						/>
-						<button type="submit" className="press rounded-full bg-tone px-2 py-0.5">
-							切换
-						</button>
-					</form>
-					<button type="button" onClick={() => run("model list")} className="press mt-2 underline">
-						可用供应商
-					</button>
-				</div>
-			)}
-		</span>
-	);
-}
-
-/** 参照 pi footer：↑输入 ↓输出 R W CH · 子 Agent · LSP · 上下文百分比/窗口 (auto) · (provider) 模型 • 思考档 */
 export function Footer({ v }: { v: SessionView }) {
+	const node = useActiveNode();
+	const online = useWorkOnline();
+	const session = v.session;
+	const id = session?.id;
+	const editable = !!session && !session.closed;
+	const task = session?.mode === "task";
+	const [newTask, setNewTask] = useState<RuntimeChoice>();
+	const [error, setError] = useState("");
+	const [saving, setSaving] = useState(false);
+	const qc = useQueryClient();
+	const key = ["session-options", node.id, id];
+	const options = useQuery({
+		queryKey: key,
+		enabled: !!id && online,
+		retry: false,
+		refetchInterval: 5000,
+		queryFn: ({ signal }) => rpc<Options & { running: boolean }>("sessions.options.get", { id }, signal, node),
+	});
 	const seg = footerSegments(footerStats(v));
-	const c = v.context;
-	const tone = !c ? "" : c.percent > 90 ? "text-danger" : c.percent > 70 ? "text-warn" : "";
-	const empty = Object.keys(seg).length === 0;
+	const model = v.model;
+	const value: Options = options.data ?? {
+		model: model ? `${model.provider}/${model.model}` : undefined,
+		effort: model?.thinking,
+	};
+	const change = async (patch: Partial<Options>) => {
+		if (!id || !editable || saving) return;
+		setSaving(true);
+		setError("");
+		try {
+			qc.setQueryData(key, await rpc<Options>("sessions.options.set", { id, ...patch }, undefined, node));
+		} catch (failure) {
+			setError(failure instanceof Error ? failure.message : "设置失败");
+		} finally {
+			setSaving(false);
+		}
+	};
 	return (
-		<footer
-			className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-1.5 font-mono text-caption text-faint tabular-nums"
-			data-testid="footer"
-		>
-			{seg.usage && <span>{seg.usage}</span>}
-			{seg.children && <span>{seg.children}</span>}
-			{seg.lsp && <span>{seg.lsp}</span>}
-			{seg.context && <span className={tone}>{seg.context}</span>}
-			{seg.model &&
-				(v.session?.id && !v.session.closed ? (
-					<ModelPicker id={v.session.id} label={seg.model} />
-				) : (
-					<span className="ml-auto">{seg.model}</span>
-				))}
-			{empty && <span>等待会话状态…</span>}
+		<footer className="bg-ground px-3 pb-2" data-testid="footer">
+			<div className="mx-auto max-w-[900px]">
+				<SessionOptions
+					session={id}
+					node={node}
+					value={value}
+					onChange={(patch) => void change(patch)}
+					disabled={!online || !editable || saving || !options.data}
+					resourcesDisabled={v.running}
+					runtime={<RuntimePicker value={{ ...node, online, workProtocol: 1 }} existing onChange={setNewTask} />}
+				/>
+				{session && !task && !session.closed && (
+					<button
+						type="button"
+						className="press min-h-10 text-caption text-accent-ink"
+						onClick={() => setNewTask(node)}
+					>
+						为此 Bot 创建工作任务
+					</button>
+				)}
+				{(error || options.error) && (
+					<p role="alert" className="text-caption text-danger">
+						{error || options.error?.message}
+					</p>
+				)}
+				{v.running && <p className="text-caption text-faint">请等待本次运行结束后修改工作区与权限。</p>}
+				<div className="flex flex-wrap gap-x-3 text-[11px] text-faint tabular-nums">
+					{seg.usage && <span>{seg.usage}</span>}
+					{seg.children && <span>{seg.children}</span>}
+					{seg.context && <span>{seg.context}</span>}
+					{seg.lsp && <span>{seg.lsp}</span>}
+				</div>
+			</div>
+			{newTask && (
+				<NewTask
+					initial={newTask}
+					parent={id}
+					agent={session?.agent ?? undefined}
+					onClose={() => setNewTask(undefined)}
+				/>
+			)}
 		</footer>
 	);
 }

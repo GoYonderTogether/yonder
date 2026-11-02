@@ -7,6 +7,7 @@ import { api } from "../api";
 import { clearPersistedCache, selectAccount } from "../cache";
 import { AccountSecurity } from "../components/AccountSecurity";
 import { AppBar } from "../components/AppBar";
+import { cloudPage } from "../lib/base";
 import { useLogout } from "../lib/useLogout";
 import { $session } from "../store";
 import { Button } from "../ui/Button";
@@ -14,8 +15,10 @@ import { setCloudDevice, useActiveNode } from "../work/api/nodes";
 import { mux } from "../work/api/stream";
 import { AboutSection } from "../work/features/settings/AboutSection";
 import { ChannelsSection } from "../work/features/settings/ChannelsSection";
+import { ModelConnections } from "../work/features/settings/ModelConnections";
 import { NodesSection } from "../work/features/settings/NodesSection";
 import { NotifySection } from "../work/features/settings/NotifySection";
+import { RuntimeSettings } from "../work/features/settings/RuntimeSettings";
 import { SocialSection } from "../work/features/settings/SocialSection";
 import { setWorkDevices } from "../work/lib/workOnline";
 import { PrivacySection } from "./Friends";
@@ -25,6 +28,8 @@ const sections = [
 	["privacy", "隐私"],
 	["notifications", "通知"],
 	["devices", "设备"],
+	["runtimes", "运行位置"],
+	["models", "云端模型"],
 	["channels", "渠道"],
 	["social", "社交设置"],
 	["about", "关于"],
@@ -94,6 +99,27 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 					</nav>
 				)}
 				{section === "privacy" && !local && <PrivacySection />}
+				{local && (section === "models" || section === "runtimes") ? (
+					<section className="mx-4 rounded-card bg-raised p-4">
+						<p className="text-small text-muted">
+							登录云端账号后管理云端模型、运行位置和已绑定设备；本机网关登录仅授权当前设备。
+						</p>
+						<a
+							href={cloudPage(`/me/settings/${section}`)}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="mt-3 inline-block py-2 text-small text-accent-ink"
+						>
+							打开云端{title} ↗
+						</a>
+						<p className="mt-2 text-caption text-faint">云端在新窗口打开，关闭或切回此窗口即可返回本机。</p>
+					</section>
+				) : (
+					<>
+						{section === "models" && <ModelConnections />}
+						{section === "runtimes" && <RuntimeSettings />}
+					</>
+				)}
 				{section === "account" && !local && session && (
 					<section className="mx-4 rounded-card bg-raised p-4">
 						<h2 className="mb-3 font-medium">账号与安全</h2>

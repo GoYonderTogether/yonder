@@ -1,13 +1,12 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, MonitorSmartphone, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../../api";
 import { Avatar as SocialAvatar } from "../../ui/Avatar";
-import { rpc } from "../api/client";
 import { useActiveNode, useNodes } from "../api/nodes";
-import type { SessionInfo } from "../api/types";
 import { workSessions } from "../api/work";
+import { NewTask } from "../features/work/NewTask";
 import { deviceAgentMap, useActivity, useDeviceAgents, useTitleOf } from "../lib/queries";
 import {
 	cloudBotEntries,
@@ -36,7 +35,7 @@ function ConsoleEntry() {
 	const active = useActiveNode();
 	const name = active.name || active.id;
 	if (active.deviceId) return null;
-	const summary = nodes.length > 1 ? `${name} · ${nodes.length} 个节点` : "只控制本机";
+	const summary = nodes.length > 1 ? `${name} · ${nodes.length} 个节点` : "运行于本机";
 	return (
 		<Link
 			to={workPath({ page: "console" })}
@@ -134,11 +133,8 @@ const Heading = ({ title }: { title: string }) => <h2 className="px-4 pt-3 pb-1 
  * 今天/昨天/更早、已完成（折叠）。不显示设备卡片、类型标签、编号、轮次、数字。
  */
 export function WorkList({ active }: { active?: string }) {
-	const online = useWorkOnline();
-	const navigate = useNavigate();
 	const sessions = useQuery({ queryKey: ["sessions", "work"], queryFn: () => workSessions(), refetchInterval: 5000 });
 	const activity = useActivity();
-	const qc = useQueryClient();
 	const folds = useFolds();
 	const [opening, setOpening] = useState(false);
 
@@ -149,19 +145,6 @@ export function WorkList({ active }: { active?: string }) {
 		[g.bots, state],
 	);
 
-	const openTask = async () => {
-		if (!online) return;
-		setOpening(true);
-		try {
-			const s = await rpc<SessionInfo>("sessions.open", { preset: "default", close: "manual" });
-			await qc.invalidateQueries({ queryKey: ["sessions"] });
-			navigate(workPath({ session: s.id }));
-		} catch (e) {
-			toast(e instanceof Error ? e.message : "新建失败", true);
-		} finally {
-			setOpening(false);
-		}
-	};
 	const row = (s: WorkSession, status: TaskStatus, pinned = false) => (
 		<TaskRow key={s.id} s={s} active={s.id === active} status={status} pinned={pinned} archived={status === "done"} />
 	);
@@ -175,11 +158,12 @@ export function WorkList({ active }: { active?: string }) {
 
 	return (
 		<div className="scroll-y h-full" data-testid="work-list">
+			{opening && <NewTask onClose={() => setOpening(false)} />}
 			<div className="px-3 pt-2">
 				<button
 					type="button"
-					onClick={() => void openTask()}
-					disabled={opening || !online}
+					onClick={() => setOpening(true)}
+					disabled={opening}
 					className="press flex w-full items-center gap-2 rounded-control bg-accent px-3 py-2 text-small text-on-accent shadow-soft disabled:opacity-40"
 					data-testid="new-task"
 				>
