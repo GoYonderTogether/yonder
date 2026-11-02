@@ -60,7 +60,7 @@ function applySigning() {
 		return;
 	}
 	if (!source.includes('CODE_SIGN_IDENTITY = "iPhone Developer";')) {
-		console.error("prepare-ios: unexpected project layout (no CODE_SIGN_IDENTITY = \"iPhone Developer\")");
+		console.error('prepare-ios: unexpected project layout (no CODE_SIGN_IDENTITY = "iPhone Developer")');
 		process.exit(1);
 	}
 	source = source.replace(
