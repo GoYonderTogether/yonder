@@ -2,6 +2,44 @@ import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { Batches } from "../src/batches.js";
 
+test("social does not consume a batch selected for a different strategy plugin", async () => {
+	vi.useFakeTimers();
+	const ts = new Date().toISOString();
+	const source: YEvent = {
+		id: "1",
+		ts,
+		type: "message.in",
+		conv: "conv:feishu:p1",
+		data: { kind: "group" },
+		routes: [{ agent: "a", binding: "source", session: "s", wake: "write" }],
+	};
+	const decision: YEvent = {
+		id: "2",
+		ts,
+		type: "routing.social-decision",
+		parent: source.id,
+		data: { agent: "a", reason: "batch", plugin: "custom", revision: "r" },
+	};
+	const ask = vi.fn();
+	const api = {
+		events: {
+			query: async (query: { id?: string }) => ({
+				events: [source, decision].filter((event) => !query.id || event.id === query.id),
+			}),
+			ask,
+			emit: vi.fn(),
+		},
+		log: { warn: vi.fn() },
+	} as unknown as PluginAPI;
+	const batches = new Batches(api);
+	await batches.start();
+	await batches.accept(decision);
+	await vi.runAllTimersAsync();
+	expect(ask).not.toHaveBeenCalled();
+	await batches.stop();
+	vi.useRealTimers();
+});
+
 test("waits for an admitted QQ batch to finish before scheduling its unread successor", async () => {
 	vi.useFakeTimers();
 	const ts = new Date().toISOString();

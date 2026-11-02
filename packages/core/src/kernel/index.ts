@@ -167,6 +167,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			loaded,
 			services.models,
 			new Map([...loaded.presets, ...homePresets]),
+			{ strictBatchConsumers: false },
 		);
 		if (errors.length) throw new Error(errors.join("; "));
 		const scaffoldAgent = (agent: AgentConfig, candidate = config) =>

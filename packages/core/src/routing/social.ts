@@ -50,13 +50,13 @@ const valid = (value: unknown): value is ParticipationDecision => {
  * official group acceptance, the derived default range and scope decide only whether a participation
  * policy applies at all. The decision itself belongs to the selected plugin.
  */
-function applicable(agent: AgentConfig, event: YEvent, channel: Channel | undefined) {
+function applicable(agent: AgentConfig, event: YEvent, channel: Channel | undefined, sourceBinding?: Binding | null) {
 	const member = membershipGroup(agent, event, channel);
 	// An official group binding already authorizes its group (08), whether or not a default range is derived.
-	const bound = member || officialGroupBinding(agent, event, channel);
+	const bound = member || officialGroupBinding(agent, event, channel, sourceBinding);
 	// A custom participation plugin takes precedence: the derived default never speaks for it.
 	const custom = agent.social?.enabled === true && participationPlugin(agent, event) !== "social";
-	const officialDefault = !member && !custom && officialGroupDefault(agent, event, channel);
+	const officialDefault = !member && !custom && officialGroupDefault(agent, event, channel, sourceBinding);
 	const social = agent.social ?? (member || officialDefault ? { enabled: true } : undefined);
 	if (
 		!social ||
@@ -81,9 +81,13 @@ export function decideParticipation(
 	person: string | undefined,
 	channel: Channel | undefined,
 	hooks: ParticipationHooks | undefined,
-	options: { outbound?: boolean; onUnavailable?: (plugin: string) => void } = {},
+	options: {
+		outbound?: boolean;
+		onUnavailable?: (plugin: string) => void;
+		sourceBinding?: Binding | null;
+	} = {},
 ): ParticipationDecision | undefined {
-	const facts = applicable(agent, event, channel);
+	const facts = applicable(agent, event, channel, options.sourceBinding);
 	if (!facts) return undefined;
 	const plugin = participationPlugin(agent, event);
 	const hook = hooks?.get(plugin)?.find((item) => typeof item.participation === "function");

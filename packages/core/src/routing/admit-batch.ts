@@ -1,8 +1,9 @@
 import type { Channel } from "@yonder/sdk";
-import type { AgentConfig, Binding } from "../config/index.js";
+import type { AgentConfig } from "../config/index.js";
 import type { Store } from "../store/index.js";
-import { channelOf, matches, sessionKey } from "./matching.js";
-import { membershipGroup, officialGroupDefault, platformBatchBinding } from "./platform-group.js";
+import { batchConsumerForSource } from "./batch-consumer.js";
+import { channelOf } from "./matching.js";
+import { membershipGroup, officialGroupDefault } from "./platform-group.js";
 import { decideParticipation, hasParticipation, type ParticipationHooks } from "./social.js";
 
 export async function admitBatch(
@@ -39,12 +40,14 @@ export async function admitBatch(
 	const sources = await Promise.all(ids.map((id) => store.events.get(id)));
 	const source = sources.at(-1);
 	const route = source?.routes?.find((item) => item.agent === agent.id && item.wake === "write" && !item.dropped);
+	const sourceBinding = route?.binding ? agent.bindings.find((binding) => binding.id === route.binding) : undefined;
+	if (!sourceBinding) return;
 	if (
 		!agent.social?.enabled &&
 		(!source ||
 			!(
 				membershipGroup(agent, source, channels?.get(channelOf(source.conv) ?? "")) ||
-				officialGroupDefault(agent, source, channels?.get(channelOf(source.conv) ?? ""))
+				officialGroupDefault(agent, source, channels?.get(channelOf(source.conv) ?? ""), sourceBinding)
 			))
 	)
 		return;
@@ -71,43 +74,29 @@ export async function admitBatch(
 			person,
 			channels?.get(channelOf(item.conv) ?? ""),
 			participationHooks,
+			{ sourceBinding },
 		);
 		// 批次既接纳自主批次，也接纳硬触发（08：@/引用/名字/关注）在 write 绑定下的直接机会。
 		if (!decision || !(decision.reason === "batch" || decision.run === true)) return;
 		if (decision.revision !== request.policyRevision) return;
 	}
-	const probe = { ...source!, type: `${plugin}.batch-ready`, from: `plugin:${plugin}` };
-	let binding: Binding | undefined;
-	for (const candidate of agent.bindings)
-		if (await matches(candidate, probe, agent, store)) {
-			binding = candidate;
-			break;
-		}
-	binding ??= await platformBatchBinding(agent, source!, channels?.get(channelOf(source!.conv) ?? ""), store, plugin);
-	if (
-		!binding ||
-		binding.match.type !== `${plugin}.batch-ready` ||
-		binding.reply !== "none" ||
-		binding.wake === "write" ||
-		binding.session === "main" ||
-		binding.session === "ephemeral" ||
-		binding.session.per !== "conv"
-	)
-		return;
-	const profile = agent.profiles[binding.profile ?? agent.defaultProfile];
-	if (!(profile?.plugins ?? agent.defaults?.plugins ?? []).includes(plugin)) return;
+	const consumer = await batchConsumerForSource(
+		agent,
+		source!,
+		sourceBinding,
+		channels?.get(channelOf(source!.conv) ?? ""),
+		store,
+		plugin,
+	);
+	if ("issue" in consumer) return;
 	const saved = await store.sessions.get(route.session);
-	const target = sessionKey(binding, probe);
-	const scope =
-		agent.profiles[binding.profile ?? agent.defaultProfile]?.channelInstances ?? agent.defaults?.channelInstances;
 	if (
 		!saved ||
 		saved.closed ||
 		saved.agent !== agent.id ||
-		saved.profile !== (binding.profile ?? agent.defaultProfile) ||
-		saved.mode !== target.mode ||
-		saved.key !== target.key ||
-		(scope && !scope.includes(channelOf(request.conv) ?? ""))
+		saved.profile !== consumer.profile ||
+		saved.mode !== consumer.session.mode ||
+		saved.key !== consumer.session.key
 	)
 		return;
 	return { session: route.session };

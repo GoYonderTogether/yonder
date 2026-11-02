@@ -1,5 +1,6 @@
 import type { Channel } from "@yonder/sdk";
 import type { ConfigIssue } from "./index.js";
+import { hasOfficialGroupWriter } from "./official-group.js";
 import type { AgentConfig, Binding, YonderConfig } from "./schema.js";
 
 /** Reject shapes the routing admission can never execute, before publishing them. */
@@ -60,12 +61,110 @@ export function participationBatchKinds(agent: AgentConfig, binding: Binding): s
 	return kinds.length ? kinds : undefined;
 }
 
+const values = (value: string | string[] | undefined) => (value === undefined ? undefined : [value].flat());
+const convChannel = (conv: string) => (conv.startsWith("conv:") ? conv.split(":", 3)[1] : undefined);
+
+function exactGroupBatchErrors(agent: AgentConfig, channels?: ReadonlyMap<string, Channel>) {
+	const social = agent.social;
+	if (!social || social.enabled === false) return [];
+	const errors: string[] = [];
+	for (const source of agent.bindings) {
+		const match = source.match;
+		const convs = values(match.conv);
+		if (
+			!convs?.length ||
+			(match.type !== undefined && match.type !== "message.in") ||
+			!values(match.kind)?.includes("group")
+		)
+			continue;
+		const profileName = source.profile ?? agent.defaultProfile;
+		const profile = agent.profiles[profileName];
+		for (const conv of convs) {
+			const instance = convChannel(conv);
+			const scoped = !social.scope || social.scope.includes(conv);
+			const pluginOverride = social.conversations?.[conv];
+			const policy = { ...social.defaults?.group, ...pluginOverride };
+			const batch = { ...social.defaults?.group?.batch, ...pluginOverride?.batch };
+			const mode = policy.mode ?? "batch";
+			const officialGroup =
+				!!instance &&
+				hasOfficialGroupWriter({ ...agent, bindings: [source] }, instance, channels?.get(instance)) &&
+				(policy.plugin ?? "social") === "social";
+			const derived = !scoped && officialGroup;
+			if ((!scoped && !derived) || mode !== "batch" || (batch.run !== true && !policy.judge)) continue;
+			const plugin = policy.plugin ?? "social";
+			const selected = profile?.plugins ?? agent.defaults?.plugins ?? [];
+			const scope = profile?.channelInstances ?? agent.defaults?.channelInstances;
+			const sameChannel = (binding: Binding) =>
+				(!values(binding.match.conv) || values(binding.match.conv)?.includes(conv)) &&
+				(!values(binding.match.channel) || values(binding.match.channel)?.includes(instance ?? "")) &&
+				!binding.match.kind &&
+				!binding.match.from;
+			const matchingBatchBinding = (binding: Binding) => {
+				const type = binding.match.type;
+				const typeMatches = type === `${plugin}.batch-ready` || type === `${plugin}.*`;
+				return typeMatches && sameChannel(binding);
+			};
+			const consumerShape = (binding: Binding) => {
+				const consumerProfile = binding.profile ?? agent.defaultProfile;
+				return (
+					consumerProfile === profileName &&
+					typeof binding.session === "object" &&
+					binding.session.mode === "persistent" &&
+					binding.session.per === "conv" &&
+					binding.reply === "none" &&
+					(binding.wake === undefined || binding.wake === "run") &&
+					(!scope || scope.includes(instance ?? ""))
+				);
+			};
+			const firstConsumer = agent.bindings.find(matchingBatchBinding);
+			const matchingConsumer = !!firstConsumer && consumerShape(firstConsumer);
+			const consumer =
+				matchingConsumer &&
+				(
+					agent.profiles[firstConsumer.profile ?? agent.defaultProfile]?.plugins ??
+					agent.defaults?.plugins ??
+					[]
+				).includes(plugin);
+			const derivedEligible =
+				officialGroup &&
+				typeof source.session === "object" &&
+				source.session.mode === "persistent" &&
+				source.session.per === "conv" &&
+				source.reply === "none" &&
+				source.wake === "write" &&
+				(!scope || scope.includes(instance ?? "")) &&
+				!!channels?.get(instance ?? "");
+			if (consumer || (derivedEligible && selected.includes(plugin))) continue;
+			const cause = [
+				...(!selected.includes(plugin) ? [`source profile ${profileName} must select ${plugin}`] : []),
+				...(matchingConsumer || derivedEligible
+					? []
+					: [`no matching ${plugin}.batch-ready consumer for ${conv} and profile ${profileName}`]),
+			].join("; ");
+			errors.push(
+				`${agent.id}/bindings/${source.id}: ${cause}; use a matching persistent/per:conv, wake:run, reply:none consumer or a source eligible for the existing mechanical companion, then run yonder agents validate and inspect`,
+			);
+			break;
+		}
+	}
+	return errors;
+}
+
+export function socialBatchConsumerErrors(
+	agents: Iterable<AgentConfig>,
+	channels?: ReadonlyMap<string, Channel>,
+): string[] {
+	return [...agents].flatMap((agent) => exactGroupBatchErrors(agent, channels));
+}
+
 /** Cross-file validation runs on the candidate before it is published. */
 export function socialReferenceErrors(
 	config: YonderConfig,
 	agents: Map<string, AgentConfig>,
 	loaded?: ReadonlySet<string>,
 	channels?: ReadonlyMap<string, Channel>,
+	options: { strictBatchConsumers?: boolean } = {},
 ): string[] {
 	const errors: string[] = [];
 	for (const agent of agents.values()) {
@@ -81,6 +180,7 @@ export function socialReferenceErrors(
 		}
 		const social = agent.social;
 		if (!social) continue;
+		if (options.strictBatchConsumers !== false) errors.push(...exactGroupBatchErrors(agent, channels));
 		if (social.enabled)
 			for (const binding of agent.bindings) {
 				if (binding.match.type !== "social.batch-ready") continue;

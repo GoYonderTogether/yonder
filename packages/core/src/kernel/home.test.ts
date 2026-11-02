@@ -1,7 +1,44 @@
+import { readFile, writeFile } from "node:fs/promises";
 import type { SessionInfo } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
+import { parse, stringify } from "yaml";
 import { parseAgentConfig, parseYonderConfig } from "../config/index.js";
+import { testModel } from "../config/test-support.js";
 import { protectSessions } from "./home.js";
+import { initHome, openKernel } from "./index.js";
+
+test("startup keeps an accepted incomplete batch chain repairable and doctor reports it as a warning", async () => {
+	const home = await tempHome("yonder-batch-startup-");
+	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const agentFile = `${home}/agents/main/agent.yaml`;
+		const agent = parse(await readFile(agentFile, "utf8"));
+		agent.profiles["card-group"].plugins = [];
+		agent.bindings.push({
+			id: "accepted-incomplete-group",
+			match: { type: "message.in", channel: "card", kind: "group", conv: "conv:card:p1" },
+			session: { mode: "persistent", per: "conv" },
+			profile: "card-group",
+			wake: "write",
+			reply: "none",
+		});
+		agent.social = {
+			enabled: true,
+			scope: ["conv:card:elsewhere"],
+			defaults: { group: { mode: "batch", batch: { run: true } } },
+		};
+		await writeFile(agentFile, stringify(agent));
+		kernel = await openKernel(home);
+		const doctor = await (await import("./home.js")).inspectHome(home);
+		expect(doctor.warnings.join(" ")).toContain("批次消费者链不完整（不阻止启动）");
+		expect(doctor.errors.join(" ")).not.toContain("accepted-incomplete-group");
+	} finally {
+		await kernel?.close();
+		await (await import("node:fs/promises")).rm(home, { recursive: true, force: true });
+	}
+});
 
 test("candidate binding profile changes cannot strand an open persistent session with an exact key selector", () => {
 	const config = parseYonderConfig(

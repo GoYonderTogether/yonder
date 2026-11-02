@@ -22,6 +22,9 @@ export async function suppressLegacyBatch(
 	const sourceRoute = legacySource.routes?.find(
 		(route) => route.agent === agent.id && route.wake === "write" && !route.dropped,
 	);
+	const sourceBinding = sourceRoute?.binding
+		? agent.bindings.find((binding) => binding.id === sourceRoute.binding)
+		: undefined;
 	const sourcePerson = legacySource.from?.startsWith("acct:")
 		? (await store.identity().account(legacySource.from))?.person
 		: undefined;
@@ -31,6 +34,7 @@ export async function suppressLegacyBatch(
 		sourcePerson,
 		channels?.get(channelOf(legacySource.conv) ?? ""),
 		participationHooks,
+		{ sourceBinding: sourceBinding ?? null },
 	);
 	if (
 		sourceRoute?.session &&

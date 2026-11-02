@@ -229,9 +229,16 @@ export class Batches {
 		}
 	}
 	async accept(event: YEvent, schedule = true) {
-		const data = event.data as { agent?: string; reason?: string; revision?: string; policy?: SocialPolicy };
+		const data = event.data as {
+			agent?: string;
+			reason?: string;
+			revision?: string;
+			policy?: SocialPolicy;
+			plugin?: string;
+		};
 		if (
 			this.stopped ||
+			(data.plugin !== undefined && data.plugin !== "social") ||
 			(data.reason !== "batch" && data.reason !== "folded") ||
 			!data.agent ||
 			!data.revision ||

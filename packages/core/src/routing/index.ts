@@ -3,15 +3,14 @@ import type { Binding } from "../config/index.js";
 import type { RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import { newEvent } from "../store/index.js";
 import { admitBatch } from "./admit-batch.js";
+import { requireBatchSourceBinding, type SocialDecisionDiagnostic } from "./batch-consumer.js";
 import { type DispatchDeps, dispatchRun } from "./dispatch.js";
 import { suppressLegacyBatch } from "./legacy-batch.js";
 import { channelOf, matches, sessionKey, targetBinding, targetDropReason, unknownTargetReason } from "./matching.js";
 import { createRoutedNotifications } from "./notifications.js";
-import { batchPlugin, isParticipationBatch } from "./participation.js";
+import { batchPlugin, isParticipationBatch, participationPlugin } from "./participation.js";
 import { createPendingResults, createReporter } from "./pending.js";
 import {
-	batchReadyBinding,
-	defaultRangeDiagnostic,
 	legacyGroupBatch,
 	membershipGroup,
 	officialGroupDefault,
@@ -21,6 +20,7 @@ import {
 	warnLegacy,
 } from "./platform-group.js";
 import { decideParticipation, socialBindingAllowed } from "./social.js";
+import { resolveSourceBindings } from "./source-binding.js";
 import type { CreateRouterOptions, RoutedRun } from "./types.js";
 
 type Wake = "run" | "write";
@@ -46,7 +46,6 @@ export function createRouter({
 			? new Set(socialBatchPlugin ? ["social"] : [])
 			: (socialBatchPlugin ?? new Set<string>());
 	const warnedLegacy = new Set<string>();
-	const warnedNoBatch = new Set<string>();
 	const warnedNoParticipation = new Set<string>();
 	const report = createReporter(onReport);
 	const routedNotifications = createRoutedNotifications(runtime, report, notificationLevel, notifications);
@@ -138,6 +137,10 @@ export function createRouter({
 		const person = account?.startsWith("acct:") ? (await store.identity().account(account))?.person : undefined;
 		const instance = channelOf(event.conv);
 		const channel = channels?.get(instance ?? "");
+		const sourceBindings =
+			event.type === "message.in"
+				? await resolveSourceBindings(event, agents.values(), store, internalTarget, inputData.kind)
+				: new Map<string, Binding | undefined>();
 		const derivedDefaults = new Set<string>();
 		const socialAgents = participationCandidates(agents.values(), {
 			event,
@@ -146,6 +149,7 @@ export function createRouter({
 			internalTarget,
 			socialLoaded: participationPlugins.has("social"),
 			derived: derivedDefaults,
+			sourceBindings,
 		});
 		const subjects = [event.conv, event.from, person].filter((value): value is string => !!value);
 		const mappings = socialAgents.map((owner) => ({
@@ -156,15 +160,7 @@ export function createRouter({
 		}));
 		const winningSubject = subjects.find((subject) => mappings.some((item) => item.mapping?.subject === subject));
 		const winningMappings = mappings.filter((item) => item.mapping?.subject === winningSubject && item.mapping);
-		const diagnostics: Array<{
-			agent: string;
-			reason: string;
-			revision: string;
-			policy?: object;
-			membership?: boolean;
-			derivedDefault?: boolean;
-			batchBinding?: "missing";
-		}> = [];
+		const diagnostics: SocialDecisionDiagnostic[] = [];
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
 		for (const agent of agents.values()) {
@@ -268,10 +264,12 @@ export function createRouter({
 			const decision =
 				policyAgent &&
 				decideParticipation(policyAgent, event, person, channels?.get(instance ?? ""), participationHooks, {
+					sourceBinding: sourceBindings.get(policyAgent.id) ?? null,
 					onUnavailable: (plugin) => {
 						unavailable = plugin;
 					},
 				});
+			const strategyPlugin = policyAgent && decision ? participationPlugin(policyAgent, event) : undefined;
 			if (unavailable) {
 				const key = `${agent.id}\0${unavailable}`;
 				if (!warnedNoParticipation.has(key)) {
@@ -283,26 +281,17 @@ export function createRouter({
 					});
 				}
 			}
-			// 派生默认范围没有可用批次绑定时只记录观察游标，并用可读诊断说明原因（08、11）。
-			const canDeriveBatch =
-				participationPlugins.has("social") && !!(await platformBatchBinding(agent, event, channel, store, "social"));
-			const noBatchBinding =
-				!!decision && derivedDefaults.has(agent.id) && !batchReadyBinding(agent, instance, "social") && !canDeriveBatch;
 			if (decision)
 				diagnostics.push({
 					agent: agent.id,
 					reason: decision.reason,
 					...(decision.run ? { run: true } : {}),
 					revision: decision.revision,
+					...(strategyPlugin ? { plugin: strategyPlugin } : {}),
 					...(membershipGroup(agent, event, channels?.get(instance ?? "")) ? { membership: true } : {}),
 					...(derivedDefaults.has(agent.id) ? { derivedDefault: true } : {}),
-					...(noBatchBinding ? { batchBinding: "missing" } : {}),
 					...("policy" in decision ? { policy: decision.policy } : {}),
 				});
-			defaultRangeDiagnostic(
-				{ warned: warnedNoBatch, ...(onWarn ? { warn: onWarn } : {}) },
-				{ agent: agent.id, conv: event.conv, missingBatch: noBatchBinding },
-			);
 			const ownerMention =
 				decision?.reason === "mention" &&
 				(event.data as { social?: { mentions?: { owner?: boolean } } }).social?.mentions?.owner === true;
@@ -310,15 +299,16 @@ export function createRouter({
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
 			}
-			let binding: Binding | undefined;
-			for (const candidate of agent.bindings)
-				if (
-					!(internalTarget && inputData.kind === "parent-request" && candidate.session !== "main") &&
-					(await matches(candidate, event, agent, store))
-				) {
-					binding = candidate;
-					break;
-				}
+			let binding: Binding | undefined = event.type === "message.in" ? sourceBindings.get(agent.id) : undefined;
+			if (event.type !== "message.in")
+				for (const candidate of agent.bindings)
+					if (
+						!(internalTarget && inputData.kind === "parent-request" && candidate.session !== "main") &&
+						(await matches(candidate, event, agent, store))
+					) {
+						binding = candidate;
+						break;
+					}
 			if (!binding && agent.social?.enabled !== false && membershipGroup(agent, event, channels?.get(instance ?? "")))
 				binding = platformGroupBinding(agent, channels!.get(instance!)!);
 			if (!binding && batchSession) {
@@ -332,6 +322,17 @@ export function createRouter({
 						batchPlugin(event)!,
 					);
 			}
+			if (decision?.reason === "batch")
+				binding = await requireBatchSourceBinding(
+					agent,
+					event,
+					binding,
+					channels?.get(instance ?? ""),
+					store,
+					strategyPlugin ?? "social",
+					diagnostics,
+					onWarn,
+				);
 			const matchedConnection = event.type === "channel.connected" && binding !== undefined;
 			if (event.type === "channel.connected" && binding?.session !== "main") binding = undefined;
 			if (
@@ -366,12 +367,10 @@ export function createRouter({
 				routes.push({ agent: agent.id, binding: binding.id, dropped: "no-binding" });
 				continue;
 			}
+			const membership = membershipGroup(agent, event, channels?.get(instance ?? ""));
 			if (
-				(decision &&
-					policyAgent &&
-					(membershipGroup(agent, event, channels?.get(instance ?? ""))
-						? binding.session === "main"
-						: !socialBindingAllowed(policyAgent, event, person, binding))) ||
+				(membership && binding.session === "main") ||
+				(decision && policyAgent && !membership && !socialBindingAllowed(policyAgent, event, person, binding)) ||
 				(mapping && mapping.profile !== profile)
 			) {
 				if (decision) diagnostics.push({ agent: agent.id, reason: "unsafe-binding", revision: decision.revision });

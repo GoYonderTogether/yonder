@@ -359,10 +359,21 @@ export function createSocialSupport(store: Store, agents: Map<string, AgentConfi
 				const data = event.data as { agent?: unknown };
 				return event.parent === input.id && data.agent === agentId;
 			});
-			const decisionData = decision?.data as { policy?: unknown; revision?: unknown } | undefined;
+			const decisionData = decision?.data as
+				| {
+						policy?: unknown;
+						revision?: unknown;
+						reason?: unknown;
+						plugin?: unknown;
+						batchBinding?: unknown;
+						consumerIssue?: unknown;
+						profile?: unknown;
+						repair?: unknown;
+				  }
+				| undefined;
 			const hasPolicy = !!decisionData?.policy && typeof decisionData.policy === "object";
 			const policySource = hasPolicy
-				? `historical routing.social-decision ${decision?.id ?? "unknown"}; revision=${String(decisionData?.revision ?? "unknown")}`
+				? `historical routing.social-decision ${decision?.id ?? "unknown"}; revision=${String(decisionData?.revision ?? "unknown")}; reason=${String(decisionData?.reason ?? "unknown")}; plugin=${String(decisionData?.plugin ?? "unknown")}${decisionData?.batchBinding === "missing" ? `; batch consumer missing (${String(decisionData.consumerIssue ?? "unknown")}, profile=${String(decisionData.profile ?? "unknown")}); ${String(decisionData.repair ?? "inspect the source profile and exact-conversation batch binding")}` : ""}`
 				: "unknown: runtime policy not recorded for sample event; displayed policy is configured merge only";
 			if (!hasPolicy) gaps.push("unknown: effective participation policy is not recorded for the sample event");
 			if (page.next) gaps.push("history sample is limited to the first 1000 events; it is not latest or exhaustive");

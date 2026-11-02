@@ -41,10 +41,13 @@ export function createReplyGuard({
 		if (!parent) return;
 		const source = await store.events.get(parent);
 		if (source?.type !== "message.in" || source.conv !== target) return;
+		const route = source.routes?.find((item) => item.agent === agent.id && item.session === sessionId);
+		const sourceBinding = route?.binding ? agent.bindings.find((binding) => binding.id === route.binding) : undefined;
 		const person = source.from?.startsWith("acct:") ? (await store.identity().account(source.from))?.person : undefined;
 		// An unavailable participation plugin throws here, so the reply is blocked and recorded like any other block.
 		const decision = decideParticipation(agent, source, person, channels.get(instance), participationHooks, {
 			outbound: true,
+			sourceBinding: sourceBinding ?? null,
 		});
 		if (decision && blocked.includes(decision.reason)) throw new Error(`Social delivery blocked: ${decision.reason}`);
 	};

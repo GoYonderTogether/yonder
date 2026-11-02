@@ -184,7 +184,10 @@ export function outboundQueue({
 						let decision: ReturnType<typeof decideParticipation>;
 						try {
 							decision = source
-								? decideParticipation(agent, source, person, undefined, participationHooks, { outbound: true })
+								? decideParticipation(agent, source, person, undefined, participationHooks, {
+										outbound: true,
+										sourceBinding: binding ?? null,
+									})
 								: undefined;
 						} catch {
 							decision = undefined;

@@ -29,9 +29,32 @@ test("social inspection separates stored route facts from configured match predi
 		data: { kind: "group" },
 		routes: [{ agent: "main", binding: "group", session: "session-1" }],
 	} as const;
-	let history = [input];
+	let history: YEvent[] = [
+		input as unknown as YEvent,
+		{
+			id: "event-2",
+			ts: "2026-11-01T00:00:01.000Z",
+			type: "routing.social-decision",
+			parent: input.id,
+			data: {
+				agent: "main",
+				reason: "batch",
+				revision: "r1",
+				policy: { mode: "batch", batch: { run: true } },
+				plugin: "social",
+				batchBinding: "missing",
+				consumerIssue: "source-profile-missing-plugin",
+				profile: "feishu-p1",
+				repair: "select social in profile feishu-p1",
+			},
+		},
+	];
 	const store = {
-		events: { query: async () => ({ events: history }) },
+		events: {
+			query: async (query: { type?: string }) => ({
+				events: history.filter((event) => !query.type || event.type === query.type),
+			}),
+		},
 		sessions: { get: async () => ({ profile: "default" }) },
 		identity: () => ({ account: async () => undefined }),
 	} as unknown as Store;
@@ -54,10 +77,13 @@ test("social inspection separates stored route facts from configured match predi
 	);
 	expect(result.capabilityGaps).toEqual([
 		"unknown: channel capabilities for test are not declared",
-		"unknown: effective participation policy is not recorded for the sample event",
 		"unknown: inbound bot mention capability for test is not declared",
 	]);
-	expect(result.policySource).toContain("configured merge only");
+	expect(result.policySource).toContain("reason=batch; plugin=social");
+	const diagnosed = await inspect.inspectRoute("main", "conv:test:group", input.id, policy);
+	expect(diagnosed.policySource).toContain("reason=batch; plugin=social");
+	expect(diagnosed.policySource).toContain("consumer missing (source-profile-missing-plugin, profile=feishu-p1)");
+	expect(diagnosed.policySource).toContain("select social in profile feishu-p1");
 	history = [];
 	const empty = await inspect.inspectRoute("main", "conv:test:group", undefined, policy);
 	expect(empty.detail).toContain("history: unknown (no message.in");

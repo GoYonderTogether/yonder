@@ -1,5 +1,6 @@
 import type { Channel, Profile, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
+import { hasOfficialGroupWriter } from "../config/official-group.js";
 import type { Store } from "../store/index.js";
 import { channelOf, matches } from "./matching.js";
 
@@ -13,21 +14,16 @@ const list = (value: string | string[] | undefined) =>
  * `persistent/per: conv`, `reply: none` on this event's channel instance. Message text, names and
  * group titles never participate.
  */
-export function officialGroupBinding(agent: AgentConfig, event: YEvent, channel?: Channel): boolean {
+export function officialGroupBinding(
+	agent: AgentConfig,
+	event: YEvent,
+	channel?: Channel,
+	sourceBinding?: Binding | null,
+): boolean {
 	const instance = channelOf(event.conv);
 	if (!instance || event.type !== "message.in" || (event.data as { kind?: unknown }).kind !== "group") return false;
-	if (channel?.kinds && !channel.kinds.includes("group")) return false;
-	return agent.bindings.some(
-		(binding) =>
-			binding.wake === "write" &&
-			binding.reply === "none" &&
-			typeof binding.session === "object" &&
-			binding.session.mode === "persistent" &&
-			binding.session.per === "conv" &&
-			(binding.match.type === undefined || binding.match.type === "message.in") &&
-			list(binding.match.channel).includes(instance) &&
-			list(binding.match.kind).includes("group"),
-	);
+	const bindings = sourceBinding === undefined ? agent.bindings : sourceBinding ? [sourceBinding] : [];
+	return hasOfficialGroupWriter({ ...agent, bindings }, instance, channel);
 }
 
 /** An un-migrated home still owns its groups through the deprecated run binding (spec 11, spec 20). */
@@ -42,9 +38,16 @@ export function legacyGroupChain(agent: AgentConfig, event: YEvent): boolean {
  * Restricted default range for a QQ group accepted by the official group binding (08). It never
  * overrides an explicit disable, and it never applies while the deprecated chain still owns the group.
  */
-export function officialGroupDefault(agent: AgentConfig, event: YEvent, channel?: Channel): boolean {
+export function officialGroupDefault(
+	agent: AgentConfig,
+	event: YEvent,
+	channel?: Channel,
+	sourceBinding?: Binding | null,
+): boolean {
 	return (
-		agent.social?.enabled !== false && officialGroupBinding(agent, event, channel) && !legacyGroupChain(agent, event)
+		agent.social?.enabled !== false &&
+		officialGroupBinding(agent, event, channel, sourceBinding) &&
+		!legacyGroupChain(agent, event)
 	);
 }
 
@@ -129,17 +132,18 @@ export async function platformBatchBinding(
 	store: Store,
 	plugin: string,
 ) {
-	const official = officialGroupDefault(agent, source, channel);
-	if (!membershipGroup(agent, source, channel) && !official) return;
+	const member = membershipGroup(agent, source, channel);
 	for (const candidate of agent.bindings) {
 		if (!(await matches(candidate, source, agent, store))) continue;
+		const official = officialGroupDefault(agent, source, channel, candidate);
+		if (!member && !official) return;
 		if (
 			candidate.session === "main" ||
 			candidate.session === "ephemeral" ||
 			candidate.session.per !== "conv" ||
 			candidate.reply !== "none" ||
-			(candidate.wake === "write" &&
-				!(official && officialGroupBinding({ ...agent, bindings: [candidate] }, source, channel)))
+			(official && candidate.wake !== "write") ||
+			(candidate.wake === "write" && !official)
 		)
 			return;
 		const profile = agent.profiles[candidate.profile ?? agent.defaultProfile];
@@ -212,6 +216,7 @@ export function participationCandidates(
 		internalTarget: string | undefined;
 		socialLoaded: boolean;
 		derived: Set<string>;
+		sourceBindings?: ReadonlyMap<string, Binding | undefined>;
 	},
 ) {
 	const candidates: AgentConfig[] = [];
@@ -224,7 +229,10 @@ export function participationCandidates(
 			candidates.push(agent);
 			continue;
 		}
-		if (!options.socialLoaded || !officialGroupDefault(agent, event, channel)) continue;
+		const sourceBinding = options.sourceBindings?.has(agent.id)
+			? (options.sourceBindings.get(agent.id) ?? null)
+			: undefined;
+		if (!options.socialLoaded || !officialGroupDefault(agent, event, channel, sourceBinding)) continue;
 		options.derived.add(agent.id);
 		candidates.push(agent);
 	}

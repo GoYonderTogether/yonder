@@ -501,6 +501,225 @@ bindings:
 	}
 });
 
+test("a later group observer does not promote an earlier exact custom source to the derived default", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const agent = parseAgentConfig(`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: p1
+profiles:
+  p1: { plugins: [] }
+social:
+  enabled: true
+  scope: ["conv:qq:elsewhere"]
+  defaults:
+    group: { plugin: social, mode: batch, batch: { run: true } }
+bindings:
+  - id: p1-source
+    match: { type: message.in, channel: feishu, conv: "conv:feishu:p1" }
+    session: { mode: persistent, per: conv }
+    profile: p1
+    wake: write
+    reply: none
+  - id: feishu-observer
+    match: { type: message.in, channel: feishu, kind: group }
+    session: { mode: persistent, per: conv }
+    profile: p1
+    wake: write
+    reply: none
+`);
+		let ensured = 0;
+		const sessions = {
+			ensureAgent: async (_agent: string, profile: string, key: string, mode: "main" | "persistent" | "ephemeral") => {
+				ensured++;
+				return {
+					session: {
+						id: `session-${ensured}`,
+						agent: "main",
+						profile,
+						key,
+						mode,
+						version: "1",
+						opened: new Date().toISOString(),
+					},
+					profileMismatch: false,
+				};
+			},
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const warnings: object[] = [];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents: new Map([[agent.id, agent]]),
+			channels: new Map([["feishu", { id: "feishu", kinds: ["group"] } as never]]),
+			socialBatchPlugin: true,
+			onWarn: (_message, data) => warnings.push(data ?? {}),
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const event = await router.emit({
+			type: "message.in",
+			from: "acct:feishu:member",
+			conv: "conv:feishu:p1",
+			data: { kind: "group", text: "probe" },
+		});
+		expect(event.routes?.[0]).toMatchObject({ agent: "main", binding: "p1-source", wake: "write" });
+		expect(ensured).toBe(1);
+		expect((await store.events.query({ type: "routing.social-decision" })).events).toEqual([]);
+		expect(warnings).toEqual([]);
+	} finally {
+		await db.close();
+	}
+});
+
+test("an explicit batch policy without profile selection and consumer fails closed with both repairs", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const conv = "conv:feishu:p1";
+		const agent = parseAgentConfig(`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: p1
+profiles: { p1: { plugins: [] } }
+social:
+  enabled: true
+  scope: ["${conv}"]
+  authorized: { conversations: ["${conv}"] }
+  defaults:
+    group: { mode: batch, batch: { run: true } }
+bindings:
+  - id: p1-source
+    match: { type: message.in, channel: feishu, kind: group, conv: "${conv}" }
+    session: { mode: persistent, per: conv }
+    profile: p1
+    wake: write
+    reply: none
+`);
+		let ensured = 0;
+		const sessions = {
+			ensureAgent: async () => {
+				ensured++;
+				throw new Error("unconsumable batch must not create a session");
+			},
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const warnings: object[] = [];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents: new Map([[agent.id, agent]]),
+			channels: new Map([["feishu", { id: "feishu", kinds: ["group"] } as never]]),
+			socialBatchPlugin: true,
+			onWarn: (_message, data) => warnings.push(data ?? {}),
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const event = await router.emit({ type: "message.in", from: "acct:feishu:member", conv, data: { kind: "group" } });
+		expect(event.routes?.[0]).toMatchObject({ agent: "main", binding: null, dropped: "no-binding" });
+		expect(ensured).toBe(0);
+		const fact = (await store.events.query({ type: "routing.social-decision" })).events[0];
+		if (!fact) throw new Error("batch consumer diagnostic fact is missing");
+		expect(fact?.data).toMatchObject({
+			consumerIssue: "batch-consumer-unavailable",
+			profile: "p1",
+			plugin: "social",
+			batchBinding: "missing",
+		});
+		expect((fact.data as { repair?: string }).repair).toContain(
+			"select social in profile p1 and add a matching persistent",
+		);
+		expect(warnings).toContainEqual(
+			expect.objectContaining({ diagnostic: "batch-consumer-missing", conv, profile: "p1" }),
+		);
+	} finally {
+		await db.close();
+	}
+});
+
+test.each([undefined, { enabled: false }])(
+	"membership group events never enter a private main session with social config %o",
+	async (social) => {
+		const db = await openDatabase(":memory:");
+		try {
+			const store = await createStore(db);
+			await store.identity().createPerson({ id: "owner", name: "Owner" });
+			await store.identity().link("acct:feishu:owner", "person:owner");
+			const agent = parseAgentConfig(
+				JSON.stringify({
+					schema: 1,
+					id: "main",
+					name: "Main",
+					owner: "person:owner",
+					defaultProfile: "main",
+					profiles: { main: { plugins: ["social"] } },
+					bindings: [
+						{ id: "owner-main", match: { channel: "feishu", kind: "group" }, session: "main" },
+						{
+							id: "batch",
+							match: { type: "social.batch-ready", channel: "feishu", conv: "conv:feishu:group" },
+							profile: "main",
+							session: { mode: "persistent", per: "conv" },
+							reply: "none",
+							wake: "run",
+						},
+					],
+					...(social ? { social } : {}),
+				}),
+			);
+			let ensured = 0;
+			const sessions = {
+				ensureAgent: async () => {
+					ensured++;
+					throw new Error("membership group must not enter main");
+				},
+			} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+			const router = createRouter({
+				participationHooks,
+				store,
+				sessions,
+				agents: new Map([[agent.id, agent]]),
+				channels: new Map([
+					[
+						"feishu",
+						{
+							id: "feishu",
+							multiAgent: true,
+							kinds: ["dm", "group"],
+							features: { groupParticipation: "membership" },
+						} as never,
+					],
+				]),
+				socialBatchPlugin: true,
+				runtime: () => {
+					throw new Error("No model");
+				},
+			});
+			const event = await router.emit({
+				type: "message.in",
+				from: "acct:feishu:owner",
+				conv: "conv:feishu:group",
+				data: { target: "main", kind: "group" },
+			});
+			expect(event.routes?.[0]).toMatchObject({
+				agent: "main",
+				binding: social ? "owner-main" : null,
+				dropped: "no-binding",
+			});
+			expect(ensured).toBe(0);
+		} finally {
+			await db.close();
+		}
+	},
+);
+
 test("social mapping limits the candidates without bypassing their bindings", async () => {
 	const db = await openDatabase(":memory:");
 	try {

@@ -12,7 +12,7 @@ import {
 	resolveProfile,
 	type YonderConfig,
 } from "../config/index.js";
-import { socialReferenceErrors } from "../config/social-validation.js";
+import { socialBatchConsumerErrors, socialReferenceErrors } from "../config/social-validation.js";
 import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
 import { sessionKey } from "../routing/matching.js";
@@ -132,12 +132,14 @@ export function configurationErrors(
 	plugins: LoadedPlugins,
 	models: Models,
 	presets: Map<string, Preset>,
+	options: { strictBatchConsumers?: boolean } = {},
 ): string[] {
 	const errors: string[] = socialReferenceErrors(
 		config,
 		agents,
 		new Set(plugins.info?.map((plugin) => plugin.id) ?? []),
 		plugins.channels,
+		options,
 	);
 	const validateProfile = (name: string, selected: ReturnType<typeof resolveProfile>) => {
 		errors.push(...promptErrors(selected.prompt).map((error) => `${name}: ${error}`));
@@ -383,6 +385,8 @@ export async function inspectHome(home: string) {
 					`${plugin.id} 已弃用：运行 yonder migrate 预览迁移计划，yonder migrate --apply 执行——它会改写 yonder.yaml 里的插件名，并把 .yonder/plugins/${plugin.id} 的状态目录一起迁到新插件（原文件保留 .pre-migrate 备份）。服务在跑时先 yonder stop；改完运行 yonder doctor 复查。`,
 				);
 		const agents = await loadAgents(home, config, plugins);
+		for (const issue of socialBatchConsumerErrors(agents.values(), plugins.channels))
+			warnings.push(`已接纳配置的批次消费者链不完整（不阻止启动）：${issue}`);
 		for (const gap of await cardVisitorGaps(home, config)) warnings.push(cardVisitorWarning(gap, home));
 		const presets = await loadPresets(home);
 		const channelFailures = [...plugins.channelErrors].map(
@@ -395,6 +399,7 @@ export async function inspectHome(home: string) {
 			plugins,
 			services.models,
 			new Map([...plugins.presets, ...presets]),
+			{ strictBatchConsumers: false },
 		);
 		errors.push(...channelFailures);
 		const chainIssues = modelChainIssues(config, services.models);

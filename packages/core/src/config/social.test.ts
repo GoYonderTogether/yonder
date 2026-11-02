@@ -228,7 +228,9 @@ test("participation plugin references require loading and the matching Bot profi
 	const missingPlugin = socialReferenceErrors(config, new Map([["a", agent]]), new Set());
 	expect(missingPlugin.join(" ")).toContain("participation plugin alternative is not loaded");
 	expect(missingPlugin.join(" ")).toContain("load its actual package/source and restart");
-	agent.profiles.main!.plugins = [];
+	const mainProfile = agent.profiles.main;
+	if (!mainProfile) throw new Error("main profile is missing");
+	mainProfile.plugins = [];
 	const missingSelection = socialReferenceErrors(config, new Map([["a", agent]]), new Set(["alternative"]));
 	expect(missingSelection.join(" ")).toContain("no matching alternative.batch-ready binding");
 	expect(missingSelection.join(" ")).toContain("run yonder agents validate");
@@ -377,4 +379,94 @@ test("default social batch profiles need the same plugin admission checks as exp
 	const missingPlugin = socialReferenceErrors(config, new Map([["a", agent]]), new Set());
 	expect(missingPlugin.join(" ")).toContain("participation plugin social is not loaded");
 	expect(missingPlugin.join(" ")).toContain("load its actual package/source and restart");
+});
+
+test("explicit group batch defaults require an exact profile consumer even outside social scope", () => {
+	const agent = parseAgentConfig(`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: main
+profiles:
+  main: { plugins: [] }
+  qq: { plugins: [social] }
+social:
+  enabled: true
+  scope: ["conv:qq:other"]
+  defaults:
+    group: { plugin: social, mode: batch, batch: { run: true } }
+bindings:
+  - id: p1-source
+    match: { type: message.in, channel: feishu, conv: "conv:feishu:p1" }
+    session: { mode: persistent, per: conv }
+    profile: main
+    wake: write
+    reply: none
+  - id: feishu-observer
+    match: { type: message.in, channel: feishu, kind: group }
+    session: { mode: persistent, per: conv }
+    profile: main
+    wake: write
+    reply: none
+  - id: unrelated-qq-consumer
+    match: { type: social.batch-ready, channel: qq, conv: "conv:qq:other" }
+    session: { mode: persistent, per: conv }
+    profile: qq
+    wake: run
+    reply: none
+`);
+	const config = parseYonderConfig(
+		JSON.stringify({ schema: 1, channels: { qq: { type: "qq" }, feishu: { type: "feishu" } } }),
+		"yonder.yaml",
+	);
+	const channels = new Map([["feishu", { id: "feishu", kinds: ["group"] } as never]]);
+	const errors = socialReferenceErrors(config, new Map([["main", agent]]), new Set(["social"]), channels);
+	// A Feishu conv can be a DM or a group; no kind on this exact source is not static proof of group traffic.
+	expect(errors).toEqual([]);
+	expect(
+		socialReferenceErrors(config, new Map([["main", agent]]), new Set(["social"]), channels, {
+			strictBatchConsumers: false,
+		}),
+	).toEqual([]);
+	const knownGroup = structuredClone(agent);
+	const source = knownGroup.bindings.find((binding) => binding.id === "p1-source");
+	if (!source) throw new Error("source binding is missing");
+	source.match.kind = "group";
+	const strictErrors = socialReferenceErrors(config, new Map([["main", knownGroup]]), new Set(["social"]), channels);
+	expect(strictErrors.join(" ")).toContain("p1-source");
+	expect(strictErrors.join(" ")).toContain("source profile main must select social");
+	const repaired = structuredClone(knownGroup);
+	repaired.profiles.main = { plugins: ["social"] };
+	expect(socialReferenceErrors(config, new Map([["main", repaired]]), new Set(["social"]), channels)).toEqual([]);
+	const directRun = structuredClone(knownGroup);
+	const directSource = directRun.bindings.find((binding) => binding.id === "p1-source");
+	if (!directSource) throw new Error("source binding is missing");
+	directSource.wake = "run";
+	expect(socialReferenceErrors(config, new Map([["main", directRun]]), new Set(["social"]), channels)).toEqual([]);
+	const shadowed = structuredClone(directRun);
+	const shadowedSocial = shadowed.social;
+	if (!shadowedSocial) throw new Error("social config is missing");
+	shadowedSocial.scope = ["conv:feishu:p1"];
+	shadowed.profiles.main = { plugins: ["social"] };
+	shadowed.bindings.push(
+		{
+			id: "invalid-first",
+			match: { type: "social.batch-ready", channel: "feishu", conv: "conv:feishu:p1" },
+			session: { mode: "persistent", per: "conv" },
+			profile: "main",
+			reply: "none",
+			wake: "write",
+		},
+		{
+			id: "valid-later",
+			match: { type: "social.batch-ready", channel: "feishu", conv: "conv:feishu:p1" },
+			session: { mode: "persistent", per: "conv" },
+			profile: "main",
+			reply: "none",
+			wake: "run",
+		},
+	);
+	expect(
+		socialReferenceErrors(config, new Map([["main", shadowed]]), new Set(["social"]), channels).join(" "),
+	).toContain("no matching social.batch-ready consumer");
 });
