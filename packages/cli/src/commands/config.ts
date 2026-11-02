@@ -8,17 +8,17 @@ import { homeFor, managed, namedOptions, type Options, print, skillsUsage, Usage
 function currentInspectContext(home: string) {
 	try {
 		const value: unknown = JSON.parse(env.YONDER_RUNTIME_INSPECT_CONTEXT ?? "");
+		if (typeof value !== "object" || value === null) return undefined;
+		const { home: runtimeHome, agent, profile } = value as Record<string, unknown>;
 		if (
-			typeof value === "object" &&
-			value !== null &&
-			typeof (value as Record<string, unknown>).home === "string" &&
-			resolve((value as Record<string, string>).home) === resolve(home) &&
-			typeof (value as Record<string, unknown>).agent === "string" &&
-			(value as Record<string, string>).agent !== "" &&
-			typeof (value as Record<string, unknown>).profile === "string" &&
-			(value as Record<string, string>).profile !== ""
+			typeof runtimeHome === "string" &&
+			typeof agent === "string" &&
+			agent !== "" &&
+			typeof profile === "string" &&
+			profile !== "" &&
+			resolve(runtimeHome) === resolve(home)
 		)
-			return value as { home: string; agent: string; profile: string };
+			return { home: runtimeHome, agent, profile };
 	} catch {}
 	return undefined;
 }
