@@ -172,7 +172,7 @@ internal sealed class StatusContext : ApplicationContext
                     ? null
                     : (outcome.Ok ? "命令没有返回可识别的服务状态" : outcome.Reason);
                 Render();
-            },
+            }
         );
     }
 
@@ -206,7 +206,7 @@ internal sealed class StatusContext : ApplicationContext
                 busy = false;
                 updateItem.Enabled = true;
                 updateItem.Text = outcome.Ok ? UpdateResult(outcome.Stdout) : "检查失败：" + outcome.Reason;
-            },
+            }
         );
     }
 
@@ -263,7 +263,7 @@ internal sealed class StatusContext : ApplicationContext
                 unknownReason = "停止失败：" + outcome.Reason;
                 statusItem.Text = unknownReason;
                 statusItem.ToolTipText = unknownReason;
-            },
+            }
         );
     }
 
@@ -289,7 +289,7 @@ internal sealed class StatusContext : ApplicationContext
                     // 句柄已经销毁：进程正在退出，没有要更新的界面。
                 }
             },
-            TaskScheduler.Default,
+            TaskScheduler.Default
         );
     }
 
