@@ -33,6 +33,7 @@ import { createNotificationPrefs } from "./notifications.js";
 import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
 import {
+	agentOperabilityProjector,
 	conversationOperabilityProjector,
 	extendKernelInspection,
 	managementOperabilityProjector,
@@ -202,6 +203,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			skills,
 			packageVersion,
 			conversationOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
+			agentOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
 		);
 		const { closeReason, completeRun } = createRunCompletion({
 			store,

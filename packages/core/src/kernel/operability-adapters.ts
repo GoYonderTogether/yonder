@@ -131,6 +131,35 @@ export function conversationOperabilityProjector(options: {
 	};
 }
 
+export function agentOperabilityProjector(options: {
+	agents: Map<string, AgentConfig>;
+	store: Store;
+	loaded: { channels: Map<string, Channel>; hooks: ReadonlyMap<string, readonly Hook[]> };
+	configStatus(
+		agentId: string,
+	): Promise<{ agent?: { state: string; revision?: string; acceptedRevision?: string } } | undefined>;
+}) {
+	return async (agentId: string): Promise<AgentOperabilityFact> => {
+		const agent = options.agents.get(agentId);
+		if (!agent) return { status: "unknown", limit: 20, truncated: false, conversations: [] };
+		const status = await options.configStatus(agentId);
+		return projectAgentOperability({
+			agent,
+			agents: options.agents.values(),
+			store: options.store,
+			channels: options.loaded.channels,
+			hooks: options.loaded.hooks,
+			configuration: {
+				basis: "accepted",
+				...(status?.agent?.acceptedRevision ? { revision: status.agent.acceptedRevision } : {}),
+				...(status?.agent?.revision ? { diskRevision: status.agent.revision } : {}),
+				...(status?.agent?.acceptedRevision ? { acceptedRevision: status.agent.acceptedRevision } : {}),
+				state: status?.agent?.state ?? "unknown",
+			},
+		});
+	};
+}
+
 export function extendKernelInspection(options: {
 	result: unknown;
 	request: { agent?: string; conv?: string; eventId?: string };
