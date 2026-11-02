@@ -5,8 +5,9 @@ import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ExecutionEnv } from "@yonder/sdk";
 import type { WorkspaceFiles } from "../config/index.js";
 import { hostedProcessSpawner } from "./hosted-process.js";
+import { windowsProcessSpawn } from "./windows-process.js";
 export function localEnvironment(cwd: string): ExecutionEnv {
-	const localSpawn = hostedProcessSpawner();
+	const localSpawn = hostedProcessSpawner() ?? (process.platform === "win32" ? windowsProcessSpawn : undefined);
 	return new NodeExecutionEnv({ cwd, ...(localSpawn ? { localSpawn } : {}) });
 }
 export const canonicalPath = async (env: ExecutionEnv, path: string): Promise<string> =>
