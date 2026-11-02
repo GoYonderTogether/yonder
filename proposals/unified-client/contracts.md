@@ -109,9 +109,12 @@ interface InputReceipt { event: string; session: string; deduped?: boolean }
 | `sessions.close` | write | `{ id }` | `Ok` | 已有 |
 | `sessions.command` | write | `{ id; command: string }` | `string` | 已有；文本命令保留作兼容，UI 不再拼 `/model` |
 | `sessions.model.set` | write | `{ id: string; model: ModelRef }` | `{ model: ModelStatus }` | 新增·A（结构化替代 `/model`） |
-| `models.list` | read | `{ provider?: string }` | `{ providers: { id; models: { id; name; contextWindow: number; reasoning: boolean }[] }[] }` | 新增·A（现只能从 `terminal.info` 或 `/model list` 文本抠） |
+| `models.list` | owner | `{}` | `{ providers, permissions, cloud: { issues } }` | 已实现；宿主与云端目录，模型能力/effort来自实际目录；云端加载失败明确返回问题，不返回密钥 |
+| `sessions.options.get` | owner | `{ id: string }` | `{ model, effort, permission, resources, capabilities, running, permissions }` | 已实现，见 spec/19 §7；校验会话归属 |
+| `sessions.options.set` | owner | `{ id: string; model?: string; effort?: string; permission?: string; resources?: WorkspaceResource[] }` | 同 `sessions.options.get` | 已实现；在途资源不可切换，权限/资源固化于主人运行快照，其他渠道不提权 |
 | `agents.list` | read | `{}` | `{ agents: { id; name; profile; presets: string[] }[] }` | 新增·A |
-| `attachments.put` | write | `POST /api/attachments` 原始字节，`Content-Type`、`X-Name`、`X-Session` | `AttachmentRef`（§17） | HTTP 别名；校验会话归属，socket 不提供 |
+| `attachments.put` | write | RPC `{ name, mime?, dataBase64 }`；HTTP入口仍兼容 | SDK `Attachment` | 已实现；6 MiB上限，写入当前宿主受管上传目录，引用随输入提交 |
+| `attachments.get` | owner | `{ session: string; uri: string }` | `{ name, mime?, dataBase64 }` | 已实现；仅可读取该会话转录引用、受管上传目录内且不超过6 MiB的附件 |
 | `approvals.list` | read | `{ state?: "pending"\|"all" }` | `{ items: ApprovalCard[] }` | 新增·A（secrets 插件经 views/事件库读出；`credentials.md` §6.2） |
 | `approvals.answer` | owner | `{ approvalId: string; decision: "approve"\|"deny" }` | `{ state: "answered"; by: string; first: boolean }` | 新增·A；同一 `approvalId` 只生效一次，重复回答 `first:false` |
 | `views.list` | read | `{ placement?: Placement; session?: string }` | `{ views: ViewDecl[] }` | §11，placement 为 rail/floating/page |
@@ -359,7 +362,6 @@ interface NodeFacts {
 | `context.updated`、`model.changed` | 轮询 `terminal.info`（含 `model`）每 3 秒；上下文占比暂不显示 | A 交付 |
 | `compaction.*` | 不显示；时间线暂缺压缩条目 | A 交付 |
 | `model.fallback` | 不显示；`run.end.model` 与会话选择的模型不一致时前端自行标黄 | A 交付 |
-| `models.list`、`sessions.model.set` | 模型选择器只读：显示 `terminal.info` 的当前模型；切换通过 `sessions.command` 发 `/model …` 文本（兼容路径） | A 交付 |
 | `sessions.open` 缺 `agent/model` | 只用 `preset` | A 交付 |
 | `todo.updated` / `subtask.updated` / `background.updated` | 右栏用 `activity.summary` 的 sessions 列表与 `terminal.queued` 代替；不显示 todo 树 | A 交付 |
 | `approval.*` | 审批只走渠道卡片（`credentials.md` S1–S5 期间的现状）；apps/app 轮询 `events.query {type:"secrets.approval.requested"}` 每 5 秒，显示只读列表 | A 交付 `approvals.*` |
@@ -547,7 +549,7 @@ interface NodeFactsAddendum {
 
 | 方法 | scope | params | result |
 |---|---|---|---|
-| `workspaces.list` | read | `{}` | `{ roots: { id: string; label: string; path?: string }[] }`；远程连接不返回 `path`（只给 id 与 label） |
+| `workspaces.list` | owner | `{ id?: string; deviceId?: string; path?: string }` | 未传path返回 `{ devices, permissions }`；浏览目录返回 `{ deviceId, path, entries, permissions }`；会话 id 存在时限制到会话已有资源，见 spec/19 §7 |
 | `sessions.open` | write | `{ preset?: string; agent?: string; model?: ModelRef; workspace?: string; cwd?: string; title?: string; prompt?: string; close?: "manual"\|"run-end"; parent?: string; requestId?: string }` | `{ session: SessionInfo; model?: ModelStatus; deduped?: boolean }` |
 | `sessions.rename` | write | `{ id: string; title: string }`（title 1–80 字符） | `Ok` |
 | `sessions.search` | read | `{ query: string; mode?: Mode; limit?: number }`（limit 默认 20，最大 100） | `{ items: { session: SessionInfo; title?: string; snippet?: string }[] }` |
@@ -562,6 +564,8 @@ interface NodeFactsAddendum {
 6. `title` 缺省由服务端按首条输入生成；`sessions.rename` 只改显示名，不改 id。
 7. 事件：成功后节点级发 `session.opened`（§3.1），`activity.watch` 订阅者可见。
 8. agent 侧的会话管理工具（CORE 实现）与这些方法同一实现，不另起口径。
+
+2026-11-02 工作台实现以 spec/19 §7 为准：当前 `sessions.open` 接受 `{ preset, close?, parent?, options? }` 并返回 `SessionInfo`；`options` 是同 `sessions.options.set` 的模型、effort、权限与资源选项，要求 owner。上述旧提案中的 agent/workspace/cwd/prompt 等扩参不代表已实现；资源由共享 options 接口提供，模型切换也不再依赖文本命令。
 
 ### §14 scope 与隔离规则
 
