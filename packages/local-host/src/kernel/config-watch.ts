@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { basename, join } from "node:path";
+import type { ConfigStatus } from "@yonder/bot-core/kernel/config-facts";
 import type { BotSource } from "@yonder/bot-definition/source";
 import {
 	type AgentConfig,
@@ -11,7 +12,6 @@ import {
 	watchConfig,
 	type YonderConfig,
 } from "@yonder/local-host/config/index";
-import type { ConfigStatus } from "@yonder/local-host/kernel/config-facts";
 import { createFsBotSource } from "@yonder/local-host/kernel/source-fs";
 import { filesFor, type KernelLog, loadAgents } from "@yonder/local-host/kernel/workspace";
 import type { LoadedPlugins } from "@yonder/local-host/plugins/index";

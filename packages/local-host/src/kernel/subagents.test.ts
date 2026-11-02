@@ -1,5 +1,5 @@
+import { createSubagentTool } from "@yonder/bot-core/kernel/subagents";
 import { createCoreTools } from "@yonder/bot-core/tools/index";
-import { createSubagentTool } from "@yonder/local-host/kernel/subagents";
 import { expect, test } from "vitest";
 
 // Stubbed store/runtime only resolve the delegation depth; no model or real session is involved.

@@ -1,4 +1,4 @@
-import { completionNotice } from "@yonder/local-host/kernel/background";
+import { completionNotice } from "@yonder/bot-core/kernel/background";
 import { expect, test } from "vitest";
 
 test("a logged background job notice carries terminal metadata, not its output", () => {

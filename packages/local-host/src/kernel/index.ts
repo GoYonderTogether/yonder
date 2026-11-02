@@ -3,17 +3,20 @@ import { join, resolve } from "node:path";
 import { createBot } from "@yonder/bot-core";
 import type { createDelivery } from "@yonder/bot-core/delivery/index";
 import type { outboundQueue } from "@yonder/bot-core/delivery/outbound";
+import { createBots } from "@yonder/bot-core/kernel/bots";
+import { createChannelLogin } from "@yonder/bot-core/kernel/channel-login";
+import { configRuntimeSections } from "@yonder/bot-core/kernel/config-facts";
+import { sessionObserver, type TerminalSends, terminalUpdates } from "@yonder/bot-core/kernel/observation-events";
+import { resumeRecovered } from "@yonder/bot-core/kernel/recovery";
 import { resolveExecutionOwner as resolveStoredOwner } from "@yonder/bot-core/kernel/services-wiring";
+import type { KernelOptions } from "@yonder/bot-core/kernel/tick";
 import type { createRouter } from "@yonder/bot-core/routing/index";
 import type { createSessions } from "@yonder/bot-core/sessions/index";
 import { shippedChannelsFor } from "@yonder/local-host/bundles";
 import type { AgentConfig, YonderConfig } from "@yonder/local-host/config/index";
 import { lockHome } from "@yonder/local-host/control/home-lock";
 import { createKernelWorkHost } from "@yonder/local-host/control/work-stream";
-import { createBots } from "@yonder/local-host/kernel/bots";
 import { migrateCardVisitor } from "@yonder/local-host/kernel/card-visitor";
-import { createChannelLogin } from "@yonder/local-host/kernel/channel-login";
-import { configRuntimeSections } from "@yonder/local-host/kernel/config-facts";
 import {
 	loadHomeConfig,
 	loadHomeSources,
@@ -27,13 +30,10 @@ import { configurationErrors, protectSessions } from "@yonder/local-host/kernel/
 import { type ManagementRequest, manageHome } from "@yonder/local-host/kernel/home-management";
 import { createNotificationPrefs } from "@yonder/local-host/kernel/notifications";
 import { createObservability } from "@yonder/local-host/kernel/observability";
-import { sessionObserver, type TerminalSends, terminalUpdates } from "@yonder/local-host/kernel/observation-events";
 import { pluginAgentManagement } from "@yonder/local-host/kernel/plugin-bindings";
-import { resumeRecovered } from "@yonder/local-host/kernel/recovery";
 import { createKernelServices } from "@yonder/local-host/kernel/services-wiring";
 import { createSocial, createSocialSupport, socialTarget } from "@yonder/local-host/kernel/social";
 import { terminalApi } from "@yonder/local-host/kernel/terminal";
-import type { KernelOptions } from "@yonder/local-host/kernel/tick";
 import { createWorkbenchOptions } from "@yonder/local-host/kernel/workbench-options";
 import { credentialsAndModels, skillsFor, sourceFor } from "@yonder/local-host/kernel/workspace";
 import type { KernelServices, LoadedPlugins } from "@yonder/local-host/plugins/index";

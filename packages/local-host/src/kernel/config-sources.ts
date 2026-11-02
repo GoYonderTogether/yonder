@@ -1,3 +1,4 @@
+import { sourceRevision } from "@yonder/bot-core/kernel/config-facts";
 import {
 	loadHomeSources as loadHomeSourcesFromSource,
 	scaffoldAgentWorkspace as scaffoldAgentWorkspaceFromSource,
@@ -6,7 +7,6 @@ import {
 import type { BotSource } from "@yonder/bot-definition/source";
 import type { AgentConfig, YonderConfig } from "@yonder/local-host/config/index";
 import { loadYonderConfigFrom } from "@yonder/local-host/config/index";
-import { sourceRevision } from "@yonder/local-host/kernel/config-facts";
 import { createFsBotSource } from "@yonder/local-host/kernel/source-fs";
 import type { LoadedPlugins } from "@yonder/local-host/plugins/index";
 import type { Store } from "@yonder/local-host/store/index";

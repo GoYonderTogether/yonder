@@ -4,11 +4,11 @@ import { fileURLToPath } from "node:url";
 import { expect, expectTypeOf, test } from "vitest";
 import type { BuiltinViewId, Placement, ViewContent, ViewData, ViewDecl, ViewsChangedEv } from "./views.js";
 
-// views 槽协议 golden：形状取自 gateway 的 TypeBox schema（运行时权威），SDK 的 TS 类型在编译期对齐；
+// views 槽协议 golden：形状取自 protocol 的 TypeBox schema（运行时权威），SDK 的 TS 类型在编译期对齐；
 // 规则 golden ⊆ 当前：已有类型/字段/枚举值/内容变体不得删除或改类型，不得新增必填字段。
 // 只增不删的改动后用 UPDATE_GOLDEN=1 重写 golden。
 const GOLDEN = new URL("../golden/views.json", import.meta.url);
-// 计算出的路径不进 sdk 的 tsc 工程（gateway/core 依赖 sdk，静态 import 会成环），仅由 vitest 加载源码。
+// 由 vitest 加载协议源码，golden 对齐当前 schema 而不是旧 dist。
 const source = (path: string) => new URL(path, import.meta.url).href;
 
 type Shape =
@@ -95,7 +95,7 @@ function subset(golden: Shape, current: Shape, path: string, out: string[]): str
 }
 
 async function currentShapes(): Promise<Record<string, Shape>> {
-	const views = await import(source("../../gateway/src/protocol/views.ts"));
+	const views = await import(source("../../protocol/src/gateway/views.ts"));
 	const named: Record<string, Schema> = {
 		Placement: views.PlacementSchema,
 		Scope: views.ScopeSchema,

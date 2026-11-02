@@ -1,9 +1,9 @@
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { canReceivePeerAsk, peerFix, withDefaultPeer } from "@yonder/bot-core/kernel/peer";
 import { type AgentConfig, parseAgentConfig } from "@yonder/local-host/config/index";
 import { testModel } from "@yonder/local-host/config/test-support";
 import { initHome, inspectHome } from "@yonder/local-host/kernel/home";
-import { canReceivePeerAsk, peerFix, withDefaultPeer } from "@yonder/local-host/kernel/peer";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";

@@ -1,4 +1,4 @@
-import { createQuota, guestLimitDefaults, type OutsiderSubject, quotaDay } from "@yonder/local-host/kernel/quota";
+import { createQuota, guestLimitDefaults, type OutsiderSubject, quotaDay } from "@yonder/bot-core/kernel/quota";
 import { quotaStore } from "@yonder/local-host/store/quota";
 import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import { expect, test } from "vitest";

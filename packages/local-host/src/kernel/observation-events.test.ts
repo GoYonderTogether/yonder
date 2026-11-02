@@ -1,4 +1,4 @@
-import { observedRuntimeEvents } from "@yonder/local-host/kernel/observation-events";
+import { observedRuntimeEvents } from "@yonder/bot-core/kernel/observation-events";
 import { createStore } from "@yonder/local-host/store/index";
 import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import type { TodoUpdatedEvent } from "@yonder/runtime-adapter/runtime/todo";

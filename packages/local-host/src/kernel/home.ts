@@ -1,5 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import {
+	canReceivePeerAsk,
+	parentRequestWarnings,
+	peerReachabilityWarning,
+	withDefaultPeer,
+} from "@yonder/bot-core/kernel/peer";
 import { scaffoldWorkspace } from "@yonder/bot-core/prompt/index";
 import { sessionKey } from "@yonder/bot-core/routing/matching";
 import { platformGroupProfile } from "@yonder/bot-core/routing/platform-group";
@@ -21,12 +27,6 @@ import {
 	modelChainIssues,
 	unusableChainError,
 } from "@yonder/local-host/kernel/host-status";
-import {
-	canReceivePeerAsk,
-	parentRequestWarnings,
-	peerReachabilityWarning,
-	withDefaultPeer,
-} from "@yonder/local-host/kernel/peer";
 import {
 	filesFor,
 	inspectionServices,

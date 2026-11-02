@@ -1,8 +1,8 @@
 import { createDelivery } from "@yonder/bot-core/delivery/index";
+import { consoleChannel } from "@yonder/bot-core/kernel/console";
 import type { Sessions } from "@yonder/bot-core/sessions/index";
 import { createCoreTools } from "@yonder/bot-core/tools/index";
 import { resolveProfile, testModel } from "@yonder/local-host/config/test-support";
-import { consoleChannel } from "@yonder/local-host/kernel/console";
 import { createStore } from "@yonder/local-host/store/index";
 import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import type { Runtime, RuntimeSessionConfig, RuntimeSessionState } from "@yonder/runtime-adapter/node/runtime/index";

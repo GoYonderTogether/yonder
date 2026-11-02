@@ -1,8 +1,8 @@
 import type { DeliveryService } from "@yonder/bot-core/delivery/index";
+import { quotaWire } from "@yonder/bot-core/kernel/quota-wire";
 import type { createSessions } from "@yonder/bot-core/sessions/index";
 import type { YonderConfig } from "@yonder/local-host/config/index";
 import { testModel } from "@yonder/local-host/config/test-support";
-import { quotaWire } from "@yonder/local-host/kernel/quota-wire";
 import { createStore } from "@yonder/local-host/store/index";
 import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import type { RuntimeRun } from "@yonder/runtime-adapter/node/runtime/index";

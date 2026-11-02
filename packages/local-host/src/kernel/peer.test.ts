@@ -1,13 +1,13 @@
 import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createDelivery } from "@yonder/bot-core/delivery/index";
+import { withDefaultPeer } from "@yonder/bot-core/kernel/peer";
 import { createRouter } from "@yonder/bot-core/routing/index";
 import { createSessions } from "@yonder/bot-core/sessions/index";
 import { createCoreTools } from "@yonder/bot-core/tools/index";
 import { type AgentConfig, parseAgentConfig } from "@yonder/local-host/config/index";
 import { resolveProfile, testModel } from "@yonder/local-host/config/test-support";
 import { initHome, openKernel } from "@yonder/local-host/kernel/index";
-import { withDefaultPeer } from "@yonder/local-host/kernel/peer";
 import { filesFor, inspectionServices, profileFor } from "@yonder/local-host/kernel/workspace";
 import { loadPlugins } from "@yonder/local-host/plugins/index";
 import { peerWorkspaceContext, systemSections } from "@yonder/local-host/prompt/index";

@@ -1,8 +1,8 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { configRuntimeSections, runtimeConfigFact } from "@yonder/bot-core/kernel/config-facts";
 import { ConfigError, loadYonderConfig } from "@yonder/local-host/config/index";
 import { resolveProfile } from "@yonder/local-host/config/test-support";
-import { configRuntimeSections, runtimeConfigFact } from "@yonder/local-host/kernel/config-facts";
 import { watchAgents } from "@yonder/local-host/kernel/config-watch";
 import { initHome } from "@yonder/local-host/kernel/home";
 import { loadAgents } from "@yonder/local-host/kernel/workspace";

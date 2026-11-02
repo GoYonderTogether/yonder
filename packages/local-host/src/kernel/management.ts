@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { withConsoleBinding, withoutRuntimeBindings } from "@yonder/bot-core/kernel/console";
 import type { AgentOperabilityFact } from "@yonder/bot-core/kernel/operability";
+import { withDefaultPeer } from "@yonder/bot-core/kernel/peer";
 import {
 	type AgentConfig,
 	ConfigError,
@@ -12,8 +14,6 @@ import {
 	type WorkspaceFiles,
 	type YonderConfig,
 } from "@yonder/local-host/config/index";
-import { withConsoleBinding, withoutRuntimeBindings } from "@yonder/local-host/kernel/console";
-import { withDefaultPeer } from "@yonder/local-host/kernel/peer";
 import type { Preset, Profile } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import { parseDocument, stringify } from "yaml";

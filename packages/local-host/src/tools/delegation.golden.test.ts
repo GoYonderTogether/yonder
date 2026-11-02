@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { createSubagentTool } from "@yonder/bot-core/kernel/subagents";
 import { createCoreTools } from "@yonder/bot-core/tools/index";
-import { createSubagentTool } from "@yonder/local-host/kernel/subagents";
 import { expect, test } from "vitest";
 
 const path = new URL("./delegation.golden.json", import.meta.url);
