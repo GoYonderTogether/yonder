@@ -444,7 +444,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			management: async (request: ManagementRequest) => {
 				if (request.action.startsWith("agents.") || request.action.startsWith("presets."))
 					return objectManagement.manage(request);
-				const result = await manageHome(home, request, loaded);
+				const result = await manageHome(home, request, loaded, { config, agents, presets: homePresets });
 				if (request.action !== "inspect") return result;
 				const agent = agents.get(request.agent ?? "main");
 				if (!agent) throw new Error("Unknown agent");

@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { EventQuery, SessionInfo, SessionsAPI } from "@yonder/sdk";
+import type { EventQuery, Preset, SessionInfo, SessionsAPI } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import { parseDocument } from "yaml";
-import { loadPresets, loadYonderConfig, parseYonderConfig, resolveProfile } from "../config/index.js";
+import {
+	type AgentConfig,
+	type YonderConfig,
+	loadPresets,
+	loadYonderConfig,
+	parseYonderConfig,
+	resolveProfile,
+} from "../config/index.js";
 import { type LoadedPlugins, loadPlugins, pluginDirectory } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
 import { openDatabase } from "../runtime/db.js";
@@ -25,8 +32,14 @@ export interface ManagementRequest {
 	expectedFileRevision?: string;
 	value?: unknown;
 }
-export async function manageHome(home: string, request: ManagementRequest, running?: LoadedPlugins): Promise<unknown> {
-	const config = await loadYonderConfig(home);
+export async function manageHome(
+	home: string,
+	request: ManagementRequest,
+	running?: LoadedPlugins,
+	accepted?: { config: YonderConfig; agents: Map<string, AgentConfig>; presets: Map<string, Preset> },
+): Promise<unknown> {
+	const runtimeSnapshot = request.action === "plugins.list" && running ? accepted : undefined;
+	const config = runtimeSnapshot?.config ?? (await loadYonderConfig(home));
 	if (request.action === "skills.add" || request.action === "skills.remove") {
 		const entry = request.agent ? config.agents?.find((item) => item.id === request.agent) : undefined;
 		if (request.agent && !entry) throw new Error(`Unknown agent: ${request.agent}`);
@@ -48,8 +61,8 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 				input: model.input,
 			})),
 		};
-	const loaded = await loadPlugins(home, config, services);
-	const agents = await loadAgents(home, config, loaded);
+	const loaded = runtimeSnapshot ? running! : await loadPlugins(home, config, services);
+	const agents = runtimeSnapshot?.agents ?? (await loadAgents(home, config, loaded));
 	if (request.action.startsWith("agents.") || request.action.startsWith("presets.")) {
 		const presets = new Map([...loaded.presets, ...(await loadPresets(home))]);
 		return manageObjects(home, request, {
@@ -132,7 +145,10 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 			request.id ?? "",
 		);
 	if (request.action === "plugins.list" || request.action === "plugins.show") {
-		const presets = new Map([...loaded.presets, ...(await loadPresets(home))]);
+		const presets = new Map([
+			...loaded.presets,
+			...(runtimeSnapshot ? runtimeSnapshot.presets : await loadPresets(home)),
+		]);
 		const result = (loaded.info ?? []).map((info) => ({
 			...info,
 			source: "configured; setup validated",
