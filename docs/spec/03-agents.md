@@ -180,7 +180,9 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 
 每次原生模型请求可在稳定 system 前缀之后追加独立的模型事实段，只含本请求由运行时实际选择的 provider/model/thinking 及配置首选。fallback 后随实际选择更新，不从当前 YAML 猜历史模型；这一段不混入稳定底座、时间或外部正文。输入时刻的 `<turn>` 无法预知之后的 fallback。附件行同时给出来源 message/index；本轮提供 `conversation_attachment_read` 时指明受限入口，不把缓存路径暗示为任意文件读取权限。
 
-配置操作的入口定位由宿主事实提供：本机执行环境中给出实际可用的 CLI 入口、Node 与 home；入口未知时明确未知，不要求用户提供开发路径。远程执行环境只说明这是宿主管理入口，不冒充远端可执行文件。配置方法沿真实工具、随包 skill/docs 发现，测试不得用 user message 补产品缺失的操作知识。
+配置接纳状态也由宿主经现有动态 sections 每请求提供，独立于稳定正文与模型选择事实；按 08 §3.1 区分有效、待接纳、已拒绝、待重启及无法核实，不把 bash 成功当作配置生效。完成与下一步行动仍由模型依据这些事实决定。
+
+配置操作的入口定位由宿主事实提供：本机执行环境中给出实际可用的 CLI 入口、Node 与 home；入口未知时明确未知，不要求用户提供开发路径。远程执行环境只说明这是宿主管理入口，不冒充远端可执行文件。配置方法沿真实工具、随包 skill/docs 发现，测试不得用 user message 补产品缺失的操作知识。 当前轮management事实另按实际执行环境、exec能力和CLI可用性标明管理路径：cli-via-exec、local-exec（CLI未定位）、no-local-exec或host-only；它只说明既有可用路径，不授予admin、不选入skill或提供远端不存在的路径。
 
 ### 5.4 SOUL.md 与 AGENTS.md 模板
 

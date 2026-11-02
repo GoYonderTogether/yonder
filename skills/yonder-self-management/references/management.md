@@ -84,6 +84,10 @@ ASR/TTS/embedding/rerank 等用 `yonder.yaml.services`，不是聊天 model。�
 
 ## 7. 用户需求到配置交付
 
+本机exec已获准时，可以用当前安装CLI办理管理操作，不因admin工具缺失或本skill未选而假定不能管理；CLI入口取本轮management事实与帮助。exec不是新增权限，这仍受执行环境和现有OS边界约束。main属于当前Agent，不等于名为main的另一个Agent；调用方、接办方和group/private上下文分别核对。主人要求在群工作不等于必须共享私人历史：不能接纳的main改绑应说明真实支持边界，先完成其余可行且已授权的群参与/投递，不为无法支持的路由虚构“再确认隐私即可解锁”。
+
+向新的目标会话通知时，省略respondTo/replyTo；只有目标会话已收到的真实消息引用才能用于回复。来源/授权沿真实run sources保留，不能靠把别处消息ID塞进通知引用传递；发送失败不能宣称主人已收到。
+
 主人说“改成某模型”“负责这个群”“消息都看着但按需回复”“先别说话”时，完成下面这条链。不要把低层 YAML、第二次确认口令或反复重试交给用户。只在目标/影响范围确实不清时问缺失信息。
 
 1. **确定真实对象。** 核对 home、服务版本、原始消息的 Agent/channel/conv 与 owner 关系。 当前运行 profile 取宿主事实；`inspect` 在匹配 home 的本机 Agent 子进程可沿当前 Agent/profile（回执有 inspectionContext），普通终端或没有匹配上下文时省略 `--profile` 查询目标 defaultProfile，不一定代表当前会话。检查当前权限时显式传当前 profile，并核对回执的 profile 字段；不要把群档的权限缺项当主会话缺权限。`agents show` 读取实际绑定及 profiles，`inspect --agent <id> --profile <name>` 核对有效工具/能力/模型。群名称和昵称不是目标或授权证明。
