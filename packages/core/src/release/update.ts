@@ -84,9 +84,9 @@ async function checkRunningRelease(input: ReleaseSource): Promise<{ service: Ser
 	return reason ? { reason } : { service };
 }
 
-/** The 30 s self-check: the running service must answer with the release that was just installed. */
+/** The 60 s self-check: the running service must answer with the release that was just installed. */
 async function waitForRunningRelease(input: ReleaseSource) {
-	const deadline = Date.now() + 30000;
+	const deadline = Date.now() + 60000;
 	let last: { service: ServiceFacts } | { reason: string } = { reason: "Updated service is not ready" };
 	do {
 		last = await checkRunningRelease(input);
