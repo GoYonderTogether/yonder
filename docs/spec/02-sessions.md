@@ -115,6 +115,8 @@ bindings:
 
 精确群覆盖沿有序 first-match，不新增优先级或会话命名空间。仅对有限精确 conv 提供保守的遮蔽证明：排在前面的 `persistent/per:conv` 接收绑定用精确 conv，且不收窄 kind/from/type（省略 type 即 message.in）；它覆盖的普通消息域不再可能落到后面的泛用普通消息绑定。显式 channel 必须与该完整 conv 的渠道一致。只能从后置绑定的有效 key 范围扣除已被完整遮蔽的 conv；不同事件域（如 batch/custom type）仍可能进入同一 key，必须检查其有效配置档一致。条件不完整、顺序不正确或不能证明全覆盖时继续拒绝，并说明调整精确接收绑定与其他事件绑定的路径，不猜平台群类型、不做一般表达式求解。
 
+同一证明可消除批次等既有类型的后置兜底：更早的有限精确 conv 绑定若不收窄 kind/from、channel 一致且有效 type 完全相同，后置同类型绑定在该 conv 已被完整遮蔽。只比较相同有效 type（缺省等价 message.in），不新增前缀包含求解。未被遮蔽的 batch/custom type 仍须与普通接收绑定同 profile，不能仅因事件类型不同而分档。
+
 新建前置覆盖也必须保护已打开的会话，不能只检查同名旧 binding 的 profile 字段变化。候选会让现有 conv key 选择不同 profile 时，校验须指出 session 并要求先显式关闭，再 validate/update；关闭保留会话与原始历史，下一条输入按同 key 新开会话，不自动关闭、不改旧会话 profile。
 
 运行时若仍遇到已有会话的配置档与命中绑定不同，该 agent 的路由记为 `dropped: 'profile-mismatch'`，不运行。

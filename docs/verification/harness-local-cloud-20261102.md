@@ -80,6 +80,12 @@ parent_ask正确进入同一Agent的main150858/default，而不是全局main Age
 
 新根因：每轮模型缺少原生接纳状态；管理patch在合并前解析被拒绝的磁盘配置，连撤销修复也被同一语义错误阻止；顺序路由与跨profile冲突校验对精确群覆盖的契约存在缺口。正在补共享状态与修复路径，不靠预先配好群伪造自然需求通过。
 
+失败候选已保守撤销：写前核对完整候选哈希，结构差异仅为新增binding/profile；保留0600候选备份，通过已安装WorkspaceFiles恢复原基线，读回SHA精确一致，正式解析器与doctor通过。正式agents.show仍只有原feishu-owner/feishu-observer，目标session2017仍open/observer；这不是新配置验收。候选原本未接纳，恢复后签名与旧有效快照一致，watcher沿same-signature路径不产生新成功事件，符合现有逻辑。
+
+取证中曾误将EventQuery.after当时间戳且读取旧分页，因而误报本日无事件；已撤回。按精确ID只读查询正式.yonder/state.db的y_events，确认上述入站及拒绝reload均存在。分页游标和时间条件不能互换。
+
+本地待发布修复：0e6ef6a9使管理patch可修语义非法映射并在写前复核源未变（定向2/2）；2215e418增加每请求动态接纳事实、源字节回执及candidate聚合状态；审阅发现初始化前捕获watcher导致永远unknown，e297462改为每请求getter，动态sections定向合计4/4。源码定向与正式安装分开记录，尚未宣称下一版或真实需求成功。
+
 ## 后续共享修复与真实入口差异
 
 - 40e7a99b：飞书真实群目录只读工具，沿现有平台list接口、read/network/admin及实例范围，支持有界分页/名称过滤，输出真实name/chatId/conv与重名/截断。定向4/4、插件tsc、Biome通过，已随v0.3.26110204安装，且上述真实API调用已通过。
