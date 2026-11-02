@@ -78,6 +78,8 @@ function changedSessionRouteProfile(
 		const nextProfile = nextBinding.profile ?? next.defaultProfile;
 		if (session.profile === oldProfile && oldProfile !== nextProfile) return { oldProfile, nextProfile };
 	}
+	const override = session.key.startsWith("conv:") && exactConvProfile(next, session.key.slice("conv:".length));
+	return override && session.profile !== override ? { oldProfile: session.profile, nextProfile: override } : undefined;
 }
 
 export function protectSessions(
@@ -105,15 +107,8 @@ export function protectSessions(
 			const changedRoute = changedSessionRouteProfile(previous, next, session);
 			if (changedRoute)
 				errors.push(
-					`session ${session.id}: close before changing binding profile ${changedRoute.oldProfile} to ${changedRoute.nextProfile}; this open session would keep its existing profile. Finish or close session ${session.id} first, then rerun agents validate/update and inspect the next session's profile`,
+					`session ${session.id}: close before changing binding profile ${changedRoute.oldProfile} to ${changedRoute.nextProfile}; this open session would keep its existing profile. Run yonder sessions close ${session.id}, then rerun agents validate/update and inspect the next session's profile`,
 				);
-			if (!changedRoute && session.mode === "persistent" && next && session.key.startsWith("conv:")) {
-				const convProfile = exactConvProfile(next, session.key.slice("conv:".length));
-				if (convProfile && session.profile !== convProfile)
-					errors.push(
-						`session ${session.id}: close before applying the exact-conv profile override ${session.profile} to ${convProfile}; the existing transcript is retained and the next input opens a new session. Run yonder sessions close ${session.id}, then agents validate/update and inspect with agents show`,
-					);
-			}
 			const envChanged =
 				oldProfile &&
 				newProfile &&
