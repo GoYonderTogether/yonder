@@ -69,7 +69,7 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	api.tools.register({
 		name: "social_update",
 		description:
-			"Preview or apply a social reply policy change. First inspect, then preview. For @-only replies set mode to mention and signals botMention to respond, ownerMention/groupOwner/everyone/keyword to record. Ask the owner to send 确认 as a separate message after preview, then apply with dryRun false and the same arguments.",
+			"Preview or apply a social reply policy change. dryRun defaults to true; set dryRun false to apply an owner-authorized request directly. For @-only replies set mode to mention and signals botMention to respond, ownerMention/groupOwner/everyone/keyword to record.",
 		capabilities: ["admin"],
 		parameters: Type.Object(
 			{
@@ -136,7 +136,7 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	api.tools.register({
 		name: "social_group_tag_set",
 		description:
-			"Preview or apply a group's value/rhythm tags. Apply with dryRun false after the owner sends 确认 as a separate message.",
+			"Preview or apply a group's value/rhythm tags. dryRun defaults to true; set dryRun false to apply an owner-authorized request directly.",
 		capabilities: ["admin"],
 		parameters: Type.Object(
 			{
@@ -164,7 +164,7 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	api.tools.register({
 		name: "social_group_mode_set",
 		description:
-			"Preview or apply a group's reply mode. Apply with dryRun false after the owner sends 确认 as a separate message.",
+			"Preview or apply a group's reply mode. dryRun defaults to true; set dryRun false to apply an owner-authorized request directly.",
 		capabilities: ["admin"],
 		parameters: Type.Object(
 			{

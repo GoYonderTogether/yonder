@@ -40,7 +40,7 @@ import { quotaWire } from "./quota-wire.js";
 import { resumeRecovered } from "./recovery.js";
 import { createRunCompletion } from "./run-completion.js";
 import { createKernelServices } from "./services-wiring.js";
-import { createSocial, socialTarget } from "./social.js";
+import { createSocial, createSocialSupport, socialTarget } from "./social.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import { credentialsAndModels, filesFor, loadAgents, skillsFor } from "./workspace.js";
@@ -394,6 +394,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				if (!watcher) throw new Error("Config watcher unavailable");
 				await watcher.reload();
 			},
+			...createSocialSupport(store, agents, loaded.channels),
 		});
 		watcher = await watchAgents({
 			home,

@@ -8,8 +8,10 @@ import { parseDocument } from "yaml";
 import { type AgentConfig, parseAgentConfig, type YonderConfig } from "../config/index.js";
 import { socialDefaults, socialPolicySchema, socialTriggerErrors } from "../config/social-schema.js";
 import type { Principal } from "../control/method-types.js";
+import { matches } from "../routing/matching.js";
 import { membershipGroup } from "../routing/platform-group.js";
 import type { Store } from "../store/index.js";
+import { requestSources } from "../tools/parent-origin.js";
 
 type Inspect = Parameters<SocialAPI["inspect"]>[0];
 type Update = Parameters<SocialAPI["update"]>[0];
@@ -81,8 +83,20 @@ export function createSocial(options: {
 	record(event: { type: string; from: string; conv?: string; data: object }): Promise<unknown>;
 	validate(agents: Map<string, AgentConfig>): Promise<void>;
 	reload(): Promise<void>;
+	ownerInput?(agent: string, caller: ToolContext): Promise<boolean>;
+	inspectRoute?(
+		agent: string,
+		conv: string,
+		event: string | undefined,
+		policy: SocialPolicy,
+	): Promise<{
+		detail: string;
+		capabilityGaps: string[];
+		policySource?: string;
+		cursor?: string;
+		nextAt?: string;
+	}>;
 }) {
-	const confirmations = new Map<string, { fingerprint: string; event: string }>();
 	const authorize = async (agent: string, conv: string, caller: Caller, write: boolean) => {
 		const target = options.agents.get(agent);
 		if (!target || target.social?.enabled === false || !/^conv:[a-z0-9-]+:\S+$/.test(conv))
@@ -116,14 +130,8 @@ export function createSocial(options: {
 				(caller.channelInstances && !caller.channelInstances.includes(instance))
 			)
 				throw new SocialError("forbidden", "Tool scope denied", { reason: "scope_denied" });
-			if (
-				write &&
-				(!caller.event?.from ||
-					caller.event.type !== "message.in" ||
-					(caller.event.data as { kind?: string }).kind !== "dm" ||
-					!(await options.owner(caller.agent, caller.event.from)))
-			)
-				throw new SocialError("forbidden", "An owner direct message is required", { reason: "scope_denied" });
+			if (write && !(await options.ownerInput?.(agent, caller)))
+				throw new SocialError("forbidden", "A verified owner request is required", { reason: "scope_denied" });
 		}
 		const defaultScope = target.defaults?.channelInstances;
 		const profileScope = target.profiles[target.defaultProfile]?.channelInstances;
@@ -137,17 +145,21 @@ export function createSocial(options: {
 	const inspect = async (request: Inspect, caller: Caller) => {
 		const { target: agent, kind } = await authorize(request.agent, request.conv, caller, false);
 		const policy = effectivePolicy(agent.social?.defaults?.[kind], agent.social?.conversations?.[request.conv]);
+		const route = await options.inspectRoute?.(agent.id, request.conv, request.event, policy);
 		return {
 			policy,
-			sources: Object.fromEntries(
-				Object.keys(policy).map((k) => [
+			sources: Object.fromEntries([
+				...Object.keys(policy).map((k) => [
 					k,
 					agent.social?.conversations?.[request.conv]?.[k as keyof SocialPolicy] !== undefined ? "conversation" : kind,
 				]),
-			),
+				["$effectivePolicy", route?.policySource ?? "unknown: runtime policy not evidenced"],
+			]),
 			revision: revision(agent.social),
-			capabilityGaps: ["Channel capabilities not evaluated"],
-			routeReason: "not evaluated",
+			capabilityGaps: route?.capabilityGaps ?? ["unknown: route and channel capabilities were not evaluated"],
+			routeReason: route?.detail ?? "unknown: no route evidence available",
+			...(route?.cursor ? { cursor: route.cursor } : {}),
+			...(route?.nextAt ? { nextAt: route.nextAt } : {}),
 		};
 	};
 	const update = async (request: Update, caller: Caller) => {
@@ -189,33 +201,6 @@ export function createSocial(options: {
 				...disk.social?.conversations?.[request.conv],
 				...patch,
 			});
-			if ("session" in caller) {
-				const fingerprint = revision([
-					request.agent,
-					request.conv,
-					request.expectedRevision,
-					request.patch,
-					request.reason,
-				]);
-				if (request.dryRun !== false) {
-					if (caller.event?.id) confirmations.set(caller.session, { fingerprint, event: caller.event.id });
-				} else {
-					const pending = confirmations.get(caller.session);
-					confirmations.delete(caller.session);
-					const text = (caller.event?.data as { text?: unknown } | undefined)?.text;
-					if (
-						!pending ||
-						pending.fingerprint !== fingerprint ||
-						!caller.event?.id ||
-						caller.event.id === pending.event ||
-						typeof text !== "string" ||
-						!/^(确认|confirm)$/i.test(text.trim())
-					)
-						throw new SocialError("forbidden", "Owner must send 确认 as a separate message after preview", {
-							reason: "scope_denied",
-						});
-				}
-			}
 			if (request.dryRun !== false) return { before, after, affected: [request.conv], revision: current };
 			document.setIn(["social", "conversations", request.conv], {
 				...disk.social?.conversations?.[request.conv],
@@ -317,6 +302,99 @@ export function createSocial(options: {
 		return result;
 	};
 	return { inspect, update, auditDenied, botGate };
+}
+
+export function createSocialSupport(store: Store, agents: Map<string, AgentConfig>, channels: Map<string, Channel>) {
+	return {
+		ownerInput: async (agent: string, caller: ToolContext) => {
+			if (!caller.agent || !caller.event?.id) return false;
+			const session = await store.sessions.get(caller.session);
+			if (!session || session.agent !== caller.agent) return false;
+			const sources = await requestSources(
+				store,
+				session,
+				[...(caller.events ?? []), caller.event].map((event) => event.id),
+			);
+			return (
+				!!sources?.length &&
+				(
+					await Promise.all(
+						sources.map(
+							async (event) => !!event.from && (await store.identity().relation(agent, event.from)) === "owner",
+						),
+					)
+				).every(Boolean)
+			);
+		},
+		inspectRoute: async (agentId: string, conv: string, requestedEvent: string | undefined, policy: SocialPolicy) => {
+			const instance = conv.split(":")[1];
+			const channel = channels.get(instance ?? "");
+			const page = requestedEvent
+				? await store.events.query({ id: requestedEvent, type: "message.in", conv, limit: 1 })
+				: await store.events.query({ type: "message.in", conv, limit: 1000 });
+			const input = page.events.at(-1);
+			const gaps: string[] = [];
+			if (!channel) gaps.push(`unknown: channel instance ${instance ?? "?"} is not loaded`);
+			else if (!channel.features) gaps.push(`unknown: channel capabilities for ${instance} are not declared`);
+			if (!input)
+				return {
+					detail: requestedEvent
+						? `history: unknown (event ${requestedEvent} is not a message.in for ${conv}); prediction: unknown (no sample event)`
+						: `history: unknown (no message.in for ${conv}); prediction: unknown (no sample event)`,
+					capabilityGaps: gaps,
+				};
+			const agent = agents.get(agentId);
+			if (!agent)
+				return { detail: `history: event ${input.id}; prediction: unknown (agent missing)`, capabilityGaps: gaps };
+			const route = input.routes?.find((item) => item.agent === agentId);
+			let historical = route
+				? `agent=${agentId}, binding=${route.binding ?? "none"}, session=${route.session ?? "unknown"}${route.dropped ? `, dropped=${route.dropped}` : ""}`
+				: `no stored route for ${agentId}`;
+			if (route?.session) {
+				const session = await store.sessions.get(route.session);
+				historical += session ? `, profile=${session.profile}` : ", profile=unknown (session missing)";
+			}
+			const decisions = await store.events.query({ type: "routing.social-decision", after: input.id, limit: 1000 });
+			const decision = decisions.events.find((event) => {
+				const data = event.data as { agent?: unknown };
+				return event.parent === input.id && data.agent === agentId;
+			});
+			const decisionData = decision?.data as { policy?: unknown; revision?: unknown } | undefined;
+			const hasPolicy = !!decisionData?.policy && typeof decisionData.policy === "object";
+			const policySource = hasPolicy
+				? `historical routing.social-decision ${decision?.id ?? "unknown"}; revision=${String(decisionData?.revision ?? "unknown")}`
+				: "unknown: runtime policy not recorded for sample event; displayed policy is configured merge only";
+			if (!hasPolicy) gaps.push("unknown: effective participation policy is not recorded for the sample event");
+			if (page.next) gaps.push("history sample is limited to the first 1000 events; it is not latest or exhaustive");
+			const binding = (
+				await Promise.all(
+					agent.bindings.map(async (candidate) =>
+						(await matches(candidate, input, agent, store)) ? candidate : undefined,
+					),
+				)
+			).find(Boolean);
+			let prediction: string;
+			if (!binding) prediction = "no configured binding matched sample event";
+			else {
+				const profile = binding.profile ?? agent.defaultProfile;
+				prediction = `configured binding=${binding.id}, session=${JSON.stringify(binding.session)}, profile=${agent.profiles[profile] ? profile : `${profile} (missing)`}`;
+				if (!agent.profiles[profile]) gaps.push(`missing profile ${agentId}/${profile} for binding ${binding.id}`);
+			}
+			const kind = String((input.data as { kind?: unknown }).kind ?? "unknown");
+			if (channel && !channel.kinds.includes(kind)) gaps.push(`channel ${instance} does not declare kind ${kind}`);
+			if (policy.mode === "mention" && policy.signals?.botMention === "respond") {
+				if (!channel?.features?.mentions)
+					gaps.push(`unknown: inbound bot mention capability for ${instance ?? "?"} is not declared`);
+				else if (!channel.features.mentions.includes("bot"))
+					gaps.push(`channel ${instance} does not report bot mentions`);
+			}
+			return {
+				detail: `history sample event=${input.id}; stored route: ${historical}; effective policy evidence: ${hasPolicy ? JSON.stringify(decisionData?.policy) : "unknown"}; prediction (configured matching against this sample, not a future event): ${prediction}`,
+				capabilityGaps: gaps,
+				policySource,
+			};
+		},
+	};
 }
 
 /** Resolve only the platform facts attached by a registered channel. */
