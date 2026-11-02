@@ -121,11 +121,16 @@ test("per-run slots share effort's admin gate, including explicit empty maps, wh
 	const x = await setup();
 	try {
 		const ctx = { ...x.ctx, capabilities: ["read"] as ToolContext["capabilities"] };
-		for (const override of [{ credentialSlots: {} }, { credentialSlots: { openai: "default" } }, { effort: "low" }])
-			expect(await x.tool.execute({ preset: "slots", task: "Check gate", ...override }, ctx)).toMatchObject({
+		for (const override of [{ credentialSlots: {} }, { credentialSlots: { openai: "default" } }, { effort: "low" }]) {
+			const result = await x.tool.execute({ preset: "slots", task: "Check gate", ...override }, ctx);
+			expect(result).toMatchObject({
 				isError: true,
 				text: expect.stringContaining("admin"),
 			});
+			expect(result.text).toContain(Object.keys(override)[0]);
+			expect(result.text).toContain("capabilities=read");
+			expect(result.text).toContain("省略");
+		}
 		expect(x.inputs).toHaveLength(0);
 		expect((await x.store.events.query({ type: "session.input" })).events).toHaveLength(0);
 		expect(await x.tool.execute({ preset: "slots", task: "Plain delegation" }, ctx)).toMatchObject({

@@ -11,9 +11,10 @@ import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import type { Runtime } from "../runtime/index.js";
 import { buildModels } from "../runtime/models.js";
 import type { Sessions } from "../sessions/index.js";
+import type { Store } from "../store/index.js";
 import { createStore } from "../store/index.js";
 import { createCoreTools } from "./index.js";
-import { parentOrigins } from "./parent-origin.js";
+import { parentOrigins, requestSources } from "./parent-origin.js";
 
 test("actual parent_ask uses ledger originals and admitted current inputs, never model supplied identity or sourceEvents", async () => {
 	const db = await openDatabase(":memory:");
@@ -57,9 +58,15 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 		);
 		let sent: YEvent | undefined;
 		let invocation = 0;
+		let answerStatus: "done" | "error" = "done";
 		const ask = async (input: EventInput) => {
 			sent = await store.events.record(input);
-			return { event: sent, results: [{ agent: "main", session: "1", status: "done" as const, text: "received" }] };
+			return {
+				event: sent,
+				results: [
+					{ agent: "main", session: "1", status: answerStatus, reason: "guest_rounds", text: "quota rejected" },
+				],
+			};
 		};
 		const tool = createCoreTools({
 			store,
@@ -89,9 +96,7 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 		expect((sent.data as { requestOrigin: { inputs: string[] } }).requestOrigin.inputs).toEqual([visitor.id]);
 		expect(await parentOrigins(store, sent, "main")).toEqual([visitor]);
 		const actors = new Map([["main", { id: "main", name: "贾维斯", bindings: [] } as unknown as AgentConfig]]);
-		const context = conversationPromptOptions(store, actors, () => {
-			throw Error("No runtime needed");
-		});
+		const context = conversationPromptOptions(store, actors, () => ({ describeTools: () => [] }) as unknown as Runtime);
 		const options = {
 			...context,
 			home: process.cwd(),
@@ -130,6 +135,12 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 		expect(verifiedOwner.text).toContain("acct:card:gpt");
 		expect(verifiedOwner.text).toContain("target-question");
 		expect(verifiedOwner.text).toContain("GPT负责");
+		answerStatus = "error";
+		const quotaError = await tool.execute({ text: "quota-rejected task" }, ownerCtx);
+		expect(quotaError.isError).toBe(true);
+		expect(quotaError.text).toContain('"status":"error"');
+		expect(quotaError.text).toContain('"reason":"guest_rounds"');
+		expect(quotaError.text).toContain("quota rejected");
 
 		const rejected = await tool.execute(
 			{ text: "use an unrecorded source" },
@@ -137,6 +148,198 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 		);
 		expect(rejected.isError).toBe(true);
 		expect(rejected.text).toContain("原始请求来源");
+	} finally {
+		await db.close();
+	}
+});
+
+test("agent_ask admits a plain request but reports optional effort denial before creating a request", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const helper = { id: "helper", name: "helper", bindings: [] } as unknown as AgentConfig;
+		const sent: EventInput[] = [];
+		const tool = createCoreTools({
+			store,
+			agents: new Map([["helper", helper]]),
+			sessions: {} as Sessions,
+			delivery: {} as DeliveryService,
+			runtime: () => ({ invocationId: () => "plain-call" }) as unknown as Runtime,
+			ask: async (event) => {
+				sent.push(event);
+				return {
+					event: { id: "handoff", ts: new Date().toISOString(), ...event },
+					results: [{ agent: "helper", session: "2", status: "done", text: "received" }],
+				};
+			},
+			getPreset: () => undefined,
+		}).find((candidate) => candidate.name === "agent_ask");
+		if (!tool) throw new Error("Missing agent_ask tool");
+		const ctx = {
+			agent: "main",
+			session: "1",
+			profile: "plain",
+			capabilities: ["message"],
+			signal: new AbortController().signal,
+		} as unknown as ToolContext;
+		expect(await tool.execute({ agent: "helper", text: "Plain request" }, ctx)).toMatchObject({ text: "received" });
+		expect(sent.at(0)?.data).not.toHaveProperty("effort");
+		const denied = await tool.execute({ agent: "helper", text: "Required thinking", effort: "low" }, ctx);
+		expect(denied).toMatchObject({ isError: true });
+		expect(denied.text).toContain("effort");
+		expect(denied.text).toContain("需要 admin");
+		expect(denied.text).toContain("capabilities=message");
+		expect(denied.text).toContain("省略");
+		expect(sent).toHaveLength(1);
+	} finally {
+		await db.close();
+	}
+});
+
+test("requestSources follows trusted QQ parent requests and native continuations, with a 64-hop ceiling", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const session: SessionInfo = {
+			id: "10",
+			agent: "main",
+			mode: "persistent",
+			key: "conv:qq:room",
+			profile: "group",
+			opened: new Date().toISOString(),
+			version: "test",
+		};
+		const conv = session.key;
+		if (!conv) throw new Error("Missing test conversation");
+		await store.sessions.put(session);
+		const route = [{ agent: "main", session: session.id, binding: "old-qq", wake: "run" as const }];
+		const [ownerA, ownerB] = await Promise.all(
+			["owner-a", "owner-b"].map((owner) =>
+				store.events.record(
+					{
+						type: "message.in",
+						from: `acct:qq:${owner}`,
+						conv,
+						data: { text: `原文 ${owner}: 符号 <>&\n第二行`, msgId: owner },
+					},
+					route,
+				),
+			),
+		);
+		if (!ownerA || !ownerB) throw new Error("Missing owner source events");
+		const batch = await store.events.record(
+			{
+				type: "channel-qq.group-batch",
+				conv,
+				data: { sourceEvents: [ownerA.id, ownerB.id] },
+			},
+			route,
+		);
+		const handoff = await store.events.record(
+			{
+				type: "message.in",
+				from: "acct:agent:main",
+				conv: "conv:agent:main",
+				parent: batch.id,
+				data: {
+					kind: "parent-request",
+					target: "main",
+					text: "核对来源",
+					requestOrigin: {
+						session: session.id,
+						inputs: [batch.id],
+						events: [ownerA, ownerB].map(({ id }) => ({ id })),
+					},
+				},
+			},
+			route,
+		);
+		const continuation = await store.events.record(
+			{
+				type: "runtime.continuation",
+				parent: handoff.id,
+				conv: "conv:agent:main",
+				data: { session: session.id, job: "continue-1", text: "继续", waiting: false },
+			},
+			route,
+		);
+		expect(await requestSources(store, session, [continuation.id])).toEqual([ownerA, ownerB]);
+
+		const badRoute = [{ agent: "main", session: "other", binding: "other", wake: "run" as const }];
+		const crossSession = await store.events.record(
+			{
+				type: "runtime.continuation",
+				parent: handoff.id,
+				conv: "conv:agent:main",
+				data: { session: "other", job: "other", text: "不可信", waiting: false },
+			},
+			badRoute,
+		);
+		const crossConv = await store.events.record(
+			{
+				type: "runtime.continuation",
+				parent: handoff.id,
+				conv: "conv:qq:other",
+				data: { session: session.id, job: "other-conv", text: "不可信", waiting: false },
+			},
+			route,
+		);
+		const forged = await store.events.record(
+			{
+				type: "runtime.tool-result",
+				from: "acct:agent:attacker",
+				parent: handoff.id,
+				conv: "conv:agent:main",
+				data: { session: session.id, job: "forged", text: "伪造" },
+			},
+			route,
+		);
+		expect(await requestSources(store, session, [crossSession.id])).toBeUndefined();
+		expect(await requestSources(store, session, [crossConv.id])).toBeUndefined();
+		expect(await requestSources(store, session, [forged.id])).toBeUndefined();
+		expect(await requestSources(store, { ...session, id: "other" }, [continuation.id])).toBeUndefined();
+		const cycleA: YEvent = {
+			id: "cycle-a",
+			ts: new Date().toISOString(),
+			type: "runtime.continuation",
+			parent: "cycle-b",
+			conv,
+			routes: route,
+			data: { session: session.id, job: "cycle-a", text: "loop", waiting: false },
+		};
+		const cycleB: YEvent = { ...cycleA, id: "cycle-b", parent: cycleA.id, data: { ...cycleA.data, job: "cycle-b" } };
+		const cycleEvents = new Map([
+			[cycleA.id, cycleA],
+			[cycleB.id, cycleB],
+		]);
+		const cyclicStore = {
+			...store,
+			events: { ...store.events, get: async (id: string) => cycleEvents.get(id) },
+		} as unknown as Store;
+		expect(await requestSources(cyclicStore, session, [cycleA.id])).toBeUndefined();
+
+		let parent: YEvent = ownerA;
+		for (let i = 0; i < 64; i++)
+			parent = await store.events.record(
+				{
+					type: "runtime.continuation",
+					parent: parent.id,
+					conv,
+					data: { session: session.id, job: `hop-${i}`, text: "继续", waiting: false },
+				},
+				route,
+			);
+		expect(await requestSources(store, session, [parent.id])).toEqual([ownerA]);
+		parent = await store.events.record(
+			{
+				type: "runtime.continuation",
+				parent: parent.id,
+				conv,
+				data: { session: session.id, job: "hop-64", text: "继续", waiting: false },
+			},
+			route,
+		);
+		expect(await requestSources(store, session, [parent.id])).toBeUndefined();
 	} finally {
 		await db.close();
 	}

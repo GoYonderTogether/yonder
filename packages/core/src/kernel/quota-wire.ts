@@ -49,9 +49,10 @@ const closedMessage = "这个渠道没有对访客开放。绑定账号登录后
  * 把每一轮的来源映射成额度层。
  * 来源身份只来自事件的 from，不来自会话行：同一个会话可能是主人接着访客在用。
  */
-async function resolve(store: Store, session: SessionInfo, event: YEvent): Promise<Resolved[]> {
+async function resolve(store: Store, session: SessionInfo, event: YEvent): Promise<Resolved[] | undefined> {
 	const parent = (event.data as { kind?: string }).kind === "parent-request";
 	const origins = parent ? await parentOrigins(store, event, session.agent ?? "main") : undefined;
+	if (parent && !origins) return;
 	const inputs = origins ?? [event];
 	const subjects = new Map<string, Resolved>();
 	for (const input of inputs) {
@@ -101,8 +102,8 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 	async function reject(
 		session: SessionInfo,
 		event: YEvent,
-		tier: OutsiderTier,
-		reason: QuotaRejectionReason | "channel_closed",
+		tier: OutsiderTier | undefined,
+		reason: QuotaRejectionReason | "channel_closed" | "parent-origin-unverified",
 		message: string,
 		remaining = 0,
 	): Promise<RunResult> {
@@ -111,10 +112,10 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 			parent: event.id,
 			...(event.from ? { from: event.from } : {}),
 			...(event.conv ? { conv: event.conv } : {}),
-			data: { session: session.id, tier, reason, remaining, login: "/connect", hint: message },
+			data: { session: session.id, ...(tier ? { tier } : {}), reason, remaining, login: "/connect", hint: message },
 		});
 		if (event.conv) await options.delivery.sendCommand(session, event, message);
-		return { agent: session.agent, session: session.id, status: "done", text: message };
+		return { agent: session.agent, session: session.id, status: "error", reason, text: message };
 	}
 
 	return {
@@ -126,6 +127,14 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 			}
 			if (event.type !== "message.in") return undefined;
 			const resolved = await resolve(store, session, event);
+			if (!resolved)
+				return reject(
+					session,
+					event,
+					undefined,
+					"parent-origin-unverified",
+					"无法核验 parent_ask 的原始请求来源；未运行模型或扣除访客额度。请检查持久来源事件和分身路由，不要把它当作主人授权或外人额度不足。",
+				);
 			for (const { tier, subject } of resolved) {
 				if (!subject) continue;
 				if (config.defaults?.channelPolicy === "closed")
@@ -144,7 +153,7 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 				for (const input of run.inputs) {
 					const event = await store.events.get(input);
 					if (!event) continue;
-					subject = (await resolve(store, session, event))[0]?.subject;
+					subject = (await resolve(store, session, event))?.[0]?.subject;
 					if (subject) break;
 				}
 			}

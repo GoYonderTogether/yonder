@@ -16,8 +16,16 @@ export const tool = (definition: Omit<Tool, "capabilities">): Tool => ({
 	},
 });
 
-export function requireCapability(ctx: ToolContext, capability: "admin" | "cross-agent" | "message" | "read") {
-	if (!ctx.capabilities.includes(capability)) throw new Error(`需要 ${capability} 能力。`);
+export function requireCapability(
+	ctx: ToolContext,
+	capability: "admin" | "cross-agent" | "message" | "read",
+	optionalParameters: string[] = [],
+) {
+	if (ctx.capabilities.includes(capability)) return;
+	const detail = optionalParameters.length
+		? ` 可选参数 ${optionalParameters.join(", ")} 需要此能力；当前 profile=${ctx.profile}，capabilities=${ctx.capabilities.join(", ") || "none"}。未创建委派。若不需要本次覆盖，省略这些参数即可使用已配置的默认值；若覆盖是任务要求，报告所缺能力，不要原样重试。`
+		: "";
+	throw new Error(`需要 ${capability} 能力。${detail}`);
 }
 export async function withSignal<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 	signal.throwIfAborted();

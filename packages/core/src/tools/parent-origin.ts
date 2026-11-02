@@ -1,6 +1,32 @@
 import type { SessionInfo, YEvent } from "@yonder/sdk";
 import type { Store } from "../store/index.js";
 
+/** Follow only kernel continuations belonging to this actual session and conversation. */
+async function requestInput(store: Store, session: SessionInfo, id: string): Promise<YEvent | undefined> {
+	let input = await store.events.get(id);
+	const conv = input?.conv;
+	const seen = new Set<string>();
+	for (let hops = 0; input; hops++) {
+		if (
+			!conv ||
+			input.conv !== conv ||
+			seen.has(input.id) ||
+			!input.routes?.some((r) => r.agent === session.agent && r.session === session.id && !r.dropped)
+		)
+			return;
+		seen.add(input.id);
+		if (!["runtime.tool-result", "runtime.continuation"].includes(input.type)) return input;
+		if (
+			input.from !== undefined ||
+			(input.data as { session?: string }).session !== session.id ||
+			!input.parent ||
+			hops >= 64
+		)
+			return;
+		input = await store.events.get(input.parent);
+	}
+}
+
 /** Re-read actual inputs and their admitted source messages, never identity copies in model text. */
 export async function parentSources(
 	store: Store,
@@ -10,9 +36,8 @@ export async function parentSources(
 	const sources = new Map<string, YEvent>();
 	let conv: string | undefined;
 	for (const id of new Set(inputs)) {
-		const input = await store.events.get(id);
-		if (!input?.conv || !input.routes?.some((r) => r.agent === session.agent && r.session === session.id && !r.dropped))
-			return;
+		const input = await requestInput(store, session, id);
+		if (!input?.conv) return;
 		conv ??= input.conv;
 		if (conv !== input.conv) return;
 		const ids = input.type === "message.in" ? [input.id] : (input.data as { sourceEvents?: unknown }).sourceEvents;
@@ -29,6 +54,26 @@ export async function parentSources(
 				return;
 			sources.set(source.id, source);
 		}
+	}
+	return sources.size ? [...sources.values()] : undefined;
+}
+
+/** All verified human inputs for a run, including same-Agent main handoffs and their continuations. */
+export async function requestSources(
+	store: Store,
+	session: SessionInfo,
+	inputs: string[],
+): Promise<YEvent[] | undefined> {
+	const sources = new Map<string, YEvent>();
+	for (const id of new Set(inputs)) {
+		const input = await requestInput(store, session, id);
+		if (!input) return;
+		const originals =
+			(input.data as { kind?: string }).kind === "parent-request"
+				? await parentOrigins(store, input, session.agent ?? "")
+				: await parentSources(store, session, [input.id]);
+		if (!originals) return;
+		for (const original of originals) sources.set(original.id, original);
 	}
 	return sources.size ? [...sources.values()] : undefined;
 }

@@ -238,7 +238,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 					}
 					current = current.parent ? await store.events.get(current.parent) : undefined;
 				}
-				if (request.effort !== undefined) requireCapability(ctx, "admin");
+				if (request.effort !== undefined) requireCapability(ctx, "admin", ["effort"]);
 				const quoted = await quoteSources(request.sources, ctx);
 				const reply = await withSignal(
 					ask({
@@ -339,7 +339,10 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				)
 					depth++;
 				if (depth >= 2) throw new Error("任务已嵌套两层，不能再派发：直接完成，或把阻塞原因交回上级。");
-				if (request.effort !== undefined || request.credentialSlots !== undefined) requireCapability(ctx, "admin");
+				const overrides = ["effort", "credentialSlots"].filter(
+					(field) => request[field as keyof typeof request] !== undefined,
+				);
+				if (overrides.length) requireCapability(ctx, "admin", overrides);
 				const quoted = await quoteSources(request.sources, ctx);
 				const task = quoted ? `${request.task}\n\n${quoted}` : request.task;
 				const run = await runtime().runTask(ctx, async (childId) => {

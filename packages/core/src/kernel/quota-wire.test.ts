@@ -80,7 +80,7 @@ test("访客第 4 轮被拒并发登录提示，同时留下结构化拒绝事�
 			expect(await ctx.wire.command(ctx.session, inbound("acct:feishu:guest", msgId))).toBeUndefined();
 		}
 		const rejected = await ctx.wire.command(ctx.session, inbound("acct:feishu:guest", "g4"));
-		expect(rejected?.status).toBe("done");
+		expect(rejected).toMatchObject({ status: "error", reason: "guest_rounds" });
 		expect(rejected?.text).toContain("登录");
 		expect(ctx.sends).toEqual([rejected?.text]);
 		const page = await ctx.store.events.query({ type: "outsider.rejected" });
@@ -299,7 +299,11 @@ test("forged, cross-session and incomplete legacy origin references cannot inher
 		const guest = await ctx.store.events.record(inbound("acct:feishu:guest", "deplete"));
 		await settle(ctx, run([guest.id], 1));
 		const forged = { ...event, data: { ...data, requestOrigin: { ...origin, inputs: ["missing"] } } };
-		expect((await ctx.wire.command(ctx.session, forged))?.text).toContain("额度");
+		expect(await ctx.wire.command(ctx.session, forged)).toMatchObject({
+			status: "error",
+			reason: "parent-origin-unverified",
+			text: expect.stringContaining("无法核验"),
+		});
 	} finally {
 		await ctx.db.close();
 	}
