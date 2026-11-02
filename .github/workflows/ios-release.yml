@@ -46,9 +46,11 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 90
     steps:
+      # ref 取法：Release 触发时用发布 tag；手工派发用所选 ref（通常是 main），
+      # 这样发版前可以在 CI 上验证最新的工作流与脚本，而不是被旧 tag 里的版本覆盖。
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.version && format('v{0}', inputs.version) || github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || github.ref }}
           fetch-depth: 1
 
       # 版本只在这里确定：apps/desktop 不在 npm workspaces，bump-versions.mjs 不改它的
