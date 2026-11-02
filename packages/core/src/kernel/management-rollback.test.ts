@@ -18,6 +18,9 @@ test("management checks the locked agent revision and restores saved files when 
 		const agentText = await readFile(agentFile, "utf8");
 		const config = parseYonderConfig(configText, configFile);
 		const agent = parseAgentConfig(agentText, agentFile, "main");
+		let reloadCalls = 0;
+		let activeName = agent.name;
+		let failRestoreReload = false;
 		const workspace: WorkspaceFiles = {
 			readFile: (path) => readFile(resolve(home, "agents/main", path), "utf8"),
 			writeFile: (path, text) => writeFile(resolve(home, "agents/main", path), text),
@@ -40,7 +43,10 @@ test("management checks the locked agent revision and restores saved files when 
 			validate: async () => {},
 			scaffold: async () => {},
 			reload: async () => {
-				throw new Error("reload rejected");
+				reloadCalls++;
+				activeName = parseAgentConfig(await workspace.readFile("agent.yaml"), agentFile, "main").name;
+				if (reloadCalls === 1 || reloadCalls === 3) throw new Error("reload receipt failed");
+				if (reloadCalls === 4 && failRestoreReload) throw new Error("second reload failed");
 			},
 		};
 		await expect(
@@ -58,7 +64,21 @@ test("management checks the locked agent revision and restores saved files when 
 				{ action: "agents.update", id: "main", expectedFileRevision, value: { name: "Changed" } },
 				state,
 			),
-		).rejects.toThrow("reload rejected");
+		).rejects.toThrow("reload receipt failed");
+		expect(reloadCalls).toBe(2);
+		expect(activeName).toBe(agent.name);
+		expect(await readFile(agentFile, "utf8")).toBe(agentText);
+		expect(await readFile(configFile, "utf8")).toBe(configText);
+		failRestoreReload = true;
+		await expect(
+			manageObjects(
+				home,
+				{ action: "agents.update", id: "main", expectedFileRevision, value: { name: "Changed again" } },
+				state,
+			),
+		).rejects.toThrow("rollback failed: restore reload failed: second reload failed");
+		expect(reloadCalls).toBe(4);
+		expect(activeName).toBe(agent.name);
 		expect(await readFile(agentFile, "utf8")).toBe(agentText);
 		expect(await readFile(configFile, "utf8")).toBe(configText);
 	} finally {

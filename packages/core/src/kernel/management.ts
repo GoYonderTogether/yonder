@@ -235,6 +235,14 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 				} catch (rollbackError) {
 					failures.push(rollbackError instanceof Error ? rollbackError.message : String(rollbackError));
 				}
+			if (!failures.length && state.reload)
+				try {
+					await state.reload();
+				} catch (rollbackError) {
+					failures.push(
+						`restore reload failed: ${rollbackError instanceof Error ? rollbackError.message : rollbackError}`,
+					);
+				}
 			if (failures.length)
 				throw new Error(
 					`management reload/write failed: ${error instanceof Error ? error.message : error}; rollback failed: ${failures.join("; ")}`,
