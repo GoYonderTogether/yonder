@@ -32,6 +32,15 @@ export function publicUrl(key) {
 	return `${PUBLIC_BASE_URL}/${key}`;
 }
 
+/**
+ * 阿里云禁止用 OSS 默认域名对外分发 APK（`ApkDownloadForbidden`，需要绑定 CNAME），
+ * 所以清单里的下载地址指向同一个 Release 的 GitHub 资产；OSS 上的 APK 仍保留，
+ * 供自建 CNAME 或镜像使用。清单本身在 OSS 上可读，客户端只从它取版本与地址。
+ */
+export function downloadUrl(version, repository = "https://github.com/GoYonderTogether/yonder") {
+	return `${repository}/releases/download/v${version}/yonder-android.apk`;
+}
+
 export function sha256(buffer) {
 	return createHash("sha256").update(buffer).digest("hex");
 }
@@ -44,7 +53,7 @@ export function buildManifest({ version, apk, notes, publishedAt }) {
 	const manifest = {
 		version,
 		versionCode,
-		url: publicUrl(key),
+		url: downloadUrl(version),
 		sha256: digest,
 		size: apk.length,
 	};
@@ -81,6 +90,9 @@ export async function uploadAndroidRelease({
 	notes,
 	credentials,
 	dryRun = false,
+	// 仅用于修正已发布版本的清单（例如下载地址政策变化）：版本号与 APK 摘要必须完全一致，
+	// 只允许换 url/notes 这类非版本字段，不能让旧版本重新变成"可升级"。
+	repair = false,
 	bucket = BUCKET,
 	endpoint = REGION_ENDPOINT,
 	now = new Date(),
@@ -108,7 +120,10 @@ export async function uploadAndroidRelease({
 		} catch {
 			throw new Error(`${LATEST_OBJECT} 不是合法 JSON，拒绝覆盖`);
 		}
-		assertNewerManifest(manifest, parsed);
+		if (repair) {
+			const same = parsed.versionCode === manifest.versionCode && parsed.sha256 === manifest.sha256;
+			if (!same) throw new Error("repair 只允许修正同一 versionCode 与同一 APK 摘要的清单");
+		} else assertNewerManifest(manifest, parsed);
 	}
 	// 版本化对象在前、latest.json 在后：清单一旦指向某个 URL，APK 已经可下载。
 	await transport.putObject({
@@ -146,6 +161,7 @@ function main(argv) {
 	};
 	const version = flag("--version");
 	const apkPath = flag("--apk");
+	const repair = argv.includes("--repair");
 	try {
 		if (!version || !apkPath) {
 			console.error("用法：android.mjs --version <版本> --apk <apk 路径> [--notes <文件>] [--dry-run]");
@@ -157,6 +173,7 @@ function main(argv) {
 			version,
 			apkPath,
 			notes: readNotes(flag("--notes")),
+			repair,
 			credentials,
 			dryRun,
 		}).then(

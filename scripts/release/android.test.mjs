@@ -59,7 +59,8 @@ test("latest.json 带齐 version、versionCode、url、sha256、size", () => {
 	assert.deepEqual(manifest, {
 		version: "0.3.26110205",
 		versionCode: 26110205,
-		url: "https://yonder-release.oss-cn-hangzhou.aliyuncs.com/android/yonder-0.3.26110205.apk",
+		// 阿里云不允许用 OSS 默认域名分发 APK；清单指向 GitHub Release 资产。
+		url: "https://github.com/GoYonderTogether/yonder/releases/download/v0.3.26110205/yonder-android.apk",
 		sha256: createHash("sha256").update(APK).digest("hex"),
 		size: APK.length,
 		notes: "修好了登录",
