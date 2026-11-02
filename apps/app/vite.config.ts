@@ -140,6 +140,16 @@ export default defineConfig({
 		"import.meta.env.VITE_BUILD_VERSION": JSON.stringify(version),
 		"import.meta.env.VITE_BUILD_COMMIT": JSON.stringify(commit),
 	},
+	// 预览构建产物（真机 / 模拟器验收壳内网页）与 dev 用同一套代理，接口不必另起一份。
+	preview: {
+		port: 5182,
+		proxy: {
+			"/api/rpc": proxyTo(gateway),
+			"/api/stream": proxyTo(gateway, true),
+			"/api": proxyTo(social),
+			"/ws": proxyTo(social, true),
+		},
+	},
 	server: {
 		port: 5180,
 		strictPort: true,

@@ -177,6 +177,12 @@ val keystoreProperties = Properties().apply {
  * Soft keyboard: `adjustResize` shrinks the activity so the WebView (and the page's
  * visualViewport) follow the visible area. The default for a Tauri activity leaves the
  * keyboard overlaying the WebView, which covered the message input and the login form.
+ *
+ * On targetSdk 35+ the app is edge-to-edge and `adjustResize` no longer resizes the window,
+ * so the flag alone proved insufficient on a real device (measured on API 36: IME shown,
+ * page still 915px tall). `MainActivity` also applies the IME inset as bottom padding, and
+ * publishes it to the page as `--keyboard-inset` through a document-start script, so the
+ * web layer's keyboard handling works in the shell exactly as it does in a browser.
  */
 function applyKeyboardResize() {
 	if (!existsSync(manifest)) {
@@ -184,19 +190,84 @@ function applyKeyboardResize() {
 		return;
 	}
 	const source = readFileSync(manifest, "utf8");
-	if (source.includes("android:windowSoftInputMode")) {
+	if (!source.includes("android:windowSoftInputMode")) {
+		const activity = /<activity\b[^>]*android:name="\.MainActivity"/.exec(source);
+		if (!activity) {
+			console.error("prepare-android: unexpected layout in AndroidManifest.xml (no .MainActivity element)");
+			process.exit(1);
+		}
+		const insertAt = activity.index + activity[0].length;
+		const next = `${source.slice(0, insertAt)}\n            android:windowSoftInputMode="adjustResize"${source.slice(insertAt)}`;
+		writeFileSync(manifest, next);
+		console.log("prepare-android: MainActivity uses adjustResize so the keyboard shrinks the page");
+	} else {
 		console.log("prepare-android: keyboard resize already present in AndroidManifest.xml");
+	}
+	applyImeInsets();
+}
+
+/** `MainActivity.kt` 里的键盘 Insets 逻辑；与上面两个重放项一样，`tauri android init` 之后必须重新写入。 */
+const IME_ACTIVITY = `package net.yonderbot.app
+
+import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebView
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+
+/**
+ * 键盘高度交给页面：targetSdk 35+ 是 edge-to-edge，adjustResize 不再缩放窗口，
+ * 所以这里读 IME Insets，把同一个值写进 CSS 变量 \`--shell-keyboard-inset\`，
+ * 根布局按它收缩（与网页 lib/viewport.ts 的效果一致）。
+ */
+class MainActivity : TauriActivity() {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    enableEdgeToEdge()
+    super.onCreate(savedInstanceState)
+    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
+      val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+      view.post { publishKeyboardInset(webViewIn(view), ime) }
+      insets
+    }
+  }
+
+  private fun webViewIn(view: View): WebView? = when (view) {
+    is WebView -> view
+    is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { webViewIn(view.getChildAt(it)) }
+    else -> null
+  }
+
+  private fun publishKeyboardInset(web: WebView?, imePx: Int) {
+    if (web == null) return
+    // Insets 是物理像素，CSS 变量是 CSS 像素：按当前密度换算，再写进独立的变量名。
+    // 网页自己也写 --keyboard-inset（浏览器 / iOS 走 visualViewport），两边互不覆盖，
+    // 样式里取两者较大值。
+    val density = resources.displayMetrics.density.takeIf { it > 0f } ?: 1f
+    val cssPx = (imePx / density)
+    val script = if (imePx > 0) {
+      "document.documentElement.style.setProperty('--shell-keyboard-inset','\${cssPx}px')"
+    } else {
+      "document.documentElement.style.removeProperty('--shell-keyboard-inset')"
+    }
+    web.evaluateJavascript(script, null)
+  }
+}
+`;
+
+function applyImeInsets() {
+	const activityPath = join(android, "app/src/main/java/net/yonderbot/app/MainActivity.kt");
+	if (!existsSync(activityPath)) {
+		console.log("prepare-android: no MainActivity.kt yet; keyboard insets not applied");
 		return;
 	}
-	const activity = /<activity\b[^>]*android:name="\.MainActivity"/.exec(source);
-	if (!activity) {
-		console.error("prepare-android: unexpected layout in AndroidManifest.xml (no .MainActivity element)");
-		process.exit(1);
+	if (readFileSync(activityPath, "utf8") === IME_ACTIVITY) {
+		console.log("prepare-android: keyboard insets already present in MainActivity.kt");
+		return;
 	}
-	const insertAt = activity.index + activity[0].length;
-	const next = `${source.slice(0, insertAt)}\n            android:windowSoftInputMode="adjustResize"${source.slice(insertAt)}`;
-	writeFileSync(manifest, next);
-	console.log("prepare-android: MainActivity uses adjustResize so the keyboard shrinks the page");
+	writeFileSync(activityPath, IME_ACTIVITY);
+	console.log("prepare-android: MainActivity forwards the IME inset to the page");
 }
 
 if (mirrors) applyMirrors();

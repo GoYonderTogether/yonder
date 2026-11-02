@@ -74,7 +74,7 @@ body,
 /* 手机输入法：--app-height 由 lib/viewport.ts 在键盘弹出时写入（visualViewport 的可见高度）。
    键盘收起时不写，回落到 100%。根布局跟着可见区收缩，输入条与贴底面板不会被键盘盖住。 */
 html {
-	height: var(--app-height, 100%);
+	height: var(--app-height, calc(100% - var(--shell-keyboard-inset, 0px)));
 }
 body {
 	background: var(--rail) var(--mist) no-repeat;
@@ -150,22 +150,24 @@ time,
 .field :where(input, textarea, select):focus-visible {
 	box-shadow: none;
 }
-/* 全屏页与面板：键盘弹出时按可见区收缩（--app-height 见 lib/viewport.ts），否则 iOS 上会被键盘盖住。 */
+/* 全屏页与面板：键盘弹出时按可见区收缩（--app-height 见 lib/viewport.ts），否则 iOS 上会被键盘盖住。
+   安卓壳的 adjustResize 在 targetSdk 35+ 不再缩放窗口，壳把 IME 高度写进 --shell-keyboard-inset，
+   所以高度与占位都要同时考虑两者。 */
 .app-frame {
-	height: var(--app-height, 100dvh);
+	height: var(--app-height, calc(100dvh - var(--shell-keyboard-inset, 0px)));
 }
 /* 内容较短的整页（如工作区登录）：至少铺满可见区，键盘弹出时不再撑出视口。 */
 .app-frame-min {
-	min-height: var(--app-height, 100dvh);
+	min-height: var(--app-height, calc(100dvh - var(--shell-keyboard-inset, 0px)));
 }
 /* 贴底面板：键盘弹出时抬到键盘上沿，不再压在键盘下面。 */
 .keyboard-sheet {
-	bottom: var(--keyboard-inset, 0px);
+	bottom: var(--keyboard-inset, var(--shell-keyboard-inset, 0px));
 }
 /* 居中窗口：在可见区里居中，并限制在可见高度内；键盘收起时回到原来的居中位置。 */
 .keyboard-center {
-	top: calc((100dvh - var(--keyboard-inset, 0px)) / 2);
-	max-height: min(90dvh, calc(100dvh - var(--keyboard-inset, 0px) - 2rem));
+	top: calc((100dvh - var(--keyboard-inset, var(--shell-keyboard-inset, 0px))) / 2);
+	max-height: min(90dvh, calc(100dvh - var(--keyboard-inset, var(--shell-keyboard-inset, 0px)) - 2rem));
 }
 .scroll-y {
 	overflow-y: auto;

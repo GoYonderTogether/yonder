@@ -242,29 +242,28 @@ pub fn installed_version_code() -> Result<u64, String> {
         )
         .and_then(|value| value.l())
         .map_err(|error| format!("取 PackageInfo 失败：{error}"))?;
-    // `PackageInfo.longVersionCode` 是 API 28 才有的字段，直接按名字取在旧系统上会抛 NoSuchFieldError，
-    // 而且那个异常留着不清会把整个进程带走（实测启动即崩）。androidx 的 PackageInfoCompat 自己按系统版本
-    // 选字段并做兜底，FileProvider 已经把它带进包里，直接用它。
-    let compat = env
-        .find_class("androidx/core/content/pm/PackageInfoCompat")
-        .map_err(|error| format!("找不到 PackageInfoCompat：{error}"))?;
-    let result = env
-        .call_static_method(
-            &compat,
-            "getLongVersionCode",
-            "(Landroid/content/pm/PackageInfo;)J",
-            &[JValue::Object(&info)],
-        )
-        .and_then(|value| value.j());
-    // 任何 JNI 失败都在返回前清掉待抛异常：线程 detach 时它还挂着，同样会让进程崩溃。
-    let code = match result {
-        Ok(code) => code,
+    // `longVersionCode` 与 `getLongVersionCode()` 都是 API 28 才有的。直接按名字访问会在旧系统上抛
+    // NoSuchFieldError / NoSuchMethodError，而且那个待抛异常不清理会把整个进程带走（实测启动即崩）。
+    // 所以先读 `Build.VERSION.SDK_INT`，按系统版本选一种读法；任何一步失败都清掉异常再返回错误。
+    let sdk_int = env
+        .get_static_field("android/os/Build$VERSION", "SDK_INT", "I")
+        .and_then(|value| value.i())
+        .unwrap_or(0);
+    let read = if sdk_int >= 28 {
+        env.call_method(&info, "getLongVersionCode", "()J", &[])
+            .and_then(|value| value.j())
+    } else {
+        env.get_field(&info, "versionCode", "I")
+            .and_then(|value| value.i())
+            .map(i64::from)
+    };
+    match read {
+        Ok(code) => Ok(code.max(0) as u64),
         Err(error) => {
             let _ = env.exception_clear();
-            return Err(format!("读 versionCode 失败：{error}"));
+            Err(format!("读 versionCode 失败：{error}"))
         }
-    };
-    Ok(code.max(0) as u64)
+    }
 }
 
 /// 用 FileProvider 的 content URI 打开系统安装器。安装确认框由用户点，装完由系统重启应用。

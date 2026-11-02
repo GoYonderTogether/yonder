@@ -9,14 +9,27 @@ mod local;
 #[cfg_attr(test, allow(dead_code))]
 mod mobile_update;
 
+/// iOS 没有应用内更新路径，但 setup 里统一调用这两个入口；用空实现占位，
+/// 免得 `setup_mobile` 在 iOS 目标上引用不到模块（实测 iOS 构建因此失败）。
+#[cfg(all(mobile, not(target_os = "android")))]
+mod mobile_update {
+    pub fn start(_app: &tauri::App) {}
+    pub fn watch_resume(_app: &tauri::App) {}
+}
+
 /// 本机核心不可用时的云端站点；与线上完全相同的产物、路由与数据来源。
 /// 不注入 `__YONDER_SHELL__`、不打包本机运行时（见 docs/spec/09 §6.2）。
 #[cfg(desktop)]
 const CLOUD_ORIGIN: &str = "https://yonderbot.net";
 
 /// 手机壳打开的云端地址；与 channel-card、market 的默认 endpoint 保持一致。
+/// 调试构建可用 `YONDER_MOBILE_ORIGIN` 指向本机开发服务器（真机 / 模拟器验收壳内网页用）；
+/// 正式构建不设这个变量，始终是线上站点。
 #[cfg(mobile)]
-const MOBILE_ORIGIN: &str = "https://yonderbot.net";
+const MOBILE_ORIGIN: &str = match option_env!("YONDER_MOBILE_ORIGIN") {
+    Some(origin) => origin,
+    None => "https://yonderbot.net",
+};
 
 /// 外站链接交系统浏览器；壳本身不做第二套容器。
 fn open_external(url: &str) {
