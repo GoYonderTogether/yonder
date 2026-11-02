@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
-import { clientDownload, detectPlatform, installCommand, installTarget } from "../src/lib/platform";
+import {
+	clientDownload,
+	desktopInstallCommand,
+	detectPlatform,
+	installCommand,
+	installTarget,
+} from "../src/lib/platform";
 
 const UA = {
 	macos:
@@ -35,6 +41,25 @@ it("gives desktops one command that installs the latest release", () => {
 	expect(windows).toMatchObject({ kind: "command", platform: "windows" });
 	expect(installCommand("windows")).toContain("releases/latest/download/install.ps1");
 	expect(installCommand("windows")).toContain("| iex");
+});
+
+it("offers the desktop bundle as a second command on macOS and Windows only", () => {
+	const mac = installTarget("macos");
+	expect(mac.kind === "command" && mac.desktop?.command).toBe(desktopInstallCommand("macos"));
+	expect(desktopInstallCommand("macos")).toContain("install.sh | sh -s -- --desktop");
+	// 桌面安装命令必须建立在核心安装命令之上：同一支脚本、同一版本入口。
+	expect(desktopInstallCommand("macos")).toContain(installCommand("macos").split(" | ")[0] ?? "");
+
+	const windows = installTarget("windows");
+	expect(windows.kind === "command" && windows.desktop?.command).toBe(desktopInstallCommand("windows"));
+	expect(desktopInstallCommand("windows")).toContain("-Desktop");
+	expect(desktopInstallCommand("windows")).not.toContain("| iex");
+	expect(windows.kind === "command" && windows.desktop?.note).toContain("关闭桌面应用后核心继续运行");
+
+	// Linux 还没有桌面包：只给核心，不假装有桌面入口。
+	const linux = installTarget("linux");
+	expect(linux).toMatchObject({ kind: "command", platform: "linux" });
+	expect(linux.kind === "command" && linux.desktop).toBeUndefined();
 });
 
 it("gives phones a client download and unknown systems a chooser", () => {

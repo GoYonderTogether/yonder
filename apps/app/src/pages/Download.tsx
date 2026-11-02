@@ -59,6 +59,11 @@ const STEPS: Record<"macos" | "linux" | "windows", string[]> = {
 	windows: ["以普通用户打开「PowerShell」", "把命令粘贴进去回车", "完成后按提示登录模型供应商"],
 };
 
+const DESKTOP_STEPS: Record<"macos" | "windows", string[]> = {
+	macos: ["桌面安装包装到「应用程序」，并去掉下载隔离标记", "同时把核心装成后台服务，关掉窗口后继续运行"],
+	windows: ["桌面安装包静默安装到开始菜单", "同时把核心装成登录时自启的后台任务"],
+};
+
 function ChoosePlatform({ onPick }: { onPick: (platform: Platform) => void }) {
 	return (
 		<div className="flex flex-col gap-3">
@@ -99,8 +104,23 @@ function TargetBody({ target, onPick }: { target: InstallTarget; onPick: (platfo
 			</div>
 		);
 	return (
-		<div className="flex flex-col gap-3">
-			<CommandBlock command={target.command} label={`复制 ${target.label} 安装命令`} />
+		<div className="flex flex-col gap-4">
+			<div className="flex flex-col gap-2">
+				<p className="text-small font-medium">只装核心（命令行与终端界面）</p>
+				<CommandBlock command={target.command} label={`复制 ${target.label} 安装命令`} />
+			</div>
+			{target.desktop ? (
+				<div className="flex flex-col gap-2">
+					<p className="text-small font-medium">{target.desktop.label}</p>
+					<CommandBlock command={target.desktop.command} label={`复制 ${target.label} 桌面应用安装命令`} />
+					<p className="text-caption text-faint">{target.desktop.note}</p>
+					<ol className="flex list-decimal flex-col gap-1 pl-5 text-small text-muted">
+						{DESKTOP_STEPS[target.platform as "macos" | "windows"].map((step) => (
+							<li key={step}>{step}</li>
+						))}
+					</ol>
+				</div>
+			) : null}
 			<ol className="flex list-decimal flex-col gap-1 pl-5 text-small text-muted">
 				{STEPS[target.platform as "macos" | "linux" | "windows"].map((step) => (
 					<li key={step}>{step}</li>
@@ -108,6 +128,13 @@ function TargetBody({ target, onPick }: { target: InstallTarget; onPick: (platfo
 			</ol>
 		</div>
 	);
+}
+
+/** 面板副标题：只说这一种系统实际能装什么，不承诺没有的产物。 */
+function panelSubtitle(target: InstallTarget): string {
+	if (target.kind === "client") return "浏览器就能用，也可以装成桌面图标";
+	if (target.kind === "choose") return "选好系统后给出安装命令";
+	return target.desktop ? "两段命令二选一：只装核心，或核心 + 桌面应用" : "一段命令装好本机核心，并初始化数据目录";
 }
 
 /** 统一安装页：免登录可看；已登录的人从这里回应用。 */
@@ -123,9 +150,7 @@ export function InstallPanel() {
 				</span>
 				<div>
 					<p className="text-body font-medium">{target.kind === "client" ? "手机端" : platformName[platform]}</p>
-					<p className="text-small text-muted">
-						{target.kind === "client" ? "浏览器就能用，也可以装成桌面图标" : "一行命令装好 Yonder，并初始化数据目录"}
-					</p>
+					<p className="text-small text-muted">{panelSubtitle(target)}</p>
 				</div>
 			</div>
 			<TargetBody target={target} onPick={setPicked} />
@@ -150,7 +175,9 @@ export function Download() {
 					返回
 				</button>
 				<h1 className="display rise">下载 Yonder</h1>
-				<p className="mt-2 text-body text-muted">电脑装桌面端，手机用浏览器即可。装好后回到网页添加设备。</p>
+				<p className="mt-2 text-body text-muted">
+					电脑装本机核心，需要桌面应用时再选「核心 + 桌面应用」；手机用浏览器即可。装好后回到网页添加设备。
+				</p>
 				<div className="rise mt-8">
 					<InstallPanel />
 				</div>
