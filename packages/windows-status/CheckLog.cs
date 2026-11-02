@@ -10,7 +10,7 @@ namespace YonderStatus;
 /// 看不到任何东西。所以：尽力附加到父控制台，同时把同样的行写进 `--log`（缺省
 /// `%TEMP%\yonder-status-check.log`）——CI 用退出码判定，用日志文件说明失败原因。
 /// </summary>
-internal sealed class CheckLog
+internal sealed class CheckLog : IDisposable
 {
     private readonly StreamWriter? file;
 

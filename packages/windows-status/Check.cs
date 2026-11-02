@@ -89,7 +89,7 @@ internal static class Check
                 using (var context = new StatusContext(install, home))
                 {
                     // 状态读取在后台线程：留出一次完整命令行往返（失败也要等超时之外的时间）再看首行。
-                    var inspect = new Timer { Interval = 15000 };
+                    var inspect = new System.Windows.Forms.Timer { Interval = 15000 };
                     inspect.Tick += (_, _) =>
                     {
                         inspect.Stop();

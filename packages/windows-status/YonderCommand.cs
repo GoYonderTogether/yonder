@@ -85,7 +85,7 @@ internal static class YonderCommand
 
 internal sealed class CommandOutcome
 {
-    private CommandOutcome(bool ok, string stdout, string stderr, string? failure)
+    internal CommandOutcome(bool ok, string stdout, string stderr, string? failure)
     {
         Ok = ok;
         Stdout = stdout;
