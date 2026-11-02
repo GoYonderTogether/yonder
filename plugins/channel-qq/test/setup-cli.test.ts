@@ -83,6 +83,12 @@ async function legacyHome() {
 					wake: "mention",
 					reply: "none",
 				},
+				{
+					id: "qq-main-dm",
+					match: { channel: "qq-main", kind: "dm", from: "owner" },
+					session: "main",
+					profile: "owner",
+				},
 			],
 		}),
 	);
@@ -101,6 +107,7 @@ test("upgrade-groups previews first, then writes one backup and migrates only of
 				{ file, profile: "qq-main-group" },
 				{ file, binding: "qq-main-group" },
 				{ file, binding: "qq-main-batch" },
+				{ file, binding: "qq-main-parent" },
 			]),
 		);
 		// 预览不写文件，也不留备份。
@@ -122,6 +129,12 @@ test("upgrade-groups previews first, then writes one backup and migrates only of
 		// 自定义配置档与自定义绑定保持原样。
 		expect(migrated.profiles.custom).toEqual({ instructions: "自定义群提示", tools: { offer: ["read"] } });
 		expect(migrated.bindings[2]).toMatchObject({ id: "custom-group", profile: "custom", wake: "mention" });
+		expect(migrated.bindings.at(-1)).toMatchObject({
+			id: "qq-main-parent",
+			match: { channel: "agent", kind: "parent-request", from: "acct:agent:main" },
+			session: "main",
+			profile: "owner",
+		});
 
 		// 备份是可恢复的原文，且只写一份。
 		const backups = (await readdir(join(home, "agents/main"))).filter((name) => name.includes(".pre-qq-context-"));

@@ -129,7 +129,8 @@ export async function platformBatchBinding(
 	store: Store,
 	plugin: string,
 ) {
-	if (!membershipGroup(agent, source, channel)) return;
+	const official = officialGroupDefault(agent, source, channel);
+	if (!membershipGroup(agent, source, channel) && !official) return;
 	for (const candidate of agent.bindings) {
 		if (!(await matches(candidate, source, agent, store))) continue;
 		if (
@@ -137,9 +138,12 @@ export async function platformBatchBinding(
 			candidate.session === "ephemeral" ||
 			candidate.session.per !== "conv" ||
 			candidate.reply !== "none" ||
-			candidate.wake === "write"
+			(candidate.wake === "write" &&
+				!(official && officialGroupBinding({ ...agent, bindings: [candidate] }, source, channel)))
 		)
 			return;
+		const profile = agent.profiles[candidate.profile ?? agent.defaultProfile];
+		if (!(profile?.plugins ?? agent.defaults?.plugins ?? []).includes(plugin)) return;
 		return {
 			...candidate,
 			id: `${candidate.id}:batch`,

@@ -33,6 +33,7 @@ export function withDefaultPeer(
 		return agent;
 	}
 	if (agent.bindings.some((b) => b.id === "peer") || agent.profiles.peer) throw new Error("peer id collision");
+	const mainBinding = agent.bindings.find((binding) => binding.session === "main" && binding.wake !== "write");
 	const main = resolveProfile(agent.profiles[agent.defaultProfile]!, agent.defaults, workspaceEnv, defaultModel);
 	const peer: Profile = {
 		model: main.model,
@@ -48,11 +49,38 @@ export function withDefaultPeer(
 		env: workspaceEnv,
 		limits: { ...defaultLimits },
 	};
+	const parentRequest = agent.bindings.some((binding) => {
+		const includesOrOmits = (value: string | string[] | undefined, target: string) =>
+			value === undefined || (Array.isArray(value) ? value.includes(target) : value === target);
+		return (
+			includesOrOmits(binding.match.channel, "agent") &&
+			includesOrOmits(binding.match.kind, "parent-request") &&
+			includesOrOmits(binding.match.type, "message.in")
+		);
+	});
+	if (mainBinding && !parentRequest && agent.bindings.some((binding) => binding.id === "parent-request"))
+		throw new Error("parent-request id collision");
 	return {
 		...agent,
 		profiles: { ...agent.profiles, peer },
 		bindings: [
 			{ id: "peer", match: { channel: "agent", kind: "agent" }, session: "ephemeral", profile: "peer", reply: "none" },
+			...(mainBinding && !parentRequest
+				? [
+						{
+							id: "parent-request",
+							match: {
+								channel: "agent",
+								kind: "parent-request",
+								from: `acct:agent:${agent.id}`,
+							},
+							session: "main" as const,
+							profile: mainBinding.profile ?? agent.defaultProfile,
+							reply: "none" as const,
+							busy: "followup" as const,
+						},
+					]
+				: []),
 			...agent.bindings,
 		],
 	};

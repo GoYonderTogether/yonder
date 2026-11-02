@@ -26,6 +26,7 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 			"card-visitor",
 			"onboarding",
 			"owner",
+			"parent-request",
 			"peer",
 		]);
 		agent.bindings = agent.bindings.filter((binding: { id: string }) => binding.id !== "onboarding");
@@ -152,9 +153,14 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 		await expect
 			.poll(
 				async () =>
-					(await running.events.query({ type: "config.reload" })).events.some((event) =>
-						JSON.stringify(event.data).includes("unknown model"),
-					),
+					(await running.events.query({ type: "config.reload" })).events.some((event) => {
+						const errors = JSON.stringify(event.data);
+						return (
+							errors.includes("unknown model") &&
+							errors.includes("yonder models list") &&
+							errors.includes("agents validate")
+						);
+					}),
 				{ timeout: 8000 },
 			)
 			.toBe(true);

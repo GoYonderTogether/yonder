@@ -30,6 +30,9 @@ test("real home publishes agent and preset management without restarting or invo
 			"learning",
 		);
 		expect(await readFile(`${home}/agents/managed/memory/README.md`, "utf8")).toContain("#");
+		await expect(
+			manage({ action: "agents.update", id: "managed", value: { workspace: "./agents/main" } }),
+		).rejects.toThrow("choose a path that does not exist, run agents.validate, retry agents.update");
 		await manage({ action: "agents.update", id: "managed", value: { name: "更新名字", work: "更新工作" } });
 		expect(await manage({ action: "agents.show", id: "managed" })).toMatchObject({
 			name: "更新名字",

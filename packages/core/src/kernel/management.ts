@@ -146,7 +146,9 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 							entry.env !== state.config.agents?.find((a) => a.id === id)?.env)
 					) {
 						if (await state.files(config, id).exists("."))
-							throw new Error("New workspace already exists; directory migration/overwrite is not supported");
+							throw new Error(
+								"New workspace already exists; choose a path that does not exist, run agents.validate, retry agents.update, then verify with agents.show",
+							);
 					}
 					const { archivedAt: _, ...stored } = withoutRuntimeBindings(
 						parseAgentConfig(diskAgentText, "agent.yaml", id),

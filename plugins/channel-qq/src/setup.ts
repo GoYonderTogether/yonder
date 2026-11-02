@@ -10,6 +10,7 @@ import { parseArgs } from "node:util";
 import { type QrConnectCredentials, startQrConnect } from "@tencent-connect/qqbot-connector";
 import lockfile from "proper-lockfile";
 import { parseDocument } from "yaml";
+import { parentMigration } from "./parent-migration.js";
 import { groupInstructions, groupTools, legacyGroupInstructions } from "./participation.js";
 
 interface SetupOptions {
@@ -347,6 +348,7 @@ export async function upgradeGroups(home: string, agentId?: string, options: { a
 					binding.wake !== "write"
 				) {
 					doc.setIn(["bindings", index, "wake"], "write");
+					binding.wake = "write";
 					preview.push({ file, binding: String(binding.id ?? index) });
 					dirty = true;
 				}
@@ -360,10 +362,39 @@ export async function upgradeGroups(home: string, agentId?: string, options: { a
 					(binding.session as Record<string, unknown>).per === "conv"
 				) {
 					doc.setIn(["bindings", index, "match", "type"], "social.batch-ready");
+					match.type = "social.batch-ready";
 					preview.push({ file, binding: String(binding.id ?? index) });
 					dirty = true;
 				}
 			}
+			const qqGroups = new Map<string, string>();
+			for (const binding of bindings) {
+				const match = binding.match as Record<string, unknown> | undefined;
+				const channels = match?.channel === undefined ? [] : [match.channel].flat();
+				const session = binding.session as Record<string, unknown> | undefined;
+				if (
+					match?.kind === "group" &&
+					(match.type === undefined || match.type === "message.in") &&
+					binding.wake === "write" &&
+					binding.reply === "none" &&
+					session?.mode === "persistent" &&
+					session.per === "conv" &&
+					typeof binding.profile === "string" &&
+					isOfficialGroupProfile(profiles[binding.profile])
+				)
+					for (const instance of channels)
+						if (typeof instance === "string" && qqInstances.has(instance)) qqGroups.set(instance, binding.profile);
+			}
+			const additions: Array<Record<string, unknown>> = [];
+			const parent = parentMigration(entry.id, qqGroups, bindings, String(value.defaultProfile));
+			if (parent?.reason)
+				skipped.push(`${entry.id}/${parent.instance}: cannot add parent-request binding because ${parent.reason}`);
+			if (parent?.binding) {
+				additions.push(parent.binding);
+				preview.push({ file, binding: String(parent.binding.id) });
+				dirty = true;
+			}
+			if (additions.length) doc.set("bindings", [...bindings, ...additions]);
 			if (!dirty) {
 				skipped.push(entry.id);
 				continue;

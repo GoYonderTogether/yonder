@@ -103,6 +103,40 @@ test("isolated keeps disjoint bindings, collisions never overwrite and isolated 
 	expect(() => withDefaultPeer(agent)).toThrow("collision");
 });
 
+test("new non-isolated agents get an exact parent-request main binding; custom and isolated choices remain", () => {
+	const empty = { ...base(), bindings: [] };
+	const generated = withDefaultPeer(empty, false, "local", testModel);
+	expect(generated.bindings).toHaveLength(1);
+	const routedMain = withDefaultPeer(
+		{
+			...empty,
+			profiles: { owner: {}, alternate: {} },
+			bindings: [{ id: "owner-main", match: { channel: "cli", from: "owner" }, session: "main", profile: "alternate" }],
+		},
+		false,
+		"local",
+		testModel,
+	);
+	expect(routedMain.bindings.find((binding) => binding.id === "parent-request")).toMatchObject({
+		id: "parent-request",
+		match: { channel: "agent", kind: "parent-request", from: "acct:agent:main" },
+		session: "main",
+		profile: "alternate",
+		reply: "none",
+	});
+	const custom = {
+		...empty,
+		bindings: [
+			{ id: "parent-custom", match: { channel: "agent", kind: "parent-request" }, session: "ephemeral" as const },
+		],
+	};
+	expect(withDefaultPeer(custom, false, "local", testModel).bindings).toEqual([
+		expect.objectContaining({ id: "peer" }),
+		custom.bindings[0],
+	]);
+	expect(withDefaultPeer(empty, true)).toEqual(empty);
+});
+
 test("init and all preset creation paths generate peer; isolated input is creation-only; old disk config stays unchanged", async () => {
 	const home = await tempHome("ya-");
 	const isolatedHome = await tempHome("ya-");
@@ -112,6 +146,7 @@ test("init and all preset creation paths generate peer; isolated input is creati
 		const file = join(home, "agents/main/agent.yaml");
 		const initial = parse(await readFile(file, "utf8"));
 		expect(initial.bindings[0]).toMatchObject({ id: "peer", profile: "peer", reply: "none" });
+		expect(initial.bindings[1]).toMatchObject({ id: "parent-request", session: "main", profile: "owner" });
 		// Existing Agent lacking peer remains untouched on startup/reload.
 		delete initial.profiles.peer;
 		initial.bindings.shift();
@@ -134,14 +169,35 @@ test("init and all preset creation paths generate peer; isolated input is creati
 				action: "agents.create",
 				id,
 				preset,
-				value: { name: id, work: "Peer configuration verification", owner: "person:owner", bindings: [] },
+				value: {
+					name: id,
+					work: "Peer configuration verification",
+					owner: "person:owner",
+					bindings: [
+						{ id: "owner", match: { channel: "cli", kind: "dm", from: "owner" }, session: "main", profile: "default" },
+					],
+				},
 			});
 			const generated = (await kernel.management({ action: "agents.show", id })) as AgentConfig;
-			expect(generated.bindings[0]).toMatchObject({ id: "peer", profile: "peer" });
+			expect(generated.bindings.find((binding) => binding.id === "peer")).toMatchObject({
+				id: "peer",
+				profile: "peer",
+			});
+			expect(generated.bindings.find((binding) => binding.id === "parent-request")).toMatchObject({
+				session: "main",
+				profile: "default",
+			});
 			expect(generated.profiles.peer!.instructions).not.toContain("PRIVATE-INSTRUCTION");
 			expect(generated.profiles.peer!.prompt!.overrides).toEqual({});
 		}
-		const input = { name: "Isolated", work: "Configuration verification", owner: "person:owner", bindings: [] };
+		const input = {
+			name: "Isolated",
+			work: "Configuration verification",
+			owner: "person:owner",
+			bindings: [
+				{ id: "owner", match: { channel: "cli", kind: "dm", from: "owner" }, session: "main", profile: "default" },
+			],
+		};
 		await kernel.management({
 			action: "agents.create",
 			id: "isolated",
@@ -149,7 +205,7 @@ test("init and all preset creation paths generate peer; isolated input is creati
 			value: { ...input, isolated: true },
 		});
 		const stored = parse(await readFile(join(home, "agents/isolated/agent.yaml"), "utf8"));
-		expect(stored.bindings).toEqual([]);
+		expect(stored.bindings.map((binding: { id: string }) => binding.id)).toEqual(["owner"]);
 		expect(stored).not.toHaveProperty("isolated");
 		for (const isolated of [null, "false", 1])
 			await expect(
@@ -208,7 +264,7 @@ test("core workspace context works without plugins, loads only own two files, re
 		await files.writeFile("SOUL.md", "OWN-SOUL");
 		await files.writeFile("AGENTS.md", "OWN-WORK");
 		await files.writeFile("memory/private.md", "DO-NOT-PRELOAD");
-		const agent = withDefaultPeer(base(), false, "local", testModel);
+		const agent = withDefaultPeer({ ...base(), bindings: [] }, false, "local", testModel);
 		const session = { ...profileFor(home, config, agent, "peer"), id: "context" };
 		const options = { contexts: plugins.contexts, workspace: () => files };
 		const text = (await systemSections(session, options)).join("\n");
@@ -283,6 +339,32 @@ test("actual router chooses generated ephemeral peer ahead of broad owner, paren
 			data: { kind: "parent-request", text: "Parent compatibility", target: "main" },
 		});
 		expect(parent.routes?.[0]?.binding).toBe("broad");
+		const child = withDefaultPeer(
+			{
+				...base(),
+				id: "child",
+				bindings: [
+					{ id: "owner", match: { channel: "cli", kind: "dm", from: "owner" }, session: "main", profile: "owner" },
+				],
+			},
+			false,
+			"local",
+			testModel,
+		);
+		child.bindings.find((binding) => binding.id === "parent-request")!.wake = "write";
+		agents.set("child", child);
+		config.agents.push({ id: "child", workspace: home });
+		const childParent = await router.emit({
+			type: "message.in",
+			from: "acct:agent:child",
+			conv: "conv:agent:child",
+			data: { kind: "parent-request", text: "Default parent route", target: "child" },
+		});
+		expect(childParent.routes?.find((route) => route.agent === "child")).toMatchObject({
+			binding: "parent-request",
+			session: expect.any(String),
+			wake: "write",
+		});
 		agents.set("other", { ...agent, id: "other" });
 		agents.set("third", { ...agent, id: "third" });
 		const delivery = createDelivery({ store, agents, channels: new Map(), runtime: () => runtime!, sessions });

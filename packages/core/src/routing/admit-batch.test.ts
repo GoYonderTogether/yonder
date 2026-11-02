@@ -1,3 +1,4 @@
+import type { Channel } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
 import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
@@ -89,6 +90,70 @@ test("batch admission rechecks authorization, quiet and binding without routing 
 		expect(await admitBatch(request, deps, "alternative")).toBeUndefined();
 		agent.bindings = [];
 		expect(await admitBatch(request, deps, "alternative")).toBeUndefined();
+	} finally {
+		await db.close();
+	}
+});
+
+test("official QQ groups derive a missing social batch binding only with the selected loaded plugin", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const agent = parseAgentConfig(
+			JSON.stringify({
+				schema: 1,
+				id: "a",
+				name: "A",
+				owner: "person:owner",
+				defaultProfile: "group",
+				profiles: { group: { plugins: ["social"] } },
+				social: { enabled: true },
+				bindings: [
+					{
+						id: "qq-group",
+						match: { channel: "qq-main", kind: "group" },
+						session: { mode: "persistent", per: "conv" },
+						profile: "group",
+						wake: "write",
+						reply: "none",
+					},
+				],
+			}),
+		);
+		const conv = "conv:qq-main:group:g";
+		await store.sessions.put({
+			id: "1",
+			agent: "a",
+			profile: "group",
+			mode: "persistent",
+			key: `conv:${conv}`,
+			version: "1",
+			opened: "now",
+		});
+		const source = await store.events.record(
+			{ type: "message.in", from: "acct:qq-main:u", conv, data: { kind: "group", text: "hello" } },
+			[{ agent: "a", binding: "qq-group", session: "1", wake: "write" }],
+		);
+		const request = {
+			agent: "a",
+			conv,
+			through: source.id,
+			sourceEvents: [source.id],
+			policyRevision: socialRevision(agent.social!),
+		};
+		const deps = {
+			agents: new Map([["a", agent]]),
+			store,
+			channels: new Map([["qq-main", { id: "qq-main", kinds: ["dm", "group"] } as Channel]]),
+			plugins: new Set(["social"]),
+			participationHooks: await socialPluginHooks(),
+		};
+		expect(await admitBatch(request, deps)).toEqual({ session: "1" });
+		deps.plugins.clear();
+		expect(await admitBatch(request, deps)).toBeUndefined();
+		deps.plugins.add("social");
+		agent.profiles.group!.plugins = [];
+		expect(await admitBatch(request, deps)).toBeUndefined();
 	} finally {
 		await db.close();
 	}

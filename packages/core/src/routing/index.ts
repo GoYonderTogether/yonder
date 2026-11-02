@@ -284,8 +284,10 @@ export function createRouter({
 				}
 			}
 			// 派生默认范围没有可用批次绑定时只记录观察游标，并用可读诊断说明原因（08、11）。
+			const canDeriveBatch =
+				participationPlugins.has("social") && !!(await platformBatchBinding(agent, event, channel, store, "social"));
 			const noBatchBinding =
-				!!decision && derivedDefaults.has(agent.id) && !batchReadyBinding(agent, instance, "social");
+				!!decision && derivedDefaults.has(agent.id) && !batchReadyBinding(agent, instance, "social") && !canDeriveBatch;
 			if (decision)
 				diagnostics.push({
 					agent: agent.id,
