@@ -81,12 +81,9 @@ Later-main replacements (including versions and prompt iterations) are judged ag
 | `bd63bc2c` | docs: record exact Pi provenance and batch activation checks | 3 surviving additions present; 1 final main blob identical. `CONTRIBUTING.md`, `THIRD_PARTY_NOTICES.md`, `docs/decisions.md`; 4 mapped targets checked |
 | `6189a34e` | capture bounded social update failure evidence | 1 final main blob identical. `plugins/social/test/self-configuration-natural-live.test.ts` |
 | `ae197ecb` | initialize conversation policy YAML mapping | 3 surviving additions present. `CHANGELOG.md`, `packages/local-host/src/kernel/social.test.ts`, `packages/local-host/src/kernel/social.ts` |
-
 | `e423078f` | feat: bundle Yonder Pi durable D3 source | 11 surviving additions present; 9 final main blob identical; 1 D3 provenance and upstream anchor reconciliation preserved; retain authorized local program overlay; 5 main deletion preserved; final-source/package adaptations checked. |
 | `4e58ceb8` | docs: record complete source candidate checks and Pi provenance | 3 surviving additions present; 2 final main blob identical; final-source/package adaptations checked. |
-
 | `0fcaf613` | test: bound denied remote reads | `tests/workbench-remote.test.ts`: main’s added deadline is preserved with branch package/Runtime-storage adaptations; deny-grant fs.read call includes `signal: AbortSignal.timeout(20000)`. |
-
 | `d7d86c8e` | chore(release): 0.3.26110215 | Preserve main CHANGELOG and root/apps/real workspace versions/lock data; old core’s release metadata mapped to real bot-definition/bot-core/local-host/runtime-adapter/cloud-host packages without reviving core. |
 | `2d9b037a` | docs: define grounded channel identity and verified owner goals | New main owner-goal and exact-channel-identity paragraphs in docs/spec/02-sessions.md and11-official-plugins.md are retained; existing branch changes only relocate package references.04-plugins retains main describeConversation signature/bullets plus branch singleResult/shutdown/storage contracts; decisions retains both new main sections and branch decisions. |
 | `fe09dfae` | Merge remote-tracking branch origin/main | Both parents preserved: release26110215 and grounded channel identity/owner-goal documentation. No main commit remains outside the branch. |

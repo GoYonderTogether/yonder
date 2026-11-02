@@ -64,3 +64,49 @@ PG/storage首轮47/3、次轮44/6、第三轮50/0；扩展54/1后修tasks storag
 上一轮清理误删9份已引用定向日志，7份从本任务原始工具stdout完整恢复；两份完整raw（原44/6、7187B；54/1、1497B）只恢复真实片段。这是历史损失，不能称无损。当前维护者明确要求删除全部机器原始产物，保留本文的真实计数、原因及必要摘录；恢复过程简述见 [清理更正](scratch-log-audit.md)。
 
 真实Luna未测：YONDER_TEST_AUTH未设且默认.yonder/auth.json不存在。未部署，未验证2核2GB同机PG/Redis/nginx长期共存和日常设备全部硬件grant组合。
+
+## 最终清理轮 gate 的执行边界
+
+先在ebd44c00开始gate时，build/typecheck/lint退出0；main随后又前进，旧Vitest尚未退出时执行merge，测试读到了临时冲突标记。这次运行不是冻结源码验收：实际Vitest2678pass/9fail/113skip，18files fail/500pass/67skip，133.16s，Node阶段未执行。实际JSON解析错误位置包括886（line40,column1）及403（line24,column1），对应临时manifest冲突标记。没有为这些冲突窗口失败改产品断言或timeout；merge及lock metadata修复完成后，在8e6b474d重新执行完整gate。最终结果在下方单独记录。
+
+## 最终清理后的冻结源码完整 gate
+
+产品及manifest/lock冻结在`8e6b474dd25b537a26fff066010a2609c447f9ff`；之后仅可读验证文档与raw删除（6031b432、772d941c）。main为`fe09dfaebb17e9b9df4bec634393a5165123e39c`，基线以来79条提交逐项保留。没有因转发文件删除修改行为断言、timeout或skip。
+
+| 命令（Yonder根目录） | 退出码 | 实际墙钟秒数 | 结果 |
+|---|---|---|---|
+| `npm run build` | 0 | 15.58 | 完整构建 |
+| `npm run typecheck` | 0 | 8.93 | 完整类型检查 |
+| `npm run lint` | 0 | 2.18 | 含size/layers；107shared模块、747workspace生产TS，层级基线0 |
+| `npm test -- --maxWorkers=4` | 0 | 141.57 | 2764pass/0fail/113skip；518files pass/67skip；runner141.01s |
+| `npm run test:node` | 0 | 1.80 | 83pass/0fail/0cancelled/0skip/0todo，runner1615.915667ms |
+
+实际最终stdout短摘录：
+
+```text
+ Test Files  518 passed | 67 skipped (585)
+      Tests  2764 passed | 113 skipped (2877)
+   Duration  141.01s (tests 67%, import 29%, transform 3%)
+ℹ tests 83
+ℹ pass 83
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+```
+
+前述被merge干扰的旧运行实际错误短摘录（不作冻结源码验收）：
+
+```text
+  "native-automation: Expected double-quoted property name in JSON at position 886 (line 40 column 1)",
+```
+
+Cloud本轮完整gate重新通过：build/typecheck全部0，真实PG/Redisserver208/0（22suites，79.203s），deploy19/0、market13/0、SSR3/0、version check0；无lint script。SSR首次漏既有TSX_TSCONFIG_PATH导致0/3，正确命令后3/0；原始执行错误保留在Cloud总账，不改源码或断言。
+
+本轮没有重跑真实GLM或A12：先前修复后的真实结果、资源数值及原始失败已在本文保留，不称为此次转发路径/文档清理后的新模型测量。
+
+清理范围：Yonder删除73份tracked raw（1025383B/28230lines）及324份ignored/untracked scratch（1500578B/26128lines）；Cloud删除11份tracked raw及8份untracked scratch。两仓docs/verification的.log/.json/.jsonl/.txt/.tsv均为0，文档不再引用已删除文件。截图与可读Markdown保留。新gate仅在进程内存提取结果，无新raw文件。
+
+转发文件清理：ebd44c00删除13个local-host/kernel forwarders及gateway/protocol/views.ts，全部消费者直达真实包。唯一保留的单行export-star是gateway/protocol/index.ts：package.json公开导出./protocol，App9处真实导入，属于现行公共入口。packages/plugins其余源码没有单行star转发规避层级门。
+
+结束检查命令`git rev-list --count refactor/shared-bot-core..main`在两仓均输出`0`；`git diff --check`通过。无push、部署、生产访问或key输出。
