@@ -65,7 +65,8 @@ test("remote readonly find/grep read real files, preserve anchors and ignore nes
 	const found = await createFindTool().execute({ pattern: "*.ts" }, ctx);
 	expect(found.text.split("\n").sort()).toEqual([".hidden/b.ts", "src/a.ts"]);
 	const grep = await createGrepTool().execute({ pattern: "hello", ignoreCase: true, context: 1, glob: "*.ts" }, ctx);
-	expect(grep.text).toContain("=== " + join(home, "src/a.ts") + " ===");
+	// Display headers use forward slashes; filesystem operations and anchor keys retain native canonical paths.
+	expect(grep.text.split("\n")[0]).toBe(`=== ${join(home, "src/a.ts").replaceAll("\\", "/")} ===`);
 	expect(grep.text).toMatch(/2:│ [a-z]{5}│Hello 世界/);
 	expect(grep.text).toMatch(/1-│ [a-z]{5}│before/);
 	expect(grep.text).not.toContain("ignored");
