@@ -113,7 +113,7 @@ bindings:
 - `per: from` 相同的绑定中，`match.channel` 与 `match.kind` 都有交集的（没写的维度视为全部）；
 - `per: conv` 按完整 `conv` key 判断，显式不相交的 conv 或由 conv 可确定的不相交渠道可以分开；保留既有泛用 DM/group kind 分区兼容，但明确相同的精确 conv 不能借 kind 分区取得两个配置档。不能仅因 from 或 type 不同便假定同一 conv 的会话配置档不同。
 
-精确群覆盖沿有序 first-match，不新增优先级或会话命名空间。仅对有限精确 conv 提供保守的遮蔽证明：排在前面的 `persistent/per:conv` 接收绑定用精确 conv，且不收窄 kind/from/type（省略 type 即 message.in）；它覆盖的普通消息域不再可能落到后面的泛用普通消息绑定。显式 channel 必须与该完整 conv 的渠道一致。只能从后置绑定的有效 key 范围扣除已被完整遮蔽的 conv；不同事件域（如 batch/custom type）仍可能进入同一 key，必须检查其有效配置档一致。条件不完整、顺序不正确或不能证明全覆盖时继续拒绝，并说明调整精确接收绑定与其他事件绑定的路径，不猜平台群类型、不做一般表达式求解。
+精确群覆盖沿有序 first-match，不新增优先级或会话命名空间。仅对有限精确 conv 提供保守的遮蔽证明：排在前面的 `persistent/per:conv` 接收绑定用精确 conv，且不收窄 kind/from，type 省略或为 message.in；它覆盖的普通消息域不再可能落到后面的泛用普通消息绑定。显式 channel 必须与该完整 conv 的渠道一致。只能从后置绑定的有效 key 范围扣除已被完整遮蔽的 conv；不同事件域（如 batch/custom type）仍可能进入同一 key，必须检查其有效配置档一致。条件不完整、顺序不正确或不能证明全覆盖时继续拒绝，并说明调整精确接收绑定与其他事件绑定的路径，不猜平台群类型、不做一般表达式求解。
 
 同一证明可消除批次等既有类型的后置兜底：更早的有限精确 conv 绑定若不收窄 kind/from、channel 一致且有效 type 完全相同，后置同类型绑定在该 conv 已被完整遮蔽。只比较相同有效 type（缺省等价 message.in），不新增前缀包含求解。未被遮蔽的 batch/custom type 仍须与普通接收绑定同 profile，不能仅因事件类型不同而分档。
 
