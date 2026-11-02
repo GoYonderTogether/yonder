@@ -1,8 +1,27 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { env } from "node:process";
 import { inspectSkills } from "@yonder/core";
 import { homeFor, managed, namedOptions, type Options, print, skillsUsage, UsageError } from "./context.js";
+
+function currentInspectContext(home: string) {
+	try {
+		const value: unknown = JSON.parse(env.YONDER_RUNTIME_INSPECT_CONTEXT ?? "");
+		if (
+			typeof value === "object" &&
+			value !== null &&
+			typeof (value as Record<string, unknown>).home === "string" &&
+			resolve((value as Record<string, string>).home) === resolve(home) &&
+			typeof (value as Record<string, unknown>).agent === "string" &&
+			(value as Record<string, string>).agent !== "" &&
+			typeof (value as Record<string, unknown>).profile === "string" &&
+			(value as Record<string, string>).profile !== ""
+		)
+			return value as { home: string; agent: string; profile: string };
+	} catch {}
+	return undefined;
+}
 
 /** `agents`/`presets`, `plugins`/`models`/`inspect` and `skills`: management over the control socket. */
 export async function runConfig(command: string, options: Options, rest: string[]): Promise<number | undefined> {
@@ -50,21 +69,40 @@ export async function runConfig(command: string, options: Options, rest: string[
 			if (operation === "add") source = rest[1]?.startsWith(".") || existsSync(rest[1]!) ? resolve(rest[1]!) : rest[1];
 			else id = rest[1];
 		}
-		return print(
-			managed(
-				homeFor(options),
-				{
-					method: "management",
-					params: {
-						action,
-						...(id ? { id } : {}),
-						...(source ? { source } : {}),
-						...(flags["--agent"] ? { agent: flags["--agent"] } : {}),
-						...(flags["--profile"] ? { profile: flags["--profile"] } : {}),
-					},
+		const home = homeFor(options);
+		const runtime = command === "inspect" ? currentInspectContext(home) : undefined;
+		const inheritedAgent = Boolean(runtime && !flags["--agent"]);
+		const inheritedProfile = Boolean(
+			runtime && !flags["--profile"] && (!flags["--agent"] || flags["--agent"] === runtime.agent),
+		);
+		const agent = flags["--agent"] ?? runtime?.agent;
+		const profile = flags["--profile"] ?? (inheritedProfile ? runtime?.profile : undefined);
+		const inspection = managed(
+			home,
+			{
+				method: "management",
+				params: {
+					action,
+					...(id ? { id } : {}),
+					...(source ? { source } : {}),
+					...(agent ? { agent } : {}),
+					...(profile ? { profile } : {}),
 				},
-				true,
-			),
+			},
+			true,
+		);
+		return print(
+			command === "inspect" && runtime && (inheritedAgent || inheritedProfile)
+				? inspection.then((value) => ({
+						...(value as object),
+						inspectionContext: {
+							source: "current runtime session",
+							home: "matched runtime home",
+							agent: inheritedAgent ? "current runtime session" : "explicit",
+							profile: flags["--profile"] ? "explicit" : inheritedProfile ? "current runtime session" : "agent default",
+						},
+					}))
+				: inspection,
 			options.json,
 		);
 	}

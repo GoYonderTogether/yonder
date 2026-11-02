@@ -6,10 +6,14 @@ import { Type } from "typebox";
 
 import { hostedProcessSpawner } from "./hosted-process.js";
 import { cacheToolOutput } from "./tool-output-cache.js";
+import type { RuntimeSessionConfig } from "./types.js";
+
+export const inspectContextEnv = "YONDER_RUNTIME_INSPECT_CONTEXT";
 
 export function processTool(
 	home: string,
 	jobs: Map<number, { output: string; write?: (text: string, eof?: boolean) => Promise<void> }>,
+	resolveSession?: (id: string) => Promise<RuntimeSessionConfig>,
 ): ToolRegistration {
 	return {
 		name: "bash",
@@ -30,6 +34,11 @@ export function processTool(
 			const args = value as { command: string; cwd?: string; timeout?: number; stdin?: boolean };
 			if (api.env?.id !== "node:local")
 				throw new Error("Interactive process management requires the local environment");
+			const session = await resolveSession?.(String(api.conversationId));
+			const childEnv = { ...process.env };
+			delete childEnv[inspectContextEnv];
+			if (session?.agent && session.profile)
+				childEnv[inspectContextEnv] = JSON.stringify({ home, agent: session.agent, profile: session.profile });
 			const folder = join(home, ".yonder", "background");
 			await mkdir(folder, { recursive: true, mode: 0o700 });
 			const path = join(folder, `${api.taskId}.log`),
@@ -41,13 +50,14 @@ export function processTool(
 						program: "/bin/bash",
 						args: ["-c", args.command],
 						cwd: args.cwd ?? api.env!.cwd,
-						env: process.env,
+						env: childEnv,
 						stdin: args.stdin ? "pipe" : "ignore",
 					});
 					const child =
 						hosted?.child ??
 						spawn("/bin/bash", ["-c", args.command], {
 							cwd: args.cwd ?? api.env!.cwd,
+							env: childEnv,
 							detached: true,
 							stdio: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
 						});

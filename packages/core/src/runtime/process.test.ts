@@ -4,22 +4,27 @@ import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/conte
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
+import type { RuntimeSessionConfig } from "./types.js";
 
 // Transport/API contract fixtures execute the actual tool and OS bash, no model.
 afterEach(() => {
 	vi.unstubAllEnvs();
 	vi.resetModules();
 });
-async function fixture() {
+async function fixture(session?: Pick<RuntimeSessionConfig, "agent" | "profile">) {
 	vi.stubEnv("YONDER_SERVICE_REGISTRATION", undefined);
 	vi.stubEnv("YONDER_SERVICE_COMMAND_FD", undefined);
 	const home = await tempHome("ya-");
-	const { processTool } = await import("./process.js");
+	const { inspectContextEnv, processTool } = await import("./process.js");
 	const jobs = new Map<number, { output: string; write?: (text: string, eof?: boolean) => Promise<void> }>();
-	const tool = processTool(home, jobs);
+	const tool = processTool(home, jobs, async (id) => {
+		expect(id).toBe("1");
+		return (session ?? { agent: null, profile: "default" }) as RuntimeSessionConfig;
+	});
 	let id = 0;
 	return {
 		home,
+		inspectContextEnv,
 		run(args: Record<string, unknown>, controller = new AbortController()) {
 			const taskId = ++id;
 			jobs.set(taskId, { output: "" });
@@ -46,6 +51,28 @@ test("explicitly unhosted bash retains real output and nonzero exit", async () =
 		expect(value.output).toContain("actual");
 		expect(value.stderr).toBe("error");
 		expect(await readFile(value.fullOutputPath, "utf8")).toBe(value.output);
+	} finally {
+		await f.close();
+	}
+});
+test("bash carries only the resolved active session context and clears stale ambient context", async () => {
+	const f = await fixture({ agent: "main", profile: "private" });
+	try {
+		vi.stubEnv(f.inspectContextEnv, "stale-value");
+		const active = await f.run({ command: `printf '%s' "$${f.inspectContextEnv}"` });
+		const activeText = active.output?.[0];
+		if (activeText?.type !== "text") throw new Error("bash returned no text result");
+		expect(JSON.parse(JSON.parse(activeText.text).output)).toEqual({ home: f.home, agent: "main", profile: "private" });
+		const absent = await fixture();
+		try {
+			vi.stubEnv(absent.inspectContextEnv, "stale-value");
+			const result = await absent.run({ command: `printf '%s' "$${absent.inspectContextEnv}"` });
+			const text = result.output?.[0];
+			if (text?.type !== "text") throw new Error("bash returned no text result");
+			expect(JSON.parse(text.text).output).toBe("");
+		} finally {
+			await absent.close();
+		}
 	} finally {
 		await f.close();
 	}
