@@ -77,6 +77,7 @@ test.skipIf(!cardRoot)(
 		const baseUrl = `http://127.0.0.1:${server.address().port}`;
 		const owner = await human(svc.pool),
 			controllerCard = await device(svc.pool, owner.id),
+			secondControllerCard = await device(svc.pool, owner.id),
 			executorCard = await device(svc.pool, owner.id);
 		const home = join(root, "executor"),
 			controllerHome = join(root, "controller"),
@@ -129,25 +130,36 @@ test.skipIf(!cardRoot)(
 		await writeFile(tokenFile, executorCard.token, { mode: 0o600 });
 		await writeFile(
 			config,
-			JSON.stringify({ baseUrl, peerDeviceId: controllerCard.id, tokenFile, allowInsecureLoopback: true }),
+			JSON.stringify(
+				[controllerCard, secondControllerCard].map((peer) => ({
+					baseUrl,
+					peerDeviceId: peer.id,
+					tokenFile,
+					allowInsecureLoopback: true,
+				})),
+			),
 			{ mode: 0o600 },
 		);
-		const openController = async () => {
+		const openController = async (controller = controllerCard) => {
 			const ticketResponse = await fetch(`${baseUrl}/api/execution/ticket`, {
 				method: "POST",
-				headers: { authorization: `Bearer ${controllerCard.token}`, "content-type": "application/json" },
+				headers: { authorization: `Bearer ${controller.token}`, "content-type": "application/json" },
 				body: JSON.stringify({ targetDeviceId: executorCard.id }),
 			});
 			expect(ticketResponse.status).toBe(201);
 			const ticket = ((await ticketResponse.json()) as { ticket: string }).ticket;
 			const peer = new WebSocket(`${baseUrl.replace("http:", "ws:")}/ws/execution`, {
-				headers: { authorization: `Bearer ${controllerCard.token}`, "x-execution-relay-ticket": ticket },
+				headers: { authorization: `Bearer ${controller.token}`, "x-execution-relay-ticket": ticket },
 			});
 			peer.on("error", () => {});
 			await once(peer, "open");
 			return peer;
 		};
 		let socket = await openController();
+		const secondSocket = await openController(secondControllerCard);
+		disposals.push(async () => {
+			secondSocket.terminate();
+		});
 		disposals.push(async () => {
 			socket.terminate();
 		});
@@ -189,7 +201,7 @@ test.skipIf(!cardRoot)(
 			child.on("error", reject);
 			child.on("exit", () => reject(new Error(stderr || "early CLI exit")));
 		});
-		await expect.poll(() => stderr.includes('"card":"connected"')).toBe(true);
+		await expect.poll(() => stderr.split('"card":"connected"').length - 1).toBe(2);
 		const controllerKey = createPrivateKey(pairing.privateKey);
 		const packet = (method: RpcRequest["method"], params: RpcRequest["params"]) => {
 			const issuedAt = Date.now();
@@ -222,18 +234,18 @@ test.skipIf(!cardRoot)(
 				(await (await fetch(directUrl, { method: "POST", body: JSON.stringify(sent) })).json()) as SignedEnvelope,
 				sent,
 			);
-		const relay = (sent: SignedEnvelope): Promise<RpcResponse> =>
+		const relay = (sent: SignedEnvelope, peer = socket): Promise<RpcResponse> =>
 			new Promise((resolve, reject) => {
 				const routeId = randomUUID();
 				const timeout = setTimeout(() => {
-					socket.off("message", receive);
+					peer.off("message", receive);
 					reject(Error("relay response timeout"));
 				}, 3000);
 				const receive = (raw: WebSocket.RawData) => {
 					const message = JSON.parse(raw.toString());
 					if (message.frame?.routeId === routeId) {
 						clearTimeout(timeout);
-						socket.off("message", receive);
+						peer.off("message", receive);
 						try {
 							resolve(decode(message.frame.envelope, sent));
 						} catch (error) {
@@ -241,8 +253,8 @@ test.skipIf(!cardRoot)(
 						}
 					}
 				};
-				socket.on("message", receive);
-				socket.send(
+				peer.on("message", receive);
+				peer.send(
 					JSON.stringify({
 						type: "relay",
 						targetDeviceId: executorCard.id,
@@ -274,7 +286,7 @@ test.skipIf(!cardRoot)(
 		await direct(packet("commands.submit", { commandBase64: bytes })); // Intentionally discard submit ACK.
 		const duplicate = await relay(packet("commands.submit", { commandBase64: bytes }));
 		expect(duplicate.ok).toBe(true);
-		const status = await relay(packet("commands.status", { commandId }));
+		const status = await relay(packet("commands.status", { commandId }), secondSocket);
 		expect(status.ok && status.result).toMatchObject({ state: "succeeded", payloadSha256: commandDigest(bytes) });
 		expect(await readFile(effect, "utf8")).toBe("once");
 		// Card's token authorizes routing only; its revocation cannot revoke the direct paired grant.
@@ -306,7 +318,7 @@ test.skipIf(!cardRoot)(
 		socket = await openController();
 		await expect
 			.poll(() => stderr.split('"card":"connected"').length - 1, { timeout: 8000, interval: 100 })
-			.toBeGreaterThanOrEqual(2);
+			.toBeGreaterThanOrEqual(3);
 		const reconnected = await relay(packet("commands.status", { commandId }));
 		expect(reconnected.ok && reconnected.result).toMatchObject({ state: "succeeded" });
 		expect(await readFile(effect, "utf8")).toBe("once");

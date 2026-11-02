@@ -73,7 +73,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		const executor = new DeviceExecutor(home, backend, (diagnostic) => {
 			process.stderr.write(`${JSON.stringify({ executionDiagnostic: diagnostic })}\n`);
 		});
-		let card: CardDaemonConnection | undefined;
+		const cards: CardDaemonConnection[] = [];
 		try {
 			const host = options.host ?? "127.0.0.1";
 			const port = options.port === undefined ? 0 : Number(options.port);
@@ -84,13 +84,23 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 					: undefined;
 			const boundPort = await executor.listenDirect({ host, port, ...(tls ? { tls } : {}) });
 			if (options["card-config"]) {
-				const config = JSON.parse(readFileSync(options["card-config"], "utf8")) as CardConnectionConfig;
-				card = new CardDaemonConnection(
-					config,
-					(envelope, signal) => executor.handle(envelope, signal),
-					(state) => process.stderr.write(`${JSON.stringify({ card: state })}\n`),
+				const config = JSON.parse(readFileSync(options["card-config"], "utf8")) as
+					| CardConnectionConfig
+					| CardConnectionConfig[];
+				const connections = Array.isArray(config) ? config : [config];
+				if (!connections.length) throw new Error("INVALID_REQUEST");
+				cards.push(
+					...connections.map(
+						(connection) =>
+							new CardDaemonConnection(
+								connection,
+								(envelope, signal) => executor.handle(envelope, signal),
+								(state) =>
+									process.stderr.write(`${JSON.stringify({ card: state, peerDeviceId: connection.peerDeviceId })}\n`),
+							),
+					),
 				);
-				card.start();
+				for (const card of cards) card.start();
 			}
 			output({
 				deviceId: executor.deviceId,
@@ -102,7 +112,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 				process.once("SIGTERM", () => done());
 			});
 		} finally {
-			card?.close();
+			for (const card of cards) card.close();
 			await executor.close();
 		}
 		return;
