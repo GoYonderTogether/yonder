@@ -107,3 +107,59 @@ test("concurrent persisted Bot deadlines keep one real timer and detach preserve
 		clear.mockRestore();
 	}
 });
+
+test("an older arm query cannot install a second timer after a newer arm has finished", async () => {
+	const nativeQuery = database.pool.query.bind(database.pool);
+	let release!: () => void;
+	let entered!: () => void;
+	const waiting = new Promise<void>((resolve) => {
+		entered = resolve;
+	});
+	const delayed = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	let first = true;
+	const query = vi.spyOn(database.pool, "query").mockImplementation((async (
+		...args: Parameters<typeof nativeQuery>
+	) => {
+		const result = await Reflect.apply(nativeQuery, database.pool, args);
+		if (first) {
+			first = false;
+			entered();
+			await delayed;
+		}
+		return result;
+	}) as typeof database.pool.query);
+	const nativeSet = globalThis.setTimeout;
+	let armed = 0;
+	const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+		callback: (...args: unknown[]) => void,
+		delay?: number,
+		...args: unknown[]
+	) => {
+		if (callback.name === "wakeDeadlines") armed++;
+		return nativeSet(callback, delay, ...args);
+	}) as typeof setTimeout);
+	const scheduler = createPostgresScheduler(
+		database.pool,
+		async () => {},
+		(error) => {
+			throw error;
+		},
+		Date.now(),
+		{ maintenance: async () => {} },
+	);
+	try {
+		const older = scheduler.start();
+		await waiting;
+		await scheduler.start();
+		release();
+		await older;
+		expect(armed).toBe(1);
+	} finally {
+		release();
+		await scheduler.stop();
+		query.mockRestore();
+		timer.mockRestore();
+	}
+});

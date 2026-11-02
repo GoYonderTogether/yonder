@@ -26,6 +26,7 @@ export function createPostgresScheduler(
 	const keyOf = (tenant: string, bot: string, key: string) => JSON.stringify([tenant, bot, key]);
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let stopped = false;
+	// arm() queries can overlap before dispatch sets pending; only the latest query may install a timer.
 	let generation = 0;
 	let pending: Promise<void> | undefined;
 	let nextMaintenance = startedAt + 15000;
