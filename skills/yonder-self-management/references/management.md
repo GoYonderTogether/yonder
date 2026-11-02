@@ -86,7 +86,7 @@ ASR/TTS/embedding/rerank 等用 `yonder.yaml.services`，不是聊天 model。�
 
 主人说“改成某模型”“负责这个群”“消息都看着但按需回复”“先别说话”时，完成下面这条链。不要把低层 YAML、第二次确认口令或反复重试交给用户。只在目标/影响范围确实不清时问缺失信息。
 
-1. **确定真实对象。** 核对 home、服务版本、原始消息的 Agent/channel/conv 与 owner 关系。 当前运行 profile 取宿主事实；`inspect` 省略 `--profile` 时查询 Agent 的 defaultProfile，不代表当前会话。检查当前权限时显式传当前 profile，并核对回执的 profile 字段；不要把群档的权限缺项当主会话缺权限。`agents show` 读取实际绑定及 profiles，`inspect --agent <id> --profile <name>` 核对有效工具/能力/模型。群名称和昵称不是目标或授权证明。
+1. **确定真实对象。** 核对 home、服务版本、原始消息的 Agent/channel/conv 与 owner 关系。 当前运行 profile 取宿主事实；`inspect` 在匹配 home 的本机 Agent 子进程可沿当前 Agent/profile（回执有 inspectionContext），普通终端或没有匹配上下文时省略 `--profile` 查询目标 defaultProfile，不一定代表当前会话。检查当前权限时显式传当前 profile，并核对回执的 profile 字段；不要把群档的权限缺项当主会话缺权限。`agents show` 读取实际绑定及 profiles，`inspect --agent <id> --profile <name>` 核对有效工具/能力/模型。群名称和昵称不是目标或授权证明。
 2. **拆开配置维度。** 由谁负责是 Agent 身份；在哪保存历史是 session；用哪个模型和工具是 profile；收到消息、记录、唤醒模型、允许发言与最终投递各有配置。使用实际已选 social 工具查询群策略及路由，工具不在当前可用列表时只用已提供的发现入口，不假装存在。
 3. **形成最小补丁。** 私聊与各群可能共用 profile；先列出本次实际影响，尽量更新现有目标 profile，不随意新命名 profile 使开放会话产生冲突。`agents update` 的 profiles/bindings 是配置字段，不是任意 JSON 深合并：按 `agents show` 保留未修改的兄弟字段/绑定，避免只提交一个子项把其他配置替换掉。控制面的 config.get/update 支持可选 profile，省略仍是 defaultProfile；只能在实际提供该管理接口的客户端使用，不虚构 CLI 命令。
 4. **先校验再接纳。** 用 `agents validate <id> --file <json>` 校验完整候选，再 `agents update <id> --file <json>` 等待热重载结果，显式带 `--home <home> --json`。无效候选保留旧有效配置；读取具体字段/绑定错误再改，不能为了通过而弱化能力边界。saved 是落盘，accepted 是服务接纳；restartRequired 是另一个事实，不能把重启所需字段说成已热生效。

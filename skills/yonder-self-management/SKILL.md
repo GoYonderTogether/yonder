@@ -17,4 +17,4 @@ description: 管理 Yonder Harness 自身的运行目录、配置、身份、常
 - 生效检查、热重载、安装更新：第 6 节。
 - 用户提出模型、群接管、监听节奏、禁言或配置需求后的完整办理：第 7 节。
 
-以当前安装的 `yonder --help`、`yonder docs --list` 和 `yonder docs <path>` 查询版本对应文档；本文不是对尚未提供的 CLI 或插件的承诺。工具不在当前列表时，仅在已提供 `tool_search` 的情况下用它搜索；否则用可用的 `yonder inspect --agent <当前Agent> --profile <当前profile> --home <当前home>` 或插件清单核对，不调用未提供的工具。`inspect` 省略 profile 查询的是 defaultProfile，可能与当前运行档不同；核对回执的 profile 字段，不能据群档的缺权限断定当前主会话也缺权限。
+以当前安装的 `yonder --help`、`yonder docs --list` 和 `yonder docs <path>` 查询版本对应文档；本文不是对尚未提供的 CLI 或插件的承诺。工具不在当前列表时，仅在已提供 `tool_search` 的情况下用它搜索；否则用可用的 `yonder inspect --agent <当前Agent> --profile <当前profile> --home <当前home>` 或插件清单核对，不调用未提供的工具。同 home 本机执行上下文中的裸 `inspect` 可沿当前 Agent/profile，回执以 inspectionContext 标明；普通终端、跨 home 或显式检查其他 Agent 时仍可能取目标 defaultProfile。核对回执的 profile 字段，不能据群档的缺权限断定当前主会话也缺权限。

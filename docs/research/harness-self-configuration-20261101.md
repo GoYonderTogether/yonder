@@ -91,3 +91,5 @@ config_routing 负责 A；delegation_auth 负责 B；runtime_evidence 负责 C �
 复核真实调用链发现：参与配置能给出 batch.run:true，定时器也接受，但群发言协调仍可因关键词/关注未命中、count 未满而推进旁观游标，不让模型判断少量普通消息。修复以现有策略为准：明确授权的普通批次在已有窗口与限制满足后进入模型；默认 run:false、明确拒绝/静音/quiet、他人明确接单与机器人互刷限制保留。不新增自然语言正则，也不把“收到了”当作“模型已看过”。工具/skill 同时解释 intake、mode、batch.run 三者，避免让模型根据 user message 中的技术提示才能配置。
 
 自然群取证发现：主会话正确收到 private profile，却把未指定 --profile 的 inspect 默认 group 权限结果误认为当前权限，又调用仅非主会话可用的 parent_ask。共享修复保持 CLI 兼容默认，明确检查对象；主会话不提供不可执行的 parent_ask，通用委派语义明确接办和内部回传。验收环境恢复真实默认技能发现，不能通过关闭管理知识测试后给用户补操作提示。
+
+进一步重复验收中，即使通用管理技能已可读，裸inspect默认对象误判仍复现；一次成功不足以交付。修复提升至执行边界：仅本机Agent进程中的只读inspect，在实际home匹配且无显式覆盖时沿当前Agent/profile；显式参数和跨home/Agent边界优先，普通终端及配置写入默认不变。环境上下文只定位、不授权，避免再靠用户message或提示词保证不丢当前对象。

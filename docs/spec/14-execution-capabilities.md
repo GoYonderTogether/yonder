@@ -91,7 +91,7 @@ watcher 读取注册候选，加载对应 agent.yaml，与 preset 一起走共�
 
 ### 4.8 官方默认链与可行动错误
 
-主会话接收 parent-request 后以自身配置档及已核验原授权办理，最终结果沿内部调用返回；主会话工具目录不提供只能非 main 执行的 parent_ask，执行侧仍保留拒绝门禁，不形成自我转交循环。检查权限时显式核对目标 profile；CLI 默认档与当前运行档不同，不据前者推断后者权限。
+主会话接收 parent-request 后以自身配置档及已核验原授权办理，最终结果沿内部调用返回；主会话工具目录不提供只能非 main 执行的 parent_ask，执行侧仍保留拒绝门禁，不形成自我转交循环。检查权限时显式核对目标 profile；本机 Agent 执行环境把当前 home/Agent/profile 作为只读检查的定位上下文传给子进程。CLI inspect 未指定目标且上下文 home 匹配时定位当前 Agent/profile，并在回执标明来源；显式参数优先，指定其他 Agent 不沿用当前 profile，跨 home 忽略上下文。普通终端仍按 Agent defaultProfile，写入默认与权限不变，上下文环境变量不作授权。
 
 非 isolated Agent 创建时，已有可用 main 且没有自定义 parent-request 绑定，就生成精确同 Agent 的 parent-request→main 协助入口；不扩大 peer 权限、不改变已有主 profile。官方已准入、安全 per-conv 群且所选参与插件已加载时，允许沿既有派生机制补缺省批次入口；显式拒绝/禁用/自定义/旧链迁移边界优先，不静默安装插件或提权。Card 可信 membership、QQ setup/旧链、飞书显式接入按各自事实工作，不按群名补授权。
 
