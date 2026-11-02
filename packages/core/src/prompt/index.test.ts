@@ -677,6 +677,10 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 	expect(runtimePrompt).toContain("Group/private-main histories stay separate");
 	expect(runtimePrompt).toContain("not every group message must enter private main");
 	expect(runtimePrompt).toContain("Rejected private-main binding does not block supported work");
+	expect(runtimePrompt).toContain("authorized model participation");
+	expect(runtimePrompt).toContain("mode=batch, batch.run=true, plugin plus matching consumer");
+	expect(runtimePrompt).toContain("wake:write records, not model-runs");
+	expect(runtimePrompt).toContain("reply:none blocks auto-replies");
 	expect(runtimePrompt).toContain(
 		"Report unsupported routing or private-history sharing only if the owner requires it",
 	);
