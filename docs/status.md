@@ -14,7 +14,7 @@
 
 A12最终100 Bot各500条至少4096B的durable归档历史（共50000条）及各10文档delta，101轮完成/pending0，active/highWater20。idle141.328MB、50ms采样peak300.548MB，PG2/TCP3/Timeout2；归档正文读取0，707次modelsFor只202个Models。cold worker查询473–477（mean474.62）、warm341，不含server/seed SQL。此前361.267MB/350.454MB失败完整保留；修真实重复分配，不调高预算或手动GC。真实idle74257ms释放后可再激活。
 
-证据与所有原始失败：[本轮总账](verification/fix-round/verification.md)、[75条main保留](verification/fix-round/main-content-audit.md)、[最终结构化汇总](verification/fix-round/verified-results.json)。逐审查项提交/kept理由、未测与部署/凭据轮换草案在根目录未提交REFACTOR-REPORT.md。源码验收完成，仍待维护者审阅集成；本机RSS不等于2核2GB生产长期共存验收。
+证据与所有原始失败：[本轮总账](verification/fix-round/verification.md)、[75条main保留](verification/fix-round/main-content-audit.md)；最终实测摘录：`"peakBytes": 300548096`。逐审查项提交/kept理由、未测与部署/凭据轮换草案在根目录未提交REFACTOR-REPORT.md。源码验收完成，仍待维护者审阅集成；本机RSS不等于2核2GB生产长期共存验收。
 
 ## 多端工作台（2026-11-02）
 

@@ -1,5 +1,7 @@
 # 共享最终回复卡片：阶段10验证
 
+本页保留当时的命令、原始计数、失败原因与真实短摘录；原始日志与机器转储已按最终清理要求移除。
+
 Yonder源基线e938a35a，Cloud源保持80e92a6；阶段10无Cloud产品源码变更。源码与测试冻结后由root执行完整gate，末尾记录最终结果。真实模型、组件、原生账本、失败/恢复和配置来源分别记录，不用其中一种替代另一种。
 
 ## 实际最小实现
@@ -26,7 +28,7 @@ SDK runId由真实native输入确定并在后台冻结；autoReplySource只在�
 | Cloud SSR错误命令2 | server cwd未给frontend tsconfig，React undefined，0通过/3失败 |
 | 正确Cloud SSR命令 | server cwd，TSX_TSCONFIG_PATH=../tsconfig.json node --import tsx --test ../scripts/chat-render.test.tsx，3通过/0失败 |
 
-原始日志stage-10-focused-{typecheck-development-1,typecheck-development-2,delivery-development-1,suite-development-2,card-plugin-verified}.log；SSR三份日志stage-10-focused-client-ssr*.log已从Cloud验证目录复制到本目录。保留失败，不以最新成功覆盖。
+typecheck 已通过；SSR 原输出摘录：`ℹ pass 3`、`ℹ fail 0`。保留失败，不以最新成功覆盖。
 
 回环脚本开发日志stage-10-focused-card-loopback-development-1至7：
 
@@ -44,7 +46,7 @@ SDK runId由真实native输入确定并在后台冻结；autoReplySource只在�
 
 `agent-network run -- node scripts/cloud-worker/verify.mjs --card --live`退出0。没有指定tool名/schema、没有改默认offer或PG YAML，也没有server手工造卡。自然请求为接入设备与安装客户端的两按钮卡片；真实GLM通过原生tool调用得到唯一interactive/pending结果，独立actions为/connect、/download。native转录含reply_card调用，attempt后意图消失；日志及全部native commits不含真实key，检查只输出includes布尔。未用真实key做反射测试。
 
-[完整真实卡片结果](shared-bot-card-live-20261103.json)，原始stage-10-card-live-first.log。只验证卡片机制、真实工具执行和链接，不为模型生成body中的设备执行描述背书；真实设备能力见阶段11。临时PG/Redis/server/worker均由脚本finally关闭，不是生产或安装验收。
+原输出摘录：`"pendingSources": 0`、`"keyAbsentFromLogsAndTranscript": true`。只验证卡片机制、真实工具执行和链接，不为模型生成body中的设备执行描述背书；真实设备能力见阶段11。临时PG/Redis/server/worker均由脚本finally关闭，不是生产或安装验收。
 
 两端实际组件：Cloud原SSR含/connect与/download和旧卡fallback；App在同一fixture保留/get legacy fallback并明确增加/download独立按钮。阶段9App原覆盖是独立link优先和旧fallback，不能倒写为当时已验证两个目标。UI页面/路由/红色实际CSS沿[阶段9](shared-bot-app-20261103.md)有效证据，未重复Chrome或截图。
 
@@ -52,25 +54,25 @@ SDK runId由真实native输入确定并在后台冻结；autoReplySource只在�
 
 `node scripts/cloud-worker/verify.mjs --card`最终退出0，真实PG/Redis/server/worker、明确HTTP传输stub（不是模型通过证据）：空final仍发一张interactive；下一轮真实reply_card后HTTP503只产生唯一error、不发卡且意图清除；随后warm请求不含错误正文或原HTTP503 body、正常markdown不复用旧卡。包括原source槽与实际消息count断言，不只检查API返回ID。
 
-[完整回环结果](shared-bot-card-loopback-20261103.json)，原始stage-10-focused-card-loopback-verified.log。本机FS存储/作用域/覆盖/最终匹配/清理及共享attempt完整card重试分别由已有Vitest夹具覆盖；没有本机真实Luna卡片调用，凭据仍缺。
+原输出摘录：`"laterPromptExcludesError": true`、`"keyAbsentFromLogsAndTranscript": true`。本机FS存储/作用域/覆盖/最终匹配/清理及共享attempt完整card重试分别由已有Vitest夹具覆盖；没有本机真实Luna卡片调用，凭据仍缺。
 
 ## 实际reply:none挂起缺口与修复
 
 root只读追踪确认：worker收到合法wake=run后等source.done，但原onRun一开始过滤reply:none；native结束不等于channel回执，因此同Bot后续队列永久等待。不是假设中的防御。规范先明确单结果渠道应报告系统状态，随后只修共享最终路径：waiting=false且singleResult来源保留；native失败先真实原因，done+none只发“本轮来源关闭自动回复，未投递模型回复”，不发送正常模型text，不说动作没执行，绕过beforeSend改卡，仍沿原ledger/source ID/sent。普通本机none与ask/caller静默不变，不由worker外层竞态补发。
 
 - 单元新增4个当前边界：done none、aborted实际失败、local none、ask；delivery整文件44通过/0失败，12.71秒。
-- scoped typecheck通过。真实PG/Redis/server/worker连续两输入均唯一固定error，completed2/pendingSources0，后请求不含先前系统error，队列没有挂住。原始stage-10-reply-none-{focused-typecheck,core-typecheck,core-test,worker-verified,focused-biome}.log。
+- scoped typecheck通过。真实PG/Redis/server/worker连续两输入均唯一固定error，completed2/pendingSources0，后请求不含先前系统error，队列没有挂住。原始摘录：Test Files  1 passed (1) / Tests  44 passed (44)。
 
 ## Root完整gate历史
 
 1. 首次build/typecheck退出0；默认2713通过/2失败/112跳过，文件507通过/1失败/67跳过，104.81秒。两失败是原resident golden应随授权prompt变更更新，以及内置words7309超过7300。lint因&&未执行。
-2. 只将既有environment首段72词压到60，整体7297，保原7300上限，按实际纯装配重算golden为7fa0fe0c984b6e2cf18bda4ab334f98523ea13e829aeb177210470f76d05cb16。首次focused用了旧dist仍失败；实际编译bot-core后prompt15/15通过（stage-10-focused-prompt-corrected.log）。此段被Cloud整段override替换，故未改变已通过A8的Cloud prompt。没有删断言或抬上限。
+2. 只将既有environment首段72词压到60，整体7297，保原7300上限，按实际纯装配重算golden为7fa0fe0c984b6e2cf18bda4ab334f98523ea13e829aeb177210470f76d05cb16。首次focused用了旧dist仍失败；实际编译bot-core后prompt15/15通过（摘录：Test Files  1 passed (1) / Tests  15 passed (15)）。此段被Cloud整段override替换，故未改变已通过A8的Cloud prompt。没有删断言或抬上限。
 3. corrected完整build/typecheck/lint退出0；2715通过/0失败/112跳过，508文件通过/67跳过，127.04秒；Biome2026文件0error/1325warning/34info，size924/layer108、基线0。随后因确认并修复reply:none真实源码缺口，再次完整gate，最终结果见下。
 
-原始日志shared-bot-core/stage-10-final-*、stage-10-corrected-*及stage-10-complete-*分别保留。后两次完整重跑均有真实源码变化，不拿前一轮成功冒充后一版本。Cloud产品源码未变，本阶段未重跑完整206后端（阶段9证据仍有效）；真实server/worker的卡片/失败/none场景与SSR3项独立运行。未推送、部署、安装、截图或操作桌面，真实Luna仍缺凭据。
+三轮原始计数和失败原因均按上文保留。后两次完整重跑均有真实源码变化，不拿前一轮成功冒充后一版本。Cloud产品源码未变，本阶段未重跑完整206后端（阶段9证据仍有效）；真实server/worker的卡片/失败/none场景与SSR3项独立运行。未推送、部署、安装、截图或操作桌面，真实Luna仍缺凭据。
 
 ### reply:none收口后的最终完整gate
 
-Root执行CONTRIBUTING完整build/typecheck/test/lint，全部退出0。默认 **2719通过/0失败/112跳过**，508文件通过/67跳过（575文件、2831测试），89.51秒。Biome2028文件、0error/1325warning/34info；size924/layer108、两者基线0。日志shared-bot-core/stage-10-complete-{build,typecheck,test,lint}.log。
+Root执行CONTRIBUTING完整build/typecheck/test/lint，全部退出0。默认 **2719通过/0失败/112跳过**，508文件通过/67跳过（575文件、2831测试），89.51秒。Biome2028文件、0error/1325warning/34info；size924/layer108、两者基线0。日志摘录：Test Files  508 passed \| 67 skipped (575) / Tests  2719 passed \| 112 skipped (2831)。
 
 此结果对应最终源码，包括7297词环境段/golden、真实来源metadata、最终卡片、reply:none源回执修复和44项delivery回归。成功完整后未再变更源码；真实GLM A8与组件证据按上文区分，不把默认测试当模型验收，也不将设备执行描述当已完成A9。无push/部署/原目录写入，root交付报告保持未提交。

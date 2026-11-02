@@ -1,5 +1,7 @@
 # 共享运行状态存储：阶段 5 验证
 
+本页保留当时的命令、原始计数、失败原因与真实短摘录；原始日志与机器转储已按最终清理要求移除。
+
 日期：2026-11-02。阶段 4 提交 `079435ce`；本记录对应阶段 5 待提交状态，不代表 worker、宿主包边界或模型端到端已完成。
 
 ## 实现
@@ -15,14 +17,14 @@
 
 ## 已执行验证
 
-| 检查 | 实际结果 | 本机原始日志 |
+| 检查 | 实际结果 | 当时输出摘录 |
 |---|---|---|
-| 离线 lock 更新 | 成功，core 对 pg/@types/pg 的依赖精确 8.23.1 | shared-bot-core/stage-5-development-lock.log |
-| 首次开发 Biome | 失败：新 PG findInput 的未标注 let 隐式 any；补 QueryResult<EventRow> 后解决 | shared-bot-core/stage-5-development-biome.log |
-| 首次统一 `npm run typecheck` | 退出 0 | shared-bot-core/stage-5-development-typecheck.log |
-| 定向 Vitest：PG 状态、全部 runtime、store、quota、quota-wire、app preparedTranscript | 文件 57 通过 / 0 失败 / 10 跳过；测试 233 通过 / 0 失败 / 21 跳过；21.29 秒 | shared-bot-core/stage-5-focused-test.log |
-| 日志列最终改原生 JSON 后真实 PG 定向 | 文件 1 通过；6 通过 / 0 失败 / 0 跳过；1.36 秒 | shared-bot-core/stage-5-focused-pg-verified.log |
-| 相关持久化/额度/PG 测试路径 Biome | 退出 0，22 文件；18 warnings / 2 infos，含既有断言及警告；随后删去本次两个无用 import，三个相关文件复核仍成功 | shared-bot-core/stage-5-focused-biome-verified.log、stage-5-focused-final-files-biome.log |
+| 离线 lock 更新 | 成功，core 对 pg/@types/pg 的依赖精确 8.23.1 | 摘录：up to date, audited 620 packages in 600ms |
+| 首次开发 Biome | 失败：新 PG findInput 的未标注 let 隐式 any；补 QueryResult<EventRow> 后解决 | 摘录：Found 12 warnings. / Found 2 infos. |
+| 首次统一 `npm run typecheck` | 退出 0 | 摘录：> tsc -b --force |
+| 定向 Vitest：PG 状态、全部 runtime、store、quota、quota-wire、app preparedTranscript | 文件 57 通过 / 0 失败 / 10 跳过；测试 233 通过 / 0 失败 / 21 跳过；21.29 秒 | 摘录：Test Files  57 passed \| 10 skipped (67) / Tests  233 passed \| 21 skipped (254) |
+| 日志列最终改原生 JSON 后真实 PG 定向 | 文件 1 通过；6 通过 / 0 失败 / 0 跳过；1.36 秒 | 摘录：Test Files  1 passed (1) / Tests  6 passed (6) |
+| 相关持久化/额度/PG 测试路径 Biome | 退出 0，22 文件；18 warnings / 2 infos，含既有断言及警告；随后删去本次两个无用 import，三个相关文件复核仍成功 | 摘录：Found 18 warnings. / Found 2 infos.、摘录：Found 5 warnings. / Found 1 info. |
 | 文件大小 | 通过，581 文件、基线 0 | 命令输出 |
 | 层级 | 通过，268 文件，无上行依赖 | 命令输出 |
 | git diff --check | 通过 | 命令输出 |

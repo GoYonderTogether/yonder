@@ -1,5 +1,7 @@
 # 共享 Bot 定义来源：阶段 4 验证
 
+本页保留当时的命令、原始计数、失败原因与真实短摘录；原始日志与机器转储已按最终清理要求移除。
+
 日期：2026-11-02。阶段 3 提交为 `da8595fc`；本记录对应阶段 4 待提交改动，不代表完整重构或云端运行验收。
 
 ## 实现与边界
@@ -12,16 +14,16 @@
 
 ## 已执行检查
 
-| 检查 | 实际结果 | 原始日志（本机、被既有 *.log 规则忽略） |
+| 检查 | 实际结果 | 当时输出摘录 |
 |---|---|---|
-| `npm install --ignore-scripts --package-lock-only --offline` | 成功；pg、@types/pg 均精确 8.23.1，使用已有缓存 | shared-bot-core/stage-4-lock-final.log |
-| `npm install --ignore-scripts --offline` | 成功，新增 16 个包，审计 0 vulnerabilities | shared-bot-core/stage-4-install.log |
-| 首次 `tsc -b --force`（接线尚在并行落盘） | 失败，13 个诊断：尚未落盘的 FS 来源/函数末参/source 类型，以及旧 WorkspaceFiles 导入；随后补齐 | shared-bot-core/stage-4-typecheck-in-progress.log |
-| 接线完成后 `tsc -b --force` | 成功 | shared-bot-core/stage-4-typecheck-final.log |
-| 最终 `npm run typecheck` | 退出 0 | shared-bot-core/stage-4-typecheck-verified.log |
-| 定向 Vitest：cloud-host source、core config、templates、adversarial-template、skills、config-watch | 17 个文件通过；76 通过 / 0 失败 / 0 跳过；17.09 秒 | shared-bot-core/stage-4-focused-test.log |
-| 最终相关路径 Biome | 退出 0，65 个文件，无修改，20 warnings | shared-bot-core/stage-4-biome-final.log |
-| 文件大小检查（中间态） | 首次失败：kernel/index.ts 506 行；将来源初始化放到已有 config-sources 模块后解决 | shared-bot-core/stage-4-size-in-progress.log |
+| `npm install --ignore-scripts --package-lock-only --offline` | 成功；pg、@types/pg 均精确 8.23.1，使用已有缓存 | 摘录：up to date, audited 620 packages in 2s |
+| `npm install --ignore-scripts --offline` | 成功，新增 16 个包，审计 0 vulnerabilities | 摘录：added 16 packages, and audited 620 packages in 851ms |
+| 首次 `tsc -b --force`（接线尚在并行落盘） | 失败，13 个诊断：尚未落盘的 FS 来源/函数末参/source 类型，以及旧 WorkspaceFiles 导入；随后补齐 | 摘录：packages/cloud-host/src/source.test.ts(91,60): error TS2353: Object literal may only specify known properties, and 'source' does not exist in type 'CreateSkillsOptions'. |
+| 接线完成后 `tsc -b --force` | 成功 | 无诊断输出；结果见本行 |
+| 最终 `npm run typecheck` | 退出 0 | 摘录：> tsc -b --force |
+| 定向 Vitest：cloud-host source、core config、templates、adversarial-template、skills、config-watch | 17 个文件通过；76 通过 / 0 失败 / 0 跳过；17.09 秒 | 摘录：Test Files  17 passed (17) / Tests  76 passed (76) |
+| 最终相关路径 Biome | 退出 0，65 个文件，无修改，20 warnings | 摘录：Checked 65 files in 128ms. No fixes applied. / Found 20 warnings. |
+| 文件大小检查（中间态） | 首次失败：kernel/index.ts 506 行；将来源初始化放到已有 config-sources 模块后解决 | 摘录：→ 拆分到 500 行以内；确需保留则登记到 scripts/file-size-baseline.json 并写明待拆理由 |
 | 最终 `check-file-size.mjs` | 成功，573 个文件，基线 0；kernel/index.ts 498 行 | 命令输出 |
 | 最终 `check-layers.mjs` | 成功，260 个文件，无上行依赖 | 命令输出 |
 | `git diff --check` | 成功 | 命令输出 |

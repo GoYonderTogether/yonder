@@ -1,9 +1,0 @@
-
- RUN  v5.0.5 /Users/zoran/Documents/worktrees/yonder-shared-core
-
-(node:5556) ExperimentalWarning: Transform Types is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
-(node:5556) ExperimentalWarning: Transform Types is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
- ❯ plugins/tasks/test/board.test.ts (8 tests | 1 failed) 3445ms
-   × loaded tasks_show returns board/detail JSON and sends a real PNG through the local channel 389ms

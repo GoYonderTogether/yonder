@@ -1,5 +1,7 @@
 # 共享 Bot 核心重构：阶段验证记录
 
+本页保留当时的命令、原始计数、失败原因与真实短摘录；原始日志与机器转储已按最终清理要求移除。
+
 当前续接已完成阶段 1–7，并完成 cloud/server 与 cloud 前端的阶段9部分（63b5a99、107ce7e）。Yonder最终2698通过/0失败/112跳过，完整build/typecheck/lint通过；cloud后端205项与SSR3项通过。worker、真实模型、资源预算、monorepo app和设备工具仍待实施。下列上次环境停止说明为历史，不是本次停止结论。
 
 **上次运行历史快照：** 日期：2026-11-02；Node v24.21.0；两个指定 worktree 均为 refactor/shared-bot-core。Yonder 初始 HEAD 为 a6a6c0b5。仅修改架构与规范文档，未修改产品代码、测试、构建脚本或安装/发布流程。BRIEF.md 原先即为未跟踪文件，保留原样。
@@ -16,13 +18,13 @@
 
 ## 阶段 1 完整门槛（上次运行历史）
 
-| 检查 | 实际结果 | 本机原始日志 |
+| 检查 | 实际结果 | 当时输出摘录 |
 |---|---|---|
-| npm run build | 退出 1：TypeScript 与 dist 校验、devices 构建、状态栏/电源辅助检查完成后，SwiftPM manifest 编译被沙箱拒绝；完整 build 未通过 | shared-bot-core/stage-1-build.log |
-| npm run typecheck | 退出 0 | shared-bot-core/stage-1-typecheck.log |
-| npm run lint | 退出 0，1246 warnings、34 infos；size 扫描 551 个文件，无增长；layer 扫描 256 个文件，无上行依赖 | shared-bot-core/stage-1-lint.log |
-| npm test（首轮） | 退出 1：2656 通过 / 4 失败 / 112 跳过；文件 490 通过 / 4 失败 / 67 跳过 | shared-bot-core/stage-1-test.log |
-| npm test（构建产物就绪后顺序重跑） | 退出 1：2658 通过 / 2 失败 / 112 跳过；文件 492 通过 / 2 失败 / 67 跳过 | shared-bot-core/stage-1-test-after-build.log |
+| npm run build | 退出 1：TypeScript 与 dist 校验、devices 构建、状态栏/电源辅助检查完成后，SwiftPM manifest 编译被沙箱拒绝；完整 build 未通过 | 摘录：Error: Command failed: swift package --package-path packages/macos-helper resolve |
+| npm run typecheck | 退出 0 | 摘录：> tsc -b --force |
+| npm run lint | 退出 0，1246 warnings、34 infos；size 扫描 551 个文件，无增长；layer 扫描 256 个文件，无上行依赖 | 摘录：Found 1246 warnings. / Found 34 infos. |
+| npm test（首轮） | 退出 1：2656 通过 / 4 失败 / 112 跳过；文件 490 通过 / 4 失败 / 67 跳过 | 摘录：Test Files  4 failed \| 490 passed \| 67 skipped (561) / Tests  4 failed \| 2656 passed \| 112 skipped (2772) |
+| npm test（构建产物就绪后顺序重跑） | 退出 1：2658 通过 / 2 失败 / 112 跳过；文件 492 通过 / 2 失败 / 67 跳过 | 摘录：Test Files  2 failed \| 492 passed \| 67 skipped (561) / Tests  2 failed \| 2658 passed \| 112 skipped (2772) |
 
 首轮由主 Agent 错误地并行启动 build、typecheck 和 test，其中两个 checkPlugin 用例读取尚未生成的 dist，不能作为有效的顺序构建后回归结论。保留这次失败；不会以定向通过覆盖它。后续完整测试在构建进程结束且 dist 就绪后重跑，不再并行重建产物。
 
@@ -30,8 +32,8 @@
 
 委派 gpt-6-luna 只读定位、运行检查，未授权代码改动。
 
-1. channel-card protocol 与 devices controller：原始错误分别为无法 import plugins/channel-card/dist/index.js，以及 staging 缺 dist/skills。构建产物就绪后定向运行两个文件，43 通过 / 0 失败 / 0 跳过，日志 shared-bot-core/stage-1-focused-tests.log。
-2. memory wp4 与 native-automation image-size：定向运行 7 通过 / 2 失败 / 1 跳过，日志 shared-bot-core/stage-1-focused-platform.log。memory 仍报 Inbox watcher failed；子 Agent 在相同环境用 chokidar 最小复现得到 EMFILE: too many open files, watch。未修改吞错实现或断言来制造通过。
+1. channel-card protocol 与 devices controller：原始错误分别为无法 import plugins/channel-card/dist/index.js，以及 staging 缺 dist/skills。构建产物就绪后定向运行两个文件，43 通过 / 0 失败 / 0 跳过，输出摘录：Test Files  2 passed (2) / Tests  43 passed (43)。
+2. memory wp4 与 native-automation image-size：定向运行 7 通过 / 2 失败 / 1 跳过，输出摘录：Test Files  2 failed (2) / Tests  2 failed \| 7 passed \| 1 skipped (10)。memory 仍报 Inbox watcher failed；子 Agent 在相同环境用 chokidar 最小复现得到 EMFILE: too many open files, watch。未修改吞错实现或断言来制造通过。
 3. image-size 用系统壁纸文件生成 PNG，未截屏或驱动 UI。子 Agent 测得生成 PNG 为 3200×3200、136079 bytes，低于源码 512 KiB 的 ALREADY_SMALL 阈值，故按设计返回 PNG，测试却期望 JPEG。手动对同一输入调用 sips 得到 1600×1600、41917 bytes JPEG，证明该断言失败并非 sips 完全不可用。未扩展范围修改此既有测试。
 4. build 原始边界错误：swift package --package-path packages/macos-helper resolve → sandbox-exec: sandbox_apply: Operation not permitted。尚未进入该包的 Swift build。scripts/build-permissions.mjs 没有不跳过检查且支持当前权限的配置入口；YONDER_HELPER_SIGN_IDENTITY 只控制签名。当前权限不允许提权，未关闭沙箱、修改脚本或跳过 native build。
 
@@ -39,14 +41,14 @@
 
 ## 补充验证
 
-- npm run build:app：退出 0，日志 shared-bot-core/stage-1-app-build.log。这不能代替完整 build。
+- npm run build:app：退出 0，输出摘录：> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.work.json && vite build / ✓ built in 1.51s。这不能代替完整 build。
 - yonder-cloud 根目录 npm run build && npm run typecheck：均退出 0。
 - yonder-cloud/server npm run build && npm run typecheck：均退出 0。
-- 文档与记录更新后最终 npm run lint：退出 0，1246 warnings / 34 infos，size/layer 通过，日志 shared-bot-core/stage-1-final-lint.log。
+- 文档与记录更新后最终 npm run lint：退出 0，1246 warnings / 34 infos，size/layer 通过，输出摘录：Found 1246 warnings. / Found 34 infos.。
 - git diff --check：通过。
 - CodeGraph 未初始化，未重建索引，采用实时源码追踪。
 
-原始 .log 文件按仓库既有规则被忽略，留在本机；本 Markdown 保留可提交的计数、失败原因和证据入口。没有运行真实模型、PG/Redis、多租户、端到端或负载测试。没有读取模型 key、连接生产、推送、部署或安装应用。未启动 PG、Redis 或 worker，故没有此类后台服务需要关闭。
+本 Markdown 保留原始计数、失败原因和真实输出摘录；原始日志已按最终清理要求移除。没有运行真实模型、PG/Redis、多租户、端到端或负载测试。没有读取模型 key、连接生产、推送、部署或安装应用。未启动 PG、Redis 或 worker，故没有此类后台服务需要关闭。
 
 ## 推进结论（上次运行历史，已被续接替代）
 
@@ -62,13 +64,13 @@
 
 | 检查 | 结果 | 日志 |
 |---|---|---|
-| npm run build | 退出 0（含 SwiftPM、native 与 app） | shared-bot-core/baseline-build.log |
-| npm test | 退出 0；2660 通过 / 0 失败 / 112 跳过；文件 494 通过 / 0 失败 / 67 跳过；89.74 秒 | shared-bot-core/baseline-test.log |
-| npm run lint | 退出 0；size 扫描 551、layers 扫描 256，无违规 | shared-bot-core/baseline-lint.log |
+| npm run build | 退出 0（含 SwiftPM、native 与 app） | 摘录：> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.work.json && vite build / ✓ built in 524ms |
+| npm test | 退出 0；2660 通过 / 0 失败 / 112 跳过；文件 494 通过 / 0 失败 / 67 跳过；89.74 秒 | 摘录：Test Files  494 passed \| 67 skipped (561) / Tests  2660 passed \| 112 skipped (2772) |
+| npm run lint | 退出 0；size 扫描 551、layers 扫描 256，无违规 | 摘录：Found 1246 warnings. / Found 34 infos. |
 
 此固定基线没有允许保留的失败。旧运行的 sandbox、EMFILE 与壁纸测试失败保留为历史记录，不作为本次最终基线失败。后续每阶段必须无新增失败，build/typecheck/lint 必须通过。
 
-阶段 1 续接检查：仅文档改动，复用上述相同产品源码的完整 build/test 结果；恢复并更新文档后，npm run typecheck 退出 0（stage-1-resumed-typecheck.log），npm run lint 退出 0（stage-1-resumed-lint.log，size/layers 通过），git diff --check 通过。
+阶段 1 续接检查：仅文档改动，复用上述相同产品源码的完整 build/test 结果；恢复并更新文档后，npm run typecheck 退出 0（摘录：> tsc -b --force），npm run lint 退出 0（摘录：Found 1246 warnings. / Found 34 infos.，size/layers 通过），git diff --check 通过。
 
 ## 阶段 2：HostFacts 与纯提示词装配
 
@@ -79,19 +81,19 @@ HostFacts 在本机组合根采集后必填注入；纯系统段装配位于 pro
 | 首轮定向测试（子 Agent） | 19 通过 / 1 失败，3 文件通过 / 1 文件失败；golden 临时期望未填，随后改为实际固定哈希 | 子 Agent 工具输出，未单独落日志 |
 | 首轮 typecheck（子 Agent） | TS2379，exact optional 参数展开不匹配；修复后通过 | 子 Agent 工具输出，未单独落日志 |
 | 最终原四文件定向测试 | 20 通过 / 0 失败 | 子 Agent 工具输出 |
-| 首次完整 build/typecheck | 均退出 0 | shared-bot-core/stage-2-build.log、stage-2-typecheck.log |
-| 首次完整默认测试 | 2660 通过 / 1 失败 / 112 跳过；文件 493 通过 / 1 失败 / 67 跳过；tasks 测试直接调用 prepareInput，缺 HostFacts | shared-bot-core/stage-2-test.log |
+| 首次完整 build/typecheck | 均退出 0 | 摘录：> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.work.json && vite build / ✓ built in 631ms、摘录：> tsc -b --force |
+| 首次完整默认测试 | 2660 通过 / 1 失败 / 112 跳过；文件 493 通过 / 1 失败 / 67 跳过；tasks 测试直接调用 prepareInput，缺 HostFacts | 摘录：Test Files  1 failed \| 493 passed \| 67 skipped (561) / Tests  1 failed \| 2660 passed \| 112 skipped (2773) |
 | 补齐 tasks 与 app 调用后定向测试 | 26 通过 / 0 失败，5 文件通过 | 子 Agent 工具输出 |
-| 重跑完整 build/typecheck | 均退出 0 | shared-bot-core/stage-2-final-build.log、stage-2-final-typecheck.log |
-| 重跑完整默认测试 | 2661 通过 / 0 失败 / 112 跳过；文件 494 通过 / 0 失败 / 67 跳过；96.08 秒 | shared-bot-core/stage-2-final-test.log |
-| 完整 lint 首次 | 1 error（tasks 测试 import 排序），1246 warnings / 34 infos；随后仅调整 import 顺序 | shared-bot-core/stage-2-final-lint.log |
+| 重跑完整 build/typecheck | 均退出 0 | 摘录：> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.work.json && vite build / ✓ built in 549ms、摘录：> tsc -b --force |
+| 重跑完整默认测试 | 2661 通过 / 0 失败 / 112 跳过；文件 494 通过 / 0 失败 / 67 跳过；96.08 秒 | 摘录：Test Files  494 passed \| 67 skipped (561) / Tests  2661 passed \| 112 skipped (2773) |
+| 完整 lint 首次 | 1 error（tasks 测试 import 排序），1246 warnings / 34 infos；随后仅调整 import 顺序 | 摘录：Found 1246 warnings. / Found 34 infos. |
 | import 排序后完整 lint（子 Agent） | 退出 0，Biome、size、layers 均通过；未重跑已通过的 build/typecheck/test | 子 Agent 工具输出 |
 
 最终相对固定基线无新增失败，多 1 项 golden 测试。未运行真实模型或 PG；A2 的 fs/PG 来源一致性留到来源实现后验收。
 
 ## 云端原始提交补充基线
 
-cloud worktree 保持 `52692f57835032cb3a71b476d421f158293b0c94`，未改源码。根目录 build/typecheck、server build/typecheck 均退出 0。server 默认测试使用仓库现有 services() 启动独立临时 PostgreSQL 与 Redis，并在每组结束关闭；197 通过 / 0 失败 / 0 取消 / 0 跳过 / 0 todo，22 suites，52.88 秒，退出 0。证据：shared-bot-core/cloud-baseline-build.log、cloud-baseline-typecheck.log、cloud-baseline-server-build.log、cloud-baseline-server-typecheck.log、cloud-baseline-server-test.log。没有调用模型或连接生产。
+cloud worktree 保持 `52692f57835032cb3a71b476d421f158293b0c94`，未改源码。根目录 build/typecheck、server build/typecheck 均退出 0。server 默认测试使用仓库现有 services() 启动独立临时 PostgreSQL 与 Redis，并在每组结束关闭；197 通过 / 0 失败 / 0 取消 / 0 跳过 / 0 todo，22 suites，52.88 秒，退出 0。证据：摘录：> tsc --noEmit && vite build / ✓ built in 422ms、摘录：> tsc --noEmit、摘录：> tsc -p tsconfig.json、摘录：> tsc -p tsconfig.json --noEmit、摘录：ℹ pass 197 / ℹ fail 0。没有调用模型或连接生产。
 
 ## 阶段 3：唯一 Bot 定义包
 
@@ -99,7 +101,7 @@ cloud worktree 保持 `52692f57835032cb3a71b476d421f158293b0c94`，未改源码�
 
 定向检查：配置 11 文件 / 55 项通过；prompt golden 1 项通过、同文件 14 项按名字过滤跳过；typecheck、改动文件 Biome、size/layer、diff check 通过。最初并行跑两条 Vitest 导致共享 .vitest-cache 的 ENOTEMPTY 启动错误，配置测试当次未完成；后改为顺序运行通过，不修改测试或断言。该初次启动错误只有子 Agent 工具输出，没有独立日志。
 
-完整 gate：build/typecheck/lint 均退出 0；默认测试 2661 通过 / 0 失败 / 112 跳过，文件 494 通过 / 0 失败 / 67 跳过，259.67 秒。size 扫描 562、layers 扫描 257，无违规。证据：shared-bot-core/stage-3-{build,typecheck,test,lint}.log。相对固定基线无新增失败；本阶段没有运行模型。
+完整 gate：build/typecheck/lint 均退出 0；默认测试 2661 通过 / 0 失败 / 112 跳过，文件 494 通过 / 0 失败 / 67 跳过，259.67 秒。size 扫描 562、layers 扫描 257，无违规。证据：摘录：Test Files  494 passed \| 67 skipped (561) / Tests  2661 passed \| 112 skipped (2773)。相对固定基线无新增失败；本阶段没有运行模型。
 
 ## 实施顺序调整
 
@@ -109,15 +111,15 @@ cloud worktree 保持 `52692f57835032cb3a71b476d421f158293b0c94`，未改源码�
 
 实现和定向原始证据见 [shared-bot-source-20261102.md](shared-bot-source-20261102.md)。初始加载、候选重载、工作区、presets/Markdown 子 Agent、模板展开与列举、skill 发现和读取均接入来源；PG 使用真实 bot_files，不建人设列。
 
-- 首次完整 gate：build/typecheck/lint 退出 0；2665 通过 / 0 失败 / 112 跳过，文件 495 通过 / 0 失败 / 67 跳过，140.83 秒。日志 shared-bot-core/stage-4-{build,typecheck,test,lint}.log。
-- 代码阅读发现未知 Agent 的 skill 查询原先会抛错，FS 来源迁移后静默只给 home/user 来源。恢复原 Unknown agent 失败语义，在既有 skills 测试加最小断言；不是额外防御。该补丁定向 7 通过 / 0 失败 / 0 跳过，Biome 与 diff check 通过；日志 stage-4-source-failure-{test,biome}.log。
-- 最终完整 gate：build/typecheck/lint 退出 0；2666 通过 / 0 失败 / 112 跳过，文件 495 通过 / 0 失败 / 67 跳过，97.65 秒；size 573、layer 260，无违规。日志 shared-bot-core/stage-4-final-{build,typecheck,test,lint}.log。
+- 首次完整 gate：build/typecheck/lint 退出 0；2665 通过 / 0 失败 / 112 跳过，文件 495 通过 / 0 失败 / 67 跳过，140.83 秒。输出摘录：Test Files  495 passed \| 67 skipped (562) / Tests  2665 passed \| 112 skipped (2777)。
+- 代码阅读发现未知 Agent 的 skill 查询原先会抛错，FS 来源迁移后静默只给 home/user 来源。恢复原 Unknown agent 失败语义，在既有 skills 测试加最小断言；不是额外防御。该补丁定向 7 通过 / 0 失败 / 0 跳过，Biome 与 diff check 通过；输出摘录：Test Files  1 passed (1) / Tests  7 passed (7)。
+- 最终完整 gate：build/typecheck/lint 退出 0；2666 通过 / 0 失败 / 112 跳过，文件 495 通过 / 0 失败 / 67 跳过，97.65 秒；size 573、layer 260，无违规。输出摘录：Test Files  495 passed \| 67 skipped (562) / Tests  2666 passed \| 112 skipped (2778)。
 
 相对固定基线无新增失败；A2 有真实 fs/PG 逐字对照证据。4 项 PG 测试只证明定义与文件来源，不证明 worker 的运行状态/插件隔离或端到端。没有模型调用，未启动 worker/Redis，临时 PG 已关闭。
 
 ## 阶段 9 服务端先行提交（cloud）
 
-cloud 提交 `63b5a99`，详情在该 worktree 的 `docs/verification/shared-bot-server-20261102.md`。根/server build/typecheck 全通过；最终后端真实 PG/Redis/WS 测试 204 通过 / 0 失败 / 0 取消 / 0 跳过，22 suites，63.93 秒。日志 shared-bot-core/stage-9-server-final-{cloud-build,cloud-typecheck,build,typecheck,test}.log。首次完整测试为 199 通过 / 4 失败（203 total），4 处历史迁移预期未包含020；仅追加实际新迁移，不削弱历史/拒绝顺序断言；初次日志 stage-9-server-test.log 保留。
+cloud 提交 `63b5a99`，详情在该 worktree 的 `docs/verification/shared-bot-server-20261102.md`。根/server build/typecheck 全通过；最终后端真实 PG/Redis/WS 测试 204 通过 / 0 失败 / 0 取消 / 0 跳过，22 suites，63.93 秒。输出摘录：ℹ pass 204 / ℹ fail 0。首次完整测试为 199 通过 / 4 失败（203 total），4 处历史迁移预期未包含020；仅追加实际新迁移，不削弱历史/拒绝顺序断言；初次输出摘录：ℹ pass 199 / ℹ fail 4 保留。
 
 root 代码阅读修复了三处实际接线问题：dispatch 不得吞结果写入异常；旧 worker 清理 pending 完成前不得释放连接位（防误伤重连新输入）；quota 的 try 只包含 Redis 计数，写错误消息失败不能被误报为额度服务故障。另将已有 online/暂停开关接入云端 worker 状态。定向的原始 85/85、28/1、29/29、35/35 记录见 cloud 验证文件，只有子 Agent 工具输出，没有独立日志。没有真实 worker/模型或新 UI 验证；本提交只完成阶段 9 服务端部分，A7/A8 仍不能整体宣称通过。
 
@@ -125,7 +127,7 @@ root 代码阅读修复了三处实际接线问题：dispatch 不得吞结果写
 
 实现与开发/定向检查见 [shared-bot-state-20261102.md](shared-bot-state-20261102.md)。59 个 Runtime.open 调用方改为存储注入；本机仍以同一个 Db 连接构造 pi SQLite Storage，在线转录与父分叉读取使用 Storage，离线 SQL 查询保留。PG pi 提交为增量 JSON 日志＋持久 ID，复用现有校验/投影；领域 Store 使用静态 PG SQL 并按 Bot 锁定复合事务，额度与 run.end 原子结算。没有新运行循环。
 
-最终完整 gate：build/typecheck/lint 均退出 0；默认测试 2672 通过 / 0 失败 / 112 跳过，文件 496 通过 / 0 失败 / 67 跳过，100.19 秒；size 581、layer 268，无违规。证据 shared-bot-core/stage-5-{build,typecheck,test,lint}.log。此前定向233通过/21跳过、真实PG6项及首轮Biome失败均在独立记录保留。
+最终完整 gate：build/typecheck/lint 均退出 0；默认测试 2672 通过 / 0 失败 / 112 跳过，文件 496 通过 / 0 失败 / 67 跳过，100.19 秒；size 581、layer 268，无违规。证据 摘录：Test Files  496 passed \| 67 skipped (563) / Tests  2672 passed \| 112 skipped (2784)。此前定向233通过/21跳过、真实PG6项及首轮Biome失败均在独立记录保留。
 
 相对固定基线无新增失败。PG 覆盖两个作用域隔离、重开、持久 ID、真实约束失败原子性、重复去重/结算、转录/fork和投递恢复；尚不证明插件隔离、真实模型或 worker。未启动 worker/Redis或模型请求，临时 PG/Pool 已关闭。
 
@@ -133,19 +135,19 @@ root 代码阅读修复了三处实际接线问题：dispatch 不得吞结果写
 
 完整实现、旧数据保护、所有开发失败/定向原始计数见 [shared-bot-plugins-20261102.md](shared-bot-plugins-20261102.md)。SDK文件/文档能力有FS/PG真实实现；memory保留本机库与rg；tasks只读旧SQLite导入、增量投影与按task history；cron/关注/moments等由单宿主scheduler驱动。正常读取性能与所有适用旧业务断言保留，异步moment验收只移除无效的全历史末条时序假设，不减少结果/不重复投递断言。
 
-root最终完整gate：build/typecheck/lint均退出0；默认2686通过/0失败/112跳过，文件500通过/0失败/67跳过，117.19秒；size589、layer271，无违规。日志shared-bot-core/stage-6-{build,typecheck,test,lint}.log。没有真实模型、worker或A12负载测试。
+root最终完整gate：build/typecheck/lint均退出0；默认2686通过/0失败/112跳过，文件500通过/0失败/67跳过，117.19秒；size589、layer271，无违规。日志摘录：Test Files  500 passed \| 67 skipped (567) / Tests  2686 passed \| 112 skipped (2798)。没有真实模型、worker或A12负载测试。
 
 ## 阶段 7：共享组合与强制包边界（完整gate通过）
 
 实现、所有开发失败/修复和精确日志见 [包边界记录](shared-bot-boundaries-20261103.md)。本机实际调用唯一createBot；默认adapter含真实Runtime，Node/PG仅显式宿主入口，旧core只兼容导出。check-layers扫描纯包的workspace传递依赖并限定唯一pi运行入口，105个共享源文件、基线0。原有健康/额度维护已接同一宿主scheduler，保留原节奏和关闭清理。
 
-定向集从757通过/64失败/61跳过，修复后821通过/0失败/61跳过，总数仍882；另维护/guard55通过1跳过，release11通过。首轮root完整build/typecheck退出0，默认2697通过/1失败/112跳过，127.33秒；唯一CodeGraph源夹具未迁移，窄修后定向2/2。新包从空dist重建的证据与原始日志均保留；最终stage-7-final完整gate：build/typecheck/lint退出0，2698通过/0失败/112跳过，文件502通过/67跳过，91.73秒；size908、layer105、基线均0。真实Luna缺规约凭据，尚未运行GLM/worker，不以默认测试替代真实模型。
+定向集从757通过/64失败/61跳过，修复后821通过/0失败/61跳过，总数仍882；另维护/guard55通过1跳过，release11通过。首轮root完整build/typecheck退出0，默认2697通过/1失败/112跳过，127.33秒；唯一CodeGraph源夹具未迁移，窄修后定向2/2。新包从空dist重建的计数与摘录保留；最终stage-7-final完整gate：build/typecheck/lint退出0，2698通过/0失败/112跳过，文件502通过/67跳过，91.73秒；size908、layer105、基线均0。真实Luna缺规约凭据，尚未运行GLM/worker，不以默认测试替代真实模型。
 
 ## 阶段 9 续接：主动投递与 cloud 前端（cloud 107ce7e）
 
 cloud 的现有 send 协议增加已存在 SDK deliveryId 的程序投递路径；用户输入仍使用 sourceMessageId 唯一结果。replyTo 沿原 appendMessage 校验保留，worker 通过已有 /api/device/dm 使用 Bot 实际 owner 和原社交规则创建 DM。同会话并发两种 deliveryId 的真实 PG 检查覆盖预查锁修复。cloud Chat 的 error 显示在普通气泡外，role=alert + text-danger；按钮各自 link，保留全卡 link 回退。monorepo app 的对应变化在阶段7 gate之后实施，不能据cloud SSR宣称两端完成。
 
-root 完整 gate：cloud根/server build/typecheck 全退出0；205 通过 / 0 失败 / 0 取消 / 0 跳过 / 0 todo，22 suites，48.747秒。组件SSR 3通过/0失败/0跳过，0.149秒。日志 `shared-bot-core/stage-9-channel-ui-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log`。开发定向首次35通过/2失败（迁移总数及断言放置问题），修正组合37/37；随后realtime20/20、server typecheck通过。SSR首次页面导入因Node不加载SVG而加载失败1文件/0项通过，提取实际复用MessageBubble后3/3通过。详情见cloud验证文档。没有新增依赖/页面、截图、桌面或生产操作，没有模型验收。
+root 完整 gate：cloud根/server build/typecheck 全退出0；205 通过 / 0 失败 / 0 取消 / 0 跳过 / 0 todo，22 suites，48.747秒。组件SSR 3通过/0失败/0跳过，0.149秒。日志 `摘录：ℹ pass 3 / ℹ fail 0`。开发定向首次35通过/2失败（迁移总数及断言放置问题），修正组合37/37；随后realtime20/20、server typecheck通过。SSR首次页面导入因Node不加载SVG而加载失败1文件/0项通过，提取实际复用MessageBubble后3/3通过。详情见cloud验证文档。没有新增依赖/页面、截图、桌面或生产操作，没有模型验收。
 
 ## 阶段 11 前置只读梳理（尚未实施）
 
@@ -159,21 +161,21 @@ root 后续核对 App 路由：monorepo app 已有 `/download` 独立页面；cl
 
 ## 阶段8：PG Worker与真实模型/资源验收（完整gate通过）
 
-详细实现、全部开发失败与后续修复、启动/迁移契约见 [Worker验证](shared-bot-worker-20261103.md)。共享createBot补默认system sections，真实GLM两个租户回复各自PG SOUL独有token，另有暖轮；首轮SOUL失败保留。实际本机零环境与PG Worker共用createBot/Runtime；隔离、六类错误/中断、cron逐出/ACK/重启与owner统一模型额度均通过。修后100Bot+暖轮空载136.135MB、采样峰值312.459MB，active上限20，连接/timer不随Bot增长；cold均值161.8 query，warm83，逐轮JSON已保存。旧缺主系统段负载不作为最终证据。
+详细实现、全部开发失败与后续修复、启动/迁移契约见 [Worker验证](shared-bot-worker-20261103.md)。共享createBot补默认system sections，真实GLM两个租户回复各自PG SOUL独有token，另有暖轮；首轮SOUL失败保留。实际本机零环境与PG Worker共用createBot/Runtime；隔离、六类错误/中断、cron逐出/ACK/重启与owner统一模型额度均通过。修后100Bot+暖轮空载136.135MB、采样峰值312.459MB，active上限20，连接/timer不随Bot增长；cold均值161.8 query，warm83，逐轮数据已汇总于本记录。旧缺主系统段负载不作为最终证据。
 
-Root完整build/typecheck成功；默认2703通过/0失败/112跳过，文件506通过/67跳过，105.13秒。首次lint3个证据JSON格式错误，只格式化文档后重跑lint成功：0error/1322warning/34info，size923/layer108、基线0。源码未变，不重复成功的完整测试。日志shared-bot-core/stage-8-final-*，最终lint为stage-8-final-lint-corrected.log。Cloud配套eed0b17完整根/server build/typecheck通过，全server206通过/0失败/0取消/0跳过。阶段9–11后续仍待实施，不将Worker结果冒充客户端/卡片/设备工具完成。
+Root完整build/typecheck成功；默认2703通过/0失败/112跳过，文件506通过/67跳过，105.13秒。首次lint3个证据JSON格式错误，只格式化文档后重跑lint成功：0error/1322warning/34info，size923/layer108、基线0。源码未变，不重复成功的完整测试。最终lint输出摘录：Found 1322 warnings. / Found 34 infos.。Cloud配套eed0b17完整根/server build/typecheck通过，全server206通过/0失败/0取消/0跳过。阶段9–11后续仍待实施，不将Worker结果冒充客户端/卡片/设备工具完成。
 
 ## 阶段9：客户端错误与链接（完整gate通过）
 
 详见[客户端验证](shared-bot-app-20261103.md)。app Bubble/History/Composer与两份类型已接线，cloud/download复用Install。真实本机Chrome+PG/Redis/server证明error为红色rolealert、无普通气泡、placeholder/列表预览正确，cloud/get与/download实际同Install；无截图/桌面/生产操作。聚焦首轮13通过/1失败（SSR location），修后14/0；浏览器首轮选错搜索框，正确选择textarea后通过，原失败分别保留。
 
-Root两仓完整gate：Yonder build/typecheck成功，2707通过/0失败/112跳过，506文件通过/67跳过，107.08秒；lint首轮仅测试import排序1error，窄格式修复后0error/1322warning/34info，size923/layer108基线0。Cloud root/server build/typecheck成功，server206通过/0失败/0取消/0跳过，110.256秒；SSR3/0/0/0，0.663秒。原始日志stage-9-app-final-*与stage-9-alias-*；修后lint为stage-9-app-final-lint-corrected.log。阶段10工具/提示词、11设备仍待完成。
+Root两仓完整gate：Yonder build/typecheck成功，2707通过/0失败/112跳过，506文件通过/67跳过，107.08秒；lint首轮仅测试import排序1error，窄格式修复后0error/1322warning/34info，size923/layer108基线0。Cloud root/server build/typecheck成功，server206通过/0失败/0取消/0跳过，110.256秒；SSR3/0/0/0，0.663秒。修后lint输出为摘录：Found 1322 warnings. / Found 34 infos.。阶段10工具/提示词、11设备仍待完成。
 
 ## 阶段10：最终卡片与真实来源（完整gate通过）
 
 详见[卡片验证](shared-bot-card-20261103.md)。官方reply_card同FS/PG存储、真实native runId/autoReplySource、原beforeSend与ledger组合，保card_push人工草稿。默认Cloud定义+自然请求的真实GLM调用工具，唯一interactive含独立/connect与/download，原生转录/cleanup/keyabsence均验证。空final仍可发卡；tool后HTTP503只error，失败清理且后prompt不含error/不复用旧卡。两端实际component已覆盖两个目标与legacy回退。
 
-首次full2713通过/2失败/112跳过（授权prompt golden与7309>7300）；仅压原段60词使总7297并重算golden，不抬上限，15项prompt通过。corrected full2715/0/112成功后又发现并修复真实reply:none源永等回执的队列挂起；四边界单元、真实连续两输入error与后prompt过滤均过。最终complete full build/typecheck/lint0、**2719通过/0失败/112跳过**，508文件通过/67跳过，89.51秒；size924/layer108基线0，Biome0error/1325warning/34info。原始日志stage-10-final-*、stage-10-corrected-*、stage-10-complete-*全部保留。
+首次full2713通过/2失败/112跳过（授权prompt golden与7309>7300）；仅压原段60词使总7297并重算golden，不抬上限，15项prompt通过。corrected full2715/0/112成功后又发现并修复真实reply:none源永等回执的队列挂起；四边界单元、真实连续两输入error与后prompt过滤均过。最终complete full build/typecheck/lint0、**2719通过/0失败/112跳过**，508文件通过/67跳过，89.51秒；size924/layer108基线0，Biome0error/1325warning/34info。三轮的原始计数与失败原因按上文保留；原始转储按最终清理要求移除。
 
 其它开发夹具失败、manifest漏hook、旧dist、背景测试误改LiveDoc、错误SSR命令和transport call-ID/last-user/retry/迁移顺序逐条保留在详细记录，不把它们改称环境豁免。设备真实tool调用/动态目录仍待阶段11，模型卡片body不是设备能力验收。
 
@@ -181,8 +183,8 @@ Root两仓完整gate：Yonder build/typecheck成功，2707通过/0失败/112跳�
 
 源基线6bed1bc6；Cloud设备桥提交ccbd42edc3682467b644932fb97858e5929f29e5。实现及开发过程、全部原始失败/修复计数见[设备工具验证](shared-bot-device-tools-20261103.md)。真实worker身份、DB owner/source/mapping校验和原work-bridge调用本机默认profile；唯一adapter原生program ToolTask、持久幂等/每task权限及资源快照、真实creator refs与cron/tasks继承。SDK路径边界实际错误放行经最小修复与回归拒绝，普通模型工具原语义保留。
 
-Root最终complete gate：build/typecheck/lint0；2733pass/0fail/112skip，515files pass/67skip，582files/2845tests，106.11秒；Biome2048files、0error/1322warning/34info，size930/layer109基线0。首轮full2730/3/112（2旧scope fixture缺冻结配置方法、1网关文档漏同步），保断言窄修后完整重跑；两轮raw分别stage-11-final-*、stage-11-complete-*，未覆盖原失败。
+Root最终complete gate：build/typecheck/lint0；2733pass/0fail/112skip，515files pass/67skip，582files/2845tests，106.11秒；Biome2048files、0error/1322warning/34info，size930/layer109基线0。首轮full2730/3/112（2旧scope fixture缺冻结配置方法、1网关文档漏同步），保断言窄修后完整重跑；两轮原始计数按上文保留，未覆盖原失败。
 
-A9真实GLM官方memory/实际独立设备进程已通过，在线冻结目录2工具/离线0；同来源collector与实际HTTP严格一致、真实owner cron来源另由transport回环验证。A6新公开SOUL事实两租户+暖轮共3run通过，首个内部token提取请求被模型拒绝的失败原样保留，不改生产prompt。A12最终100Bot+暖1、active20：idle139.362MB/采样peak318.996MB，PG2/TCP3/Timeout2稳定，cold168–169/mean168.8、warm90（仅Worker Client.query）。结构化证据为shared-bot-{device-live,device-program,worker-live-final,worker-load-final}-20261103.json。
+A9真实GLM官方memory/实际独立设备进程已通过，在线冻结目录2工具/离线0；同来源collector与实际HTTP严格一致、真实owner cron来源另由transport回环验证。A6新公开SOUL事实两租户+暖轮共3run通过，首个内部token提取请求被模型拒绝的失败原样保留，不改生产prompt。A12最终100Bot+暖1、active20：idle139.362MB/采样peak318.996MB，PG2/TCP3/Timeout2稳定，cold168–169/mean168.8、warm90（仅Worker Client.query）。结构化证据为摘录："rssPeakBytes": 318996480, / "rssPeakMB": 318.99648,。
 
 相对原tip2660/0/112无新增失败；真实Luna缺CONTRIBUTING凭据未测，未push/部署/安装/连接生产/截图。原Docker删除范围与新worker配置/systemd仅在未提交报告中写草案。
