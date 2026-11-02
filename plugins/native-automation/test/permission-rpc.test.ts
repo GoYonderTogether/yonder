@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { join } from "node:path";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installHelper } from "../../../scripts/yonder-helper-install.mjs";
@@ -40,8 +41,8 @@ vi.mock("node:child_process", () => ({
 		child.stderr = new EventEmitter();
 		setTimeout(() => {
 			const lines = mock.responses[mock.launchCount++] ?? [];
-			mock.files.set("/isolated-mock-rpc/output.json", lines.map((line) => JSON.stringify(line)).join("\n"));
-			mock.files.set("/isolated-mock-rpc/pid", "424242");
+			mock.files.set(join("/isolated-mock-rpc", "output.json"), lines.map((line) => JSON.stringify(line)).join("\n"));
+			mock.files.set(join("/isolated-mock-rpc", "pid"), "424242");
 			if (mock.cancel) process.emit("SIGTERM");
 			child.emit("close", 0);
 		}, 1);
@@ -117,7 +118,7 @@ describe("launcher with all I/O mocked, no Helper or OS actions", () => {
 		process.argv = [process.execPath, "scripts/yonder-permissions.mjs", "self-check"];
 		mock.responses = [[{ fixture: "self-check response" }]];
 		await import("../../../scripts/yonder-permissions.mjs");
-		expect(installHelper).toHaveBeenCalledWith(expect.any(String), "/isolated-mock-rpc/helper");
+		expect(installHelper).toHaveBeenCalledWith(expect.any(String), join("/isolated-mock-rpc", "helper"));
 		const { rm } = await import("node:fs/promises");
 		expect(rm).toHaveBeenCalledWith("/isolated-mock-rpc", { recursive: true, force: true });
 	});
@@ -179,7 +180,7 @@ describe("launcher with all I/O mocked, no Helper or OS actions", () => {
 		expect(await rpc({ action: "permission-watch", kind: "camera" })).toBeUndefined();
 		expect(process.kill).toHaveBeenCalledWith(424242, "SIGTERM");
 		expect(process.exitCode).toBe(130);
-		expect(mock.files.has("/isolated-mock-rpc/cancelled")).toBe(true);
+		expect(mock.files.has(join("/isolated-mock-rpc", "cancelled"))).toBe(true);
 	});
 	it("status launches the RPC only, without any permission command", async () => {
 		mock.responses = [[{ permissions: [] }]];
