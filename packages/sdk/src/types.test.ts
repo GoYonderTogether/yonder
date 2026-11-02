@@ -6,6 +6,8 @@ test("plugin event query accepts an optional exact event id", () => {
 	expectTypeOf<Parameters<PluginAPI["events"]["query"]>[0]>().toEqualTypeOf<EventQuery>();
 	const exact: EventQuery = { id: "parent-event", limit: 1 };
 	expectTypeOf(exact).toEqualTypeOf<EventQuery>();
+	const tail: EventQuery = { conv: "conv:qq:group:1", before: "event-3", order: "desc", limit: 20 };
+	expectTypeOf(tail).toEqualTypeOf<EventQuery>();
 	expectTypeOf({} as EventQuery).toEqualTypeOf<EventQuery>();
 });
 

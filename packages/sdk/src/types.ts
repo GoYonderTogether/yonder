@@ -65,6 +65,8 @@ export interface EventQuery {
 	since?: string;
 	until?: string;
 	after?: string;
+	before?: string;
+	order?: "asc" | "desc";
 	limit?: number;
 }
 export type { Preset, Profile, SessionModels } from "./models.js";
