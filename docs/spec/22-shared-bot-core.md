@@ -4,7 +4,7 @@
 
 ## 1 组合与存储
 
-本机与云端必须共用 Bot 定义 schema/解析、systemPromptParts（含 turn）、路由、会话、投递、工具暴露和运行循环。核心不访问文件系统、进程或宿主 process 事实；HostFacts 由调用方注入。pi 模型/会话包只允许唯一运行时适配层 import，插件只依赖 SDK。
+本机与云端必须共用 Bot 定义 schema/解析、systemPromptParts（含 turn）、路由、会话、投递、工具暴露和运行循环。核心不访问文件系统、进程或宿主 process 事实；HostFacts 由调用方注入。pi 模型/会话包只允许唯一运行时适配层 import，SDK 对这些包只能 import type，插件只依赖 SDK。保留既有 `executionContext(signal)`：仅 SDK index 从 chord/context 使用 `BACKGROUND_CONTEXT` 与 `withAbortSignal` 构造纯取消上下文，不放开其他运行导入。
 
 BotSource 供应 Agent、agent.yaml、presets、prompt 模板、子 Agent、skills 与工作区文件。接口复用 WorkspaceFiles：home 来源含逻辑 root 与文件访问，workspace(entry) 选择 Agent 工作区，templates/skills 提供按既有优先序排列的文件来源。Skill 来源负责 canonical 路径事实，保留本机 symlink 边界；PG 来源使用受租户与 Bot 限定的虚拟路径。共享加载、重载、模板展开及 skill 发现算法均消费这些来源；旧本机离线命令可以保留 fs 兼容入口，但不能复制解析逻辑。定义来源 PG 实现位于 monorepo 的云端宿主包，内置及插件静态资产由宿主提供。本机目录来源与 PostgreSQL 来源使用同一解析器。WorkspaceFiles 的目录实现经 ExecutionEnv；DB 实现为按 bot_id/path 隔离的 bot_files 虚拟工作区。人格、用户资料与记忆仍使用 SOUL.md、AGENTS.md、USER.md、MEMORY.md、memories/*，每个 Bot 独立，不为人格建专用列。
 
@@ -18,7 +18,7 @@ Worker 位于 yonder monorepo，一个进程服务全部云端 Bot，不为每�
 
 空载 RSS ≤150 MB；100 个 Bot 轮流对话、任何时刻最多 20 个活跃时 RSS ≤350 MB。负载脚本以回环模型传输 stub 测资源，再以真实模型跑少量轮次，记录每轮数据库往返。附件仅传引用，不下载大文件，浏览器下行数据量不超过既有消息路径。
 
-Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任的特殊设备接入；server 不依赖 @yonder 包。服务端 `CLOUD_BOT_WORKER_KEY_FILE` 指向独立的私有 32 字节原始凭据（不是模型 key 文本）；worker 以其 base64url 作为 Bearer 接入同一 /ws/device。hello 后服务端发送 `{type:'bots',bots:[{id,name,ownerId}]}` 完整映射，创建或暂停状态变更用同帧刷新；只包含 enabled 的云端 Bot。输入仍为原 message 帧，send 增加必填 sourceMessageId（原用户消息 UUID），ref 仅确认。服务端 cloud_bot_turns 按 sourceMessageId 唯一关联结果，并与 appendMessage 同事务完成；普通 HTTP/device 不可写 error。暂停 Bot 的新输入得到真实暂停错误，不派模型；其 online 以 enabled 和共享 worker 在线状态计算。单 server/worker 采用现有 Hub 的进程内在线状态，不据 Redis 广播宣称支持多 server 在线路由。鉴权须把 worker 的服务身份与目标 Bot/owner 关联，不能信任帧内自报租户。default/cloud 且没有 device_id 的 Bot 消息交给 worker；不再返回固定引导或整段转给主人设备。设备自己的 Bot 仍是独立联系人。
+Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任的特殊设备接入；server 不依赖 @yonder 包。服务端 `CLOUD_BOT_WORKER_KEY_FILE` 指向独立的私有 32 字节原始凭据（不是模型 key 文本）；worker 以其 base64url 作为 Bearer 接入同一 /ws/device。hello 后服务端发送 `{type:'bots',bots:[{id,name,ownerId}]}` 完整映射，创建或暂停状态变更用同帧刷新；只包含 enabled 的云端 Bot。输入仍为原 message 帧；响应用户的 send 必带 sourceMessageId（原用户消息 UUID），ref 仅确认。服务端 cloud_bot_turns 按 sourceMessageId 唯一关联结果，并与 appendMessage 同事务完成。cron/关注等程序投递和显式其他目标消息没有原用户消息，此时沿同一 send 使用现有 OutMessage.deliveryId，并按 Bot/投递ID持久去重，不占另一条用户输入的结果槽；不能以通道强制用户来源禁用主动能力。已有 /api/device/dm 同样接受受限 worker 身份，以 DB 中实际 Bot owner 和已有社交/会话规则核验，不伪造设备或用户会话。send 保留合法 replyTo；sourceMessageId 本身不强制引用。普通 HTTP/device 不可写 error。暂停 Bot 的新输入得到真实暂停错误，不派模型；其 online 以 enabled 和共享 worker 在线状态计算。单 server/worker 采用现有 Hub 的进程内在线状态，不据 Redis 广播宣称支持多 server 在线路由。鉴权须把 worker 的服务身份与目标 Bot/owner 关联，不能信任帧内自报租户。default/cloud 且没有 device_id 的 Bot 消息交给 worker；不再返回固定引导或整段转给主人设备。设备自己的 Bot 仍是独立联系人。
 
 旧 runtimes.ts 与 runtime-supervisor.mjs 原样保留，不扩展、不作为云端 Bot 路径。删除范围列入报告供维护者决定。
 
@@ -32,9 +32,9 @@ Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任�
 
 ## 4 结构化卡片与错误
 
-SDK OutMessage 支持至少 interactive 结构化内容，channel-card 原样透传。interactive.actions 每个按钮可有自己的 link；渲染使用 actions[i].link ?? content.link，保留旧客户端兼容性。server 校验与两端 MessageContent 类型同步。官方卡片工具接受标题、正文与按钮及应用内链接，本机、云端共用；验收卡片同时包含 /connect 与 /download 两个按钮。
+SDK OutMessage 支持至少 interactive 结构化内容，channel-card 原样透传。interactive.actions 每个按钮可有自己的 link；渲染使用 actions[i].link ?? content.link，保留旧客户端兼容性。server 校验与两端 MessageContent 类型同步。官方卡片工具接受标题、正文与按钮及应用内链接，本机、云端共用；验收卡片同时包含 /connect 与 /download 两个按钮。两份客户端路由均须可达；cloud旧前端的 /download 复用现有 /get 安装页，不另造页面或安装流程。
 
-MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可写，客户端提交时拒绝。超时、HTTP 状态错误、网络/隧道故障、空回答、超额度、worker 不在线均生成真实中文原因，不含密钥、鉴权头或堆栈。每条用户消息只有一个结果：正常回复或一条错误；错误不进入后续模型历史。apps/app 使用 role="alert" 与 text-danger 渲染，不套正常气泡；会话列表支持该类型。
+MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可写，客户端提交时拒绝。超时、HTTP 状态错误、网络/隧道故障、空回答、超额度、worker 不在线均生成真实中文原因，不含密钥、鉴权头或堆栈。每条用户消息只有一个结果：正常回复或一条错误；错误不进入后续模型历史。apps/app 使用 role="alert" 与 text-danger 渲染，不套正常气泡；会话列表支持该类型。云端输入框不再声明只能引导；其在线状态以实际 worker 为准，不使用设备 Bot 的“上线后送达”承诺掩盖云端失败。
 
 ## 5 远程设备工具
 

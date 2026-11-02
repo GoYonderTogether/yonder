@@ -20,6 +20,15 @@
 			"path": "packages/sdk"
 		},
 		{
+			"path": "packages/runtime-adapter"
+		},
+		{
+			"path": "packages/bot-core"
+		},
+		{
+			"path": "packages/local-host"
+		},
+		{
 			"path": "packages/cloud-host"
 		},
 		{

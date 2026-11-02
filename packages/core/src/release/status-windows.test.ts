@@ -1,9 +1,8 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as exec from "@yonder/local-host/release/exec";
 import { afterEach, expect, test, vi } from "vitest";
-
-import * as exec from "./exec.js";
 import { windowsStatusTask } from "./paths.js";
 import {
 	installWindowsStatus,

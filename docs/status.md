@@ -6,7 +6,7 @@
 
 ## 共享 Bot 核心重构（2026-11-02，实施中）
 
-目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段 1–6 已完成文档、HostFacts/纯装配、唯一定义包、fs/PG来源与工作区、SQLite/PG运行状态，以及FS/PG插件私有存储与单宿主tick。真实PG证明默认人格装配逐字一致、存储隔离/重开/原子提交；memory保留本机库与rg，tasks保留旧SQLite只读导入、完整事件和派生读取性能。完整build/typecheck/lint通过，默认2686通过、0失败、112跳过，相对a6a6c0b5无新增失败。完整宿主无关包边界、单进程worker、卡片工具、前端错误和设备工具仍待实施；cloud/server阶段9协议部分已提交63b5a99，真实后端204项通过。存储/tick层测试不代表worker、真实模型或资源验收。证据见[阶段检查](verification/shared-bot-core-20261102.md)及其链接的来源/状态/插件记录，逐项进度见未提交的REFACTOR-REPORT.md。不推送、不部署、不连接生产。
+目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段1–7已完成：共享定义/来源/工作区、SQLite/PG状态、FS/PG插件私有存储，以及实际单一createBot、唯一Runtime适配包与本机宿主拆分。旧core保留兼容导出；CI检查纯包传递依赖与唯一pi入口，原健康/额度维护接同一宿主scheduler。完整build/typecheck/lint通过，默认2698通过/0失败/112跳过，相对a6a6c0b5无新增失败。cloud阶段9服务端/主动投递/cloud界面已提交63b5a99、107ce7e，后端205项及SSR3项通过；旧cloud前端/download别名仍待补，不能据href断言宣称路由可达。单进程worker、真实GLM/Luna、资源预算、monorepo app、卡片工具和设备工具尚未验收。Luna缺仓库规约凭据，记未测。证据见[阶段检查](verification/shared-bot-core-20261102.md)与[包边界记录](verification/shared-bot-boundaries-20261103.md)，逐项进度见未提交REFACTOR-REPORT.md。不推送、不部署、不连接生产。
 
 ## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
 

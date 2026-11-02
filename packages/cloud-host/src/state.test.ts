@@ -1,15 +1,15 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createQuota } from "@yonder/bot-core/kernel/quota";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { Runtime } from "@yonder/runtime-adapter/node";
+import { migratePostgresRuntime, PostgresStorage } from "@yonder/runtime-adapter/postgres";
+import { cid } from "@yonder/runtime-adapter/runtime/docs.js";
 import type { SessionInfo } from "@yonder/sdk";
 import { executionContext } from "@yonder/sdk";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { resolveProfile } from "../../core/src/config/test-support.js";
-import { createQuota } from "../../core/src/kernel/quota.js";
-import { cid } from "../../core/src/runtime/docs.js";
-import { Runtime } from "../../core/src/runtime/index.js";
-import { migratePostgresRuntime, PostgresStorage } from "../../core/src/runtime/postgres-storage.js";
-import { createPostgresStore, migratePostgresStore } from "../../core/src/store/postgres.js";
+import { createPostgresStore, migratePostgresStore } from "./store/postgres.js";
 import { testPostgres } from "./test-postgres.js";
 
 const context = executionContext(new AbortController().signal);

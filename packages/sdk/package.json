@@ -15,6 +15,10 @@
 			"types": "./dist/testing.d.ts",
 			"import": "./dist/testing.js"
 		},
+		"./registrations": {
+			"types": "./dist/registrations.d.ts",
+			"import": "./dist/registrations.js"
+		},
 		"./node-ipc": {
 			"types": "./dist/node-ipc.d.ts",
 			"import": "./dist/node-ipc.js"

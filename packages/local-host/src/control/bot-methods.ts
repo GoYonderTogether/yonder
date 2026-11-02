@@ -1,0 +1,53 @@
+import { type MethodDef, MethodError } from "@yonder/local-host/control/method-types";
+import Type, { type TSchema } from "typebox";
+
+const text = Type.String({ minLength: 1 });
+const obj = <T extends Record<string, TSchema>>(properties: T) => Type.Object(properties);
+const noParams = obj({});
+function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
+	// SAFETY: registry.prepare validates params before invoking handlers.
+	return def as unknown as MethodDef;
+}
+
+import { AttachmentSchema } from "@yonder/local-host/control/attachments-methods";
+import { dedupe } from "@yonder/local-host/control/submit-dedupe";
+import type { Attachment } from "@yonder/sdk";
+
+export const botMethods: MethodDef[] = [
+	define({
+		name: "bots.list",
+		scope: "owner",
+		params: noParams,
+		since: 1,
+		handler: async (_p, ctx) => ({ bots: await ctx.kernel.bots.list() }),
+	}),
+	define({
+		name: "bots.send",
+		scope: "owner",
+		params: obj({
+			agent: text,
+			text: Type.String(),
+			requestId: Type.Optional(text),
+			attachments: Type.Optional(Type.Array(AttachmentSchema, { maxItems: 10 })),
+		}),
+		since: 1,
+		async handler(p, ctx) {
+			if (!p.text.trim() && !p.attachments?.length)
+				throw new MethodError("invalid_params", "Message or attachment required");
+			const run = () => ctx.kernel.bots.send(p.agent, p.text, p.attachments as Attachment[] | undefined);
+			return p.requestId ? dedupe(`bot:${p.agent}`, p.requestId, run) : run();
+		},
+	}),
+	define({
+		name: "bots.overview",
+		scope: "owner",
+		params: obj({ bot: text }),
+		since: 1,
+		async handler(p, ctx) {
+			const known = await ctx.kernel.bots.list();
+			if (!known.some((bot) => bot.agent === p.bot)) throw new MethodError("not_found", `Unknown bot: ${p.bot}`);
+			const { channels, sessions } = await ctx.kernel.sessions.botOverview(p.bot);
+			return { channels, sessions: sessions.map((session) => ({ session })) };
+		},
+	}),
+];

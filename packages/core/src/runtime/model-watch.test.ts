@@ -12,7 +12,8 @@ test("records only failed candidates and clears the candidate that answered", as
 	const home = await tempHome("yonder-watch-");
 	try {
 		const health = new ModelHealth(join(home, "health.json"));
-		const watch = new ModelWatch({ health } as ModelWatchOptions);
+		const watchOptions: Pick<ModelWatchOptions, "health"> = { health };
+		const watch = new ModelWatch(watchOptions as ModelWatchOptions);
 		const config = {
 			resolved: resolveProfile({ model: "a/one", fallback: { models: ["b/two", "c/three"] } }),
 		} as RuntimeSessionConfig;
@@ -44,7 +45,8 @@ test("transport failures hold no candidate while provider answers still do", asy
 	const home = await tempHome("yonder-watch-offline-");
 	try {
 		const health = new ModelHealth(join(home, "health.json"));
-		const watch = new ModelWatch({ health } as ModelWatchOptions);
+		const watchOptions: Pick<ModelWatchOptions, "health"> = { health };
+		const watch = new ModelWatch(watchOptions as ModelWatchOptions);
 		const config = {
 			resolved: resolveProfile({ model: "a/one", fallback: { models: ["b/two"] } }),
 		} as RuntimeSessionConfig;

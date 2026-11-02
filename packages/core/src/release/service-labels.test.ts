@@ -9,7 +9,7 @@ vi.mock("node:os", async (original) => ({
 	homedir: () => fixture.home,
 }));
 
-import * as exec from "./exec.js";
+import * as exec from "@yonder/local-host/release/exec";
 import { manageService } from "./index.js";
 
 const uid = `gui/${process.getuid?.()}`;

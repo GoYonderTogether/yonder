@@ -1,3 +1,1 @@
-import type { MethodDef } from "./method-types.js";
-
-export const catalogMethods: MethodDef[] = [];
+export * from "@yonder/local-host/control/catalog-methods";

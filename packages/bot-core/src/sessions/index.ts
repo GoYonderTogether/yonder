@@ -1,0 +1,489 @@
+import { randomUUID } from "node:crypto";
+import { resolve } from "node:path";
+import {
+	type AgentConfig,
+	presetProfile,
+	presetSession,
+	type ResolvedProfile,
+	resolveProfile,
+	type YonderConfig,
+} from "@yonder/bot-definition";
+import { taskReport } from "@yonder/runtime-adapter/runtime/results.js";
+import { configuredWorkbenchSession } from "@yonder/runtime-adapter/runtime/workbench-options.js";
+import type { Runtime, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "@yonder/runtime-adapter/types";
+import type { Capability, Input, InputReceipt, Preset, RunResult, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
+import type { Store } from "../store/contracts.js";
+import { createBranches } from "./branches.js";
+import { notifySession, recoverSessionInputs } from "./inputs.js";
+import { configureModel, modelList } from "./model-list.js";
+import { botOverview } from "./overview.js";
+import { sessionProjection } from "./projection.js";
+import { autoTitle } from "./titles.js";
+import { createWorkbench, type Forward } from "./workbench.js";
+
+interface CreateSessionsOptions {
+	store: Store;
+	agents: Map<string, AgentConfig>;
+	homePresets: Map<string, Preset>;
+	pluginPresets: Map<string, Preset>;
+	home: string;
+	config: YonderConfig;
+	version: string;
+	runtime: () => Runtime;
+	onRun?: (session: SessionInfo, run: RuntimeRun, inputs: YEvent[], waiter: boolean) => void | Promise<void>;
+	/** Live `session.updated` fan-out to `sessions.watch` (contracts §18); absent where nothing watches. */
+	forward?: Forward;
+	onReport?: (error: unknown) => void;
+}
+export function createSessions({
+	store,
+	agents,
+	homePresets,
+	pluginPresets,
+	home,
+	config,
+	version,
+	runtime,
+	onRun,
+	onReport = () => {},
+	forward,
+}: CreateSessionsOptions) {
+	const closing = new Set<string>();
+	const opening = new Map<string, Promise<{ session: SessionInfo; profileMismatch: boolean }>>();
+	const preset = (id: string) => homePresets.get(id) ?? pluginPresets.get(id);
+	const runtimeProfile = (
+		profile: Preset,
+		env: string,
+		capabilities?: Capability[],
+		inherit?: RuntimeSessionState["inherit"],
+		channelInstances?: string[],
+	): ResolvedProfile => presetProfile(profile, env, capabilities, inherit, channelInstances, config.defaultModel);
+	const workspace = (agent: string) => {
+		const entry = config.agents?.find((candidate) => candidate.id === agent);
+		if (!entry) throw new Error(`Unknown agent workspace: ${agent}`);
+		return { cwd: resolve(home, entry.workspace), env: entry.env ?? "local" };
+	};
+	async function resolveBaseSession(id: string): Promise<RuntimeSessionConfig> {
+		const row = await store.sessions.get(id);
+		if (!row) throw new Error(`Unknown session: ${id}`);
+		if (row.mode === "task") {
+			const selected = preset(row.profile);
+			if (!selected) throw new Error(`Unknown preset: ${row.profile}`);
+			const state = await runtime().sessionState(id);
+			if (!state) throw new Error(`Missing runtime session state: ${id}`);
+			const resolved = runtimeProfile(selected, state.env, state.capabilities, state.inherit, state.channelInstances);
+			if (state.judgment)
+				Object.assign(resolved, {
+					capabilities: [],
+					channelInstances: [],
+					plugins: [],
+					contexts: [],
+					skills: [],
+					tools: { offer: [], search: [] },
+					prompt: { sections: [] },
+					instructions: "",
+					thinking: "low",
+					fallback: { models: [] },
+				});
+			return {
+				agent: null,
+				profile: row.profile,
+				sessionMode: row.mode,
+				cwd: state.cwd,
+				resolved,
+			};
+		}
+		if (!row.agent) throw new Error(`Agent session has no agent: ${id}`);
+		const agent = agents.get(row.agent);
+		if (!agent) throw new Error(`Unknown agent: ${row.agent}`);
+		const selected = agent.profiles[row.profile];
+		if (!selected) throw new Error(`Unknown profile ${row.profile} for agent ${row.agent}`);
+		const { cwd, env } = workspace(row.agent);
+		return {
+			agent: row.agent,
+			profile: row.profile,
+			sessionMode: row.mode,
+			cwd,
+			resolved: resolveProfile(selected, agent.defaults, env, config.defaultModel),
+			bindings: agent.bindings,
+			owner: agent.owner,
+		};
+	}
+	async function resolveSession(id: string): Promise<RuntimeSessionConfig> {
+		return configuredWorkbenchSession(await resolveBaseSession(id), id, await runtime().sessionState(id));
+	}
+	async function command(id: string, command: string): Promise<string> {
+		const session = await store.sessions.get(id);
+		if (!session || session.closed) throw new Error(`Not an open session: ${id}`);
+		const profile = await runtime().sessionConfig(id);
+		const caps = profile.resolved.capabilities;
+		if (!caps.includes("read")) throw new Error("当前来源没有读取会话权限");
+		const [name, ...args] = command.trim().split(/\s+/);
+		if (name === "bg") {
+			if (args.length === 0) return JSON.stringify(await runtime().backgroundList(id), null, 2);
+			const [action, jobId] = args;
+			if (args.length !== 2 || (action !== "logs" && action !== "kill") || !jobId || !/^\d+$/.test(jobId))
+				throw new Error("用法：/bg | /bg logs <id> | /bg kill <id>");
+			if (action === "kill" && !caps.includes("admin")) throw new Error("停止后台任务需要 admin 权限");
+			return JSON.stringify(
+				await runtime().backgroundAction(id, { action: action === "logs" ? "log" : "kill", id: jobId }),
+				null,
+				2,
+			);
+		}
+		const mutates =
+			name === "compact" ||
+			(name === "effort" && args.length > 0) ||
+			(name === "model" && args.length > 0 && args[0] !== "list");
+		if (mutates && !caps.includes("admin")) throw new Error("修改模型或压缩需要 admin 权限");
+		if (name === "compact") {
+			if (!caps.includes("network")) throw new Error("压缩需要 network 权限");
+			return `已提交上下文压缩 · Session: ${id} · Task: ${await runtime().compact(id, args.join(" ") || undefined)}\n/status 查看进度`;
+		}
+		if (name !== "model" && name !== "effort" && name !== "status")
+			throw new Error("仅支持 model / effort / status / compact");
+		if (name === "status" && args.length) throw new Error("用法：/status");
+		if (name === "effort" && args.length > 1) throw new Error("用法：/effort [level|auto]");
+		if (name === "model" && args[0] === "list") return modelList(runtime(), args);
+		let changed = "";
+		if ((name === "model" && args.length) || (name === "effort" && args.length))
+			changed = await configureModel(runtime(), id, name, args, (await resolveSession(id)).resolved);
+		const state = await runtime().modelStatus(id);
+		const requested = name === "effort" ? args[0] : name === "model" && args[0] === "effort" ? args[1] : undefined;
+		if (requested && requested !== "auto" && !state.running && state.thinking !== requested)
+			changed += `当前模型不支持 effort ${requested}，实际使用 ${state.thinking}。\n`;
+		const channels = session.agent
+			? Object.entries(config.channels ?? {})
+					.filter(([channel]) =>
+						agents
+							.get(session.agent!)
+							?.bindings.some(
+								(b) =>
+									(b.match.type === undefined || b.match.type === "message.in") &&
+									(session.mode !== "main" || b.session === "main") &&
+									(!b.match.channel || [b.match.channel].flat().includes(channel)),
+							),
+					)
+					.map(([id, c]) => `${id} (${c.type})`)
+			: [];
+		const tasks = await Promise.all(
+			state.tasks.map(async (task) => {
+				const child = await store.sessions.get(task.session);
+				const active = child
+					? await runtime()
+							.sessionConfig(task.session)
+							.catch(() => undefined)
+					: undefined;
+				let delegated = "";
+				if (task.targetAgent && session.agent && caps.includes("cross-agent")) {
+					const input = await store.events.findInput({
+						type: "message.in",
+						conv: `conv:agent:${session.agent}`,
+						data: { msgId: `internal:${task.session}:${task.id}` },
+					});
+					const route = input?.routes?.find((route) => route.agent === task.targetAgent);
+					if (route?.session) {
+						const target = await runtime().modelStatus(route.session);
+						delegated = ` · target Session ${route.session} · ${target.model ? `${target.model.provider}/${target.model.id}` : "未知模型"} · effort ${target.thinking} · target Tasks ${target.tasks.map((task) => task.id).join(", ") || "无"}`;
+					}
+				}
+				return `${task.background ? "后台 " : ""}Task ${task.id} · ${task.name ?? task.kind} · ${task.state} · Session ${task.session}${child ? ` · Agent ${child.agent ?? "preset:" + child.profile}` : ""}${task.model ? ` · ${task.model} · effort ${task.thinking}` : active ? ` · ${active.resolved.model} · effort ${active.resolved.thinking}` : ""}${task.owner ? ` · parent task ${task.owner}` : ""}${task.targetAgent ? ` · 委派 Agent ${task.targetAgent}` : ""}${delegated}`;
+			}),
+		);
+		return (
+			changed +
+			[
+				`Agent: ${session.agent ?? "preset:" + session.profile} · Session: ${id} · ${state.running ? "运行中" : "空闲"}`,
+				`供应商 / 模型: ${state.model ? state.model.provider + "/" + state.model.id : "不可用"}`,
+				`主模型: ${state.primary} · Effort: ${state.thinking}`,
+				`上下文估计: ${state.contextTokens} / ${state.model?.contextWindow ?? "未知"} tokens${state.model?.contextWindow ? `（${((state.contextTokens / state.model.contextWindow) * 100).toFixed(1)}%）` : ""} · 输出上限: ${state.model?.maxTokens ?? "未知"}`,
+				`Compact: ${state.compact.reason}${state.compact.tasks.length ? " · Task " + state.compact.tasks.join(", ") : ""}${state.compact.failure ? ` · 上次失败: ${state.compact.failure}` : ""}`,
+				`回退: ${state.fallback?.models.join(" → ") || "未配置"} · 连续失败 ${state.failures} / ${state.fallback?.after ?? 3}`,
+				`会话绑定渠道: ${channels.join(", ") || "无"}`,
+				`进行中任务 / 子 Agent:\n${tasks.join("\n") || "无"}`,
+				"/model list [provider] · /effort [level|auto] · /compact [说明] · /status",
+			].join("\n")
+		);
+	}
+	async function createAgentSession(agentId: string, profileName: string, key: string, mode: SessionInfo["mode"]) {
+		if (agents.get(agentId)?.archivedAt) throw new Error(`Agent archived: ${agentId}`);
+		const lock = `${agentId}\0${key}`;
+		const existing = opening.get(lock);
+		if (existing) return existing;
+		const creating = (async () => {
+			const found = await store.sessions.find(agentId, key);
+			if (found) return { session: found, profileMismatch: found.profile !== profileName };
+			const agent = agents.get(agentId);
+			if (!agent) throw new Error(`Unknown agent: ${agentId}`);
+			const selected = agent.profiles[profileName];
+			if (!selected) throw new Error(`Unknown profile ${profileName} for agent ${agentId}`);
+			const { cwd, env } = workspace(agentId);
+			const id = await runtime().create({ agent: agentId, profile: profileName, cwd, env });
+			const session: SessionInfo = {
+				id,
+				agent: agentId,
+				profile: profileName,
+				mode,
+				key,
+				version,
+				opened: new Date().toISOString(),
+				// Bot conversations belong to the Bot; the owner reaches them through owner scope (contracts §14).
+				owner: { kind: "bot", id: agentId },
+			};
+			await store.sessions.put(session);
+			await store.events.record({
+				type: "session.open",
+				from: `agent:${agentId}`,
+				data: { session: id, mode, key, profile: profileName },
+			});
+			return { session, profileMismatch: false };
+		})();
+		opening.set(lock, creating);
+		try {
+			return await creating;
+		} finally {
+			opening.delete(lock);
+		}
+	}
+	async function closeSession(id: string, reason = "closed"): Promise<void> {
+		const session = await store.sessions.get(id);
+		if (!session) throw new Error(`Unknown session: ${id}`);
+		if (session.closed) return;
+		await store.sessions.close(id);
+		await store.events.record({
+			type: "session.close",
+			...(session.agent ? { from: `agent:${session.agent}` } : {}),
+			data: { session: id, reason },
+		});
+	}
+	async function failInput(session: SessionInfo, event: YEvent, error: unknown): Promise<RunResult> {
+		onReport(error);
+		const reason = error instanceof Error ? error.message : String(error);
+		if (!(await runtime().admitted(session.id, event.id)))
+			await onRun?.(
+				session,
+				{
+					runId: `error:${event.id}`,
+					status: "error",
+					text: "",
+					reason,
+					usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+					inputs: [event.id],
+				},
+				[event],
+				(event.data as { waiting?: boolean }).waiting === true,
+			);
+		return { agent: session.agent, session: session.id, status: "error", text: "", reason };
+	}
+	async function submitTaskEvent(session: SessionInfo, event: YEvent): Promise<RunResult> {
+		try {
+			const data = event.data as Input & { busy?: "followup" | "steer" | "interrupt" };
+			if (closing.has(session.id) || (await store.sessions.get(session.id))?.closed)
+				throw new Error(`Session closed before admission: ${session.id}`);
+			const run = await runtime().submit(session.id, {
+				text: data.text,
+				event,
+				wake: "run",
+				busy: data.busy ?? "steer",
+				requestId: `event:${event.id}`,
+				attachments: data.attachments ?? [],
+			});
+			if (config.autoTitle === true && session.mode === "task" && run.status === "done")
+				void autoTitle({
+					id: session.id,
+					input: data.text,
+					reply: run.text,
+					store,
+					runtime: runtime(),
+					workbench,
+				}).catch(onReport);
+			return {
+				agent: session.agent,
+				session: session.id,
+				status: run.status,
+				text: taskReport(run.text),
+				...(run.reason ? { reason: run.reason } : {}),
+				...(run.attachments?.length ? { attachments: run.attachments } : {}),
+			};
+		} catch (error) {
+			return failInput(session, event, error);
+		}
+	}
+	async function runTask(
+		id: string,
+		input: Input,
+		wait: boolean,
+		busy?: "followup" | "steer" | "interrupt",
+		accepted?: (event: string) => void,
+		from?: string,
+	): Promise<RunResult | InputReceipt> {
+		const session = await store.sessions.get(id);
+		if (
+			!session ||
+			(session.mode !== "task" && !(from?.startsWith("plugin:") && ["main", "persistent"].includes(session.mode))) ||
+			session.closed ||
+			closing.has(id)
+		)
+			throw new Error(`Not an open task session: ${id}`);
+		const event = await store.events.record({
+			type: "session.input",
+			...(from ? { from } : {}),
+			data: {
+				session: id,
+				text: input.text,
+				waiting: wait,
+				busy: busy ?? "steer",
+				...(input.attachments ? { attachments: input.attachments } : {}),
+			},
+		});
+		accepted?.(event.id);
+		const run = submitTaskEvent(session, event);
+		if (wait) return run;
+		void run.catch(onReport);
+		return { event: event.id, session: id };
+	}
+	const recover = () => recoverSessionInputs(store, runtime, submitTaskEvent, onReport);
+	const { withPolicy, list } = sessionProjection(store, runtime, agents);
+	const notifyFrom = (id: string, input: { event: string; text: string }, from: string) =>
+		notifySession(store, runtime, closing, id, input, from);
+	const overview = botOverview(config, agents, store, withPolicy);
+	const workbench = createWorkbench({
+		store,
+		...(forward ? { forward } : {}),
+		notify: (id, input) => notifyFrom(id, input, "system:yonder"),
+		botOverview: overview,
+	});
+
+	const branches = createBranches(store, runtime, version, withPolicy);
+	const api: SessionsAPI = {
+		command,
+		activateTools: (id, names) => runtime().activateTools(id, names),
+		deactivateTools: (id, names) => runtime().deactivateTools(id, names),
+		notify: (id, input) => notifyFrom(id, input, "system:yonder"),
+		list,
+		get: async (id) => {
+			const row = await store.sessions.get(id);
+			return row ? withPolicy(row) : undefined;
+		},
+		async open(request) {
+			const selected = preset(request.preset);
+			if (!selected) throw new Error(`Unknown preset: ${request.preset}`);
+			const source = request.modelSource ? await store.sessions.get(request.modelSource.session) : undefined;
+			if (request.modelSource && (!source || !source.agent || source.mode === "task"))
+				throw new Error("Invalid model source session");
+			const sourceProfile = source ? await runtime().sessionConfig(source.id) : undefined;
+			if (
+				request.judgment &&
+				(!sourceProfile || request.parent || !(sourceProfile.resolved.cheap ?? sourceProfile.resolved.simple))
+			)
+				throw new Error("Judgment requires an explicit cheap or simple model source and no parent");
+			const parent = request.parent ? await store.sessions.get(request.parent) : undefined;
+			if (request.parent && !parent) throw new Error(`Unknown parent session: ${request.parent}`);
+			if (parent?.agent && agents.get(parent.agent)?.archivedAt) throw new Error(`Agent archived: ${parent.agent}`);
+			const parentState = parent ? await runtime().sessionState(parent.id) : undefined;
+			const parentProfile = parent ? await runtime().sessionConfig(parent.id) : undefined;
+			const baseEnv = parentProfile?.resolved.env ?? parentState?.env ?? "local";
+			const env = selected.env ?? baseEnv;
+			const cwd = parentState?.cwd ?? parentProfile?.cwd ?? home;
+			const { capabilities, channelInstances, inherit } = presetSession(
+				selected,
+				env,
+				parentProfile?.resolved,
+				request.capabilities,
+				parentProfile?.agent,
+			);
+			const key = randomUUID();
+			const id = await runtime().create({
+				agent: null,
+				profile: request.preset,
+				cwd,
+				env,
+				capabilities,
+				...(channelInstances === undefined ? {} : { channelInstances }),
+				...(inherit ? { inherit } : {}),
+				close: request.close ?? "run-end",
+			});
+			if (parentProfile?.resources) {
+				const state = await runtime().sessionState(id);
+				if (state)
+					await runtime().setSessionState(id, {
+						...state,
+						workbench: { resources: structuredClone(parentProfile.resources) },
+					});
+			}
+			if (sourceProfile) {
+				const state = await runtime().sessionState(id);
+				if (!state) throw new Error(`Missing runtime session state: ${id}`);
+				state.models = {
+					model:
+						sourceProfile.resolved.cheap ??
+						sourceProfile.resolved.simple ??
+						request.modelSource?.fallback ??
+						sourceProfile.resolved.model,
+					credentialSlots: sourceProfile.resolved.credentialSlots,
+					...(request.judgment ? { thinking: "low", fallback: { models: [] } } : {}),
+				};
+				if (request.judgment) state.judgment = true;
+				await runtime().setSessionState(id, state);
+			}
+			const session: SessionInfo = {
+				id,
+				agent: null,
+				profile: request.preset,
+				mode: "task",
+				key,
+				version,
+				opened: new Date().toISOString(),
+				...(request.parent ? { parent: request.parent } : {}),
+			};
+			await store.sessions.put(session);
+			await store.events.record({
+				type: "session.open",
+				data: { session: id, mode: "task", key, profile: request.preset },
+			});
+			return withPolicy(session);
+		},
+		submit: ((id, input, options) =>
+			runTask(id, input, options?.wait === true, options?.busy)) as SessionsAPI["submit"],
+		abort: async (id) => {
+			await runtime().abort(id);
+		},
+		close: async (id) => {
+			closing.add(id);
+			try {
+				await runtime().abort(id);
+				await closeSession(id);
+			} finally {
+				closing.delete(id);
+			}
+		},
+		transcript: (id, range) => runtime().transcript(id, range),
+	};
+
+	return {
+		api,
+		branches,
+		workbench,
+		recover,
+		notifyFrom,
+		submitFrom(
+			id: string,
+			input: Input,
+			options: { wait?: boolean; busy?: "followup" | "steer" | "interrupt" } | undefined,
+			from: string,
+		) {
+			return runTask(id, input, options?.wait === true, options?.busy, undefined, from);
+		},
+		resolveSession,
+		ensureAgent: createAgentSession,
+		closeSession,
+		getPreset: preset,
+		version,
+		submitAccepted(id: string, input: Input, busy?: "followup" | "steer" | "interrupt"): Promise<InputReceipt> {
+			return new Promise((resolve, reject) => {
+				void runTask(id, input, false, busy, (event) => resolve({ event, session: id })).catch(reject);
+			});
+		},
+	};
+}
+export type Sessions = ReturnType<typeof createSessions>;

@@ -1,1 +1,1 @@
-export { createTriggerScheduler } from "@yonder/sdk/trigger-scheduler";
+export * from "@yonder/bot-core/plugins/trigger-scheduler";

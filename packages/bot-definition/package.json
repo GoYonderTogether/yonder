@@ -58,6 +58,10 @@
 		"./subagents": {
 			"types": "./dist/subagents.d.ts",
 			"import": "./dist/subagents.js"
+		},
+		"./ignore": {
+			"types": "./dist/ignore.d.ts",
+			"import": "./dist/ignore.js"
 		}
 	},
 	"files": [

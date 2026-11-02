@@ -284,4 +284,36 @@ describe("quota source", () => {
 		expect(quota.window(accountKey("openai", "gpt2"))?.usedPercent).toBe(55);
 		expect(quota.window("openai#gpt2")).toBeUndefined();
 	});
+	it("polls on first maintenance, observes the 60 second cadence, and stops", async () => {
+		const auth = join(root(), "auth.json");
+		slot(auth, "openai", "gpt2", {
+			openai: { type: "oauth", access: token(now + 3_600_000, "account"), expires: now + 3_600_000 },
+		});
+		const fetch = respond(usage({ primary_window: { used_percent: 55, limit_window_seconds: 18_000 } }));
+		const quota = new ModelQuota(join(root(), "model-quota.json"), () => now);
+		const poller = new QuotaPoller(new QuotaSource(auth, () => now), quota);
+		poller.watch([{ provider: "openai", slot: "gpt2" }]);
+		await poller.tick(now);
+		await poller.tick(now + 15_000);
+		expect(fetch).toHaveBeenCalledTimes(1);
+		await poller.tick(now + 60_000);
+		expect(fetch).toHaveBeenCalledTimes(2);
+		poller.stop();
+		await poller.tick(now + 120_000);
+		expect(fetch).toHaveBeenCalledTimes(2);
+	});
+	it("does not issue scheduled quota requests when a watched account has no credential", async () => {
+		const auth = join(root(), "missing-auth.json");
+		const fetch = respond(usage({ primary_window: { used_percent: 55, limit_window_seconds: 18_000 } }));
+		const quota = new ModelQuota(join(root(), "model-quota.json"), () => now);
+		const poller = new QuotaPoller(new QuotaSource(auth, () => now), quota);
+		poller.watch([{ provider: "openai", slot: "default" }]);
+		await poller.tick(now);
+		await poller.tick(now + 15_000);
+		await poller.tick(now + 60_000);
+		expect(fetch).not.toHaveBeenCalled();
+		poller.stop();
+		await poller.tick(now + 120_000);
+		expect(fetch).not.toHaveBeenCalled();
+	});
 });

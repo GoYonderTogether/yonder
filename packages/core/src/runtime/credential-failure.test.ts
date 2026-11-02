@@ -47,7 +47,8 @@ test("the credential-failed candidate is held, other candidates run, and a recov
 	try {
 		const health = new ModelHealth(join(dir, "health.json"));
 		const gate = new ModelGate(health, new ModelQuota(join(dir, "quota.json")));
-		const watch = new ModelWatch({ health, gate } as ModelWatchOptions);
+		const watchOptions: Pick<ModelWatchOptions, "health" | "gate"> = { health, gate };
+		const watch = new ModelWatch(watchOptions as ModelWatchOptions);
 		const resolved = resolveProfile({ model: "openai/gpt-6.1-sol", fallback: { models: ["workbuddy/flash"] } });
 		const config = { resolved } as RuntimeSessionConfig;
 		const chain = modelChain(resolved.model, resolved.fallback, resolved.credentialSlots);

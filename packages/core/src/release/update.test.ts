@@ -7,10 +7,10 @@ const mocks = vi.hoisted(() => ({
 	recordUpdateResult: vi.fn(),
 }));
 
-vi.mock("../control/index.js", () => ({ requestControl: mocks.requestControl }));
-vi.mock("./service.js", () => ({ manageService: mocks.manageService }));
-vi.mock("./installation.js", () => ({ installedService: mocks.installedService }));
-vi.mock("./result.js", () => ({ recordUpdateResult: mocks.recordUpdateResult }));
+vi.mock("@yonder/local-host/control/index", () => ({ requestControl: mocks.requestControl }));
+vi.mock("@yonder/local-host/release/service", () => ({ manageService: mocks.manageService }));
+vi.mock("@yonder/local-host/release/installation", () => ({ installedService: mocks.installedService }));
+vi.mock("@yonder/local-host/release/result", () => ({ recordUpdateResult: mocks.recordUpdateResult }));
 
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

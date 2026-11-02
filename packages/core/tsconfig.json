@@ -2,13 +2,22 @@
 	"extends": "../../tsconfig.base.json",
 	"references": [
 		{
-			"path": "../pi-durable"
-		},
-		{
-			"path": "../sdk"
+			"path": "../bot-core"
 		},
 		{
 			"path": "../bot-definition"
+		},
+		{
+			"path": "../runtime-adapter"
+		},
+		{
+			"path": "../local-host"
+		},
+		{
+			"path": "../cloud-host"
+		},
+		{
+			"path": "../sdk"
 		},
 		{
 			"path": "../protocol"

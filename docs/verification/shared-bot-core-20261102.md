@@ -1,6 +1,6 @@
 # 共享 Bot 核心重构：阶段验证记录
 
-当前续接已完成阶段 1–6，并完成 cloud/server 的阶段 9 部分。最新 Yonder 完整 gate：2686 通过 / 0 失败 / 112 跳过，build/typecheck/lint 通过；cloud 后端204通过。下面旧环境失败均保留为历史，原停止结论和 Git/SwiftPM/EMFILE 阻塞已被续接结果替代，不是当前状态。
+当前续接已完成阶段 1–7，并完成 cloud/server 与 cloud 前端的阶段9部分（63b5a99、107ce7e）。Yonder最终2698通过/0失败/112跳过，完整build/typecheck/lint通过；cloud后端205项与SSR3项通过。worker、真实模型、资源预算、monorepo app和设备工具仍待实施。下列上次环境停止说明为历史，不是本次停止结论。
 
 **上次运行历史快照：** 日期：2026-11-02；Node v24.21.0；两个指定 worktree 均为 refactor/shared-bot-core。Yonder 初始 HEAD 为 a6a6c0b5。仅修改架构与规范文档，未修改产品代码、测试、构建脚本或安装/发布流程。BRIEF.md 原先即为未跟踪文件，保留原样。
 
@@ -134,3 +134,25 @@ root 代码阅读修复了三处实际接线问题：dispatch 不得吞结果写
 完整实现、旧数据保护、所有开发失败/定向原始计数见 [shared-bot-plugins-20261102.md](shared-bot-plugins-20261102.md)。SDK文件/文档能力有FS/PG真实实现；memory保留本机库与rg；tasks只读旧SQLite导入、增量投影与按task history；cron/关注/moments等由单宿主scheduler驱动。正常读取性能与所有适用旧业务断言保留，异步moment验收只移除无效的全历史末条时序假设，不减少结果/不重复投递断言。
 
 root最终完整gate：build/typecheck/lint均退出0；默认2686通过/0失败/112跳过，文件500通过/0失败/67跳过，117.19秒；size589、layer271，无违规。日志shared-bot-core/stage-6-{build,typecheck,test,lint}.log。没有真实模型、worker或A12负载测试。
+
+## 阶段 7：共享组合与强制包边界（完整gate通过）
+
+实现、所有开发失败/修复和精确日志见 [包边界记录](shared-bot-boundaries-20261103.md)。本机实际调用唯一createBot；默认adapter含真实Runtime，Node/PG仅显式宿主入口，旧core只兼容导出。check-layers扫描纯包的workspace传递依赖并限定唯一pi运行入口，105个共享源文件、基线0。原有健康/额度维护已接同一宿主scheduler，保留原节奏和关闭清理。
+
+定向集从757通过/64失败/61跳过，修复后821通过/0失败/61跳过，总数仍882；另维护/guard55通过1跳过，release11通过。首轮root完整build/typecheck退出0，默认2697通过/1失败/112跳过，127.33秒；唯一CodeGraph源夹具未迁移，窄修后定向2/2。新包从空dist重建的证据与原始日志均保留；最终stage-7-final完整gate：build/typecheck/lint退出0，2698通过/0失败/112跳过，文件502通过/67跳过，91.73秒；size908、layer105、基线均0。真实Luna缺规约凭据，尚未运行GLM/worker，不以默认测试替代真实模型。
+
+## 阶段 9 续接：主动投递与 cloud 前端（cloud 107ce7e）
+
+cloud 的现有 send 协议增加已存在 SDK deliveryId 的程序投递路径；用户输入仍使用 sourceMessageId 唯一结果。replyTo 沿原 appendMessage 校验保留，worker 通过已有 /api/device/dm 使用 Bot 实际 owner 和原社交规则创建 DM。同会话并发两种 deliveryId 的真实 PG 检查覆盖预查锁修复。cloud Chat 的 error 显示在普通气泡外，role=alert + text-danger；按钮各自 link，保留全卡 link 回退。monorepo app 的对应变化在阶段7 gate之后实施，不能据cloud SSR宣称两端完成。
+
+root 完整 gate：cloud根/server build/typecheck 全退出0；205 通过 / 0 失败 / 0 取消 / 0 跳过 / 0 todo，22 suites，48.747秒。组件SSR 3通过/0失败/0跳过，0.149秒。日志 `shared-bot-core/stage-9-channel-ui-{cloud-build,cloud-typecheck,server-build,server-typecheck,server-test,render-test}.log`。开发定向首次35通过/2失败（迁移总数及断言放置问题），修正组合37/37；随后realtime20/20、server typecheck通过。SSR首次页面导入因Node不加载SVG而加载失败1文件/0项通过，提取实际复用MessageBubble后3/3通过。详情见cloud验证文档。没有新增依赖/页面、截图、桌面或生产操作，没有模型验收。
+
+## 阶段 11 前置只读梳理（尚未实施）
+
+2026-11-03 续接确认：现有 work bridge、work.request/response/cancel 与 owner 校验可复用；设备 control/catalog-methods 目前为空。原 Runtime catalog 不含工具参数 schema，control registry 无 tools.call。SDK 插件工具必须在真实 Runtime invocation 中生成并登记 ToolContext；device-operation 为工作区操作手工构造的 context 不能作为通用插件入口。
+
+pi-durable 的 ToolExecutionApi.executeTool 仅供活动工具的 nested call；Conversation.submit 是用户输入，不能合成 assistant entry 冒充工具调用。实施通用无模型工具入口时必须沿同一 ToolTask 的 schema、hooks、执行意图、输出与 replay 链，不复制内部 admission 生命周期。还须明确云 Bot 与本机已授权目标 session/config 的关联；server 从 Bot 行派生 owner，设备再核验本地 owner 和 scope，调用方不得自报 principal/capabilities 提权。该梳理只是当前缺口与约束，不代表 tools.call 或 A9 已完成，也不是本任务停止结论。
+
+### 前端路由证据更正（2026-11-03）
+
+root 后续核对 App 路由：monorepo app 已有 `/download` 独立页面；cloud 旧前端只有 `/get` 与 `/connect`。cloud 的3项SSR验证的是实际Bubble产出的href及错误/普通样式，未验证落地页面；此前cloud记录“使用现有/download路由”的描述不准确，已更正。阶段9后续将 `/download` 复用现有Install页面，不新增页面或修改安装器，待实际路由检查完成再记可达。

@@ -67,7 +67,7 @@
 
 ## 默认 Bot 与云端创建（增补，主人 10-29）
 网页端（apps/app）依赖社交服务的两个增补接口，仅限已登录的 human 会话：
-- `POST /api/me/default-bot`，正文 `{name, englishName}`（网页固定发 `小未` / `Yonder Bot`）。**幂等**：在账号行锁内判断，账号名下已有任意 `kind=agent` 且 `owner_id=本账号` 的账号（含设备接入的）时原样返回其中一个，不创建；否则创建一个云端 Bot（使用共享核心、平台模型与 agent-presets 默认模板，不启动独立容器）并建立与本人的 DM 会话，返回 Actor。重复登录和并发请求不得产生多个。
+- `GET /api/me/default-bot` 返回当前账号的 default Bot，没有时返回404。`POST /api/me/default-bot` 接受网页现有 `{name, englishName}`（固定发 `小未` / `Yonder Bot`），服务端沿原 name 字段保存名字。**幂等**：在 owner 锁内按 `bot_kind=default` 查询，已有默认 Bot 时原样返回、不改名；否则创建独立云端 Bot，返回 Actor。设备 Bot 不占默认 Bot 的身份。首次激活使用共享核心、平台模型与 agent-presets 默认模板，不启动独立容器；DM 沿现有会话接口创建。重复登录和并发请求不得产生多个默认 Bot。
 - `POST /api/bots`，正文仅 `{name}`，创建云端 Bot，其余参数全部取服务端默认值，返回 Actor。不接受用途、模型、预设等字段。
 网页行为：联系人加载后若没有任何自己的 Bot 就调用前者一次；聊天列表不再有选择/创建引导页，旧 `/pa` 重定向到 `/`。服务端实现不在本仓库（yonder-cloud）。
 

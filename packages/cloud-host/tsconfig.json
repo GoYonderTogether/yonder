@@ -5,7 +5,13 @@
 			"path": "../bot-definition"
 		},
 		{
-			"path": "../core"
+			"path": "../bot-core"
+		},
+		{
+			"path": "../runtime-adapter"
+		},
+		{
+			"path": "../local-host"
 		},
 		{
 			"path": "../../plugins/memory"

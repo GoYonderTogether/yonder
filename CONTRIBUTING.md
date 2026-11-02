@@ -11,7 +11,11 @@ packages/
   pi-durable/            MIT fork 的 durable 源码（构建先于 SDK/core）
   sdk/      @yonder/sdk    插件 API 类型、define* 辅助函数、testing/checkPlugin
   bot-definition/ @yonder/bot-definition  宿主无关的 Bot schema、解析与配置求值
-  core/     @yonder/core   内核；pi 运行时仅经唯一适配层访问（当前 src/runtime/）
+  bot-core/ @yonder/bot-core  共享 createBot、路由/会话/投递/提示词/插件注册
+  runtime-adapter/ @yonder/runtime-adapter  唯一 pi 运行实现，默认纯入口与 node/postgres 子路径
+  local-host/ @yonder/local-host  本机启动、存储/环境、插件解析、控制与管理
+  cloud-host/ @yonder/cloud-host  PG 来源/插件存储与云端组合（worker 见实际实现）
+  core/     @yonder/core   旧路径兼容导出，不复制共享业务
   cli/      @yonder/cli    yonder 命令与终端界面
   macos/                   macOS 状态栏
 plugins/                   官方插件，每个是独立 npm workspace 包，只依赖 @yonder/sdk
@@ -29,8 +33,8 @@ skills/                    随发行内置的 skill
 ## 边界（违反即为缺陷）
 
 - 架构不变量见 [docs/architecture.md](docs/architecture.md) 第 5 节，任何时候都不能违反。
-- pi 的模型/会话运行包只能在唯一运行时适配层里 import（迁移前为 `packages/core/src/runtime/`，迁移后路径由层级检查单源限定）；`@yonder/sdk` 只能 `import type`。插件只依赖 `@yonder/sdk`，不 import core、pi 或兄弟插件的内部代码。
-- `packages/core/src` 按 [architecture §6](docs/architecture.md#6-内核分层与规模预算) 分层，只能依赖本层或更低层（含 `import type`），由 `scripts/check-layers.mjs` 检查；单文件不超过 500 行，由 `scripts/check-file-size.mjs` 检查。两者都在 `npm run lint` 里，基线只减不增。
+- pi 的模型/会话运行包只能在唯一 `packages/runtime-adapter/` 包里 import（默认纯入口与显式 node/postgres 宿主子路径由层级检查单源限定）；`@yonder/sdk` 只能 `import type`（现有 `executionContext(signal)` 的纯取消上下文辅助例外：仅 SDK index 可从 `@earendil-works/chord/context` 导入 `BACKGROUND_CONTEXT`、`withAbortSignal`，不涉及模型/会话运行）。插件只依赖 `@yonder/sdk`，不 import core、pi 或兄弟插件的内部代码。
+- `packages/bot-core/src` 按 [architecture §6](docs/architecture.md#6-内核分层与规模预算) 分层，只能依赖本层或更低层（含 `import type`），由 `scripts/check-layers.mjs` 检查；单文件不超过 500 行，由 `scripts/check-file-size.mjs` 检查。两者都在 `npm run lint` 里，基线只减不增。
 - `packages/cli/` 可以使用 pi-tui 及 coding-agent 的 UI/主题/键位导出，或按许可提取的界面模块；不得接入 coding-agent 的第二套运行或存储系统，不得自行重设计布局和交互（见 [spec/12](docs/spec/12-terminal-interaction.md)）。
 - 不写模拟模型、假数据、示例人设、占位功能。
 - 修改 `docs/spec/`、`docs/architecture.md`、`docs/decisions.md` 与 `AGENTS.md` 属于设计变更，需要维护者审核。

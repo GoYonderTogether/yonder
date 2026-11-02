@@ -4,8 +4,8 @@
 
 - 依赖：`@earendil-works/pi-ai`、`@earendil-works/pi-durable`、`@earendil-works/chord`。版本**锁定到精确版本**，升级单独成一个变更。
 - pi-durable 1.3.0 来自 MIT fork `GoYonderTogether/pi` 的 `yonder/1.3` 分支，源码同步到 workspace `packages/pi-durable`，保留包名、版本与全部导出路径。D28/D29/D44 的 beforeAgent、abort 接续队列、原子运行回执与 shouldRetry 是 fork 源码提交；不再安装时打补丁。仅 durable 内化，其 chord、pi-ai、codemode 及其他 pi 包仍锁定上游 npm 版本。同步命令和来源 commit 见 CONTRIBUTING 与包内 FORK.md。
-- Yonder 宿主源码只有唯一运行时适配层可以 import 这些包（迁移前为 `packages/core/src/runtime/`，迁移后路径由层级检查单源限定）。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型；`@yonder/sdk` 以 `import type` 重新导出少数类型（04 §3.5、§3.6、§4）。`packages/pi-durable` 属于 pi 实现自身，其内部上游 imports 随 fork 保留，不构成宿主的第二个适配入口。
-- pi-durable 标注为实验性。runtime 目录的测试必须覆盖本文用到的每一个 pi 能力，升级 pi 时先跑这组测试。
+- Yonder 宿主源码只有 `packages/runtime-adapter/` 可以 import 这些包。默认入口只包含运行算法和注入契约，显式 node/postgres 子路径提供宿主能力，不由默认入口传递载入。其他内核代码只用适配包导出的 Yonder 自己的类型；`@yonder/sdk` 以 `import type` 重新导出少数类型（04 §3.5、§3.6、§4），仅保留 index 现有 `executionContext(signal)` 所需 chord/context 的 `BACKGROUND_CONTEXT` 与 `withAbortSignal` 纯取消上下文函数；层级检查限定这两个符号，不开放其他运行导入。`packages/pi-durable` 属于 pi 实现自身，其内部上游 imports 随 fork 保留，不构成宿主的第二个适配入口。
+- pi-durable 标注为实验性。运行时适配包的测试必须覆盖本文用到的每一个 pi 能力，升级 pi 时先跑这组测试。
 - 不使用完整 pi coding-agent 的运行循环、SessionManager、会话文件与配置格式。终端界面按 12 统一沿用 pi v1.3.0；仅 `packages/cli/` 可使用 pi-tui 及 coding-agent 的 UI/主题/键位导出或按许可提取的 UI 模块，不另设计布局和交互。这是界面依赖的明确边界，不允许 CLI import 模型/会话运行包或启动另一套 agent runtime。
 - pi 的每个异步调用都带 chord 的 `Context`；取消看 `context.abortSignal`。工具与钩子**必须**响应它，否则中止要等工具自己结束。
 
@@ -14,6 +14,7 @@
 - 事件账本、会话元数据、pi 转录与文档、模型健康和工具输出缓存通过运行状态存储接口访问。本机与云端使用同一运行循环，不复制转录，不建立第二套会话队列。
 - 本机实现：一个 home 一个 SQLite 文件 `<home>/.yonder/state.db`，使用 Node 内置 `node:sqlite`。`openNodeSqliteDatabase(path)` 的同一个连接供 pi 的 `SqliteStorage.open(db, { prefix: 'pi_' })` 与 Yonder 的 `y_` 表使用；禁止对同一文件再开第二个连接。每个 home 的锁与本地控制接口保持不变。
 - 运行时接收 pi Storage 与领域 Store，不在共享运行循环硬编码 SQLite 打开或裸 SQL 读取。目录宿主以原同一连接构造 SQLite Storage；离线转录查询可以留本机入口。
+- 运行时 `maintenance(now)` 只执行既有模型健康探测与官方额度轮询 tick，不拥有定时器。本机 openKernel 把它登记到现有同一宿主调度器；worker 同样集中驱动。模型探测保留15秒检查节奏，官方额度保留60秒间隔及首次启用时的读取，不因合并调度加密网络轮询。新的 openNodeRuntime 不暗中起 timer；旧 core Runtime.open 兼容入口由 Node 宿主负责原有维护驱动并在 close 时清理。释放单个云 Bot 只解绑自身维护，不能停掉共享调度器。
 - 云端实现：PostgreSQL 按租户与 Bot 隔离全部状态，Redis 供共享协调；一个 worker 进程按消息激活 Bot，空闲释放实例，不给每个 Bot 启动进程、定时器或长连接。会话仍由 pi-durable 管理，存储适配不得形成另一份转录。资源、配额和报错契约见 [22](22-shared-bot-core.md)。
 
 PostgreSQL 的 pi 存储复用 pi-durable `MemoryStorage.prepareCommit` 的提交校验与读算法：激活时回放当前 Bot 的持久增量日志，提交时按事务持久化本批与序列后再 apply；ID 分配持久化，不能重用已分配但未提交的 ID。实例关闭不关闭 worker 共用 Pool。不做每轮全库快照；活跃内存随该 Bot 历史增长，须以真实资源验收确认预算，超预算再改索引读取，不预建第二套转录。领域事件、会话和身份由真实 PG 实现既有 Store 契约，不能靠替换 SQLite SQL 字符串冒充适配。用量计数与 run.end 必须同一事务提交；结算回调接收既有 QuotaStore 能力，由各存储实现在该事务绑定，不向共享调用方泄漏 DbExecutor/具体 SQL。
