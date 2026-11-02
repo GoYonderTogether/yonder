@@ -61,7 +61,6 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		throw new Error("INVALID_REQUEST");
 	}
 	if (group === "serve") {
-		if (!options.provider && process.platform !== "linux") throw new Error("UNSUPPORTED_OPERATION");
 		const providerModule = options.provider
 			? pathToFileURL(resolve(options.provider)).href
 			: new URL("./backends/linux-entry.js", import.meta.url).href;
