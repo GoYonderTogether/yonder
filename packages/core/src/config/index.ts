@@ -29,6 +29,7 @@ import {
 	YonderSchema,
 } from "./schema.js";
 import { socialTriggerErrors } from "./social-schema.js";
+import { socialBindingIssues } from "./social-validation.js";
 import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
 export {
@@ -316,7 +317,7 @@ function publicAvatarUrl(value: string): boolean {
 
 export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?: string): AgentConfig {
 	const agent = parse(text, file, AgentSchema);
-	const issues = profileIssues(agent.defaults ?? {}, file, "/defaults");
+	const issues = [...profileIssues(agent.defaults ?? {}, file, "/defaults"), ...socialBindingIssues(agent, file)];
 	if (agent.avatarUrl !== undefined && !publicAvatarUrl(agent.avatarUrl))
 		issues.push({ file, path: "/avatarUrl", message: "必须为无凭据的公共域名 HTTPS 图片 URL" });
 	if (expectedId !== undefined && agent.id !== expectedId)

@@ -172,3 +172,57 @@ test("participation plugin references require loading and the matching Bot profi
 	);
 	expect(() => parse({ defaults: { group: { plugin: "plugin:not-an-id" } } })).toThrow();
 });
+
+test("reject unrunnable social group/main and batch shapes before publishing configuration", () => {
+	const binding = {
+		id: "group",
+		match: { channel: "qq", kind: "group", conv: "conv:qq:group:work" },
+		session: "main",
+	};
+	const candidate = { ...base, bindings: [binding], social: { enabled: true } };
+	expect(() => parseAgentConfig(JSON.stringify(candidate))).toThrow(/group.*私人 main/);
+	expect(() => parseAgentConfig(JSON.stringify({ ...candidate, social: { enabled: false } }))).not.toThrow();
+	expect(() =>
+		parseAgentConfig(
+			JSON.stringify({
+				...candidate,
+				social: { enabled: true, scope: ["conv:qq:group:other"] },
+			}),
+		),
+	).not.toThrow();
+	expect(() =>
+		parseAgentConfig(
+			JSON.stringify({
+				...base,
+				bindings: [{ ...binding, match: { type: "social.batch-ready" }, reply: "none" }],
+			}),
+		),
+	).toThrow(/参与批次/);
+});
+
+test("default social batch profiles need the same plugin admission checks as explicit plugins", () => {
+	const agent = parseAgentConfig(
+		JSON.stringify({
+			...base,
+			profiles: { main: { plugins: [] } },
+			social: { enabled: true },
+			bindings: [
+				{
+					id: "batch",
+					match: { type: "social.batch-ready" },
+					session: { mode: "persistent", per: "conv" },
+					reply: "none",
+				},
+			],
+		}),
+	);
+	const config = parseYonderConfig(JSON.stringify({ schema: 1 }), "yonder.yaml");
+	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set(["social"]))).toContain(
+		"a/batch: participation plugin must be selected by batch profile main: social",
+	);
+	agent.profiles.main = { plugins: ["social"] };
+	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set(["social"]))).toEqual([]);
+	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set())).toContain(
+		"a/batch: participation plugin not loaded social",
+	);
+});

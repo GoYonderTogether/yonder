@@ -1,15 +1,68 @@
+import type { Channel } from "@yonder/sdk";
+import type { ConfigIssue } from "./index.js";
 import type { AgentConfig, YonderConfig } from "./schema.js";
+
+/** Reject shapes the routing admission can never execute, before publishing them. */
+export function socialBindingIssues(agent: AgentConfig, file: string): ConfigIssue[] {
+	return agent.bindings.flatMap((binding, index) => {
+		const batch = binding.match.type?.endsWith(".batch-ready");
+		const kinds = [binding.match.kind].flat();
+		const scoped =
+			!agent.social?.scope ||
+			!binding.match.conv ||
+			[binding.match.conv].flat().some((conv) => agent.social?.scope?.includes(conv));
+		let message: string | undefined;
+		if (
+			batch &&
+			(typeof binding.session !== "object" ||
+				binding.session.per !== "conv" ||
+				binding.reply !== "none" ||
+				binding.wake === "write")
+		)
+			message = "参与批次必须使用 persistent/per: conv、reply: none 和可运行的 wake；不能进入私人 main";
+		else if (
+			binding.session === "main" &&
+			agent.social?.enabled &&
+			scoped &&
+			(kinds.includes("group") || kinds.includes("channel"))
+		)
+			message = "social 群/频道不能进入私人 main；使用独立 per: conv 会话并以 parent_ask 交办执行";
+		return message ? [{ file, path: `/bindings/${index}`, message: `${binding.id}: ${message}` }] : [];
+	});
+}
 
 /** Cross-file validation runs on the candidate before it is published. */
 export function socialReferenceErrors(
 	config: YonderConfig,
 	agents: Map<string, AgentConfig>,
 	loaded?: ReadonlySet<string>,
+	channels?: ReadonlyMap<string, Channel>,
 ): string[] {
 	const errors: string[] = [];
 	for (const agent of agents.values()) {
+		for (const binding of agent.bindings) {
+			if (binding.session !== "main" || ![binding.match.kind].flat().includes("group")) continue;
+			const instances = binding.match.channel ? [binding.match.channel].flat() : [...(channels?.keys() ?? [])];
+			if (
+				instances.some(
+					(id) => channels?.get(id)?.multiAgent && channels.get(id)?.features?.groupParticipation === "membership",
+				)
+			)
+				errors.push(`${agent.id}/${binding.id}: membership group cannot enter private main; use persistent/per: conv`);
+		}
 		const social = agent.social;
 		if (!social) continue;
+		if (social.enabled)
+			for (const binding of agent.bindings) {
+				if (binding.match.type !== "social.batch-ready") continue;
+				const profile = binding.profile ?? agent.defaultProfile;
+				if (!(agent.profiles[profile]?.plugins ?? agent.defaults?.plugins ?? []).includes("social"))
+					errors.push(
+						`${agent.id}/${binding.id}: participation plugin must be selected by batch profile ${profile}: social`,
+					);
+				if (loaded && !loaded.has("social"))
+					errors.push(`${agent.id}/${binding.id}: participation plugin not loaded social`);
+			}
 		for (const [scope, policy] of [
 			...Object.entries(social.defaults ?? {}),
 			...Object.entries(social.conversations ?? {}),

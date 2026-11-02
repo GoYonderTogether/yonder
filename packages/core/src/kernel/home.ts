@@ -77,6 +77,7 @@ export function configurationErrors(
 		config,
 		agents,
 		new Set(plugins.info?.map((plugin) => plugin.id) ?? []),
+		plugins.channels,
 	);
 	const validateProfile = (name: string, selected: ReturnType<typeof resolveProfile>) => {
 		errors.push(...promptErrors(selected.prompt).map((error) => `${name}: ${error}`));
