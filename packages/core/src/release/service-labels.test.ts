@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
@@ -9,6 +9,7 @@ vi.mock("node:os", async (original) => ({
 	homedir: () => fixture.home,
 }));
 
+import * as exec from "./exec.js";
 import { manageService } from "./index.js";
 
 const uid = `gui/${process.getuid?.()}`;
@@ -148,38 +149,31 @@ test("Linux service commands follow the legacy systemd unit name that is install
 	const root = await tempHome("ya-");
 	fixture.home = root;
 	const platform = Object.getOwnPropertyDescriptor(process, "platform");
-	const before = { path: process.env.PATH, config: process.env.XDG_CONFIG_HOME };
+	const before = { config: process.env.XDG_CONFIG_HOME };
 	try {
-		const bin = join(root, "bin"),
-			callsPath = join(root, "calls"),
-			state = join(root, "active"),
+		const callsPath = join(root, "calls"),
 			units = join(root, "config/systemd/user"),
 			home = join(root, "legacy-home"),
 			install = join(root, "legacy-install");
-		await mkdir(bin);
 		await mkdir(units, { recursive: true });
-		await writeFile(
-			join(bin, "systemctl"),
-			`#!${process.execPath}
-const fs = require("node:fs");
-const args = process.argv.slice(2);
-fs.appendFileSync(${JSON.stringify(callsPath)}, JSON.stringify(args) + "\\n");
-if (args[1] === "show") {
-	const active = fs.existsSync(${JSON.stringify(state)});
-	console.log("ActiveState=" + (active ? "active" : "inactive") + "\\nMainPID=" + (active ? "4242" : "0"));
-} else if (args.includes("stop") || args.includes("disable")) fs.rmSync(${JSON.stringify(state)}, { force: true });
-else if (args.includes("start") || args.includes("restart")) fs.writeFileSync(${JSON.stringify(state)}, "on");
-`,
-		);
-		await chmod(join(bin, "systemctl"), 0o700);
+		let active = true;
+		vi.spyOn(exec, "command").mockImplementation(async (program, args) => {
+			expect(program).toBe("systemctl");
+			await appendFile(callsPath, `${JSON.stringify(args)}\n`);
+			if (args.includes("stop") || args.includes("disable")) active = false;
+			if (args.includes("start") || args.includes("restart")) active = true;
+			return {
+				code: 0,
+				stdout: `ActiveState=${active ? "active" : "inactive"}\nMainPID=${active ? 4242 : 0}\n`,
+				stderr: "",
+			};
+		});
 		// The pre-S-N01 CLI wrote its unit under this exact name; no YonderService record is needed here.
 		await writeFile(
 			join(units, "dev.yonder.harness.service"),
 			`# YonderService=${JSON.stringify({ home, install })}\n[Unit]\nDescription=Yonder Harness\n`,
 		);
-		await writeFile(state, "on");
 		Object.defineProperty(process, "platform", { value: "linux", configurable: true });
-		process.env.PATH = `${bin}:${before.path}`;
 		process.env.XDG_CONFIG_HOME = join(root, "config");
 
 		expect(await manageService("status")).toMatchObject({
@@ -206,9 +200,8 @@ else if (args.includes("start") || args.includes("restart")) fs.writeFileSync(${
 		expect(executed).toContainEqual(["--user", "disable", "--now", "dev.yonder.harness.service"]);
 		expect(executed.some((args) => args.includes("dev.yonder.service"))).toBe(false);
 	} finally {
+		vi.restoreAllMocks();
 		if (platform) Object.defineProperty(process, "platform", platform);
-		if (before.path === undefined) delete process.env.PATH;
-		else process.env.PATH = before.path;
 		if (before.config === undefined) delete process.env.XDG_CONFIG_HOME;
 		else process.env.XDG_CONFIG_HOME = before.config;
 		await rm(root, { recursive: true, force: true });

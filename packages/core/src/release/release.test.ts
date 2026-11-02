@@ -71,7 +71,7 @@ test("version-link cleanup preserves real directories and links outside versions
 		await mkdir(version, { recursive: true });
 		await mkdir(outside);
 		await writeFile(join(outside, "keep"), "outside");
-		await symlink(version, current, "dir");
+		await symlink(version, current, process.platform === "win32" ? "junction" : "dir");
 		expect(await managedVersionLink(install, current)).toBe("0.2.1");
 		await unlinkManagedVersionLink(install, current);
 		expect((await stat(version)).isDirectory()).toBe(true);
@@ -80,7 +80,7 @@ test("version-link cleanup preserves real directories and links outside versions
 		await expect(unlinkManagedVersionLink(install, current)).rejects.toThrow("unmanaged current path");
 		expect(await readFile(join(current, "keep"), "utf8")).toBe("real directory");
 		await rm(current, { recursive: true });
-		await symlink(outside, current, "dir");
+		await symlink(outside, current, process.platform === "win32" ? "junction" : "dir");
 		await expect(unlinkManagedVersionLink(install, current)).rejects.toThrow("outside managed versions");
 		expect(await readFile(join(outside, "keep"), "utf8")).toBe("outside");
 	} finally {

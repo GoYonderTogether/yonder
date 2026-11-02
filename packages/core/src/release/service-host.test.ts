@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
@@ -102,7 +102,7 @@ fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(jobs));
 test("service host executes its entry point through the installed current symlink", async () => {
 	const root = await tempHome("ya-");
 	try {
-		await symlink(resolve("scripts"), join(root, "current"), "dir");
+		await symlink(resolve("scripts"), join(root, "current"), process.platform === "win32" ? "junction" : "dir");
 		const result = spawnSync(process.execPath, [join(root, "current/yonder-service-host.mjs")], { encoding: "utf8" });
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain(
