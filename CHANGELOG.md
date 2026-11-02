@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26110202] - 2026-11-02
+
+### Fixed
+
+- devices：retain safe diagnostics for unconfirmed RPC outcomes
+
 ## [0.3.26110201] - 2026-11-02
 
 ### Fixed
