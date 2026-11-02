@@ -122,6 +122,8 @@ identity:
 - 原生 validate/update 的既有结果可附独立运行 metadata；不把 derived 字段写回 AgentConfig。`agents show --json` 保持原 stdout 往返契约；仅本机 runtime inspect context 的 home、Agent 与目标吻合时，复用同一 inspect 将简短运行事实输出到独立 stderr。普通终端、其他 Agent 或跨 home 不自动追加；第二次查询失败或与磁盘版本分歧明确显示，不能冒充原子快照，不因此让成功的原始配置读取变失败。
 - parent 上下文只对既有 `parentOrigins` 验证通过且具备主人关系的原件投影目标 source conv/event；从 kernel 组合层注入共享查询，不在 prompt 层重算路由。事实不授予权限、不携带私有转录/正文/凭据，不改变群 profile、主人授权范围或私人 main 隔离。主会话可沿既有原生管理能力承办主人任务；不能因不能直绑私人 main 就宣称所有可行配置也不支持，也不能将 default 的 exec 能力自动开放给群成员。
 
+投影的样本还须保留已核验的来源身份事实（from、已知的owner关系、渠道提供的senderIsBot及原生提及事实），未知不猜测。最近样本是Bot回声时仍保留样本，不筛选成功原件来掩盖失败；展示其真实参与原因，将合法防互刷记录与主人入站缺路由区分。CLI与宿主沿同一投影解释当前仅入账、scope排除或未形成模型处理路径，不能仅以consumer=not-applicable或write配置冒充已处理；历史执行/投递证据继续独立，不从预测宣布已运行。旁观配置保持合法，不强制所有群启用模型，不凭群名映射账号或扩大权限。
+
 ### 3.3 原始来源上下文连续
 
 关键自管理事实不能只依赖命令的 stderr；Agent 合法使用管道或丢弃错误流时，原 stdout/命令语义不变，宿主仍须沿既有动态 conversationContext 提供可信来源事实。所有内容仍在稳定提示词之后，不生成新用户输入，不新增意图解析器、任务状态判官、第二存储或运行系统。

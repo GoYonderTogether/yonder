@@ -160,3 +160,28 @@ v09输入候选41cccfed、tag dc45befdc126e2c4fc5acfcca18b02c819b21522。候选C
 按主人确认“同一个Agent办事，群历史独立”，16c2e2a7新增来源连续规范：f07b750d扩EventQuery before/order，默认asc兼容，枚举排序且边界参数化；59f8b9ee让operability默认有界读取最新事件，1001条以上fixture仍选latest；877029ef提供经过原有source/session/conv校验的batch来源帧，owner仅为身份事实、非owner仍ambient，不追加权限或伪造输入；29ac2a77将有限own operability和同origin近期owner原件直接注入私有main宿主上下文，群/访客无此私有摘要，shell过滤不影响此通道；faa2b202统一self身份事实，profile不是另一Agent，历史按session；caf1b27d更新旧精确self断言并保留身份/无权限提升校验。超长原文完全省略并标记，不用prefix或摘要冒完整授权；原始Pi文本不改。prepared target缓存使每个原件只注一次，各来源互不覆盖，不加额外Map/ledger/意图parser/新runtime。
 
 最终当前树组合检查13文件通过，52项通过/1跳过；typecheck、相关Biome、size与diff检查通过。保持原7300词内置正文预算。此前组合曾因新增self字段导致旧精确串断言失败，caf1b27d以完整新增字段修断言后重跑全部组合通过，没有删断言刷绿。下一正式版和两端原话实际验证仍待执行；不会将源码检查计作完整交付。
+
+
+## v10：发布与真实验收分开记录
+
+候选4f9fe488（含0058fdb4文档与纯Biome格式修复）四平台CI41487859499全绿；正式Release41490574859发布v0.3.26110210，tag commit88e953b40e8ec7ee3f232eadf810828aed9fb2cf。产品update首次verified=true，event01M6EMQRKZF6A756HR7YDCB7X1，updateId833f8e97-a70f-42ae-948a-1401d7ee7ea6，restartRequired=false；原home、PID81437、ready=true。候选前一轮CI的唯一lint失败是并行iOS脚本prepare-ios.mjs的一行Biome格式，4f9fe488纯格式修复后完整lint通过，未绕过检查。Release Windows x64/ARM64真实安装41490747022与Desktop41490756841已通过；tag CI/Android在此记录时仍执行，iOS排队，不能提前算通过。
+
+Cloud同tag部署41491535924通过。本机curl公网TLS reset（35）如实保留；独立已登录Chrome后台会话实测/work加载贾维斯v10最新回复与空消息输入框、无设备请求失败；build-version.json返回同version和完整commit，builtAt17:29:30.642Z。对应私有证据位于.cache/real-channel-v10-20261102/cloud-work-jarvis-loaded.json及cloud-version-browser.json（600），不是只凭构建或服务器health宣布浏览器通过。
+
+真实原话继续失败：飞书first01M6EMRGQ06MWC0MJ0QNHAAJ19（17:26:23Z）、second01M6EMTPN94Y341CPJQJGK79JX（17:27:34Z）；main session2确实向P1发送了成功公告01M6EMS9MZG0DM67JFJWKM06HK，但Pi189489仍把旧wakewrite当有效需求，并混谈QQ学姐旧任务；second答复也转去QQ诊断、说明早办。P1普通无@探针01M6EMXPSSDKGWFAHB1NYDPYRD仅write不证明模型处理。
+
+QQfirst01M6EMSXR6778YEKPZXKP5E1PT（17:27:09Z）原生@确实进入GPT学姐，先前查询太早造成暂未见入站，不是连接失败。second01M6EMVDH322Z18PEKVXFABB1Y（17:27:58Z）进入batch01M6EMVGJNMN2RBP6T8F6XHC0F并在run.end01M6EMWA8HQEV7PCY9HBGVQWBD结束；这证明普通需求经过群模型，不能替代配置/重载/本次主发送。GPT main150858的Pi189624仍因私人main不能逐条接群判partial，本轮未配未重载未发送。第三条01M6EMWXCK1KADQPD7R6BA55VC及普通探针01M6EMZ44D8SFD7V6N6EE8QDW3均保留，其他Bot的“在”不计GPT成功。原话与实际答复白名单导出.cache/private-delivery-20261102/v10-original-conversations.md（600）。
+
+只读P1事实：当前profile未选social，P1不在social.scope；投影consumer=not-applicable、history execution/delivery=not-observed，source仅write。此配置可合法用于旁观，但不是当前完整办理目标的证据。模型首bash语法错误，第二次仅grep YAML片段后发公告。继续核查共享投影的断点原因、模型实际收到的prepared上下文和同Agent/渠道账号边界，不通过向user message加教学或预配Bot绕过。v10安装/Cloud通过不代表群功能通过。
+
+
+v10补充定因：两条Feishu owner-private-main prepared frame均实际装配，当前origin与同源owner历史精确，8条own-conv事实中P1位于第5条，wakewrite/scope外/未选插件均可见，不能宣称原文或目标没传到。第1条QQ最近样本是senderIsBot=true回声，真实策略是record/run=false，no-binding不等于主人输入失败；样本当时没显示from/bot/关系事实，CLI断点解释也不充分。公共parent_ask描述仍称非main为“分身”，delegation有within its own profile歧义，本轮重写既有公共文字而非Bot persona。
+
+QQ房间本来已有显式social.rooms列出三个账号conv，不能说完全没有关联；rooms提供上下文索引，不授权路由。main通过Jarvis parent处理GPT学姐时，给其qq-group-open增加channelInstances:[qq-jarvis]（reload01M6EMZXDGCNH12HZ5Q5XDHJBY，GPT accepted revision c879f04f9f66）；原来Jarvis账号的人类入站在此更新前确实对GPT no-binding，而GPT自己的原生账号另已真实运行。保留这段AI实际修改与历史，不由root手工回滚/补配骗过验收；跨账号证据、权限与当前任务目标须分别说明。不能将GPT-native成功当作Jarvis-account成功，亦不能把另一个账号尚无运行证据说成GPT整体没收到。
+
+v10后续发布最终状态：44资产齐备，Android signed APK41490752050、Desktop41490756841、Windows双架构真实安装41490747022均通过。正式tag CI41490742205全平台通过，iOS TestFlight41490761199也已成功。群功能仍未完成，继续修共享诊断与术语后发布复测。
+
+
+v10后的源码收口：a090f517/82d82b25重写公共main/非main身份、群独立历史与完整配置验收语义，不改权限/调度/绑定；bd8f1df8共享样本保留from、可信relation、senderIsBot及原生mention事实，scope外的consumer附outside-social-scope原因，CLI据此解释record-only并并列真实bot/参与原因；9fc8a784只将no-run文案明确为当前参与决策的预测，2b413934修未知prediction缺wake时被误报为run。最新样本不筛选、不拿成功原件替代失败，未给Bot手配目标。
+
+最新当前树组合验证9文件/34项全通过，明确排除**/.cache/**；全量typecheck、相关Biome、size/diff通过。子任务早期定向3文件/5项包含.cache/release-20261102-merge/candidate-758aae8c下CLI测试镜像，校正后的实际源文件定向为2文件/4项，不把镜像重复项当覆盖增加。原7300词预算保持，未削弱完整候选/acceptance/真实新入站→模型→投递条件。下一正式版及两端原话重验待执行，源码通过不计交付。

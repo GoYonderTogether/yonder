@@ -1094,3 +1094,8 @@ v08真人原话复验继续失败：飞书将v7旧write入账当成新版本执�
 ### 2026-11-03：来源帧与有界同源上下文
 
 v09原话复验发现：合法shell重定向可过滤stderr，private DM又未注入同一运行事实；同一main的一次run包含QQ parent、飞书短句及QQ工具结果，实际操作/答复目标仍为QQ。另QQ原文已在Pi，空batch trigger不等于正文丢失，但触发上下文未关联当前sourceEvents的身份/原件。沿主人通用Harness要求，复用共享投影与现有conversationContext补owner私聊事实、同origin近期原件和已准入batch来源帧；为此扩展01的可选before/order有界查询，旧正序行为不变。保留既有显式steer，不以配置值冒称实际调度事实，不加新runtime、意图parser或任务状态判官，不改Bot配置或向真实user message塞操作提示。边界见08 §3.3。主人随后明确选择“同一个 Agent 办事，群历史独立”；这作为功能和数据边界契约，不将该澄清拼进真实验收user消息，仍用原话验证Harness默认理解。
+
+
+### 2026-11-03：诊断保留来源身份与处理断点
+
+v10已确认私聊来源帧正确装配，模型仍把P1 write旁观误认完整办理，并将最近Bot回声的no-binding当主人消息接入故障。保持真实样本与路由，不按成功/群名筛选；在共享operability投影保留已核验sender/bot/关系事实，由同一CLI摘要解释已有scope/participation造成的record-only断点，历史执行继续独立。修公共main/非main术语，不改权限、参与策略或合法旁观配置。详见08 §3.2-3.3。
