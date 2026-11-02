@@ -1,22 +1,22 @@
-# Scratch log cleanup audit
+# Final scratch log cleanup audit
 
-Cleanup round 1 completed. Only untracked, unreferenced `.log` scratch files were deleted; no source, Markdown, JSON, BRIEF or report was removed. This inventory lists administrative actions and does not make an evidence-retention reference to its paths.
+Final refresh completed after the final verification ledger and raw acceptance evidence were committed. All temporary A12/final holds are removed. Only untracked `.log` scratch files without a committed verification-document reference were deleted; source, Markdown, JSON, BRIEF and report were left intact. This administrative inventory is excluded from retention references, so it cannot retain its own listed paths.
 
 Committed verification reference snapshots:
 
-- yonder: `658713ed7408f57fc6fa820482f57c2fa106828b`
+- yonder: `8bce0a62c61111c184878ab020d7c943d69775b7`
 - cloud: `e6fd63d4ed4b6297457fd9881c08cdc4909ce1f3`
 
-| Repository | Committed reference retained | Active validation held | Tracked unresolved held | Scratch deleted |
-|---|---:|---:|---:|---:|
-| yonder | 332 | 12 | 0 | 145 |
-| cloud | 18 | 0 | 0 | 6 |
+| Repository | Referenced logs retained | Tracked unresolved | Pending | Deleted this refresh | Deleted total |
+|---|---:|---:|---:|---:|---:|
+| yonder | 354 | 0 | 0 | 4 | 149 |
+| cloud | 18 | 0 | 0 | 0 | 6 |
 
-Deleted bytes: 1159325. No tracked log was deleted.
+Cumulative deletion: **155 logs / 1176906 bytes**. No tracked log was deleted. Remaining unreferenced scratch logs: **0**; pending exceptions: **0**.
 
-The JSON records each observed log and the first committed document/line proving retention. Brace groups, explicit named prefixes and suffix shorthand are expanded. Active A12 and latest verification logs remain temporarily held; root will make exact final evidence references, then request one last refresh.
+The JSON records both cleanup rounds, each deleted path, and each remaining log with its committed verification document and line. Explicit braces, named prefixes and suffix shorthand are resolved conservatively.
 
-## Deleted scratch files
+## Deleted logs
 
 | Repository | Path | Bytes |
 |---|---|---:|
@@ -171,20 +171,7 @@ The JSON records each observed log and the first committed document/line proving
 | cloud | `docs/verification/fix-round/cloud-server-build.log` | 65 |
 | cloud | `docs/verification/fix-round/cloud-server-tests.log` | 23995 |
 | cloud | `docs/verification/fix-round/cloud-web-build.log` | 5792 |
-
-## Temporarily held active validation logs
-
-| Repository | Path |
-|---|---|
-| yonder | `docs/verification/fix-round/A12-diagnostic-before-fix-2.log` |
-| yonder | `docs/verification/fix-round/A12-diagnostic-before-fix.log` |
-| yonder | `docs/verification/fix-round/A12-diagnostic-format-2.log` |
-| yonder | `docs/verification/fix-round/A12-diagnostic-format.log` |
-| yonder | `docs/verification/fix-round/A12-model-binding-focused.log` |
-| yonder | `docs/verification/fix-round/A12-model-binding-format-2.log` |
-| yonder | `docs/verification/fix-round/A12-model-binding-format.log` |
-| yonder | `docs/verification/fix-round/A12-model-binding-load-after-fix.log` |
-| yonder | `docs/verification/fix-round/A12-model-binding-typecheck-2.log` |
-| yonder | `docs/verification/fix-round/yonder-verified-build.log` |
-| yonder | `docs/verification/fix-round/yonder-verified-lint.log` |
-| yonder | `docs/verification/fix-round/yonder-verified-tests.log` |
+| yonder | `docs/verification/fix-round/A12-diagnostic-format-2.log` | 1383 |
+| yonder | `docs/verification/fix-round/A12-diagnostic-format.log` | 1380 |
+| yonder | `docs/verification/fix-round/A12-model-binding-format-2.log` | 6747 |
+| yonder | `docs/verification/fix-round/A12-model-binding-format.log` | 8071 |
