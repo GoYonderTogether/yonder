@@ -334,7 +334,7 @@ export async function prepareInput(
 		const local = session.resolved.env === "local";
 		const hasExec = session.resolved.capabilities.includes("exec");
 		const hasBash = options.offeredTools?.(session).includes("bash") ?? false;
-		const access = !local
+		const managementAccess = !local
 			? "host-only"
 			: !hasExec
 				? "no-local-exec"
@@ -343,7 +343,7 @@ export async function prepareInput(
 					: "local-exec";
 		lines.push(
 			local
-				? `management: scope=local access=${access} home=${label(options.home)} version=${label(options.version)} node=${label(process.execPath)} nodeVersion=${label(process.version)} cli=${access === "cli-via-exec" ? label(cli) : "unknown"}`
+				? `management: scope=local access=${managementAccess} home=${label(options.home)} version=${label(options.version)} node=${label(process.execPath)} nodeVersion=${label(process.version)} cli=${managementAccess === "cli-via-exec" ? label(cli) : "unknown"}`
 				: `management: scope=host-only access=host-only home=${label(options.home)} version=${label(options.version)} remoteHome=unknown remoteNode=unknown remoteCli=unknown`,
 		);
 		const clock = formatClock((options.now ?? Date.now)(), options.locale, options.timezone);

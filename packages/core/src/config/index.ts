@@ -1,5 +1,3 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
 	type Capability,
 	intersectChannelInstances,
@@ -30,7 +28,6 @@ import {
 } from "./schema.js";
 import { socialTriggerErrors } from "./social-schema.js";
 import { participationBatchKinds, socialBindingIssues } from "./social-validation.js";
-import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
 export {
 	allowsChannelInstance,
@@ -41,6 +38,7 @@ export {
 	isConsoleBot,
 } from "./bindings.js";
 export { defaultLazyGroups, tokenAmount } from "./defaults.js";
+export { loadAgentConfig, loadPresets, loadYonderConfig, presetFiles } from "./load.js";
 export {
 	type NotificationConfig,
 	type NotificationLevel,
@@ -450,43 +448,4 @@ export function parseYonderConfig(text: string, file: string): YonderConfig {
 	if (config.channels?.agent) issues.push({ file, path: "/channels/agent", message: "agent 渠道保留给内核" });
 	if (issues.length) throw new ConfigError(issues);
 	return config;
-}
-
-export async function loadYonderConfig(home: string): Promise<YonderConfig> {
-	const file = join(home, "yonder.yaml");
-	return parseYonderConfig(await readFile(file, "utf8"), file);
-}
-
-export async function loadAgentConfig(files: WorkspaceFiles, expectedId: string): Promise<AgentConfig> {
-	return parseAgentConfig(await files.readFile("agent.yaml"), "agent.yaml", expectedId);
-}
-
-export async function presetFiles(home: string): Promise<string[]> {
-	try {
-		return (await readdir(join(home, "presets"), { withFileTypes: true }))
-			.filter((entry) => entry.isFile() && entry.name.endsWith(".yaml"))
-			.map((entry) => entry.name)
-			.sort();
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-		throw error;
-	}
-}
-
-export async function loadPresets(home: string): Promise<Map<string, Preset>> {
-	const presets = new Map<string, Preset>();
-	const issues: ConfigIssue[] = [];
-	for (const name of await presetFiles(home)) {
-		const file = join(home, "presets", name);
-		try {
-			const id = name.slice(0, -5);
-			presets.set(id, parsePresetConfig(await readFile(file, "utf8"), id, file));
-		} catch (error) {
-			if (!(error instanceof ConfigError)) throw error;
-			issues.push(...error.issues);
-		}
-	}
-	if (issues.length) throw new ConfigError(issues);
-	for (const [id, definition] of await loadSubagentDefinitions(home)) presets.set(id, definition);
-	return presets;
 }

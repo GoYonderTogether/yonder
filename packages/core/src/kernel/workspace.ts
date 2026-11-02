@@ -108,6 +108,8 @@ export async function loadAgents(
 	home: string,
 	config: YonderConfig,
 	plugins: LoadedPlugins,
+	onRead?: (id: string, text: string) => void,
+	onFailure?: (id: string) => void,
 ): Promise<Map<string, AgentConfig>> {
 	const agents = new Map<string, AgentConfig>();
 	for (const entry of config.agents ?? []) {
@@ -115,7 +117,12 @@ export async function loadAgents(
 		agents.set(entry.id, {
 			...withConsoleBinding(
 				{
-					...(await loadAgentConfig(filesFor(home, config, plugins, entry.id), entry.id)),
+					...(await loadAgentConfig(
+						filesFor(home, config, plugins, entry.id),
+						entry.id,
+						(text) => onRead?.(entry.id, text),
+						() => onFailure?.(entry.id),
+					)),
 					...(entry.archivedAt ? { archivedAt: entry.archivedAt } : {}),
 				},
 				config,

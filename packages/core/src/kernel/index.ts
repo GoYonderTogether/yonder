@@ -2,20 +2,14 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Preset } from "@yonder/sdk";
 import { shippedChannelsFor } from "../bundles.js";
-import {
-	type AgentConfig,
-	loadPresets,
-	loadYonderConfig,
-	type watchConfig,
-	type YonderConfig,
-} from "../config/index.js";
+import type { AgentConfig, YonderConfig } from "../config/index.js";
 import { lockHome } from "../control/home-lock.js";
 import { createKernelWorkHost } from "../control/work-stream.js";
 import { createDelivery } from "../delivery/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
-import { prepareInput, scaffoldWorkspace, systemPromptKeys, systemPromptParts } from "../prompt/index.js";
+import { prepareInput, scaffoldWorkspace } from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
@@ -28,6 +22,8 @@ import { backgroundHandlers } from "./background.js";
 import { createBots } from "./bots.js";
 import { migrateCardVisitor } from "./card-visitor.js";
 import { createChannelLogin } from "./channel-login.js";
+import { configRuntimeSections } from "./config-facts.js";
+import { loadHomeConfig, loadHomeSources } from "./config-sources.js";
 import { watchAgents } from "./config-watch.js";
 import { kernelPromptOptions, kernelTools } from "./conversation.js";
 import { configurationErrors, profileContexts, protectSessions } from "./home.js";
@@ -43,7 +39,7 @@ import { createKernelServices } from "./services-wiring.js";
 import { createSocial, createSocialSupport, socialTarget } from "./social.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
-import { credentialsAndModels, filesFor, loadAgents, skillsFor } from "./workspace.js";
+import { credentialsAndModels, filesFor, skillsFor } from "./workspace.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
 export { migrateCardVisitor } from "./card-visitor.js";
@@ -56,12 +52,11 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 	process.env.YONDER_HOME = home;
 	const log = options.log ?? (() => {});
 	const observability = createObservability({ home, log, db: () => db });
-	const report = observability.report;
 	await mkdir(join(home, ".yonder"), { recursive: true });
 	const unlock = await lockHome(home);
 	let runtime: Runtime | undefined;
 	let plugins: LoadedPlugins | undefined;
-	let watcher: Awaited<ReturnType<typeof watchConfig>> | undefined;
+	let watcher: Awaited<ReturnType<typeof watchAgents>> | undefined;
 	let db: Awaited<ReturnType<typeof openDatabase>> | undefined;
 	let stopDelivery: (() => Promise<void>) | undefined;
 	let closed = false;
@@ -83,18 +78,18 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		}
 	};
 	try {
-		const config = await loadYonderConfig(home);
+		const { config, revisions: initialRevisions } = await loadHomeConfig(home);
 		db = await openDatabase(join(home, ".yonder/state.db"));
 		observability.startRetention();
 		const terminalEnds: TerminalSends = new Map();
-		const forwardUpdate = terminalUpdates(terminalEnds, report);
+		const forwardUpdate = terminalUpdates(terminalEnds, observability.report);
 		const agents = new Map<string, AgentConfig>();
 		const store = await createStore(
 			db,
 			(id) => agents.get(id)?.owner,
 			false,
 			(event) => {
-				void plugins?.observe(event).catch(report);
+				void plugins?.observe(event).catch(observability.report);
 				if (event.type === "run.end") {
 					const id = String((event.data as { session?: string }).session ?? "");
 					forwardUpdate(id, {
@@ -162,8 +157,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		} catch (error) {
 			log("warn", `card-visitor 迁移失败：${error instanceof Error ? error.message : String(error)}`);
 		}
-		for (const [id, agent] of await loadAgents(home, config, loaded)) agents.set(id, agent);
-		const homePresets = await loadPresets(home);
+		const homePresets = await loadHomeSources(home, config, loaded, agents, initialRevisions);
 		const errors = configurationErrors(
 			config,
 			agents,
@@ -216,7 +210,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			version: packageVersion,
 			runtime: realRuntime,
 			onRun: (session, run) => completeRun(session.id, run),
-			onReport: report,
+			onReport: observability.report,
 			forward: forwardUpdate,
 		});
 		delivery = createDelivery({
@@ -227,7 +221,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			channels: loaded.channels,
 			runtime: realRuntime,
 			sessions,
-			onReport: report,
+			onReport: observability.report,
 			log,
 		});
 		outbound = outboundQueue({
@@ -277,7 +271,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			onCommand: (session, event) => gate.command(session, event),
 			onStart: delivery.onStart,
 			onRun: (session, run) => completeRun(session.id, run),
-			onReport: report,
+			onReport: observability.report,
 			onWarn: (message, data) => log("warn", message, data),
 		});
 		const tools = kernelTools(
@@ -330,7 +324,13 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					if (close) await sessions.closeSession(id, close);
 				}
 			},
-			...backgroundHandlers({ store, runtime: realRuntime, delivery, report, views: loaded.views }),
+			...backgroundHandlers({
+				store,
+				runtime: realRuntime,
+				delivery,
+				report: observability.report,
+				views: loaded.views,
+			}),
 			resolveSession: async (id) => {
 				const session = await sessions.resolveSession(id);
 				const protectedFiles = session.resolved.contexts
@@ -338,11 +338,10 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					.flatMap((file) => (file.protect ? [{ path: file.path, capability: file.protect }] : []));
 				return { ...session, protectedFiles };
 			},
-			sections: (session, signal) => systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
-			sectionKeys: systemPromptKeys(loaded.contexts),
+			...configRuntimeSections(watcher, promptOptions, loaded.contexts),
 			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
 			...observedRuntimeEvents(store, forwardUpdate, delivery.modelNotice),
-			onReport: report,
+			onReport: observability.report,
 		});
 		const validateCandidate = async (
 			candidateConfig: YonderConfig,
@@ -406,6 +405,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			log,
 			validateCandidate,
 			scaffoldAgent,
+			initialRevisions,
 		});
 		stopDelivery = async () => {
 			await outbound.stop();

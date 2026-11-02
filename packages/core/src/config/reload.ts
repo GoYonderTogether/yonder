@@ -9,6 +9,9 @@ interface WatchConfigOptions {
 	presets: Map<string, Preset>;
 	workspaceFiles: (id: string) => WorkspaceFiles | Promise<WorkspaceFiles>;
 	candidate?: () => Promise<{ config: YonderConfig; agents: Map<string, AgentConfig> }>;
+	candidateRevisions?: () => ReadonlyMap<string, string>;
+	onCandidate?: (accepted: boolean, revisions: ReadonlyMap<string, string>) => void;
+	onPresetRead?: (file: string, text: string) => void;
 	publish?: (config: YonderConfig) => void;
 	validate(agents: Map<string, AgentConfig>, presets: Map<string, Preset>, config?: YonderConfig): Promise<void>;
 	onReload: (event: EventInput) => void | Promise<void>;
@@ -39,9 +42,12 @@ export async function watchConfig(options: WatchConfigOptions): Promise<{ reload
 							),
 						);
 				}
-				const nextPresets = await loadPresets(home);
+				const nextPresets = await loadPresets(home, options.onPresetRead);
 				const signature = JSON.stringify([candidate.config?.agents, [...candidate.agents], [...nextPresets]]);
-				if (signature === previous) return;
+				if (signature === previous) {
+					options.onCandidate?.(true, options.candidateRevisions?.() ?? new Map());
+					return;
+				}
 				await options.validate(candidate.agents, nextPresets, candidate.config);
 				if (candidate.config) options.publish?.(candidate.config);
 				agents.clear();
@@ -50,8 +56,10 @@ export async function watchConfig(options: WatchConfigOptions): Promise<{ reload
 				for (const entry of nextPresets) presets.set(...entry);
 				previous = signature;
 				failure = "";
+				options.onCandidate?.(true, options.candidateRevisions?.() ?? new Map());
 				await options.onReload({ type: "config.reload", data: { file: join(home, "yonder.yaml"), ok: true } });
 			} catch (error) {
+				options.onCandidate?.(false, options.candidateRevisions?.() ?? new Map());
 				const errors =
 					error instanceof ConfigError
 						? error.issues.map((i) => `${i.file}:${i.path}: ${i.message}`)
