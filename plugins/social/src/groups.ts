@@ -15,7 +15,7 @@ import {
 } from "./group-history.js";
 import { GroupReview, reviewEligible } from "./group-review.js";
 import { DIRECT_MERGE_MS, hasWork, quietDue, quietFor } from "./group-rhythm.js";
-import { GroupRules, ruleMatch, validateRules } from "./group-rules.js";
+import { GroupRules, ruleEligible, validateRules } from "./group-rules.js";
 import { sendGuard } from "./group-send-guard.js";
 import { awaitTurn, type GroupTurn, grantTurn, releaseTurn, stopGroupRequest, type TurnRoom } from "./group-turns.js";
 
@@ -206,18 +206,16 @@ export class Groups {
 			if (pause) candidate.pause = pause;
 			room.candidates.set(data.agent, candidate);
 		}
-
 		if (!candidate.entries.some((e) => e.id === source.id)) candidate.entries.push(source);
 		candidate.entries.sort((a, b) => a.id.localeCompare(b.id));
-		const sourceText = (source.data as { text?: unknown }).text;
 		const deferredEligible =
 			candidate.willing?.notBefore === undefined ||
 			(candidate.pause?.scope !== "group" &&
 				candidate.pause?.actor !== source.from &&
-				ruleMatch(
-					typeof sourceText === "string" ? sourceText : "",
+				ruleEligible(
+					(source.data as { text?: unknown }).text,
 					this.rules.effective(data.agent, source.conv, candidate.policy, candidate.revision),
-				).eligible);
+				));
 		if (candidate.willing && deferredEligible && !(await this.attention.elsewhere(source, data.agent))) {
 			candidate.willing.entries.push(source);
 			candidate.willing.through = source.id;
@@ -276,10 +274,8 @@ export class Groups {
 			else c.willing = { ...c.willing, entries: pending, through: pending.at(-1)!.id };
 		}
 		const room = this.sessions.get(c.session);
-		if (room) {
-			if (![...room.candidates.values()].some((c) => c.entries.length)) delete room.quietMs;
-			else if (!c.willing) this.schedule(room);
-		}
+		if (room && ![...room.candidates.values()].some((c) => c.entries.length)) delete room.quietMs;
+		else if (room && !c.willing) this.schedule(room);
 	}
 	private async control(source: YEvent, agent: string, session: string, room: Room) {
 		const key = this.key(agent, source.conv!);
@@ -381,11 +377,7 @@ export class Groups {
 		const now = Date.now();
 		const willing = pending.filter((c) => (c.willing?.notBefore ?? 0) <= now);
 		if (!pending.length) return;
-		if (!willing.length) {
-			const next = Math.min(...pending.map((c) => c.willing?.notBefore ?? 0));
-			this.scheduleOffer(room, next - now);
-			return;
-		}
+		if (!willing.length) return this.scheduleOffer(room, pending[0]!.willing!.notBefore! - now);
 		// 自主候选：静默窗口对同批各候选一致，自首条起最长 120 秒硬顶，之后必须运行或记录沉默。
 		const due = quietDue(
 			room.lastHumanAt,

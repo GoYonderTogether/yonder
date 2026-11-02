@@ -38,6 +38,9 @@ export function ruleMatch(text: string, policy: SocialPolicy, onError?: (pattern
 		}
 	return { eligible: true, match: keyword || regex };
 }
+export function ruleEligible(text: unknown, policy: SocialPolicy) {
+	return typeof text === "string" && ruleMatch(text, policy).eligible;
+}
 export function replayRules(material: YEvent[], policy: SocialPolicy) {
 	const replay = { messages: 0, eligible: 0, matches: 0, triggered: 0, errors: 0 };
 	let count = 0;
