@@ -229,16 +229,10 @@ export class Batches {
 		}
 	}
 	async accept(event: YEvent, schedule = true) {
-		const data = event.data as {
-			agent?: string;
-			reason?: string;
-			revision?: string;
-			policy?: SocialPolicy;
-			plugin?: string;
-		};
+		const data = event.data as { agent?: string; reason?: string; revision?: string; policy?: SocialPolicy };
 		if (
 			this.stopped ||
-			(data.plugin !== undefined && data.plugin !== "social") ||
+			("plugin" in event.data && event.data.plugin !== undefined && event.data.plugin !== "social") ||
 			(data.reason !== "batch" && data.reason !== "folded") ||
 			!data.agent ||
 			!data.revision ||
@@ -251,11 +245,8 @@ export class Batches {
 		const key = this.key(data.agent, source.conv);
 		if (source.id <= (this.read.get(key) ?? "")) return;
 		if (data.reason === "folded" && source.id <= (this.foldedThrough.get(key) ?? "")) return;
-		let state = this.groups.get(key);
-		if (!state) {
-			state = { entries: [] };
-			this.groups.set(key, state);
-		}
+		const state = this.groups.get(key) ?? { entries: [] };
+		this.groups.set(key, state);
 		if (state.entries.some((entry) => entry.source.id === source.id)) return;
 		state.entries.push({ source, revision: data.revision, policy: data.policy ?? {} });
 		state.entries.sort((a, b) => a.source.id.localeCompare(b.source.id));

@@ -47,8 +47,7 @@ export const packageVersion = JSON.parse(await readFile(new URL("../../package.j
 export { migrateCardVisitor } from "./card-visitor.js";
 export { initHome, inspectHome } from "./home.js";
 export { type ManagementRequest, manageHome, offlineQuery } from "./home-management.js";
-export type { KernelLog } from "./workspace.js";
-export { inspectSkills } from "./workspace.js";
+export { inspectSkills, type KernelLog } from "./workspace.js";
 export async function openKernel(home: string, options: KernelOptions = {}) {
 	home = resolve(home);
 	process.env.YONDER_HOME = home;

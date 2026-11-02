@@ -34,7 +34,6 @@ export function profileContexts(agent: AgentConfig, defaultModel?: string): stri
 	);
 	return [...new Set(contexts)];
 }
-
 function bindingMapsSession(binding: AgentConfig["bindings"][number], session: SessionInfo) {
 	if (session.mode !== "persistent" || typeof binding.session === "string") return false;
 	const values = (value: string | string[] | undefined) =>
@@ -61,7 +60,6 @@ function bindingMapsSession(binding: AgentConfig["bindings"][number], session: S
 		return sessionKey(binding, event, person).key === session.key;
 	});
 }
-
 function changedSessionRouteProfile(
 	previous: AgentConfig | undefined,
 	next: AgentConfig | undefined,
@@ -81,7 +79,6 @@ function changedSessionRouteProfile(
 	const override = session.key.startsWith("conv:") && exactConvProfile(next, session.key.slice("conv:".length));
 	return override && session.profile !== override ? { oldProfile: session.profile, nextProfile: override } : undefined;
 }
-
 export function protectSessions(
 	config: YonderConfig,
 	candidate: YonderConfig,
@@ -125,7 +122,6 @@ export function protectSessions(
 	}
 	for (const id of agents.keys()) if (!nextAgents.has(id)) errors.push(`agent ${id}: archive instead of unregistering`);
 }
-
 export function configurationErrors(
 	config: YonderConfig,
 	agents: Map<string, AgentConfig>,
