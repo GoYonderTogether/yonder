@@ -94,7 +94,7 @@ export class GroupAttention {
 		policy: SocialPolicy,
 		controls: Set<string>,
 		/** 官方群派生默认范围（08）：没有显式 `batch.run: true` 时 count 兜底不得自行唤醒。 */
-		options: { countFallback?: boolean } = {},
+		options: { countFallback?: boolean; runEligible?: boolean } = {},
 	) {
 		let matched = false,
 			focused = false,
@@ -113,13 +113,19 @@ export class GroupAttention {
 			matched ||= result.match;
 		}
 		matched ||=
-			focused || (eligible > 0 && c.counter >= (policy.batch?.count ?? 20) && options.countFallback !== false);
-		if (
-			c.pause?.scope === "group" ||
-			(!focused && Date.now() < (c.lastSent ?? 0) + (policy.minIntervalSeconds ?? 60) * 1000)
-		)
-			matched = false;
-		if (matched) c.counter = 0;
-		return { matched, focused, errors, relevant };
+			focused ||
+			(options.runEligible === true && eligible > 0) ||
+			(eligible > 0 && c.counter >= (policy.batch?.count ?? 20) && options.countFallback !== false);
+		let deferredUntil: number | undefined;
+		if (c.pause?.scope === "group") matched = false;
+		else if (!focused) {
+			const cooldownUntil = (c.lastSent ?? 0) + (policy.minIntervalSeconds ?? 60) * 1000;
+			if (matched && Date.now() < cooldownUntil) {
+				matched = false;
+				deferredUntil = cooldownUntil;
+			}
+		}
+		if (matched || deferredUntil) c.counter = 0;
+		return { matched, focused, errors, relevant, ...(deferredUntil ? { deferredUntil } : {}) };
 	}
 }

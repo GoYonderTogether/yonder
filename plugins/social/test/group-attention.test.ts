@@ -73,7 +73,14 @@ test("explicit recipients override attention, keywords and accumulated count whi
 			const source = await f.probe.ios["qq-main"].emit(message(text));
 			expect(await attention.elsewhere(source, "main"), text).toBe(true);
 			expect(
-				await attention.consider({ agent: "main", counter: 20 }, "room", [source], { keywords: ["开发"] }, new Set()),
+				await attention.consider(
+					{ agent: "main", counter: 20 },
+					"room",
+					[source],
+					{ keywords: ["开发"], batch: { run: true } },
+					new Set(),
+					{ runEligible: true },
+				),
 			).toMatchObject({ matched: false });
 		}
 		for (const text of ["GPT 学姐和贾维斯，你们看看", "贾维斯和GPT 学姐，你们看看", "我刚看到 GPT 学姐的消息"]) {
@@ -123,10 +130,108 @@ test("a derived default range never wakes on the count fallback without an expli
 				},
 			),
 		).toMatchObject({ matched: true });
+		// 明确 run:true 对eligible普通消息形成机会，不再要求关键词、关注或累计阈值。
+		expect(
+			await attention.consider(
+				{ agent: "main", counter: 0 },
+				"room",
+				[source],
+				{ ...policy, batch: { run: true, count: 20 } },
+				new Set(),
+				{ countFallback: false, runEligible: true },
+			),
+		).toMatchObject({ matched: true, relevant: [source] });
+		// 显式run:false关闭count兜底，但不影响上面的硬关键词机会。
+		expect(
+			await attention.consider(
+				{ agent: "main", counter: 20 },
+				"room",
+				[source],
+				{ ...policy, batch: { run: false, count: 1 } },
+				new Set(),
+				{ countFallback: false },
+			),
+		).toMatchObject({ matched: false });
+		const paused = await attention.consider(
+			{ agent: "main", counter: 0, pause: { scope: "group" } },
+			"room",
+			[source],
+			{ batch: { run: true } },
+			new Set(),
+			{ runEligible: true },
+		);
+		expect(paused).toMatchObject({ matched: false, relevant: [] });
 	} finally {
 		await f.close();
 	}
 });
+
+test("batch.run true defers a matched opportunity until the real cooldown expires", async () => {
+	const f = await groupFixture();
+	try {
+		const attention = new GroupAttention(f.probe.api);
+		await attention.start();
+		const source = await f.probe.ios["qq-main"].emit(message("普通问题"));
+		const now = Date.now();
+		const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+		try {
+			expect(
+				await attention.consider(
+					{ agent: "main", counter: 0, lastSent: now },
+					"room",
+					[source],
+					{ batch: { run: true }, minIntervalSeconds: 30 },
+					new Set(),
+					{ runEligible: true },
+				),
+			).toMatchObject({ matched: false, deferredUntil: now + 30000, relevant: [source] });
+		} finally {
+			clock.mockRestore();
+		}
+	} finally {
+		await f.close();
+	}
+});
+
+test("batch.run true admits one ordinary eligible message after its window", async () => {
+	const f = await groupFixture({
+		social: true,
+		officialGroup: true,
+		captureSocialApi: true,
+		initialBatchRun: true,
+		initialRules: { main: { keywords: ["只有关键词才能触发"], count: 20 } },
+	});
+	try {
+		const source = await f.probe.ios["qq-main"].emit(message("今天下午天气不错", "other"));
+		await expect
+			.poll(
+				async () =>
+					(await f.kernel.events.query({ type: "social.rule-match", conv: mainConv })).events.some((event) =>
+						(event.data as { sourceEvents?: string[] }).sourceEvents?.includes(source.id),
+					),
+				{ timeout: 6000 },
+			)
+			.toBe(true);
+		const fact = (await f.kernel.events.query({ type: "social.rule-match", conv: mainConv })).events.find((event) =>
+			(event.data as { sourceEvents?: string[] }).sourceEvents?.includes(source.id),
+		)!;
+		expect(fact.data).toMatchObject({
+			matched: true,
+			sourceEvents: [source.id],
+			counter: 0,
+		});
+
+		// 窗口结束后，低于count且不命中关键词的原消息仍通过真实准入启动批次。
+		await expect.poll(() => f.probe.contexts.length, { timeout: 20000 }).toBe(1);
+		const runs = (await f.kernel.events.query({ type: "social.batch-ready", conv: mainConv })).events;
+		expect(runs.some((event) => (event.data as { sourceEvents?: string[] }).sourceEvents?.includes(source.id))).toBe(
+			true,
+		);
+	} finally {
+		for (const resume of f.probe.releases.values()) resume();
+		await f.close();
+	}
+}, 30000);
 
 test("same-window requests for two Bots preserve each one's own source instead of consuming the earlier task", async () => {
 	const f = await groupFixture({ social: true });

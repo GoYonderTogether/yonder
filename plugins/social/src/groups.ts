@@ -15,7 +15,7 @@ import {
 } from "./group-history.js";
 import { GroupReview, reviewEligible } from "./group-review.js";
 import { DIRECT_MERGE_MS, hasWork, quietDue, quietFor } from "./group-rhythm.js";
-import { GroupRules, validateRules } from "./group-rules.js";
+import { GroupRules, ruleMatch, validateRules } from "./group-rules.js";
 import { sendGuard } from "./group-send-guard.js";
 import { awaitTurn, type GroupTurn, grantTurn, releaseTurn, stopGroupRequest, type TurnRoom } from "./group-turns.js";
 
@@ -30,7 +30,7 @@ interface Candidate {
 	entries: YEvent[];
 	pause?: GroupPause;
 	counter: number;
-	willing?: { through: string; entries: YEvent[]; decision: string };
+	willing?: { through: string; entries: YEvent[]; decision: string; notBefore?: number };
 	lastSent?: number;
 	/** 08 官方群派生默认范围：没有硬触发就只记录，count 兜底不得自行唤醒。 */
 	derivedDefault?: boolean;
@@ -209,7 +209,16 @@ export class Groups {
 
 		if (!candidate.entries.some((e) => e.id === source.id)) candidate.entries.push(source);
 		candidate.entries.sort((a, b) => a.id.localeCompare(b.id));
-		if (candidate.willing && !(await this.attention.elsewhere(source, data.agent))) {
+		const sourceText = (source.data as { text?: unknown }).text;
+		const deferredEligible =
+			candidate.willing?.notBefore === undefined ||
+			(candidate.pause?.scope !== "group" &&
+				candidate.pause?.actor !== source.from &&
+				ruleMatch(
+					typeof sourceText === "string" ? sourceText : "",
+					this.rules.effective(data.agent, source.conv, candidate.policy, candidate.revision),
+				).eligible);
+		if (candidate.willing && deferredEligible && !(await this.attention.elsewhere(source, data.agent))) {
 			candidate.willing.entries.push(source);
 			candidate.willing.through = source.id;
 		}
@@ -261,8 +270,16 @@ export class Groups {
 		});
 		this.reads.set(this.key(c.agent, c.conv), through);
 		c.entries = c.entries.filter((e) => e.id > through);
+		if (c.willing) {
+			const pending = c.willing.entries.filter((event) => event.id > through);
+			if (!pending.length) delete c.willing;
+			else c.willing = { ...c.willing, entries: pending, through: pending.at(-1)!.id };
+		}
 		const room = this.sessions.get(c.session);
-		if (room && ![...room.candidates.values()].some((c) => c.entries.length)) delete room.quietMs;
+		if (room) {
+			if (![...room.candidates.values()].some((c) => c.entries.length)) delete room.quietMs;
+			else if (!c.willing) this.schedule(room);
+		}
 	}
 	private async control(source: YEvent, agent: string, session: string, room: Room) {
 		const key = this.key(agent, source.conv!);
@@ -299,14 +316,14 @@ export class Groups {
 			if ((await this.api.social?.admitBatch(this.request(c, entries)))?.session !== c.session) continue;
 			const policy = this.rules.effective(c.agent, c.conv, c.policy, c.revision);
 			// 08：派生默认范围只有显式 `batch.run: true` 才允许无硬触发的批次；count 兜底不算硬触发。
-			const countFallback = !c.derivedDefault || policy.batch?.run === true;
-			const { matched, focused, errors, relevant } = await this.attention.consider(
+			const countFallback = policy.batch?.run === false ? false : !c.derivedDefault || policy.batch?.run === true;
+			const { matched, focused, errors, relevant, deferredUntil } = await this.attention.consider(
 				c,
 				room.id,
 				entries,
 				policy,
 				this.controls,
-				{ countFallback },
+				{ countFallback, runEligible: policy.batch?.run === true },
 			);
 			const fact = await this.api.events.emit({
 				type: "social.rule-match",
@@ -323,7 +340,9 @@ export class Groups {
 			});
 			this.counters.set(this.key(c.agent, c.conv), c.counter);
 			if (!matched) {
-				await this.read(c, entries, fact.id);
+				if (deferredUntil && relevant.length)
+					c.willing = { through: relevant.at(-1)!.id, entries: relevant, decision: fact.id, notBefore: deferredUntil };
+				else await this.read(c, entries, fact.id);
 				continue;
 			}
 			if (this.active.has(c.session)) {
@@ -356,10 +375,17 @@ export class Groups {
 			if (direct.driver === "social") await this.drive(room, direct);
 			return;
 		}
-		const willing = [...room.candidates.values()].filter(
+		const pending = [...room.candidates.values()].filter(
 			(c) => c.willing && !this.active.has(c.session) && c.pause?.scope !== "group",
 		);
-		if (!willing.length) return;
+		const now = Date.now();
+		const willing = pending.filter((c) => (c.willing?.notBefore ?? 0) <= now);
+		if (!pending.length) return;
+		if (!willing.length) {
+			const next = Math.min(...pending.map((c) => c.willing?.notBefore ?? 0));
+			this.scheduleOffer(room, next - now);
+			return;
+		}
 		// 自主候选：静默窗口对同批各候选一致，自首条起最长 120 秒硬顶，之后必须运行或记录沉默。
 		const due = quietDue(
 			room.lastHumanAt,
