@@ -1,8 +1,7 @@
-import { spawn } from "node:child_process";
-import { accessSync, constants } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 
 export type RecordValue = Record<string, unknown>;
@@ -12,17 +11,7 @@ export function record(value: unknown): RecordValue {
 	return value as RecordValue;
 }
 export class DeadlineError extends Error {}
-export function executable(name: string): string {
-	for (const directory of (process.env.PATH ?? "").split(delimiter)) {
-		if (!directory) continue;
-		const candidate = join(directory, name);
-		try {
-			accessSync(candidate, constants.X_OK);
-			return candidate;
-		} catch {}
-	}
-	throw new Error(`Program missing from PATH: ${name}`);
-}
+const spawn = createRequire(import.meta.url)("cross-spawn") as typeof import("node:child_process").spawn;
 
 export class AppServer {
 	readonly cwd: string;
@@ -36,8 +25,7 @@ export class AppServer {
 	private exited: Promise<void>;
 	private constructor(cwd: string) {
 		this.cwd = cwd;
-		const codex = executable("codex");
-		this.child = spawn(codex, ["app-server"], { cwd, stdio: ["pipe", "pipe", "ignore"] });
+		this.child = spawn("codex", ["app-server"], { cwd, stdio: ["pipe", "pipe", "ignore"] });
 		this.exited = new Promise((resolve) => {
 			this.child.once("exit", (code, signal) => {
 				this.fail(new Error(`app-server exited (${code ?? signal})`));
