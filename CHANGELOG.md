@@ -2,9 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26110205] - 2026-11-02
+
 ### Fixed
 
 - social：群规则正则保留固定脚本与 10ms 执行上限，仅采纳可信单调计时确认完成且未超预算的结果；区分 VM 启动调度误超时，避免合法匹配和回放被误拒，执行中的病态正则不重试，回放失败继续保留旧规则。
+- social：distinguish regex execution from VM watchdog timing
 
 ## [0.3.26110204] - 2026-11-02
 
