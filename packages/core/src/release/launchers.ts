@@ -33,14 +33,24 @@ export function launcher(install: string, node = process.execPath, path = runtim
 export function serviceLauncher(install: string, node = process.execPath, path = runtimePath(install)): string {
 	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, "current/scripts/yonder-service-host.mjs"))} "$@"\n`;
 }
-export function servicePlist(install: string, home: string, path = runtimePath(install), hosted = true): string {
+export function servicePlist(
+	install: string,
+	home: string,
+	path = runtimePath(install),
+	hosted = true,
+	network: Record<string, string> = {},
+): string {
 	const pair = (key: string, value: string) => `<key>${key}</key><string>${xml(value)}</string>`;
 	return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n${pair("Label", label)}
 <key>ProgramArguments</key><array>${(hosted ? [join(install, "bin/yonder-service"), "--home", home] : [join(install, "bin/yonder"), "start", "--home", home, "--json"]).map((arg) => `<string>${xml(arg)}</string>`).join("")}</array>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
 ${pair("StandardOutPath", join(home, ".yonder/logs/harness.log"))}
 ${pair("StandardErrorPath", join(home, ".yonder/logs/harness.log"))}
-<key>EnvironmentVariables</key><dict>${pair("PATH", path)}${pair("YONDER_INSTALL", install)}${pair("YONDER_HOME", home)}</dict>
+<key>EnvironmentVariables</key><dict>${pair("PATH", path)}${pair("YONDER_INSTALL", install)}${pair("YONDER_HOME", home)}${Object.entries(
+		network,
+	)
+		.map(([key, value]) => pair(key, value))
+		.join("")}</dict>
 </dict></plist>\n`;
 }
 export function statusPlist(install: string, home: string): string {

@@ -55,6 +55,13 @@ fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(jobs));
 			await manageService("install", { home });
 			const plist = join(root, "Library/LaunchAgents/dev.yonder.service.plist");
 			expect(await readFile(plist, "utf8")).toContain("bin/yonder-service</string>");
+			await writeFile(
+				plist,
+				(await readFile(plist, "utf8")).replace(
+					"<key>EnvironmentVariables</key><dict>",
+					"<key>EnvironmentVariables</key><dict><key>NODE_USE_ENV_PROXY</key><string>1</string><key>https_proxy</key><string>http://127.0.0.1:7897</string>",
+				),
+			);
 			expect(await readFile(join(install, "bin/yonder-service"), "utf8")).toContain(
 				"current/scripts/yonder-service-host.mjs",
 			);
@@ -87,6 +94,8 @@ fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(jobs));
 			await manageService("install", { home });
 			expect(await readFile(plist, "utf8")).toContain("<string>start</string>");
 			expect(await readFile(plist, "utf8")).not.toContain("bin/yonder-service</string>");
+			expect(await readFile(plist, "utf8")).toContain("<key>NODE_USE_ENV_PROXY</key><string>1</string>");
+			expect(await readFile(plist, "utf8")).toContain("<key>https_proxy</key><string>http://127.0.0.1:7897</string>");
 			await manageService("uninstall");
 		} finally {
 			delete process.env.YONDER_HOST_CONTRACT_PID;

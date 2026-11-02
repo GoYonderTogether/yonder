@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 import { command } from "./exec.js";
 import { SERVICE_LABELS } from "./names.js";
 import { linuxUnitPath, plistPath, windowsServicePath } from "./paths.js";
+import { serviceNetworkEnvironment } from "./service-network.js";
 
 export async function unloadService(service: string): Promise<void> {
 	const before = await command("launchctl", ["print", service], { allowFailure: true });
@@ -33,6 +34,7 @@ export interface ServiceInstallation {
 	install: string;
 	plist: string;
 	label?: string;
+	proxyEnvironment?: Record<string, string>;
 }
 export async function installedService(): Promise<ServiceInstallation | undefined> {
 	if (process.platform === "linux") {
@@ -70,5 +72,6 @@ export async function installedService(): Promise<ServiceInstallation | undefine
 		install: plist.EnvironmentVariables?.YONDER_INSTALL ?? dirname(dirname(args[0])),
 		plist: plistPath(name),
 		label: name,
+		proxyEnvironment: serviceNetworkEnvironment(plist.EnvironmentVariables, {}),
 	};
 }

@@ -9,6 +9,7 @@ import { SERVICE_LABEL as label, SERVICE_LABELS, STATUS_LABELS, STATUS_LABEL as 
 import { installPath, plistPath, runtimePath, statusExecutable, statusPlistPath } from "./paths.js";
 import { domain, loadedLabel, type ServiceAction, type ServiceStatus } from "./service-common.js";
 import { manageLinuxService } from "./service-linux.js";
+import { serviceNetworkEnvironment } from "./service-network.js";
 import { manageWindowsService } from "./service-windows.js";
 
 export type { ServiceAction, ServiceStatus };
@@ -39,7 +40,11 @@ export async function manageService(action: ServiceAction, options: { home?: str
 			await writeFile(join(install, "bin/yonder-service"), serviceLauncher(install), { mode: 0o755 });
 			await chmod(join(install, "bin/yonder-service"), 0o755);
 		}
-		await writeFile(plistPath(), servicePlist(install, home, runtimePath(install), hosted), { mode: 0o600 });
+		await writeFile(
+			plistPath(),
+			servicePlist(install, home, runtimePath(install), hosted, serviceNetworkEnvironment(installed?.proxyEnvironment)),
+			{ mode: 0o600 },
+		);
 		await command("launchctl", ["bootstrap", domain(), plistPath()]);
 		installed = { home, install, plist: plistPath(), label };
 		if (name !== label) await rm(plistPath(name), { force: true });
