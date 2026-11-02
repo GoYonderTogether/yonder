@@ -923,3 +923,295 @@ test("an unavailable participation plugin blocks the reply and records the same 
 		await x.db.close();
 	}
 });
+
+test("a final-only hook prepares an empty local reply once with trusted native source metadata", async () => {
+	const content = {
+		type: "interactive",
+		title: "接入",
+		body: "选择入口",
+		actions: [
+			{ id: "connect", label: "接入设备", link: "/connect" },
+			{ id: "download", label: "安装客户端", link: "/download" },
+		],
+		state: "pending",
+	} as const;
+	const seen: unknown[] = [];
+	const x = await setup(
+		new Map([
+			[
+				"card",
+				[
+					{
+						id: "card",
+						beforeSend(message, owner, final) {
+							seen.push({ owner, final });
+							return final?.status === "done"
+								? {
+										message: { ...message, text: content.body, content: { ...content, actions: [...content.actions] } },
+									}
+								: undefined;
+						},
+					},
+				],
+			],
+		]),
+		["card"],
+	);
+	x.channel.output.stream = false;
+	const sent: import("@yonder/sdk").OutMessage[] = [];
+	x.channel.send = async (_to, message) => {
+		sent.push(message);
+		return { ok: true, id: "card-receipt" };
+	};
+	try {
+		await x.finish("NO_REPLY");
+		await expect.poll(() => sent.length).toBe(1);
+		expect(sent[0]?.content).toEqual(content);
+		expect(seen).toEqual([
+			{
+				owner: { session: "1", agent: "main", profile: "owner" },
+				final: { runId: "run", status: "done", sourceEventId: x.event.id },
+			},
+		]);
+		expect((await x.store.events.runEnd("1", "run"))?.data).toMatchObject({
+			replied: "source",
+			targets: [x.event.conv],
+		});
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("a persisted interactive attempt retries complete buttons without running its preparation hook again", async () => {
+	let prepared = 0;
+	const content = {
+		type: "interactive",
+		title: "接入",
+		body: "选择入口",
+		actions: [
+			{ id: "connect", label: "接入设备", link: "/connect" },
+			{ id: "download", label: "安装客户端", link: "/download" },
+		],
+		state: "pending",
+	} as const;
+	const hooks = new Map<string, Hook[]>([
+		[
+			"card",
+			[
+				{
+					id: "card",
+					beforeSend(message, _owner, final) {
+						prepared++;
+						return final
+							? { message: { ...message, text: content.body, content: { ...content, actions: [...content.actions] } } }
+							: undefined;
+					},
+				},
+			],
+		],
+	]);
+	const x = await setup(hooks, ["card"]);
+	x.channel.output.stream = false;
+	const sent: import("@yonder/sdk").OutMessage[] = [];
+	x.channel.send = async (_to, message) => {
+		sent.push(message);
+		return { ok: false, retryable: true, error: "not dispatched" };
+	};
+	let reopened: ReturnType<typeof createDelivery> | undefined;
+	try {
+		await x.finish("");
+		await expect.poll(async () => (await x.store.events.retryableAttempts()).length).toBe(1);
+		await x.delivery.close();
+		expect(prepared).toBe(1);
+		const attempt = (await x.store.events.retryableAttempts())[0]!;
+		expect(attempt.data).toMatchObject({ outgoing: { content } });
+		x.channel.send = async (_to, message) => {
+			sent.push(message);
+			return { ok: true, id: "confirmed" };
+		};
+		reopened = createDelivery({
+			store: x.store,
+			agents: x.agents,
+			channels: new Map([["test", x.channel]]),
+			hooks,
+			runtime: () => ({ currentConfig: () => x.config }) as unknown as Runtime,
+			sessions: { resolveSession: async () => x.config } as unknown as Sessions,
+		});
+		await reopened.recover();
+		reopened.start();
+		await expect.poll(async () => (await x.store.events.retryableAttempts()).length, { timeout: 5000 }).toBe(0);
+		expect(prepared).toBe(1);
+		expect(sent).toHaveLength(2);
+		expect(sent.map((message) => message.content)).toEqual([content, content]);
+		expect(sent.map((message) => message.deliveryId)).toEqual([attempt.id, attempt.id]);
+		const unknown = await x.store.events.claimAttempt({
+			type: "message.attempt",
+			parent: x.event.id,
+			data: {
+				session: x.session.id,
+				runId: "unknown-card",
+				target: x.event.conv!,
+				method: "send",
+				outgoing: { text: content.body, content: { ...content, actions: [...content.actions] } },
+			},
+		});
+		await reopened.recover();
+		await new Promise((done) => setTimeout(done, 1100));
+		expect(sent).toHaveLength(2);
+		expect(prepared).toBe(1);
+		expect((await x.store.events.query({ type: "message.unknown" })).events).toEqual([
+			expect.objectContaining({ data: expect.objectContaining({ attempt: unknown }) }),
+		]);
+	} finally {
+		await reopened?.close();
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+for (const card of [false, true])
+	test(`run.end before the first attempt keeps the existing no-replay boundary (${card ? "card" : "text"})`, async () => {
+		const x = await setup(
+			new Map([
+				[
+					"card",
+					[
+						{
+							id: "card",
+							beforeSend(message) {
+								return card
+									? {
+											message: {
+												...message,
+												content: {
+													type: "interactive",
+													title: "接入",
+													body: "入口",
+													actions: [{ id: "connect", label: "接入", link: "/connect" }],
+													state: "pending",
+												},
+											},
+										}
+									: undefined;
+							},
+						},
+					],
+				],
+			]),
+			["card"],
+		);
+		x.channel.output.stream = false;
+		try {
+			const completion = await x.delivery.onRun(
+				x.session,
+				{
+					runId: "unattempted",
+					text: "final",
+					status: "done",
+					inputs: [x.event.id],
+					config: x.config,
+					usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+				},
+				[x.event],
+			);
+			await x.store.events.recordRun(completion.ending);
+			// Simulate stopping after durable run.end and before completion.deliver().
+			await x.delivery.close();
+			const reopened = createDelivery({
+				store: x.store,
+				agents: x.agents,
+				channels: new Map([["test", x.channel]]),
+				runtime: () => ({ currentConfig: () => x.config }) as unknown as Runtime,
+				sessions: { resolveSession: async () => x.config } as unknown as Sessions,
+			});
+			try {
+				await reopened.recover();
+				reopened.start();
+				expect(x.sent).toEqual([]);
+				expect((await x.store.events.query({ type: "message.attempt" })).events).toEqual([]);
+			} finally {
+				await reopened.close();
+			}
+		} finally {
+			await x.delivery.close();
+			await x.db.close();
+		}
+	});
+
+test.each([
+	{
+		name: "single-result automatic none returns a fixed error for a done run",
+		singleResult: true,
+		waiting: false,
+		status: "done" as const,
+		waiter: false,
+		expected: "本轮来源关闭自动回复，未投递模型回复",
+	},
+	{
+		name: "single-result automatic none preserves an aborted run failure",
+		singleResult: true,
+		waiting: false,
+		status: "aborted" as const,
+		waiter: false,
+		expected: "云端模型调用失败：aborted",
+	},
+	{
+		name: "local output without singleResult does not send for reply none",
+		singleResult: false,
+		waiting: false,
+		status: "done" as const,
+		waiter: false,
+		expected: undefined,
+	},
+	{
+		name: "waiting caller ask does not send even on a single-result channel",
+		singleResult: true,
+		waiting: true,
+		status: "done" as const,
+		waiter: true,
+		expected: undefined,
+	},
+])("worker lease: $name", async ({ singleResult, waiting, status, waiter, expected }) => {
+	const x = await setup();
+	const send = vi.spyOn(x.channel, "send");
+	try {
+		const binding = x.config.bindings?.[0];
+		const route = x.event.routes?.[0];
+		if (!binding || !route) throw new Error("Delivery fixture is missing its binding or route");
+		binding.reply = "none";
+		if (singleResult) x.channel.output.singleResult = true;
+		route.waiting = waiting;
+		const modelText = "private model output must not be sent";
+		const completion = await x.delivery.onRun(
+			x.session,
+			{
+				runId: "worker-lease",
+				text: modelText,
+				status,
+				inputs: [x.event.id],
+				config: x.config,
+				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+			},
+			[x.event],
+			waiter,
+		);
+		await x.store.events.recordRun(completion.ending);
+		completion.deliver();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		if (expected) {
+			expect(send).toHaveBeenCalledTimes(1);
+			const message = send.mock.calls[0]?.[1];
+			expect(message).toMatchObject({
+				text: expected,
+				content: { type: "error", text: expected },
+			});
+			expect(message?.text).not.toContain(modelText);
+		} else {
+			expect(send).not.toHaveBeenCalled();
+		}
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});

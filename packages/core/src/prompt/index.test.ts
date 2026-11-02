@@ -176,7 +176,7 @@ test("pure system prompt assembly matches the default resident golden", () => {
 	};
 	const parts = assembleSystemPromptParts(session, { contexts: [] });
 	expect(createHash("sha256").update(JSON.stringify(parts)).digest("hex")).toBe(
-		"e7449b1ff1c38a3214b5503b007562da45698aae331f370bdf652fe95aa6c8ac",
+		"7fa0fe0c984b6e2cf18bda4ab334f98523ea13e829aeb177210470f76d05cb16",
 	);
 });
 

@@ -124,7 +124,13 @@ export interface RuntimeInternals {
 	toolGuidelines: Map<string, readonly string[]>;
 	invocationConfigs: WeakMap<
 		Context,
-		{ config: RuntimeSessionConfig; operationPrefix?: string; operationSequence: number; events: YEvent[] }
+		{
+			config: RuntimeSessionConfig;
+			operationPrefix?: string;
+			operationSequence: number;
+			events: YEvent[];
+			runId?: string;
+		}
 	>;
 	extensions: Map<string, Extension>;
 	tools: Map<string, ToolRegistration>;

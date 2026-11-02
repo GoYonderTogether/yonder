@@ -97,7 +97,8 @@ test("interactive actions use their own links and fall back to the legacy card l
 						body: "选择操作",
 						actions: [
 							{ id: "connect", label: "连接", link: "/connect" },
-							{ id: "download", label: "下载" },
+							{ id: "download", label: "下载", link: "/download" },
+							{ id: "legacy", label: "旧入口" },
 						],
 						state: "pending",
 						link: "/get",
@@ -114,6 +115,7 @@ test("interactive actions use their own links and fall back to the legacy card l
 		</MemoryRouter>,
 	);
 	expect(html).toContain('href="/connect"');
+	expect(html).toContain('href="/download"');
 	expect(html).toContain('href="/get"');
 });
 

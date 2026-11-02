@@ -49,7 +49,24 @@ export function createSender(deps: SenderDeps) {
 	const { attempt, record, unknown } = ledger;
 	const hooks = deps.hooks;
 
-	async function send(
+	async function prepare(
+		request: MessageRequest,
+		session?: SessionInfo,
+		config?: RuntimeSessionConfig,
+		final?: Parameters<NonNullable<Hook["beforeSend"]>>[2],
+	): Promise<MessageRequest> {
+		for (const hook of request.content?.type === "error" ? [] : selectedHooks(hooks, config)) {
+			const changed = await hook.beforeSend?.(
+				request,
+				session ? { session: session.id, agent: session.agent, profile: session.profile } : undefined,
+				final,
+			);
+			if (changed) request = { ...request, ...changed.message };
+		}
+		return request;
+	}
+
+	async function sendPrepared(
 		from: string | undefined,
 		request: MessageRequest,
 		session?: SessionInfo,
@@ -60,13 +77,6 @@ export function createSender(deps: SenderDeps) {
 		messageId?: string,
 		scope: Scope = config?.resolved ?? {},
 	): Promise<Delivery> {
-		for (const hook of request.content?.type === "error" ? [] : selectedHooks(hooks, config)) {
-			const changed = await hook.beforeSend?.(
-				request,
-				session ? { session: session.id, agent: session.agent, profile: session.profile } : undefined,
-			);
-			if (changed) request = { ...request, ...changed.message };
-		}
 		let resolved: Awaited<ReturnType<typeof resolveTarget>>;
 		try {
 			resolved = await resolveTarget(request, session?.agent, config, scope);
@@ -116,6 +126,18 @@ export function createSender(deps: SenderDeps) {
 		}
 		return delivery;
 	}
+	const send: typeof sendPrepared = async (from, request, session, parent, config, signal, runId, messageId, scope) =>
+		sendPrepared(
+			from,
+			await prepare(request, session, config),
+			session,
+			parent,
+			config,
+			signal,
+			runId,
+			messageId,
+			scope,
+		);
 	const proactive = (
 		from: string | undefined,
 		msg: MessageRequest,
@@ -191,5 +213,5 @@ export function createSender(deps: SenderDeps) {
 			.finally(() => retries.delete(event.id));
 		retries.set(event.id, work);
 	}
-	return { send, proactive, retry };
+	return { prepare, sendPrepared, send, proactive, retry };
 }

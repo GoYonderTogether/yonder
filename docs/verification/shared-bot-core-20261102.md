@@ -168,3 +168,11 @@ Root完整build/typecheck成功；默认2703通过/0失败/112跳过，文件506
 详见[客户端验证](shared-bot-app-20261103.md)。app Bubble/History/Composer与两份类型已接线，cloud/download复用Install。真实本机Chrome+PG/Redis/server证明error为红色rolealert、无普通气泡、placeholder/列表预览正确，cloud/get与/download实际同Install；无截图/桌面/生产操作。聚焦首轮13通过/1失败（SSR location），修后14/0；浏览器首轮选错搜索框，正确选择textarea后通过，原失败分别保留。
 
 Root两仓完整gate：Yonder build/typecheck成功，2707通过/0失败/112跳过，506文件通过/67跳过，107.08秒；lint首轮仅测试import排序1error，窄格式修复后0error/1322warning/34info，size923/layer108基线0。Cloud root/server build/typecheck成功，server206通过/0失败/0取消/0跳过，110.256秒；SSR3/0/0/0，0.663秒。原始日志stage-9-app-final-*与stage-9-alias-*；修后lint为stage-9-app-final-lint-corrected.log。阶段10工具/提示词、11设备仍待完成。
+
+## 阶段10：最终卡片与真实来源（完整gate通过）
+
+详见[卡片验证](shared-bot-card-20261103.md)。官方reply_card同FS/PG存储、真实native runId/autoReplySource、原beforeSend与ledger组合，保card_push人工草稿。默认Cloud定义+自然请求的真实GLM调用工具，唯一interactive含独立/connect与/download，原生转录/cleanup/keyabsence均验证。空final仍可发卡；tool后HTTP503只error，失败清理且后prompt不含error/不复用旧卡。两端实际component已覆盖两个目标与legacy回退。
+
+首次full2713通过/2失败/112跳过（授权prompt golden与7309>7300）；仅压原段60词使总7297并重算golden，不抬上限，15项prompt通过。corrected full2715/0/112成功后又发现并修复真实reply:none源永等回执的队列挂起；四边界单元、真实连续两输入error与后prompt过滤均过。最终complete full build/typecheck/lint0、**2719通过/0失败/112跳过**，508文件通过/67跳过，89.51秒；size924/layer108基线0，Biome0error/1325warning/34info。原始日志stage-10-final-*、stage-10-corrected-*、stage-10-complete-*全部保留。
+
+其它开发夹具失败、manifest漏hook、旧dist、背景测试误改LiveDoc、错误SSR命令和transport call-ID/last-user/retry/迁移顺序逐条保留在详细记录，不把它们改称环境豁免。设备真实tool调用/动态目录仍待阶段11，模型卡片body不是设备能力验收。

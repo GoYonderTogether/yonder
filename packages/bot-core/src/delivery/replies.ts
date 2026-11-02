@@ -8,6 +8,8 @@ import { cloudFailure } from "./cloud-result.js";
 import type { createLedger } from "./ledger.js";
 import { sourceMessage, stopNotice } from "./model-notice.js";
 import { OutputQueue, ReplyText } from "./reply-text.js";
+import type { MessageRequest } from "./request.js";
+import type { createSender } from "./send.js";
 import { channelId, type DeliveryOptions, message, type StreamEntry, selectedHooks } from "./shared.js";
 import type { createReplyGuard } from "./social-guard.js";
 import { guardStream } from "./social-guard.js";
@@ -26,6 +28,8 @@ export function createReplies({
 	ledger,
 	checkReply,
 	send,
+	prepare,
+	sendPrepared,
 	streams,
 	ready,
 	binding,
@@ -42,17 +46,9 @@ export function createReplies({
 	hooks: DeliveryOptions["hooks"];
 	ledger: Ledger;
 	checkReply: ReturnType<typeof createReplyGuard>;
-	send: (
-		from: string | undefined,
-		request: import("./request.js").MessageRequest,
-		session?: SessionInfo,
-		parent?: string,
-		config?: RuntimeSessionConfig,
-		signal?: AbortSignal,
-		runId?: string,
-		messageId?: string,
-		scope?: import("./console.js").Scope,
-	) => Promise<import("@yonder/sdk").Delivery>;
+	send: ReturnType<typeof createSender>["send"];
+	prepare: ReturnType<typeof createSender>["prepare"];
+	sendPrepared: ReturnType<typeof createSender>["sendPrepared"];
 	streams: Map<string, StreamEntry>;
 	ready: Promise<void>;
 	binding(session: SessionInfo, event: YEvent, config?: RuntimeSessionConfig): Binding | undefined;
@@ -205,6 +201,7 @@ export function createReplies({
 		for (const event of actual)
 			if (waiting(session, event) === undefined)
 				report(new Error(`输入 ${event.id} 缺少历史 waiting，自动投递不可确定，未发送`));
+		const singleResult = (event: YEvent) => channels.get(channelId(event.conv!) ?? "")?.output.singleResult === true;
 		const sources = [
 			...new Map(
 				actual
@@ -213,7 +210,7 @@ export function createReplies({
 							waiting(session, event) === false &&
 							event.conv &&
 							channels.has(channelId(event.conv) ?? "") &&
-							(binding(session, event, profile)?.reply ?? "auto") === "auto",
+							((binding(session, event, profile)?.reply ?? "auto") === "auto" || singleResult(event)),
 					)
 					.map((event) => [event.conv, event]),
 			).values(),
@@ -233,9 +230,45 @@ export function createReplies({
 		const onConsole = (event: YEvent) => !!event.conv && channelId(event.conv) === CONSOLE;
 		const consoleTurn = actual.some(onConsole);
 		const replies = consoleTurn ? sources.filter(onConsole) : sources;
-		const singleResult = (event: YEvent) => channels.get(channelId(event.conv!) ?? "")?.output.singleResult === true;
-		const empty = !run.text.trim() || run.text.trim() === "NO_REPLY";
-		const targets = stopped || !empty ? replies : replies.filter(singleResult);
+		const prefix = `${session.id}\0${run.runId}\0`;
+		const owned = [...streams].filter(([key]) => key.startsWith(prefix));
+		const prepared = new Map<YEvent, MessageRequest>();
+		const targets: YEvent[] = [];
+		for (const event of replies) {
+			const sourceMessageId = sourceMessage(event);
+			const failure = singleResult(event)
+				? stopped
+					? cloudFailure(run.reason ?? run.status)
+					: binding(session, event, profile)?.reply === "none"
+						? "本轮来源关闭自动回复，未投递模型回复"
+						: undefined
+				: undefined;
+			const request: MessageRequest = {
+				to: event.conv!,
+				text: failure ?? finalText,
+				...(failure ? { content: { type: "error", text: failure } } : {}),
+				...(sourceMessageId ? { sourceMessageId } : {}),
+			};
+			const state = owned.find(([key]) => key.endsWith(`\0${event.conv}`))?.[1];
+			const streamed =
+				!stopped && state && ((state.lastMessage && state.lastMessage === run.message) || !state.message);
+			const outgoing = streamed
+				? request
+				: await prepare(request, session, profile, {
+						runId: run.runId,
+						status: run.status,
+						sourceEventId: event.id,
+					});
+			const empty = !outgoing.content && (!outgoing.text.trim() || outgoing.text.trim() === "NO_REPLY");
+			if (!stopped && empty && !singleResult(event)) continue;
+			if (!stopped && empty) {
+				const text = cloudFailure("模型返回空回答");
+				outgoing.text = text;
+				outgoing.content = { type: "error", text };
+			}
+			prepared.set(event, outgoing);
+			targets.push(event);
+		}
 		const destination =
 			!stopped &&
 			!consoleTurn &&
@@ -275,8 +308,6 @@ export function createReplies({
 				...(destination ? { deliver: destination } : {}),
 			},
 		};
-		const prefix = `${session.id}\0${run.runId}\0`;
-		const owned = [...streams].filter(([key]) => key.startsWith(prefix));
 		for (const [key] of owned) streams.delete(key);
 		// Model termination is durable and its slot released before awaiting any channel.
 		const deliver = () => {
@@ -285,29 +316,13 @@ export function createReplies({
 				for (const [, state] of owned)
 					if (state.current) closeMessage(session, state, state.message ? state.current.text : finalText);
 				for (const event of targets) {
-					const sourceMessageId = sourceMessage(event);
 					const state = owned.find(([key]) => key.endsWith(`\0${event.conv}`))?.[1];
 					if (state) await state.tail;
 					if (!stopped && state?.lastMessage && state.lastMessage === run.message) continue;
 					if (!stopped && state && !state.message) continue;
-					await send(
+					await sendPrepared(
 						from(session),
-						{
-							to: event.conv!,
-							text:
-								singleResult(event) && (stopped || empty)
-									? cloudFailure(run.reason ?? (empty ? "模型返回空回答" : run.status))
-									: finalText,
-							...(singleResult(event) && (stopped || empty)
-								? {
-										content: {
-											type: "error" as const,
-											text: cloudFailure(run.reason ?? (empty ? "模型返回空回答" : run.status)),
-										},
-									}
-								: {}),
-							...(sourceMessageId ? { sourceMessageId } : {}),
-						},
+						prepared.get(event)!,
 						session,
 						event.id,
 						profile,

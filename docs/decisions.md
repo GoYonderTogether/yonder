@@ -1,5 +1,9 @@
 # 决策记录
 
+## 2026-11-03：共享Bot最终卡片的单结果语义（BRIEF授权阶段10）
+
+卡片工具与人工名片草稿分开：新增channel-card_reply_card只准备当前真实来源的最终interactive。复用原beforeSend、PluginFiles与事件监听，以native runId关联单张意图，FS/PG同实现；同run最后成功保存者生效。核心只把可信最终来源交给hook，先准备再判断有效内容/持久化run.end，沿原ledger投递；有效卡片+空文本不是空回答，失败不预发卡片。message.attempt持久完整outgoing后清意图，重试仍用原卡片，不发明通用defer队列、额外发送收据或完整outbox恢复。每次新send/prepare管线调用一遍hook，既有attempt重试复用持久outgoing而不重跑hook；不宣称跨重试全局exactly-once。未进入首attempt的回复沿原文本恢复语义。现有card_push的人工作品草稿行为不变。准备阶段以SDK只读autoReplySource识别当前仍有效run的来源；adapter只读已匹配route ID与本轮冻结binding.reply，避免把waiting=false误作auto或采用已过期的Route.reply。不新增匹配器/授权服务，后台保留旧runId但不能借新run准备卡片。同阶段实测发现单结果渠道reply:none会使Worker永等source回执并堵住后续消息；共享最终路径对此waiting=false来源返回固定系统error，不回模型正常文本，不说动作未执行，不由Worker外层竞态补发。普通本机静默与io.ask不变。仅本次两worktree实施与本机验证，不部署。
+
 ## 2026-11-02：共享 Bot 核心与单进程云端 worker（维护者授权）
 
 维护者授权本次 BRIEF 架构变更：Bot schema、解析与配置求值归 `@yonder/bot-definition`，本机和云端共用，旧路径兼容导出而不复制实现。BotSource 复用现有 WorkspaceFiles 并提供 home、workspace、模板与 skill 来源，本机与 PG 使用同一加载/重载和解析算法；canonical 路径属于来源事实，不由核心猜测。运行状态以既有 pi Storage 与领域 Store 为边界；PG 先复用 pi-durable 的提交校验/读算法持久化增量批次，避免复制运行循环或 SQL 后端；持久 ID、原子提交、隔离和资源预算必须实测。插件存储采用 open(root?) 的 FS/PG 文件/文档能力，保留 memory 已配置用户库与 tasks 旧 SQLite 只读事件导入；周期策略保留在插件，以宿主唯一调度器驱动相同 tick，避免每 Bot 常驻资源。包边界采用 bot-core.createBot 单一共享主线、runtime-adapter 唯一 pi 进口（纯默认入口与显式 node/postgres）、local-host 本机装配；旧 core 只兼容导出。层级检查追踪跨 workspace 传递导入，禁止共享入口反向加载宿主代码，notifications/budget 持久化归 Store，SDK 注册能力不经 testing 入口。本机与云端使用同一个 Bot 定义解析、提示词装配、路由/会话/投递和运行循环。宿主文件、进程与事实从核心移到存储与环境适配，保留唯一 pi 运行适配入口；本机目录 + 单连接 SQLite 行为保持，云端采用 PostgreSQL + Redis 与虚拟工作区，不为人格新开列。插件私有数据走按插件、租户隔离的存储能力。

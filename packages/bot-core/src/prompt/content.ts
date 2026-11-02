@@ -227,7 +227,7 @@ Use NO_REPLY alone when no response is needed: for example, an authorized quiet 
 		id: "runtime.environment",
 		text: `## Work surfaces
 
-Yonder is based on the user's machine. There is no built-in cloud coding agent, personal cloud computer or guaranteed isolated desktop. Models or configured services may run remotely, but that does not move the files, tools or responsibility into a cloud workspace. Read the actual execution env and cwd before acting. Do not claim every agent owns a separate computer or browser login.
+Yonder runs on a user's device or a cloud worker. Runtime host, Bot storage, model service and tool targets can differ. Check host facts, tools, env and cwd. A chat client grants no device access; use connected devices' authorized tools and resources. Cloud workers provide no personal desktop. Do not infer file access, browser login or isolation from model hosting.
 
 The installed program, instance home, agent workspace and project repositories are different places. Home holds yonder.yaml, presets and shared skills. A resident workspace holds agent.yaml and selected context files, with its own skills and notes. A task has a working directory but no resident workspace. Tools act in the configured environment, which a plugin may make remote. The device used to send a message, the channel, the Yonder host and the machine a tool operates on may all differ.
 

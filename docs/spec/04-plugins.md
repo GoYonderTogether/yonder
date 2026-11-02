@@ -79,7 +79,7 @@ interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boole
 - 实例配置里的密钥写成凭据名（例如 `credential: feishu-main`），插件用 `api.credentials.get` 读取（07 §6.2）。
 - 渠道只负责把外部消息变成 `message.in`、把输出交到外部。它**不**决定进哪个会话、要不要回复——那是绑定和投递的事（02、06）。
 - 外部系统调用 agent 并要拿到返回值（例如 MCP 服务端）时，渠道用 `io.ask`。
-- `output.singleResult` 表示渠道每条用户输入只接收一个最终回复或error，云端worker启用；不改变绑定或io.ask语义。同来源的即时模型工具发送明确返回失败并指导写入最终回复，不能先占结果槽后隐藏模型错误；跨会话主动消息仍沿原授权和deliveryId发送。中间模型回退提示不额外发送，本机普通渠道保持既有多段输出。官方卡片工具准备最终卡片时须如实说明仅已准备，最终投递仍由共享delivery完成。
+- `output.singleResult` 表示渠道每条用户输入只接收一个最终回复或error，云端worker启用；保留绑定对模型正常回复的决定和io.ask语义。原生运行失败仍优先给真实失败原因；正常结束但waiting=false且binding.reply=none时，该渠道须以系统error明确“本轮来源关闭自动回复，未投递模型回复”，以完成该输入唯一结果；不带模型正常文本，也不声称操作没有执行。普通本机reply:none与waiting=true的caller不发送此错误。同来源的即时模型工具发送明确返回失败并指导写入最终回复，不能先占结果槽后隐藏模型错误；跨会话主动消息仍沿原授权和deliveryId发送。中间模型回退提示不额外发送，本机普通渠道保持既有多段输出。官方卡片工具准备最终卡片时须如实说明仅已准备，最终投递仍由共享delivery完成。
 
 - 用户首次或重新授权完成后，渠道已确认主人的账号和可发送的真实私聊时，可调用 `ownerConnected`；内核固定插件来源并写入 `channel.connected`，按该渠道已有主人私聊绑定或 multiAgent 主人点名入口路由到对应 Bot 的 main，提醒其自主决定是否打招呼。只有 multiAgent 渠道可指定 agent。启动恢复、重连、查询及周期同步不调用；账号未确定或渠道不能发送时不调用。
 - `login(action, signal, verifyCode)` 的纯数字 verifyCode 由具体渠道解释；card 用它兑换网页主人发起的十位一次性邀请码（start/poll 均适用），见 16 §1；不增加公共登录参数。
@@ -99,10 +99,13 @@ interface ToolContext {
   agent: string | null;                // 预设会话为 null
   profile: string;
   session: string;
+  runId?: string;                      // 真实native run标识；后台快照保留发起时的同一runId
+  autoReplySource?: string;            // 当前仍有效的原run中可自动回复的真实YEvent.id，不是发送参数
   capabilities: Capability[];          // 本次运行生效的能力
   channelInstances?: string[];         // 真实运行实例范围；未配置无限制，[] 无实例
   env: ExecutionEnv;                   // 本次运行的执行环境（05 §4）
   event?: YEvent;                      // 触发本次运行的入站事件
+  events?: YEvent[];                   // 本次native run的真实输入，包含实际已接纳的插话
   signal: AbortSignal;                 // 运行被中止时触发；工具必须响应
   cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>; // 本地工具缓存文本并返回路径，见 07 §4
   cacheToolOutputStream?(chunks: AsyncIterable<Uint8Array>, options?: { extension?: string }): Promise<string>; // 本地工具流式缓存原文
@@ -114,6 +117,8 @@ interface ToolResult {
   attachments?: Attachment[];            // 明确交付的真实产物引用
 }
 ```
+
+autoReplySource由adapter只读实际route.binding ID与本轮冻结RuntimeSessionConfig的binding.reply事实；不另跑匹配/路由，也不信接纳时可能已过期的reply字段。取当前event.conv下最后一条真实message.in，需匹配当前session/agent、waiting=false、未dropped且冻结binding允许auto；已知console优先/等待caller则不给，无法确认也不给。该字段只报告当前自动回复候选，最终核心仍校验实际source/binding，不授予新权限或承诺送达。后台保留旧runId用于追踪，但原run已结束时不提供autoReplySource，不能借下一轮LiveDoc的来源或权限准备卡片。
 
 工具名只用下划线与连字符，不用点：OpenAI、Anthropic 只接受 `^[a-zA-Z0-9_-]+$`（已用 `gpt-6-luna` 验证，带点的名字返回 400）。内核内置工具同样如此：`message_send`、`task_run`、`session_*`、`identity_*`；pi 自带的 `read`、`write`、`edit`、`bash`、`tool_search` 保留原名。配置档里的 `tools` 通配（如 `qq_*`）按这个名字匹配。
 
@@ -175,7 +180,7 @@ interface EnvProvider { type: string; configSchema?: TSchema; create(id: string,
 
 ```ts
 interface Hook {
-  beforeSend?(message: OutMessage & { to: Ref }, owner?: ExecutionOwner): HookResult<{ message: OutMessage }>;
+  beforeSend?(message: OutMessage & { to: Ref }, owner?: ExecutionOwner, final?: { runId: string; status: RunEndData['status']; sourceEventId: string }): HookResult<{ message: OutMessage }>;
   id: string;
   beforeTool?(call: ToolCall, ctx: ToolContext): HookResult<{ block: string } | { args: object }>;
   afterTool?(call: ToolCall, result: ToolResult, ctx: ToolContext): HookResult<{ result: ToolResult }>;
@@ -186,6 +191,8 @@ type HookResult<T> = T | undefined | Promise<T | undefined>;
 ```
 
 `Message` 是 pi-ai 的消息类型，由 `@yonder/sdk` 以纯类型重新导出。映射到 pi-durable 的同名钩子。内核自带的安全与上限钩子总是最先执行，插件钩子不能放行内核已拦下的调用。审批、审计、沙箱策略这类功能都写成钩子插件。
+
+beforeSend第三参只由核心自动最终回复填入真实runId、终态与来源事件ID；显式发送、程序发送与中间流不给，模型/插件发送参数不能伪造最终来源。每次新send/prepare管线调用一遍hook，sendPrepared不再调用；既有attempt重试直接使用持久outgoing，不重跑hook。重复上层send即使被claimAttempt拒绝，也可能已执行hook，因此选择hook只能幂等读取/覆盖，不能承担清理。核心可先prepare最终候选，再判断有效内容与持久化run.end，最后沿原ledger发送已准备消息。准备不等于送达，不增加通用延迟队列。
 
 beforeSend 只对该会话选中的插件执行，在发送 attempt/事件账本前过滤完整消息；选中它的 profile 按单条 message_end 缓冲流式文本，避免跨片段泄漏。无会话的插件发送不借用其他 profile。具体使用见 [21 §4](21-clipboard-vault.md#4-防泄漏与边界)。
 

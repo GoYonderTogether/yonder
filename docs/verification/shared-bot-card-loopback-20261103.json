@@ -1,0 +1,82 @@
+{
+	"mode": "loopback-transport",
+	"scenario": "reply",
+	"results": [],
+	"rounds": [
+		{
+			"bot": "a82685a7-1ddf-42d3-bb44-76bd38fa931a",
+			"queries": 212,
+			"active": 1,
+			"rss": 210354176
+		},
+		{
+			"bot": "a82685a7-1ddf-42d3-bb44-76bd38fa931a",
+			"queries": 133,
+			"active": 1,
+			"rss": 216203264
+		},
+		{
+			"bot": "a82685a7-1ddf-42d3-bb44-76bd38fa931a",
+			"queries": 84,
+			"active": 1,
+			"rss": 218595328
+		}
+	],
+	"idle": {
+		"active": 0,
+		"highWater": 0,
+		"activeIds": [],
+		"databaseConnections": 2,
+		"busy": 0,
+		"completed": 0,
+		"pendingSources": 0,
+		"rss": 139247616,
+		"queries": 8,
+		"resources": {
+			"PipeWrap": 1,
+			"TCPSocketWrap": 3,
+			"Timeout": 2
+		}
+	},
+	"card": {
+		"content": {
+			"body": "选择入口",
+			"type": "interactive",
+			"state": "pending",
+			"title": "接入与安装",
+			"actions": [
+				{
+					"id": "connect",
+					"link": "/connect",
+					"label": "接入设备"
+				},
+				{
+					"id": "download",
+					"link": "/download",
+					"label": "安装客户端"
+				}
+			]
+		},
+		"toolInNativeTranscript": true,
+		"uniqueResult": true,
+		"intentClearedAfterAttempt": true,
+		"emptyFinal": true,
+		"failureAfterPreparation": {
+			"type": "error",
+			"noCardDelivered": true,
+			"intentCleared": true,
+			"laterPromptExcludesError": true,
+			"nextReplyDoesNotReuseCard": true
+		}
+	},
+	"keyAbsentFromLogsAndTranscript": true,
+	"command": "node scripts/cloud-worker/verify.mjs --card",
+	"workerPid": 37363,
+	"verifiedScope": [
+		"actual native reply_card invocation",
+		"one final interactive result",
+		"independent connect/download links",
+		"intent cleanup",
+		"key absence"
+	]
+}

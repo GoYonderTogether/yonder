@@ -1,6 +1,7 @@
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import { Harness, LiveDoc, type TaskId } from "@earendil-works/pi-durable";
+import { CONSOLE } from "@yonder/bot-definition/console";
 import type { Models, ToolContext } from "@yonder/sdk";
 import type { RuntimeOptions, RuntimeSessionConfig } from "../types.js";
 import { cid, ModelBindingDoc, RunDoc, SessionDoc } from "./docs.js";
@@ -95,16 +96,45 @@ export function environment(rt: RuntimeInternals, config: RuntimeSessionConfig) 
 	return rt.options.services.environment(config);
 }
 
+export function autoReplySource(
+	config: RuntimeSessionConfig,
+	session: string,
+	events: readonly import("@yonder/sdk").YEvent[],
+	frozenRunId?: string,
+	currentRunId?: string,
+) {
+	if (frozenRunId === undefined || frozenRunId !== currentRunId) return undefined;
+	const current = events[0];
+	if (!config.agent || !current?.conv) return undefined;
+	const routeFor = (event: (typeof events)[number]) =>
+		event.routes?.find((route) => route.agent === config.agent && route.session === session);
+	const onConsole = (event: (typeof events)[number]) => event.conv?.startsWith(`conv:${CONSOLE}:`) === true;
+	const consolePriority = events.some(onConsole);
+	if (consolePriority && (!onConsole(current) || routeFor(current)?.waiting !== false)) return undefined;
+	const source = [...events].reverse().find((event) => event.type === "message.in" && event.conv === current.conv);
+	if (!source) return undefined;
+	const route = routeFor(source);
+	if (!route || route.dropped !== undefined || route.waiting !== false || !route.binding) return undefined;
+	return config.bindings?.some((binding) => binding.id === route.binding && binding.reply !== "none")
+		? source.id
+		: undefined;
+}
+
 export async function toolContext(rt: RuntimeInternals, id: string, context: Context): Promise<ToolContext> {
 	const saved = rt.invocationConfigs.get(context);
 	const config = saved?.config ?? rt.currentConfig(id) ?? (await rt.options.resolveSession(id));
 	const live = await rt.harness.snapshot(LiveDoc, cid(id), C);
 	const events = saved?.events ?? (await rt.sources(live?.run?.inputs ?? []));
 	const input = events[0];
+	const liveRunId = live?.run ? String(live.run.inputs[0]) : undefined;
+	const runId = saved ? saved.runId : liveRunId;
+	const autoReply = autoReplySource(config, id, events, runId, liveRunId);
 	return {
 		agent: config.agent,
 		profile: config.profile,
 		session: id,
+		...(runId === undefined ? {} : { runId }),
+		...(autoReply ? { autoReplySource: autoReply } : {}),
 		capabilities: [...config.resolved.capabilities],
 		...(config.resources ? { resources: structuredClone(config.resources) } : {}),
 		...(config.resolved.channelInstances === undefined

@@ -12,6 +12,7 @@ import { modelTransport } from "./transport.mjs";
 
 const live = process.argv.includes("--live");
 const load = process.argv.includes("--load");
+const card = process.argv.includes("--card");
 const scenario = process.argv.find((arg) => arg.startsWith("--case="))?.slice(7);
 const folder = await mkdtemp(join(tmpdir(), "yonder-worker-verification-"));
 const workerKey = randomBytes(32);
@@ -144,7 +145,7 @@ async function turn(bot, text, expectError = false) {
 		assert.notEqual(
 			result.content.type,
 			"error",
-			`worker result error: ${redactError(result.content.text)}; diagnostics: ${redactError(output.join("").slice(-1500))}`,
+			`worker result error: ${redactError(result.content.text ?? result.content.type)}; diagnostics: ${redactError(output.join("").slice(-1500))}`,
 		);
 	await until(async () => (await state()).completed > before.completed);
 	await pause(30);
@@ -172,9 +173,127 @@ async function turn(bot, text, expectError = false) {
 	return { message, result };
 }
 try {
-	const bots = await Promise.all(Array.from({ length: load ? 100 : 2 }, createBot));
+	const bots = await Promise.all(Array.from({ length: load ? 100 : card ? 1 : 2 }, createBot));
 	await start();
-	if (scenario) {
+	if (card && transport) {
+		const bot = bots[0];
+		const { ensureCloudDefinition } = await import("../../packages/cloud-host/dist/definitions.js");
+		const environment = await readFile(
+			new URL("../../packages/cloud-host/prompts/environment.md", import.meta.url),
+			"utf8",
+		);
+		const config = await ensureCloudDefinition(
+			backend.pool,
+			{ id: bot.id, name: "小未", ownerId: bot.owner.id },
+			environment,
+		);
+		config.retry = { maxRetries: 0 };
+		config.timeouts = { firstTokenMs: 5000, totalMs: 15000 };
+		await backend.pool.query("UPDATE bot_files SET content=$4 WHERE tenant_id=$1 AND bot_id=$2 AND path=$3", [
+			bot.owner.id,
+			bot.id,
+			"yonder.yaml",
+			JSON.stringify(config),
+		]);
+		const path = `agents/${bot.id}/agent.yaml`;
+		const agent = JSON.parse(
+			(
+				await backend.pool.query("SELECT content FROM bot_files WHERE tenant_id=$1 AND bot_id=$2 AND path=$3", [
+					bot.owner.id,
+					bot.id,
+					path,
+				])
+			).rows[0].content,
+		);
+		agent.profiles.default.fallback = { models: [], hold: 0 };
+		await backend.pool.query("UPDATE bot_files SET content=$4 WHERE tenant_id=$1 AND bot_id=$2 AND path=$3", [
+			bot.owner.id,
+			bot.id,
+			path,
+			JSON.stringify(agent),
+		]);
+	}
+	if (card) {
+		assert.equal(load, false);
+		const bot = bots[0];
+		let preparedCalls = 0;
+		if (transport) {
+			transport.mode("empty");
+			transport.tool((_body, { toolResult }) => {
+				if (toolResult) return undefined;
+				preparedCalls++;
+				return {
+					name: "channel-card_reply_card",
+					arguments: JSON.stringify({
+						title: "接入与安装",
+						body: "选择入口",
+						actions: [
+							{ id: "connect", label: "接入设备", link: "/connect" },
+							{ id: "download", label: "安装客户端", link: "/download" },
+						],
+					}),
+				};
+			});
+		}
+		const { result } = await turn(
+			bot,
+			"我想接入自己的设备，还需要安装客户端。请准备一张交互卡片，卡片中给我接入设备和下载客户端两个各自可点击的应用内按钮，然后正常完成本轮。",
+		);
+		assert.equal(result.content.type, "interactive");
+		assert.equal(result.content.state, "pending");
+		assert.ok(result.content.actions.some((action) => action.link === "/connect"));
+		assert.ok(result.content.actions.some((action) => action.link === "/download"));
+		const commits = (
+			await backend.pool.query("SELECT writes FROM bot_runtime_commits WHERE tenant_id=$1 AND bot_id=$2", [
+				bot.owner.id,
+				bot.id,
+			])
+		).rows;
+		assert.equal(JSON.stringify(commits).includes("channel-card_reply_card"), true);
+		const intents = () =>
+			backend.pool.query(
+				"SELECT path FROM plugin_files WHERE tenant_id=$1 AND bot_id=$2 AND plugin_id='channel-card' AND path LIKE 'replies/%' AND kind='file'",
+				[bot.owner.id, bot.id],
+			);
+		await until(async () => (await intents()).rowCount === 0);
+		report.card = {
+			content: result.content,
+			toolInNativeTranscript: true,
+			uniqueResult: true,
+			intentClearedAfterAttempt: true,
+			emptyFinal: !live,
+		};
+		if (transport) {
+			transport.mode("tool-then-503");
+			transport.clear();
+			const failed = await turn(bot, "Prepare a final card, then transport-test failure.", true);
+			assert.ok(failed.result.content.text.includes("503"), redactError(failed.result.content.text));
+			assert.equal(preparedCalls, 2);
+			assert.equal(JSON.stringify(transport.requests()).includes("已准备"), true);
+			await until(async () => (await intents()).rowCount === 0);
+			report.card.failureAfterPreparation = {
+				type: failed.result.content.type,
+				noCardDelivered: true,
+				intentCleared: true,
+			};
+			transport.tool(undefined);
+			transport.mode("reply");
+			transport.clear();
+			const next = await turn(bot, "Reply briefly after the failed card preparation.");
+			assert.notEqual(next.result.content.type, "interactive");
+			const messages = JSON.stringify(transport.requests());
+			assert.equal(messages.includes(failed.result.content.text), false);
+			assert.equal(messages.includes("transport-test HTTP 503"), false);
+			report.card.failureAfterPreparation.laterPromptExcludesError = true;
+			report.card.failureAfterPreparation.nextReplyDoesNotReuseCard = true;
+		}
+		const key = (await readFile(modelKeyFile, "utf8")).trim();
+		const stored = (await backend.pool.query("SELECT row_to_json(t) AS data FROM bot_runtime_commits t")).rows;
+		assert.equal(JSON.stringify(stored).includes(key), false);
+		assert.equal(output.join("").includes(key), false);
+		report.keyAbsentFromLogsAndTranscript = true;
+		console.log(JSON.stringify(report, null, 2));
+	} else if (scenario) {
 		assert.ok(!live && !load, "failure scenarios use only the explicit local transport");
 		const { ensureCloudDefinition } = await import("../../packages/cloud-host/dist/definitions.js");
 		const environment = await readFile(
@@ -208,13 +327,37 @@ try {
 		);
 		agent.profiles.default.fallback = { models: [], hold: 0 };
 		agent.profiles.default.tools = { offer: ["message_send"], search: [] };
+		if (scenario === "reply-none") {
+			const ownerBinding = agent.bindings.find((binding) => binding.id === "owner");
+			assert.ok(ownerBinding);
+			ownerBinding.reply = "none";
+		}
 		await backend.pool.query("UPDATE bot_files SET content=$4 WHERE tenant_id=$1 AND bot_id=$2 AND path=$3", [
 			bot.owner.id,
 			bot.id,
 			path,
 			JSON.stringify(agent),
 		]);
-		if (scenario === "interrupt") {
+		if (scenario === "reply-none") {
+			const text = "本轮来源关闭自动回复，未投递模型回复";
+			const first = await turn(bot, "First input with automatic replies disabled.", true);
+			assert.deepEqual(first.result.content, { type: "error", text });
+			transport.clear();
+			const second = await turn(bot, "Second input after the previous reply-disabled result.", true);
+			assert.deepEqual(second.result.content, { type: "error", text });
+			assert.equal(JSON.stringify(transport.requests()).includes(text), false);
+			const final = await state();
+			assert.equal(final.completed, 2);
+			assert.equal(final.pendingSources, 0);
+			report.replyNone = {
+				results: 2,
+				type: "error",
+				completed: final.completed,
+				pendingSources: final.pendingSources,
+				laterPromptExcludesError: true,
+			};
+			console.log(JSON.stringify(report, null, 2));
+		} else if (scenario === "interrupt") {
 			transport.mode("hold");
 			const firstInput = await backend.request(`/api/conversations/${bot.conv}/messages`, bot.owner, {
 				content: { type: "text", text: "Interrupt a running model request." },

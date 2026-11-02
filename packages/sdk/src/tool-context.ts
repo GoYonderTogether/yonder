@@ -5,6 +5,8 @@ export interface ToolContext {
 	agent: string | null;
 	profile: string;
 	session: string;
+	runId?: string;
+	autoReplySource?: string;
 	capabilities: Capability[];
 	/** Effective scope from the real run configuration, not inferred from input events. */
 	channelInstances?: string[];

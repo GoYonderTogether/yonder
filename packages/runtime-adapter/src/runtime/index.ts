@@ -136,6 +136,7 @@ export class Runtime {
 			operationPrefix?: string;
 			operationSequence: number;
 			events: import("@yonder/sdk").YEvent[];
+			runId?: string;
 		}
 	>();
 	private extensions = new Map<string, Extension>();

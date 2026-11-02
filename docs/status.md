@@ -6,11 +6,11 @@
 
 ## 共享 Bot 核心重构（2026-11-02，实施中）
 
-目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段1–9已完成：共享定义/来源/工作区、SQLite/PG运行状态、FS/PG插件存储、单一createBot与Runtime、无环境本机组合、单进程PG Worker、20实例LRU及统一持久deadline调度。共享createBot默认接主系统sections，实际GLM证明PG SOUL生效；本机保留配置诊断扩展，旧core兼容导出。
+目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段1–10已完成：共享定义/来源/工作区、SQLite/PG运行状态、FS/PG插件存储、单一createBot与Runtime、无环境本机组合、单进程PG Worker、20实例LRU及统一持久deadline调度。共享createBot默认接主系统sections，实际GLM证明PG SOUL生效；本机保留配置诊断扩展，旧core兼容导出。
 
-阶段9最新完整build/typecheck/lint通过，默认2707通过/0失败/112跳过；size923/layer108、基线均0，相对a6a6c0b5无新增失败。真实PG/Redis/server/Worker两租户隔离、三个真实GLM轮次、错误唯一结果与后续prompt过滤、在途/排队取消、cron逐出/重启均已验证。修后100Bot+暖轮空载136.135MB、采样峰值312.459MB、active上限20，连接与timer资源不随Bot增长；cold query均值161.8、warm83。数据是本机验证，不是生产2核主机实测。
+阶段10最新完整build/typecheck/lint通过，默认2719通过/0失败/112跳过；size924/layer108、基线均0，相对a6a6c0b5无新增失败。真实PG/Redis/server/Worker两租户隔离、三个真实GLM轮次、错误唯一结果与后续prompt过滤、在途/排队取消、cron逐出/重启均已验证。修后100Bot+暖轮空载136.135MB、采样峰值312.459MB、active上限20，连接与timer资源不随Bot增长；cold query均值161.8、warm83。数据是本机验证，不是生产2核主机实测。
 
-cloud阶段9服务端/主动投递/cloud界面先行提交63b5a99、107ce7e，配套程序模型准入提交eed0b17，根/server build/typecheck通过，后端206/0/0/0；cloud组件SSR3项为前阶段证据。阶段9补齐monorepo app红色error/历史预览/独立按钮链接与实际云Bot状态，cloud /download复用Install已由真实Chrome验证；最终卡片工具及远程设备插件仍待阶段10–11；不据已有worker证明这些完成。真实Luna缺仓库规约凭据，记未测。证据见[阶段检查](verification/shared-bot-core-20261102.md)、[包边界](verification/shared-bot-boundaries-20261103.md)、[Worker验证](verification/shared-bot-worker-20261103.md)与[客户端验证](verification/shared-bot-app-20261103.md)，逐项进度见未提交REFACTOR-REPORT.md。不推送、不部署、不连接生产。
+cloud阶段9服务端/主动投递/cloud界面先行提交63b5a99、107ce7e，配套程序模型准入提交eed0b17，根/server build/typecheck通过，后端206/0/0/0；cloud组件SSR3项为前阶段证据。阶段9补齐monorepo app红色error/历史预览/独立按钮链接与实际云Bot状态，cloud /download复用Install已由真实Chrome验证；官方最终卡片已真实GLM调用并投递/connect与/download，FS/PG共用一张run意图和原发送账本；reply:none单结果回执不再堵队列，普通本机/ask不变。远程设备插件仍待阶段11；不据已有worker证明这些完成。真实Luna缺仓库规约凭据，记未测。证据见[阶段检查](verification/shared-bot-core-20261102.md)、[包边界](verification/shared-bot-boundaries-20261103.md)、[Worker验证](verification/shared-bot-worker-20261103.md)、[客户端验证](verification/shared-bot-app-20261103.md)与[卡片验证](verification/shared-bot-card-20261103.md)，逐项进度见未提交REFACTOR-REPORT.md。不推送、不部署、不连接生产。
 
 ## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
 

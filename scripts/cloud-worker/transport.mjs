@@ -5,18 +5,19 @@ import { createServer } from "node:http";
 export async function modelTransport() {
 	let mode = "reply";
 	let requests = [];
+	let sequence = 0;
+	let lastCallId;
 	const held = [];
 	let toolCall;
 	const server = createServer(async (request, response) => {
 		let raw = "";
 		for await (const part of request) raw += part;
 		const body = JSON.parse(raw);
+		const requestId = ++sequence;
 		requests.push({ messages: body.messages, model: body.model }); // credentials and headers are never captured
-		if (
-			mode === "503" ||
-			mode === "503-reflect" ||
-			(mode === "send-then-503" && body.messages.some((message) => message.role === "tool"))
-		) {
+		const toolResult =
+			!!lastCallId && body.messages.some((message) => message.role === "tool" && message.tool_call_id === lastCallId);
+		if (mode === "503" || mode === "503-reflect" || (["send-then-503", "tool-then-503"].includes(mode) && toolResult)) {
 			response.writeHead(503, { "content-type": "application/json" });
 			response.end(
 				JSON.stringify({
@@ -40,7 +41,8 @@ export async function modelTransport() {
 							text: "transport-test must not send this intermediate reply",
 						}),
 					}
-				: toolCall?.(body);
+				: toolCall?.(body, { toolResult });
+		if (call) lastCallId = `transport-call-${requestId}`;
 		const text = mode === "empty" ? "" : "transport-test reply";
 		response.writeHead(200, { "content-type": "text/event-stream" });
 		for (const value of [
@@ -51,7 +53,7 @@ export async function modelTransport() {
 						delta: call
 							? {
 									role: "assistant",
-									tool_calls: [{ index: 0, id: `transport-call-${requests.length}`, type: "function", function: call }],
+									tool_calls: [{ index: 0, id: `transport-call-${requestId}`, type: "function", function: call }],
 								}
 							: { role: "assistant", content: text },
 						finish_reason: null,
@@ -74,6 +76,7 @@ export async function modelTransport() {
 		baseUrl: `http://127.0.0.1:${server.address().port}/v1`,
 		mode(value) {
 			mode = value;
+			lastCallId = undefined;
 		},
 		tool(value) {
 			toolCall = value;

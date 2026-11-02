@@ -3,6 +3,7 @@ import { definePlugin } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Check } from "typebox/value";
 import { CardChannel, type Config } from "./channel.js";
+import { registerReplyCard } from "./reply-card.js";
 
 export const configSchema = Type.Object(
 	{
@@ -113,6 +114,7 @@ function setupCardPlugin(api: Parameters<PluginModule["setup"]>[0], sharedChanne
 			}
 		},
 	});
+	registerReplyCard(api, instances);
 }
 
 const cardPlugin = definePlugin({ setup: (api) => setupCardPlugin(api) });

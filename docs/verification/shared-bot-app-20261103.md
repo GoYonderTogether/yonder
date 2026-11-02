@@ -13,7 +13,7 @@
 
 子Agent聚焦3文件：socialChat.test.tsx、socialHistory.test.tsx、composerOffline.test.tsx（均在apps/app/test）。首轮13通过/1失败，1.44秒；SSR新增Composer断言缺location全局，测试内设置实际会读取的location.search后，14通过/0失败，1.24秒。日志stage-9-app-focused-first.log、stage-9-app-focused-rerun.log；原工具没有保留完整命令，不补造命令历史。独立app workspace typecheck通过。
 
-SSR包含真实Bubble的错误无气泡、实际preview正文、两个action链接优先及旧整卡link回退。它不是实际模型调用，也不作为阶段10卡片工具通过的证据。
+SSR包含真实Bubble的错误无气泡、实际preview正文、action独立link优先及旧整卡link回退。它不是实际模型调用，也不作为阶段10卡片工具通过的证据。
 
 ## 实际Chrome页面
 

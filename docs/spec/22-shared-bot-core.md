@@ -36,9 +36,9 @@ Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任�
 
 ## 4 结构化卡片与错误
 
-SDK OutMessage 支持至少 interactive 结构化内容，channel-card 原样透传。interactive.actions 每个按钮可有自己的 link；渲染使用 actions[i].link ?? content.link，保留旧客户端兼容性。server 校验与两端 MessageContent 类型同步。官方卡片工具接受标题、正文与按钮及应用内链接，本机、云端共用；验收卡片同时包含 /connect 与 /download 两个按钮。两份客户端路由均须可达；cloud旧前端的 /download 复用现有 /get 安装页，不另造页面或安装流程。
+SDK OutMessage 支持至少 interactive 结构化内容，channel-card 原样透传。interactive.actions 每个按钮可有自己的 link；渲染使用 actions[i].link ?? content.link，保留旧客户端兼容性。server 校验与两端 MessageContent 类型同步。官方channel-card_reply_card接受标题、正文与按钮及应用内链接，本机、云端共用；按真实session/runId保存一张意图，最后成功保存者生效，经可信最终beforeSend替换同一OutMessage，不额外发送或扫描历史。失败清除，成功的有效卡片即使final文本为空仍投递。原attempt保存完整interactive后沿原重试，不新造outbox；详见16 §4.1。验收卡片同时包含 /connect 与 /download 两个按钮。两份客户端路由均须可达；cloud旧前端的 /download 复用现有 /get 安装页，不另造页面或安装流程。
 
-MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可写，客户端提交时拒绝。超时、HTTP 状态错误、网络/隧道故障、空回答、超额度、worker 不在线均生成真实中文原因，不含密钥、鉴权头或堆栈。每条用户消息只有一个结果：正常回复或一条错误；错误不进入后续模型历史。worker渠道声明output.singleResult，省略中间流/回退通知；对本轮来源的即时message_send明确失败并指导使用最终回复，不能返回伪发送成功或抢占结果槽。其他目标的主动发送仍按原权限和deliveryId投递。官方卡片工具只准备最终卡片，工具回执不得声称已投递，模型失败时不能先发卡片再吞掉错误。apps/app 使用 role="alert" 与 text-danger 渲染，不套正常气泡；会话列表支持该类型。云端输入框不再声明只能引导；其在线状态以实际 worker 为准，不使用设备 Bot 的“上线后送达”承诺掩盖云端失败。
+MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可写，客户端提交时拒绝。超时、HTTP 状态错误、网络/隧道故障、空回答、超额度、worker 不在线均生成真实中文原因，不含密钥、鉴权头或堆栈。每条用户消息只有一个结果：正常回复或一条错误；错误不进入后续模型历史。原生运行失败仍优先保留真实原因；单结果渠道中正常结束且waiting=false、reply:none的来源也须沿共享最终路径给系统error“本轮来源关闭自动回复，未投递模型回复”，不发模型正常文本、不暗示操作未执行，避免Worker等待不存在的回执而堵住该Bot队列；普通本机reply:none与io.ask/caller仍保持原语义。worker渠道声明output.singleResult，省略中间流/回退通知；对本轮来源的即时message_send明确失败并指导使用最终回复，不能返回伪发送成功或抢占结果槽。其他目标的主动发送仍按原权限和deliveryId投递。官方卡片工具只准备最终卡片，工具回执不得声称已投递，模型失败时不能先发卡片再吞掉错误。apps/app 使用 role="alert" 与 text-danger 渲染，不套正常气泡；会话列表支持该类型。云端输入框不再声明只能引导；其在线状态以实际 worker 为准，不使用设备 Bot 的“上线后送达”承诺掩盖云端失败。
 
 ## 5 远程设备工具
 

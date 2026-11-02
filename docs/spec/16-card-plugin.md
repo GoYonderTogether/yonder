@@ -43,6 +43,16 @@
 
 工具失败时说明具体原因，不用笼统提示：没有 Agent 身份（任务/预设会话）时说明该会话没有 Agent、要在 Agent 会话（`yonder chat` 或名片渠道）里调用；`ToolContext.agent` 未在实例注册时点名 Agent 与实例并要求先 `yonder channels login card`；其余失败带上真实错误（JV2-J03-02）。
 
+### 4.1 当前来源的最终交互卡片
+
+官方工具 `channel-card_reply_card` 接受title、body、actions（id、label及可选link）与可选整卡link，按钮必须使用应用内路径；拒绝外站、协议相对路径及非应用导航。需要message能力，只允许真实Agent工具调用中当前已入站且可自动回复的card会话及实际渠道范围，以ctx.autoReplySource定位ctx.events中的真实message.in，再核对session/agent route、conv/msgId与范围；缺少可信候选就拒绝，不能把waiting=false等同auto，reply:none不能准备；不接受to、owner、profile或自报runId，不处理无Agent/无来源/等待调用方的程序任务。卡片state为pending，不能借格式工具发往任意会话。
+
+工具只按真实session/runId保存本插件的一张意图，关联本轮该来源最后一条真实message.in事件、conv和msgId；同run最后成功保存的一张生效。FS与PG都用既有PluginFiles，不保存第二条发送队列、不扫描历史。回执明确“已准备，尚未发送”，要求正常完成本轮，不能声称已经投递或返回假消息ID。原card_push人工名片草稿语义不变。
+
+仅成功最终回复且session/runId/source/conv全部吻合时，选中插件的beforeSend把同一条消息替换为interactive，并以title/body提供文本回退。有效卡片加空final或NO_REPLY仍有最终内容；失败保留真实错误并清除意图，不提前发卡片掩盖失败。本机与worker card都不流式，不在message_end先投递。
+
+准备时不删除意图；原message.attempt已持久化完整outgoing.content后可按同session/runId删除，此后原attempt重试携带同一完整卡片及原幂等信息。非done的run.end清除该run意图。每次新send/prepare管线只运行一遍hook，既有attempt重试直接使用持久outgoing、不重跑hook；不宣称跨重试全局exactly-once。未进入首attempt的回复沿原普通文本恢复语义，不为卡片新造outbox或自动重投协议。实际送达以原delivery/渠道确认判断。
+
 ## 5 配置与验收
 
 渠道配置 `{endpoint?:string, device?:{kind?:'laptop'|'desktop'|'server'}}`；endpoint 默认 https://yonderbot.net，不含凭据。setup 只注册，不联网。

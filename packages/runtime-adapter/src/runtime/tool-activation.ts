@@ -104,6 +104,7 @@ export function installExtensions(rt: RuntimeInternals, host: RuntimeToolHost) {
 			return JSON.stringify({
 				config: rt.currentConfig(session) ?? (await rt.options.resolveSession(session)),
 				events: ctx.events ?? [],
+				...(ctx.runId ? { runId: ctx.runId } : {}),
 			});
 		},
 		execute: async (input, api, context) => {

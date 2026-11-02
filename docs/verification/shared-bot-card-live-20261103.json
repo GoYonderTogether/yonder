@@ -1,0 +1,63 @@
+{
+	"mode": "real-glm-5.3-flash",
+	"scenario": "reply",
+	"results": [],
+	"rounds": [
+		{
+			"bot": "edebc71e-5d67-4294-972b-0b34c5168976",
+			"queries": 277,
+			"active": 1,
+			"rss": 115965952
+		}
+	],
+	"idle": {
+		"active": 0,
+		"highWater": 0,
+		"activeIds": [],
+		"databaseConnections": 2,
+		"busy": 0,
+		"completed": 0,
+		"pendingSources": 0,
+		"rss": 142622720,
+		"queries": 8,
+		"resources": {
+			"PipeWrap": 1,
+			"TCPSocketWrap": 3,
+			"Timeout": 2
+		}
+	},
+	"card": {
+		"content": {
+			"body": "点击「接入我的设备」可以把你的电脑或手机接入进来，让我能直接帮你处理本机文件和日常事务；点「下载客户端」可以获取并安装 Yonder 客户端。两个入口都已在下方准备好，按需点击即可。",
+			"type": "interactive",
+			"state": "pending",
+			"title": "接入设备与安装客户端",
+			"actions": [
+				{
+					"id": "connect_device",
+					"link": "/connect",
+					"label": "接入我的设备"
+				},
+				{
+					"id": "download_client",
+					"link": "/download",
+					"label": "下载客户端"
+				}
+			]
+		},
+		"toolInNativeTranscript": true,
+		"uniqueResult": true,
+		"intentClearedAfterAttempt": true,
+		"emptyFinal": false
+	},
+	"keyAbsentFromLogsAndTranscript": true,
+	"command": "agent-network run -- node scripts/cloud-worker/verify.mjs --card --live",
+	"workerPid": 36732,
+	"verifiedScope": [
+		"actual native reply_card invocation",
+		"one final interactive result",
+		"independent connect/download links",
+		"intent cleanup",
+		"key absence"
+	]
+}

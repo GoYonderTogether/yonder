@@ -232,7 +232,7 @@ test("manifest and setup only register; provider declares multiAgent", async () 
 	const { api, registrations } = createRegistrationCollector();
 	await plugin.setup(api as PluginAPI);
 	expect(registrations.channels[0]).toMatchObject({ type: "card", multiAgent: true });
-	expect(registrations.tools.map((t) => t.name)).toEqual(["channel-card_card_push"]);
+	expect(registrations.tools.map((t) => t.name)).toEqual(["channel-card_card_push", "channel-card_reply_card"]);
 });
 
 test("device flow, private token, agent identity, direct metadata and ack after acceptance", async () => {

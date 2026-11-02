@@ -79,6 +79,8 @@ export function createDelivery(options: DeliveryOptions) {
 		ledger,
 		checkReply,
 		send,
+		prepare: sender.prepare,
+		sendPrepared: sender.sendPrepared,
 		streams,
 		ready,
 		binding,

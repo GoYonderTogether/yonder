@@ -34,8 +34,12 @@
 			"channels": [
 				"card"
 			],
+			"hooks": [
+				"channel-card-reply-card"
+			],
 			"tools": [
-				"channel-card_card_push"
+				"channel-card_card_push",
+				"channel-card_reply_card"
 			]
 		}
 	},
