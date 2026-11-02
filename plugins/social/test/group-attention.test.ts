@@ -1,6 +1,8 @@
-import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
+import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { GroupAttention } from "../src/group-attention.js";
+import { groupContext } from "../src/group-context.js";
+import type { GroupTurnLike } from "../src/group-turns.js";
 import { Groups } from "../src/groups.js";
 import { gptConv, groupFixture, mainConv } from "./group-fixture.js";
 
@@ -11,21 +13,49 @@ const message = (text: string, sender = "owner", extra = {}) => ({
 	data: { kind: "group", text, msgId: crypto.randomUUID(), ...extra },
 });
 
-function floorCandidate(focused: boolean) {
+function floorCandidate() {
 	const source: YEvent = {
 		id: "source-event",
 		ts: new Date().toISOString(),
 		type: "message.in",
 		from: "acct:qq-gpt:owner",
 		conv: gptConv,
-		data: { kind: "group", text: "ordinary request", mentioned: false },
+		data: {
+			kind: "group",
+			text: "首先，第一个需求就是把这个群改成你是每条消息都能够接收，而不是用什么策略来管，然后但是接收了不一定要回复，这个要标注一下，你是有主动发言的权限的",
+			mentioned: false,
+			senderIsBot: false,
+			social: { mentions: { bot: false }, nativeKind: "group" },
+		},
 	};
 	const emitted: EventInput[] = [];
 	const batches: EventInput[] = [];
+	const contexts: string[] = [];
+	let room: {
+		id: string;
+		convs: Set<string>;
+		waiting: unknown[];
+		wake: Set<() => void>;
+		turn?: GroupTurnLike;
+		candidates: Map<string, unknown>;
+		quietMs: number;
+		lastHumanAt: number;
+		timer?: NodeJS.Timeout;
+	};
 	const api = {
 		id: "social",
 		config: {},
 		log: { info() {}, warn() {}, error() {} },
+		agents: {
+			async list() {
+				return [{ id: "gpt-senpai" }];
+			},
+		},
+		identity: {
+			async relation(_agent: string, account: string) {
+				return account === source.from ? "owner" : "known";
+			},
+		},
 		events: {
 			async emit(event: EventInput) {
 				emitted.push(event);
@@ -33,10 +63,14 @@ function floorCandidate(focused: boolean) {
 			},
 			async ask(event: EventInput) {
 				batches.push(event);
-				return { event: { ...event, id: `asked-${batches.length}`, ts: new Date().toISOString() }, results: [] };
+				const turn = room.turn ? { ...room.turn } : undefined;
+				contexts.push(await contextFor(turn));
+				const batch = { ...event, id: `asked-${batches.length}`, ts: new Date().toISOString() } as YEvent;
+				return { event: batch, results: [] };
 			},
-			async query(query: { id?: string }) {
-				return { events: query.id === source.id ? [source] : [], next: null };
+			async query(query: { id?: string; type?: string; conv?: string }) {
+				const match = query.id === source.id || (query.type === "message.in" && query.conv === source.conv);
+				return { events: match ? [source] : [], next: null };
 			},
 		},
 		social: {
@@ -45,6 +79,22 @@ function floorCandidate(focused: boolean) {
 			},
 		},
 	} as unknown as PluginAPI;
+	const contextFor = async (turn?: GroupTurnLike) => {
+		const batch: YEvent = {
+			id: "batch-event",
+			ts: new Date().toISOString(),
+			type: "social.batch-ready",
+			from: "plugin:social",
+			conv: gptConv,
+			data: { agent: "gpt-senpai", sourceEvents: [source.id], through: source.id },
+		};
+		const context = await groupContext(api, {
+			room: { id: room.id, convs: room.convs, turn },
+			ctx: { agent: "gpt-senpai", session: "gpt-session", event: batch } as ToolContext,
+			sources: [batch],
+		});
+		return context?.compact ?? "";
+	};
 	const groups = new Groups(api, { preset: "test" });
 	const candidate = {
 		agent: "gpt-senpai",
@@ -55,12 +105,19 @@ function floorCandidate(focused: boolean) {
 		entries: [source],
 		counter: 0,
 	};
-	const room = {
+	room = {
 		id: "shared-room",
 		convs: new Set([mainConv, gptConv]),
 		waiting: [],
 		wake: new Set(),
-		turn: { agent: "main", session: "main-session", direct: false, source: "main-source", decision: "main-source" },
+		turn: {
+			agent: "main",
+			session: "main-session",
+			direct: false,
+			focused: false,
+			source: "main-source",
+			decision: "main-source",
+		},
 		candidates: new Map([[candidate.agent, candidate]]),
 		quietMs: 0,
 		lastHumanAt: Date.now() - 60000,
@@ -77,7 +134,7 @@ function floorCandidate(focused: boolean) {
 	internal.aliases.set(gptConv, room.id);
 	internal.rooms.set(room.id, room);
 	internal.sessions.set(candidate.session, room);
-	return { api, groups, internal, source, candidate, room, emitted, batches, focused };
+	return { api, groups, internal, source, candidate, room, emitted, batches, contexts, contextFor };
 }
 
 test("successful replies focus the actual participant for five minutes without extending on incoming messages", async () => {
@@ -304,56 +361,102 @@ test("batch.run true admits one ordinary eligible message after its window", asy
 }, 30000);
 
 test("a peer reply consumes ordinary candidates but preserves focused candidates for their own batch", async () => {
-	for (const focused of [false, true]) {
-		const f = floorCandidate(focused);
-		try {
-			if (focused)
-				await f.internal.attention.replied(
-					{
-						id: "prior-reply",
-						ts: new Date().toISOString(),
-						type: "message.out",
-						from: "agent:gpt-senpai",
-						conv: gptConv,
-						data: { respondTo: f.source.id, delivery: { ok: true } },
-					},
-					f.room.id,
-				);
-			await f.internal.flush(f.room);
-			expect(f.emitted.find((event) => event.type === "social.rule-match")?.data).toMatchObject({ focused });
-			expect(f.candidate.willing).toMatchObject({ focused });
-			await f.groups.delivered({
-				id: "peer-reply",
+	const ordinary = floorCandidate();
+	try {
+		await ordinary.internal.flush(ordinary.room);
+		expect(ordinary.candidate.willing).toMatchObject({ focused: false });
+		await ordinary.groups.delivered({
+			id: "peer-reply",
+			ts: new Date().toISOString(),
+			type: "message.out",
+			from: "agent:main",
+			conv: mainConv,
+			data: { delivery: { ok: true } },
+		});
+		expect(ordinary.emitted.find((event) => event.type === "social.batch-read")).toMatchObject({
+			parent: "peer-reply",
+			conv: gptConv,
+			data: { agent: "gpt-senpai", through: ordinary.source.id },
+		});
+		expect(ordinary.candidate.willing).toBeUndefined();
+		expect(ordinary.candidate.entries).toEqual([]);
+	} finally {
+		ordinary.groups.stop();
+	}
+
+	const focused = floorCandidate();
+	try {
+		await focused.internal.attention.replied(
+			{
+				id: "prior-reply",
 				ts: new Date().toISOString(),
 				type: "message.out",
-				from: "agent:main",
-				conv: mainConv,
-				data: { delivery: { ok: true } },
-			});
-			const peerRead = f.emitted.find((event) => event.type === "social.batch-read");
-			if (!focused) {
-				expect(peerRead).toMatchObject({
-					parent: "peer-reply",
-					conv: gptConv,
-					data: { agent: "gpt-senpai", through: f.source.id },
-				});
-				expect(f.candidate.willing).toBeUndefined();
-				expect(f.candidate.entries).toEqual([]);
-			} else {
-				expect(peerRead).toBeUndefined();
-				expect(f.candidate.willing).toMatchObject({ focused: true, entries: [f.source] });
-				if (f.room.timer) clearTimeout(f.room.timer);
-				delete f.room.timer;
-				delete f.room.turn;
-				await f.internal.offer(f.room);
-				expect(f.batches.find((event) => event.type === "social.batch-ready")).toMatchObject({
-					conv: gptConv,
-					data: { agent: "gpt-senpai", sourceEvents: [f.source.id], through: f.source.id },
-				});
-			}
-		} finally {
-			f.groups.stop();
-		}
+				from: "agent:gpt-senpai",
+				conv: gptConv,
+				data: { respondTo: focused.source.id, delivery: { ok: true } },
+			},
+			focused.room.id,
+		);
+		await focused.internal.flush(focused.room);
+		expect(focused.emitted.find((event) => event.type === "social.rule-match")?.data).toMatchObject({
+			focused: true,
+		});
+		expect(focused.candidate.willing).toMatchObject({ focused: true });
+		await focused.groups.delivered({
+			id: "peer-reply",
+			ts: new Date().toISOString(),
+			type: "message.out",
+			from: "agent:main",
+			conv: mainConv,
+			data: { delivery: { ok: true } },
+		});
+		expect(focused.emitted.find((event) => event.type === "social.batch-read")).toBeUndefined();
+		expect(focused.candidate.willing).toMatchObject({ focused: true, entries: [focused.source] });
+		if (focused.room.timer) clearTimeout(focused.room.timer);
+		delete focused.room.timer;
+		delete focused.room.turn;
+		await focused.internal.offer(focused.room);
+		expect(focused.batches.find((event) => event.type === "social.batch-ready")).toMatchObject({
+			conv: gptConv,
+			data: { agent: "gpt-senpai", sourceEvents: [focused.source.id], through: focused.source.id },
+		});
+		await expect.poll(() => focused.contexts.length).toBe(1);
+		expect(focused.contexts[0]).toContain("your opportunity: recent interaction follow-up");
+		expect(focused.contexts[0]).toContain("not a task assignment, authorization");
+		expect(focused.contexts[0]).not.toContain("addressedTo");
+		expect(focused.emitted.find((event) => event.type === "social.group-turn")?.data).toMatchObject({
+			direct: false,
+			focused: true,
+			reason: "recent interaction follow-up",
+		});
+	} finally {
+		focused.groups.stop();
+	}
+});
+
+test("ordinary and legacy group turns keep their context labels", async () => {
+	const ordinary = floorCandidate();
+	try {
+		await ordinary.internal.flush(ordinary.room);
+		expect(ordinary.candidate.willing).toMatchObject({ focused: false });
+		if (ordinary.room.timer) clearTimeout(ordinary.room.timer);
+		delete ordinary.room.timer;
+		delete ordinary.room.turn;
+		await ordinary.internal.offer(ordinary.room);
+		await expect.poll(() => ordinary.contexts.length).toBe(1);
+		expect(ordinary.contexts[0]).toContain("your opportunity: independent contribution");
+		expect(ordinary.contexts[0]).toContain("not a task assignment, authorization");
+		const legacy = await ordinary.contextFor({
+			agent: "gpt-senpai",
+			session: "gpt-session",
+			direct: false,
+			source: ordinary.source.id,
+			decision: "legacy",
+		});
+		expect(legacy).toContain("your opportunity: unknown (legacy turn without attention fact)");
+		expect(legacy).not.toContain("recent interaction follow-up");
+	} finally {
+		ordinary.groups.stop();
 	}
 });
 

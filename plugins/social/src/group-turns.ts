@@ -4,10 +4,11 @@ export interface GroupTurnLike {
 	agent: string;
 	session: string;
 	direct: boolean;
+	focused?: boolean;
 	source: string;
 	decision: string;
 }
-export interface GroupTurn extends GroupTurnLike {
+type GroupTurnBase = Omit<GroupTurnLike, "direct" | "focused"> & {
 	/** 直接通道短合并后的真实来源；`source` 是其中最后一条。 */
 	sources?: string[];
 	/** 本机会所属的会话；协调房间可跨多个 conv，这里必须是真实的那一个。 */
@@ -17,7 +18,10 @@ export interface GroupTurn extends GroupTurnLike {
 	 * `social` 是官方群的 write 绑定，由 social 在短合并后发出 social.batch-ready。
 	 */
 	driver?: "kernel" | "social";
-}
+};
+export type GroupTurn =
+	| (GroupTurnBase & { direct: true; focused?: boolean })
+	| (GroupTurnBase & { direct: false; focused: boolean });
 export interface TurnRoom {
 	id: string;
 	convs: Set<Ref>;
@@ -37,9 +41,30 @@ export async function grantTurn(api: PluginAPI, room: TurnRoom, turn: GroupTurn)
 			...turn,
 			room: room.id,
 			through: turn.source,
-			reason: turn.direct ? "explicit mention" : "independent contribution",
+			reason: turn.direct
+				? "explicit address"
+				: turn.focused
+					? "recent interaction follow-up"
+					: turn.focused === false
+						? "independent contribution"
+						: "unknown opportunity",
 			conversations: [...room.convs],
 		},
+	});
+}
+export async function grantAutonomousTurn(
+	api: PluginAPI,
+	room: TurnRoom,
+	candidate: { agent: string; session: string },
+	intention: { through: string; decision: string; focused: boolean },
+) {
+	await grantTurn(api, room, {
+		agent: candidate.agent,
+		session: candidate.session,
+		source: intention.through,
+		decision: intention.decision,
+		direct: false,
+		focused: intention.focused,
 	});
 }
 export async function releaseTurn(api: PluginAPI, room: TurnRoom, source: string, reason?: string) {
