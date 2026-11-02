@@ -253,3 +253,22 @@ QQ second01M6F0098J70NH3DEKDE2PKD6D（20:42:52Z）、third01M6F00PT65KQ4QMSEG9JV
 QQ普通probe01M6F1QPJWTKXARVCQG79XK00E（21:13:07Z）由GPT入口实际收到；Zfish成功回复01M6F1R0M50WTSHSM0YCCGHHEN后，GPT的social.batch-read01M6F1R0M84679HDBJ7CR9EZK0推进游标，本轮无GPT batch-ready/run。这再次证明发言竞争结束会吞掉明确batch.run=true所需的模型处理，之前只保留focused不能解决普通消息。P1 probe01M6F1X62ETE2TAYYV07QQVV28（21:16:07Z）仍只write。原文白名单导出.cache/private-delivery-20261102/v14-original-conversations.md（600）；源码、发布、云端连通与真实目标结果继续分开。
 
 用户确认“同一个Agent办事，群历史独立”，不合并私聊与群历史，也不把这项实现解释附加到真实测试user message。后续收敛为三个共同边界：既有typed配置操作补齐已授权目标的依赖；模型处理不被公开发言协调代替；同main执行中保留可信来源与交付归属。暂不增加独立意图模型、关键词分类器、第二runtime、转录库或任务账本；完成判断仍归实际Agent，配置/运行/投递事实由宿主记录。
+
+
+## v14 后的共同边界收敛（未发版）
+
+476b44fb将明确batch.run=true的模型处理与公开发言协调分开，保留quiet、暂停、显式过滤与批次限制；普通消息指向别人或兄弟Bot先答不能提前推进已处理游标。3文件15项通过。a80b6e51/e2577e3b/4acb0ca7复用现有social.update候选与真实first-match/consumer投影做完整依赖预检，保留accepted runtime派生profile/bindings；显式设置mode=batch或batch.run=true且合并后两者均生效时触发，record/mute及无关patch不扩范围。known缺件一并给对象、字段与agents.show/validate/update路径；ready/unknown可选回执不把未知当缺权限，不暗改scope/profile。5文件22项通过。
+
+只读installed accepted profile进一步确认main/owner、main/feishu-p1未选择social，social_update为plugin-not-selected，不能靠search通配符越过插件边界；bash和本机CLI管理仍已提供。095ca941只重写共同tool-discovery规则的无条件禁止启用插件措辞，使工具发现不提权与主人授权配置走已有管理路径一致，不改Bot persona/home。prompt/index15通过1真实模型跳过；Biome无错误。
+
+真实Luna自然配置fixture初次1 failed（180.137s），当时失败捕获不足，不能追溯猜定错误。6189a34e增加有界social_update安全参数/错误白名单后，第二次1 failed（约147s）确证原生写入错误：Expected YAML collection at conversations。ae197ecb将已有social但缺conversations的父mapping初始化改为document.createNode({})，纯YAML及createSocial.update回归8/8通过并保留注释。构建前误启动一次case被取消exit130，不计通过；构建后同原话fixture1/1通过（84.58s），parent为main/private，独立群session，未预置显式batch binding，派生consumer实际处理首条及后续普通输入，Luna run done并成功发送。该fixture为本地记录transport，不能当真实QQ/飞书。
+
+第二次失败另有policy文件true但普通决策false；只读核验显示该决策21:49:07.379Z早于后续reload21:49:08.219Z约840ms，超时catch读取的effectiveSocial不能反推探测前状态；router与watcher共用agents Map，没有证据支持已接纳后仍用旧策略。本轮未加reload等待时长或猜测性缓存修补；YAML根因修复后的同case通过。
+
+共享main来源隔离在原生Pi Inbox完成，不另建队列或任务库。先将既有14个anchor源文件迁回fork D1 4e37df84c2929fb46e86b58d7b18a189bf8825d9，对Harness现存93文件逐字节核验0差异后沿原guard同步D2，再同步最终D3 91e8c7a958ad15a7f5a4be9e6a76c0162ee77c1c并从干净同commit重建pi-ai包。sourceGroup仅来自核验原事件conv；同源steer续办，异源留同一个持久inbox到后轮，unknown独立event组。显式interrupt用可选标记保留跨源取消与并入当前轮；原mode枚举与one/all约束不变，旧版回滚仍可按原steer识别输入。onIdle现有收尾移至run-completion复用closeReason，不新增状态。
+
+原hashline五个测试逐文件迁回fork，transfer/write-gate覆盖保留；Harness core consumers保留3文件13通过2因缺fd/fdfind跳过。D1迁移初期旧工具检查12 failures、14项格式诊断（含2 warnings）保留为原结果，后续在fork按既有anchor契约更新有意义断言与格式后通过。fork tools入口图17→26只反映既有9个anchor模块归源，不增加余量或关闭guard。D3目标9文件102通过1因macOS无PowerShell跳过，native构建/同SHA clean pack通过；fork全仓tsc仍有50项旧ai/test模型目录诊断，无本轮durable错误，不称全仓全绿。
+
+Harness早期组合6文件12通过5未启用真实模型跳过；随后启用真实模型的组合3文件为3 failed/7 passed：其中真实onboarding与restart用例通过，三个queue用例误将startup run.end当目标，已按实际owner输入关联修正；显式interrupt兼容缺口也在D3修复。D2 foreign-steer对照首次测试仍failed（过早快照投递），但实际事件已证A+C同轮、B后轮且两个conv各自送达；保留失败，不改写成pass。最终D3四场景最近组合为3 passed/1 failed（generation在原5秒窗口内未观测到成功投递标记）；其后同代码仅generation单例1 passed/3 filtered skip，真实assistant streaming前置、A/B/C同轮done、唯一message.out正确parent/conv/delivery.ok且含merged标记、无旧答案。没有将单例通过改写成组合全绿；此前失败原因不能仅凭后续成功追溯定为服务延迟。coherent源提交e423078f537f23aec99ad0aaa85563c03132ae59，Pi源D3同SHA包匹配。
+
+完整共享工作树检查：build通过15s、typecheck通过5s；默认非真实模型全套测试exit0，494文件通过/67跳过，2659测试通过/112跳过（2771 total，455.58s suite/457s command）；file-size和layers通过。完整npm run lint原始失败34 errors/1245 warnings/34 infos，34 errors全部位于foreign未跟踪proposals/brand的18文件；没有修改这些草稿。tracked-source Biome exit0，1632文件、0 errors/1244 warnings/34 infos，不能把它改称完整目录lint通过。日志.cache/checks-d3/私有。该检查对象为ae197ec加当时coherent共享改动，不冒充干净提交CI；最终候选将通过正式CI和发布门禁后安装原home，并继续两端原话真人渠道验收。

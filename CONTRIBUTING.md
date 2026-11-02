@@ -51,7 +51,7 @@ npm ci && npm run build && npm test
 
 同步前先取当前 `FORK_SOURCE.json` 记录的 commit，逐文件核对现有 `src`；内容、文件集合不同或无法核对时，脚本在删除任何目标文件之前拒绝同步，不提供强制覆盖。核对通过才替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、codemode 等未改依赖继续取 npm，导出路径不变。pi-ai 必须接同一 fork 提交的完整编译 tarball，按下节收进源码发行；不允许新 durable 配旧 npm ai。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
 
-当前来源已完成overlay归源：旧基础5414b87上的14个anchor工具改动先迁回fork提交 `4e37df84c2929fb46e86b58d7b18a189bf8825d9`，Harness现存93个src文件逐字节核对为0差异后推进基准；随后沿原保护脚本同步来源分组提交 `ec1b66ed370b7d1fa707f49def9127fe2b0df1c2`。durable源码与pi-ai artifact均记录这一完整commit，原anchor功能与断言已迁回fork；对应core消费者测试保留在Harness。今后仍先比较当前记录commit与现存src，禁止强制覆盖、删除保护或直接改vendor。`check-pi-ai-bundle.mjs`核对两个包的commit、唯一resolution和artifact integrity；源逐字节核对仍由同步guard负责。
+当前来源已完成overlay归源：旧基础5414b87上的14个anchor工具改动先迁回fork提交 `4e37df84c2929fb46e86b58d7b18a189bf8825d9`，Harness现存93个src文件逐字节核对为0差异后推进基准；随后沿原保护脚本同步来源分组D2，再同步保留显式interrupt兼容语义的D3 `91e8c7a958ad15a7f5a4be9e6a76c0162ee77c1c`。durable源码与pi-ai artifact均记录D3完整commit，原anchor功能与断言已迁回fork；对应core消费者测试保留在Harness。今后仍先比较当前记录commit与现存src，禁止强制覆盖、删除保护或直接改vendor。`check-pi-ai-bundle.mjs`核对两个包的commit、唯一resolution和artifact integrity；源逐字节核对仍由同步guard负责。
 
 ## 打包匹配的 pi-ai fork
 
