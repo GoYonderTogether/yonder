@@ -1,30 +1,14 @@
-import { readdir, readFile, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { matchesGlob, type WorkspaceFiles } from "@yonder/bot-definition";
+import type { SkillSource as BotSkillSource, BotSource } from "@yonder/bot-definition/source";
 import type { ExecutionEnv, ToolResult } from "@yonder/sdk";
 import { parse } from "yaml";
+import { localSourceDirectory } from "../config/fs-source.js";
 import { addIgnoreRules, type IgnoreRule, ignored, ignoreFileNames } from "../config/ignore.js";
-import { matchesGlob, type WorkspaceFiles } from "../config/index.js";
-import { canonicalPath } from "../runtime/env.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
-
-export type SkillSource =
-	| "workspace"
-	| "home"
-	| "agents"
-	| "project-agents"
-	| "project"
-	| "builtin"
-	| `plugin:${string}`;
-const builtinRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
-interface SkillFiles {
-	root: string;
-	base: string;
-	source: SkillSource;
-	location: string;
-	files: WorkspaceFiles;
-	env?: ExecutionEnv;
-}
+import { fsPluginSkillSources, fsSkillSources, type SkillOrigin } from "./source-fs.js";
+export type SkillSource = SkillOrigin;
+type SkillFiles = BotSkillSource;
 export interface SkillInfo {
 	name: string;
 	description: string;
@@ -43,8 +27,8 @@ interface SkillEntry extends SkillInfo {
 	file: string;
 	fileName: string;
 	absoluteFile: string;
-	files: WorkspaceFiles;
-	env?: ExecutionEnv;
+	sourceFiles: WorkspaceFiles;
+	canonical: BotSkillSource["canonical"];
 }
 export interface SkillIssue {
 	source: SkillSource;
@@ -59,6 +43,7 @@ export interface SkillsReport {
 }
 interface CreateSkillsOptions {
 	home: string;
+	source?: BotSource;
 	/** OS user home; its `.agents/skills` is the user-level Agent Skills location, as in pi. */
 	userHome?: string;
 	pluginDirs: string[];
@@ -68,27 +53,6 @@ interface CreateSkillsOptions {
 	) => { files: WorkspaceFiles; root: string; location: string; env: ExecutionEnv } | undefined;
 	onIssue?: (issue: SkillIssue) => void;
 }
-
-const hostFiles = (root: string): WorkspaceFiles => ({
-	readFile: (path) => readFile(join(root, path), "utf8"),
-	writeFile: async () => {
-		throw new Error("read only");
-	},
-	exists: async (path) => {
-		try {
-			await realpath(join(root, path));
-			return true;
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-			throw error;
-		}
-	},
-	list: async (path) =>
-		(await readdir(join(root, path), { withFileTypes: true })).map((entry) => ({
-			name: entry.name,
-			type: entry.isFile() ? ("file" as const) : entry.isDirectory() ? ("directory" as const) : ("symlink" as const),
-		})),
-});
 
 function inside(root: string, target: string): boolean {
 	const path = relative(root, target);
@@ -207,74 +171,30 @@ const indexEntry = (skill: SkillEntry) =>
 		"  </skill>",
 	].join("\n");
 
-/** Project `.agents/skills` from the repository root down to the working directory, then `cwd/.pi/skills`. */
-async function projectSkillDirs(cwd: string): Promise<Array<{ directory: string; source: SkillSource }>> {
-	const chain: string[] = [];
-	let current = resolve(cwd);
-	let repositoryRoot: string | undefined;
-	while (true) {
-		chain.push(current);
-		if (repositoryRoot === undefined && (await hostFiles(current).exists(".git"))) repositoryRoot = current;
-		if (repositoryRoot !== undefined && current === repositoryRoot) break;
-		const parent = dirname(current);
-		if (parent === current) break;
-		current = parent;
-	}
-	const dirs = chain
-		.reverse()
-		.map((directory) => ({ directory: join(directory, ".agents", "skills"), source: "project-agents" as const }));
-	return [...dirs, { directory: join(resolve(cwd), ".pi", "skills"), source: "project" as const }];
-}
-
-export function createSkills({ home, userHome, pluginDirs, pluginSources, workspace, onIssue }: CreateSkillsOptions) {
-	const sourceFor = async (session: RuntimeSessionConfig): Promise<SkillFiles[]> => {
+export function createSkills({
+	home,
+	source,
+	userHome,
+	pluginDirs,
+	pluginSources,
+	workspace,
+	onIssue,
+}: CreateSkillsOptions) {
+	const sourceFor = async (session: RuntimeSessionConfig): Promise<BotSkillSource[]> => {
+		if (source) return source.skills(session, fsPluginSkillSources(pluginDirs, pluginSources));
 		const workspaceSource = workspace?.(session);
-		const project = await projectSkillDirs(session.cwd);
-		return [
-			...(workspaceSource ? [{ ...workspaceSource, base: "skills", source: "workspace" as const }] : []),
-			...(userHome
-				? [
-						{
-							root: join(userHome, ".agents"),
-							base: "skills",
-							source: "agents" as const,
-							location: join(userHome, ".agents", "skills"),
-							files: hostFiles(join(userHome, ".agents")),
-						},
-					]
-				: []),
-			{ root: home, base: "skills", source: "home", location: "home", files: hostFiles(home) },
-			...project.map((entry) => ({
-				root: entry.directory,
-				base: ".",
-				source: entry.source,
-				location: entry.directory,
-				files: hostFiles(entry.directory),
-			})),
-			...pluginDirs.map((directory) => ({
-				root: directory,
-				base: ".",
-				source: `plugin:${pluginSources?.get(directory) ?? "unknown"}` as const,
-				location: directory,
-				files: hostFiles(directory),
-			})),
+		return fsSkillSources(
+			localSourceDirectory(home),
+			session,
 			{
-				root: builtinRoot,
-				base: "skills",
-				source: "builtin",
-				location: "builtin",
-				files: hostFiles(builtinRoot),
+				...(userHome ? { userHome } : {}),
+				...(pluginSources ? { pluginSources } : {}),
+				...(workspaceSource ? { workspace: { ...workspaceSource } } : {}),
+				pluginDirs,
 			},
-		];
+			[],
+		);
 	};
-
-	async function canonical(source: SkillFiles, path: string): Promise<string> {
-		try {
-			return source.env ? await canonicalPath(source.env, path) : await realpath(path);
-		} catch {
-			return path;
-		}
-	}
 
 	async function inspectInternal(
 		session: RuntimeSessionConfig,
@@ -291,7 +211,8 @@ export function createSkills({ home, userHome, pluginDirs, pluginSources, worksp
 				/* Reporting cannot interrupt prompt assembly. */
 			}
 		};
-		for (const source of await sourceFor(session)) {
+		for (const skillSource of await sourceFor(session)) {
+			const source: SkillFiles = skillSource;
 			for (const found of await discover(source)) {
 				const fullFile = join(source.root, found.file);
 				const fallback = skillName(fullFile, basename(found.file) === "SKILL.md");
@@ -311,7 +232,7 @@ export function createSkills({ home, userHome, pluginDirs, pluginSources, worksp
 					continue;
 				}
 				for (const warning of parsed.warnings) report({ source: source.source, path: fullFile, message: warning });
-				const absoluteFile = await canonical(source, resolve(source.root, found.file));
+				const absoluteFile = await source.canonical(resolve(source.root, found.file));
 				if (seen.has(absoluteFile)) continue;
 				const selected =
 					(session.resolved.skills ?? ["*"]).some((pattern) => matchesGlob(pattern, parsed.name!)) &&
@@ -329,8 +250,8 @@ export function createSkills({ home, userHome, pluginDirs, pluginSources, worksp
 					absoluteFile,
 					source: source.source,
 					location: source.location,
-					files: source.files,
-					...(source.env ? { env: source.env } : {}),
+					sourceFiles: source.files,
+					canonical: source.canonical,
 					shadowed: false,
 					selected,
 					indexed: false,
@@ -372,8 +293,8 @@ export function createSkills({ home, userHome, pluginDirs, pluginSources, worksp
 					file: _file,
 					fileName: _fileName,
 					absoluteFile: _absoluteFile,
-					files: _files,
-					env: _env,
+					sourceFiles: _sourceFiles,
+					canonical: _canonical,
 					...skill
 				}) => skill,
 			),
@@ -383,10 +304,10 @@ export function createSkills({ home, userHome, pluginDirs, pluginSources, worksp
 	async function readSkill(skill: SkillEntry, path?: string): Promise<ToolResult> {
 		const target = resolve(skill.directory, path ?? skill.fileName);
 		if (!inside(resolve(skill.directory), target)) throw new Error("skill_view 路径超出 skill 目录");
-		const canonicalRoot = skill.env ? await canonicalPath(skill.env, skill.directory) : await realpath(skill.directory);
-		const canonicalTarget = skill.env ? await canonicalPath(skill.env, target) : await realpath(target);
+		const canonicalRoot = await skill.canonical(skill.directory);
+		const canonicalTarget = await skill.canonical(target);
 		if (!inside(canonicalRoot, canonicalTarget)) throw new Error("skill_view 路径超出 skill 目录");
-		const content = await skill.files.readFile(join(skill.relativeDirectory, relative(skill.directory, target)));
+		const content = await skill.sourceFiles.readFile(join(skill.relativeDirectory, relative(skill.directory, target)));
 		return { text: `Skill directory: ${canonicalRoot}\nLocation: ${skill.location}\n\n${content}` };
 	}
 
@@ -419,8 +340,8 @@ export function createSkills({ home, userHome, pluginDirs, pluginSources, worksp
 		const winner = report.skills.find((candidate) => candidate.name === name && !candidate.shadowed);
 		if (!winner) throw new Error(`未找到 skill：${name}`);
 		const {
-			files: _files,
-			env: _env,
+			sourceFiles: _sourceFiles,
+			canonical: _canonical,
 			relativeDirectory: _relative,
 			file: _file,
 			fileName: _fileName,
@@ -432,7 +353,15 @@ export function createSkills({ home, userHome, pluginDirs, pluginSources, worksp
 			shadowed: report.skills
 				.filter((candidate) => candidate.name === name && candidate.shadowed)
 				.map(
-					({ files: _f, env: _e, relativeDirectory: _r, file: _p, fileName: _n, absoluteFile: _a, ...info }) => info,
+					({
+						sourceFiles: _f,
+						canonical: _c,
+						relativeDirectory: _r,
+						file: _p,
+						fileName: _n,
+						absoluteFile: _a,
+						...info
+					}) => info,
 				),
 			content: (await readSkill(winner)).text,
 		};

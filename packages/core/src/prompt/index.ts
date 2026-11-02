@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import type { BotSource } from "@yonder/bot-definition/source";
 import {
 	type Attachment,
 	type ContextContribution,
@@ -47,6 +48,7 @@ export interface PromptOptions {
 	deliveryPolicy?(event: YEvent, session: string): string | undefined;
 	conversationContext?(event: YEvent, agent: string | null, signal?: AbortSignal): Promise<string | undefined>;
 	home: string;
+	source?: BotSource;
 	version: string;
 	hostFacts: HostFacts;
 	locale: string;
@@ -225,7 +227,14 @@ export function formatClock(now: number, locale: string, timezone: string): { ut
 /** `/skill:<name>` replaces the input with that skill's SKILL.md text; other input passes through. */
 async function messageText(options: PromptOptions, session: RuntimeSessionConfig, text: string): Promise<string> {
 	const skill = await options.skillCommand?.(session, text);
-	return expandTemplate(options.home, session.agent, skill ?? text, options.templateDirs?.(session), session.profile);
+	return expandTemplate(
+		options.home,
+		session.agent,
+		skill ?? text,
+		options.templateDirs?.(session),
+		session.profile,
+		options.source,
+	);
 }
 
 /**

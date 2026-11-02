@@ -1,20 +1,21 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
+import type { BotSource } from "@yonder/bot-definition/source";
 import type { Preset } from "@yonder/sdk";
 import {
 	type AgentConfig,
 	ConfigError,
-	loadYonderConfig,
+	loadYonderConfigFrom,
 	parseAgentConfig,
 	parseYonderConfig,
-	presetFiles,
+	presetFilesFrom,
 	watchConfig,
 	type YonderConfig,
 } from "../config/index.js";
 import type { LoadedPlugins } from "../plugins/index.js";
 import type { Store } from "../store/index.js";
 import type { ConfigStatus } from "./config-facts.js";
+import { createFsBotSource } from "./source-fs.js";
 import { filesFor, type KernelLog, loadAgents } from "./workspace.js";
 
 /** Hot reload of agent config: candidate loading, validation, scaffolding and publishing. */
@@ -29,6 +30,7 @@ export async function watchAgents({
 	validateCandidate,
 	scaffoldAgent,
 	initialRevisions = new Map(),
+	source = createFsBotSource(home, { envs: () => loaded.envs }),
 }: {
 	home: string;
 	config: YonderConfig;
@@ -44,6 +46,7 @@ export async function watchAgents({
 	): Promise<void>;
 	scaffoldAgent(agent: AgentConfig, candidate?: YonderConfig): Promise<void>;
 	initialRevisions?: ReadonlyMap<string, string>;
+	source?: BotSource;
 }) {
 	let pendingRestart = "";
 	let observed = new Map<string, string>();
@@ -60,15 +63,16 @@ export async function watchAgents({
 	acceptedCandidate = initialRevisions.size ? fingerprint(initialRevisions) : "";
 	const watcher = await watchConfig({
 		home,
+		source,
 		agents,
 		presets,
-		workspaceFiles: (id) => filesFor(home, config, loaded, id),
+		workspaceFiles: (id) => filesFor(home, config, loaded, id, undefined, source),
 		candidate: async () => {
 			observed = new Map();
 			rejectedSources = new Set();
 			candidateComplete = false;
-			const disk = await loadYonderConfig(
-				home,
+			const disk = await loadYonderConfigFrom(
+				source.home,
 				(_file, text) => observed.set("home", hash(text)),
 				() => rejectedSources.add("home"),
 			);
@@ -85,6 +89,7 @@ export async function watchAgents({
 				loaded,
 				(id, text) => observed.set(`agent:${id}`, hash(text)),
 				(id) => rejectedSources.add(`agent:${id}`),
+				source,
 			);
 			candidateComplete = true;
 			return {
@@ -143,16 +148,16 @@ export async function watchAgents({
 				return "pending" as const;
 			};
 			try {
-				const rootText = await readFile(join(home, "yonder.yaml"), "utf8");
+				const rootText = await source.home.files.readFile("yonder.yaml");
 				const rootRevision = hash(rootText);
 				const disk = parseYonderConfig(rootText, "yonder.yaml");
 				const currentSources = new Map<string, string>([["home", rootRevision]]);
 				for (const entry of disk.agents ?? []) {
-					const text = await filesFor(home, disk, loaded, entry.id).readFile("agent.yaml");
+					const text = await filesFor(home, disk, loaded, entry.id, undefined, source).readFile("agent.yaml");
 					currentSources.set(`agent:${entry.id}`, hash(text));
 				}
-				for (const name of await presetFiles(home)) {
-					const text = await readFile(join(home, "presets", name), "utf8");
+				for (const name of await presetFilesFrom(source.home)) {
+					const text = await source.home.files.readFile(join("presets", name));
 					currentSources.set(`preset:${name}`, hash(text));
 				}
 				const currentCandidate = fingerprint(currentSources);
@@ -163,7 +168,7 @@ export async function watchAgents({
 				let agentState: "effective" | "pending" | "rejected" | "pending-restart" | "unknown" | undefined;
 				let agentRevision: string | undefined;
 				if (agentId) {
-					const files = filesFor(home, disk, loaded, agentId);
+					const files = filesFor(home, disk, loaded, agentId, undefined, source);
 					const text = await files.readFile("agent.yaml");
 					agentRevision = hash(text);
 					try {
@@ -220,7 +225,7 @@ export async function watchAgents({
 				let revision: string | undefined;
 				try {
 					revision = createHash("sha256")
-						.update(await readFile(join(home, "yonder.yaml"), "utf8"))
+						.update(await source.home.files.readFile("yonder.yaml"))
 						.digest("hex");
 				} catch {
 					// Missing or unreadable source remains unknown; never infer an accepted snapshot.

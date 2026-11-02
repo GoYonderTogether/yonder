@@ -13,6 +13,7 @@
 		"packages/device",
 		"packages/bot-definition",
 		"packages/sdk",
+		"packages/cloud-host",
 		"packages/core",
 		"packages/gateway",
 		"packages/cli",

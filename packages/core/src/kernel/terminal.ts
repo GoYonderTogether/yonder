@@ -1,3 +1,4 @@
+import type { BotSource } from "@yonder/bot-definition/source";
 import type { Models, Preset } from "@yonder/sdk";
 import { type AgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import type { LoadedPlugins } from "../plugins/index.js";
@@ -8,22 +9,25 @@ import type { createSessions } from "../sessions/index.js";
 import type { createSkills } from "../skills/index.js";
 import type { createStore } from "../store/index.js";
 
-export function terminalApi(ctx: {
-	home: string;
-	config: YonderConfig;
-	agents: Map<string, AgentConfig>;
-	loaded: LoadedPlugins;
-	homePresets: Map<string, Preset>;
-	models: Models;
-	sessions: ReturnType<typeof createSessions>;
-	store: Awaited<ReturnType<typeof createStore>>;
-	runtime: () => Runtime;
-	skills: ReturnType<typeof createSkills>;
-	observe: (
-		id: string,
-		send: (update: import("@yonder/sdk").SessionUpdate) => Promise<void>,
-	) => Promise<() => Promise<void>>;
-}) {
+export function terminalApi(
+	ctx: {
+		home: string;
+		config: YonderConfig;
+		agents: Map<string, AgentConfig>;
+		loaded: LoadedPlugins;
+		homePresets: Map<string, Preset>;
+		models: Models;
+		sessions: ReturnType<typeof createSessions>;
+		store: Awaited<ReturnType<typeof createStore>>;
+		runtime: () => Runtime;
+		skills: ReturnType<typeof createSkills>;
+		observe: (
+			id: string,
+			send: (update: import("@yonder/sdk").SessionUpdate) => Promise<void>,
+		) => Promise<() => Promise<void>>;
+	},
+	source?: BotSource,
+) {
 	const {
 		home,
 		config,
@@ -146,10 +150,11 @@ export function terminalApi(ctx: {
 					active.agent,
 					active.profile,
 					pluginTemplateDirs(loaded.info ?? [], realRuntime().describeTools(active)),
+					source,
 				);
 			}
 			const selected = preset && (homePresets.get(preset) ?? loaded.presets.get(preset));
-			if (!selected) return listTemplates(home, null, "");
+			if (!selected) return listTemplates(home, null, "", [], source);
 			const active = {
 				agent: null,
 				profile: selected.id,
@@ -161,6 +166,7 @@ export function terminalApi(ctx: {
 				null,
 				selected.id,
 				pluginTemplateDirs(loaded.info ?? [], realRuntime().describeTools(active)),
+				source,
 			);
 		},
 		submit: sessions.submitAccepted,

@@ -1,7 +1,8 @@
-import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { BotSource, SourceSession, TemplateSource } from "@yonder/bot-definition/source";
+import { definitionTemplates } from "@yonder/bot-definition/source";
 import { parse } from "yaml";
-import { loadSubagentDefinitions } from "../config/subagent-definitions.js";
+import { localSourceDirectory } from "../config/fs-source.js";
 
 export function pluginTemplateDirs(
 	plugins: Array<{ id: string; directory: string }>,
@@ -18,34 +19,21 @@ export function pluginTemplateDirs(
 }
 
 type TemplateDir = string | { directory: string; tools: string[] };
-
-async function templateDirs(
-	home: string,
-	agent: string | null,
-	profile: string,
-	plugins: TemplateDir[],
-): Promise<TemplateDir[]> {
-	const safe = (value: string) =>
-		value && value !== "." && value !== ".." && !value.includes("/") && !value.includes("\\");
-	return [
-		...(agent && safe(agent) ? [join(home, "agents", agent, "prompts")] : []),
-		...(!agent && safe(profile) && (await loadSubagentDefinitions(home)).has(profile)
-			? [join(home, "agents", profile, "prompts")]
-			: []),
-		...(!agent && safe(profile) ? [join(home, "presets", profile, "prompts")] : []),
-		join(home, "prompts"),
-		...plugins,
-	];
-}
+const pluginSources = (plugins: TemplateDir[]): TemplateSource[] =>
+	plugins.map((plugin) => {
+		const directory = typeof plugin === "string" ? plugin : plugin.directory;
+		return { ...localSourceDirectory(directory), ...(typeof plugin === "string" ? {} : { tools: plugin.tools }) };
+	});
+const compatibilitySources = (home: string, agent: string | null, profile: string, plugins: TemplateDir[]) =>
+	definitionTemplates(localSourceDirectory(home), { agent, profile, cwd: home }, pluginSources(plugins));
 
 async function readTemplate(
-	entry: TemplateDir,
+	entry: TemplateSource,
 	name: string,
 ): Promise<{ text: string; description: string; command?: string } | undefined> {
-	const directory = typeof entry === "string" ? entry : entry.directory;
 	let content: string;
 	try {
-		content = await readFile(join(directory, `${name}.md`), "utf8");
+		content = await entry.files.readFile(`${name}.md`);
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
 		throw error;
@@ -57,7 +45,7 @@ async function readTemplate(
 		const end = content.indexOf("\n---", 3);
 		if (end !== -1) {
 			const metadata = content.slice(4, end) ? parse(content.slice(4, end)) : undefined;
-			if (typeof entry !== "string" && metadata?.tool && !entry.tools.includes(metadata.tool)) return undefined;
+			if (metadata?.tool && entry.tools && !entry.tools.includes(metadata.tool)) return undefined;
 			if (typeof metadata?.description === "string") description = metadata.description;
 			// 文件名里的 `:` 在 Windows 上不能存在；这类模板把真实命令名写进 frontmatter 的 `command`。
 			if (typeof metadata?.command === "string" && metadata.command) command = metadata.command;
@@ -72,17 +60,21 @@ export async function listTemplates(
 	agent: string | null,
 	profile: string,
 	pluginDirs: TemplateDir[] = [],
+	source?: BotSource,
 ): Promise<Array<{ name: string; description: string }>> {
 	const result = new Map<string, { name: string; description: string }>();
-	for (const entry of await templateDirs(home, agent, profile, pluginDirs)) {
+	const session: SourceSession = { agent, profile, cwd: home };
+	for (const entry of source
+		? await source.templates(session, pluginSources(pluginDirs))
+		: await compatibilitySources(home, agent, profile, pluginDirs)) {
 		let names: string[];
 		try {
-			names = await readdir(typeof entry === "string" ? entry : entry.directory);
+			names = (await entry.files.list(".")).map(({ name }) => name).sort();
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
 			throw error;
 		}
-		for (const file of names.sort()) {
+		for (const file of names) {
 			if (!file.endsWith(".md")) continue;
 			const name = file.slice(0, -3);
 			const template = await readTemplate(entry, name);
@@ -101,13 +93,17 @@ export async function expandTemplate(
 	text: string,
 	pluginDirs: TemplateDir[] = [],
 	profile = "",
+	source?: BotSource,
 ): Promise<string> {
 	const match = /^\/([^\s/\\]+)(?:\s+([\s\S]*))?$/.exec(text);
 	if (!match || match[1] === "." || match[1] === "..") return text;
 	const name = match[1] as string;
 	// `codex:review` 在 Windows 上存成 `codex--review.md`，frontmatter 的 command 声明真实命令名。
 	const aliases = [name, ...(name.includes(":") ? [name.replaceAll(":", "--")] : [])];
-	for (const entry of await templateDirs(home, agent, profile, pluginDirs)) {
+	const session: SourceSession = { agent, profile, cwd: home };
+	for (const entry of source
+		? await source.templates(session, pluginSources(pluginDirs))
+		: await compatibilitySources(home, agent, profile, pluginDirs)) {
 		for (const alias of aliases) {
 			const template = await readTemplate(entry, alias);
 			if (!template || (template.command && template.command !== name)) continue;

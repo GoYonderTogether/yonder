@@ -9,7 +9,7 @@ import { createDelivery } from "../delivery/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
-import { prepareInput, scaffoldWorkspace } from "../prompt/index.js";
+import { prepareInput } from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
@@ -23,11 +23,11 @@ import { createBots } from "./bots.js";
 import { migrateCardVisitor } from "./card-visitor.js";
 import { createChannelLogin } from "./channel-login.js";
 import { configRuntimeSections } from "./config-facts.js";
-import { loadHomeConfig, loadHomeSources } from "./config-sources.js";
+import { loadHomeConfig, loadHomeSources, scaffoldAgentWorkspace, seedIdentities } from "./config-sources.js";
 import { watchAgents } from "./config-watch.js";
 import { kernelPromptOptions, kernelTools } from "./conversation.js";
 import { deviceOperation } from "./device-operation.js";
-import { configurationErrors, profileContexts, protectSessions } from "./home.js";
+import { configurationErrors, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { createNotificationPrefs } from "./notifications.js";
 import { createObservability } from "./observability.js";
@@ -41,7 +41,7 @@ import { createSocial, createSocialSupport, socialTarget } from "./social.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import { createWorkbenchOptions } from "./workbench-options.js";
-import { credentialsAndModels, filesFor, skillsFor } from "./workspace.js";
+import { credentialsAndModels, skillsFor, sourceFor } from "./workspace.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
 export { migrateCardVisitor } from "./card-visitor.js";
@@ -80,6 +80,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 	};
 	try {
 		const { config, revisions: initialRevisions } = await loadHomeConfig(home);
+
 		db = await openDatabase(join(home, ".yonder/state.db"));
 		observability.startRetention();
 		const terminalEnds: TerminalSends = new Map();
@@ -151,6 +152,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		plugins = await loadPlugins(home, config, services);
 		const loaded = plugins;
+		const source = sourceFor(home, config, loaded);
 		// 升级迁移：老 home 补 card-visitor 绑定（幂等，先写 .bak）；失败只记警告，不挡启动。
 		try {
 			for (const item of await migrateCardVisitor(home, config))
@@ -158,7 +160,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		} catch (error) {
 			log("warn", `card-visitor 迁移失败：${error instanceof Error ? error.message : String(error)}`);
 		}
-		const homePresets = await loadHomeSources(home, config, loaded, agents, initialRevisions);
+		const homePresets = await loadHomeSources(home, config, loaded, agents, initialRevisions, source);
 		const presets = () => [...new Map([...loaded.presets, ...homePresets]).values()];
 		const errors = configurationErrors(
 			config,
@@ -170,19 +172,10 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		);
 		if (errors.length) throw new Error(errors.join("; "));
 		const scaffoldAgent = (agent: AgentConfig, candidate = config) =>
-			scaffoldWorkspace(
-				filesFor(home, candidate, loaded, agent.id),
-				profileContexts(agent, candidate.defaultModel),
-				loaded.contexts,
-			);
+			scaffoldAgentWorkspace(source, candidate, agent, loaded);
 		for (const agent of agents.values()) await scaffoldAgent(agent);
-		for (const person of config.identity?.persons ?? []) {
-			if (await store.identity().person(`person:${person.id}`)) continue;
-			await store.identity().createPerson(person);
-			for (const account of person.accounts ?? [])
-				if (!(await store.identity().account(account))) await store.identity().link(account, `person:${person.id}`);
-		}
-		const skills = skillsFor(home, config, loaded, log);
+		await seedIdentities(config, store);
+		const skills = skillsFor(home, config, loaded, log, source);
 		const loginChannel = createChannelLogin(loaded);
 		const promptOptions = kernelPromptOptions(
 			home,
@@ -194,6 +187,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			services,
 			skills,
 			packageVersion,
+			source,
 		);
 		const { closeReason, completeRun } = createRunCompletion({
 			store,
@@ -410,6 +404,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			validateCandidate,
 			scaffoldAgent,
 			initialRevisions,
+			source,
 		});
 		stopDelivery = async () => {
 			await outbound.stop();
@@ -476,19 +471,22 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			close,
 			eventWatermark: () => store.events.watermark(),
 			awakeActivity: workbench.awakeActivity,
-			terminal: terminalApi({
-				home,
-				config,
-				agents,
-				loaded,
-				homePresets,
-				models: services.models,
-				sessions,
-				store,
-				runtime: realRuntime,
-				skills,
-				observe: observeSession,
-			}),
+			terminal: terminalApi(
+				{
+					home,
+					config,
+					agents,
+					loaded,
+					homePresets,
+					models: services.models,
+					sessions,
+					store,
+					runtime: realRuntime,
+					skills,
+					observe: observeSession,
+				},
+				source,
+			),
 		};
 	} catch (error) {
 		await close();

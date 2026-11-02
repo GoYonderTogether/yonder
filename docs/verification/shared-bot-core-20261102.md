@@ -98,3 +98,17 @@ cloud worktree 保持 `52692f57835032cb3a71b476d421f158293b0c94`，未改源码�
 定向检查：配置 11 文件 / 55 项通过；prompt golden 1 项通过、同文件 14 项按名字过滤跳过；typecheck、改动文件 Biome、size/layer、diff check 通过。最初并行跑两条 Vitest 导致共享 .vitest-cache 的 ENOTEMPTY 启动错误，配置测试当次未完成；后改为顺序运行通过，不修改测试或断言。该初次启动错误只有子 Agent 工具输出，没有独立日志。
 
 完整 gate：build/typecheck/lint 均退出 0；默认测试 2661 通过 / 0 失败 / 112 跳过，文件 494 通过 / 0 失败 / 67 跳过，259.67 秒。size 扫描 562、layers 扫描 257，无违规。证据：shared-bot-core/stage-3-{build,typecheck,test,lint}.log。相对固定基线无新增失败；本阶段没有运行模型。
+
+## 实施顺序调整
+
+阶段 3 后，阶段 4 在 yonder 实施；同时先在独立 cloud/server 实施阶段 9 的服务端渠道协议部分，使阶段 8 worker 可以对接真实 /ws/device 接口，而非临时协议。两边不共享源码写入，cloud 前端与 monorepo app 暂不改；阶段 9 界面与完整行为验收仍在 worker 后完成。cloud 服务端部分单独完成本仓根目录和 server 的 build/typecheck，以及全部真实 PG/Redis 后端测试后提交；Yonder 的各阶段完整 gate 保持。属于 BRIEF 允许的依赖顺序调整，没有删减阶段或验收。
+
+## 阶段 4：fs/PG 定义来源与虚拟工作区
+
+实现和定向原始证据见 [shared-bot-source-20261102.md](shared-bot-source-20261102.md)。初始加载、候选重载、工作区、presets/Markdown 子 Agent、模板展开与列举、skill 发现和读取均接入来源；PG 使用真实 bot_files，不建人设列。
+
+- 首次完整 gate：build/typecheck/lint 退出 0；2665 通过 / 0 失败 / 112 跳过，文件 495 通过 / 0 失败 / 67 跳过，140.83 秒。日志 shared-bot-core/stage-4-{build,typecheck,test,lint}.log。
+- 代码阅读发现未知 Agent 的 skill 查询原先会抛错，FS 来源迁移后静默只给 home/user 来源。恢复原 Unknown agent 失败语义，在既有 skills 测试加最小断言；不是额外防御。该补丁定向 7 通过 / 0 失败 / 0 跳过，Biome 与 diff check 通过；日志 stage-4-source-failure-{test,biome}.log。
+- 最终完整 gate：build/typecheck/lint 退出 0；2666 通过 / 0 失败 / 112 跳过，文件 495 通过 / 0 失败 / 67 跳过，97.65 秒；size 573、layer 260，无违规。日志 shared-bot-core/stage-4-final-{build,typecheck,test,lint}.log。
+
+相对固定基线无新增失败；A2 有真实 fs/PG 逐字对照证据。4 项 PG 测试只证明定义与文件来源，不证明 worker 的运行状态/插件隔离或端到端。没有模型调用，未启动 worker/Redis，临时 PG 已关闭。

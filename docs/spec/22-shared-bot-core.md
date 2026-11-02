@@ -6,7 +6,7 @@
 
 本机与云端必须共用 Bot 定义 schema/解析、systemPromptParts（含 turn）、路由、会话、投递、工具暴露和运行循环。核心不访问文件系统、进程或宿主 process 事实；HostFacts 由调用方注入。pi 模型/会话包只允许唯一运行时适配层 import，插件只依赖 SDK。
 
-BotSource 供应 Agent、agent.yaml、presets、prompt 模板、子 Agent、skills 与工作区文件。本机目录来源与 PostgreSQL 来源使用同一解析器。WorkspaceFiles 的目录实现经 ExecutionEnv；DB 实现为按 bot_id/path 隔离的 bot_files 虚拟工作区。人格、用户资料与记忆仍使用 SOUL.md、AGENTS.md、USER.md、MEMORY.md、memories/*，每个 Bot 独立，不为人格建专用列。
+BotSource 供应 Agent、agent.yaml、presets、prompt 模板、子 Agent、skills 与工作区文件。接口复用 WorkspaceFiles：home 来源含逻辑 root 与文件访问，workspace(entry) 选择 Agent 工作区，templates/skills 提供按既有优先序排列的文件来源。Skill 来源负责 canonical 路径事实，保留本机 symlink 边界；PG 来源使用受租户与 Bot 限定的虚拟路径。共享加载、重载、模板展开及 skill 发现算法均消费这些来源；旧本机离线命令可以保留 fs 兼容入口，但不能复制解析逻辑。定义来源 PG 实现位于 monorepo 的云端宿主包，内置及插件静态资产由宿主提供。本机目录来源与 PostgreSQL 来源使用同一解析器。WorkspaceFiles 的目录实现经 ExecutionEnv；DB 实现为按 bot_id/path 隔离的 bot_files 虚拟工作区。人格、用户资料与记忆仍使用 SOUL.md、AGENTS.md、USER.md、MEMORY.md、memories/*，每个 Bot 独立，不为人格建专用列。
 
 事件、会话、pi 转录/文档、模型健康与工具输出缓存由运行状态存储接口提供：本机继续每 home 单 SQLite 连接，PG 实现按租户和 Bot 隔离。会话与转录仍只归 pi-durable，不能另存一份历史。插件使用 SDK 的私有键值/文档/小文件存储，按插件与租户隔离；本机可以继续在原 api.paths.data 目录落盘，云端官方插件不得裸写宿主文件。
 
@@ -28,7 +28,7 @@ Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任�
 
 云端仅通过已有 prompt.overrides 或 HostFacts 改环境段：运行在云端，无云端目录操作能力；列出当前已连接的设备，说明接入设备可解锁能力；需要设备/客户端时使用卡片工具引导绑定/安装，不只口头描述。
 
-平台唯一模型为 RightAPI `glm-5.3-flash`，base_url 为 `https://api.site/v1`。密钥从运行时环境变量或沿用 *_KEY_FILE 的文件注入，不进入代码、日志、快照、转录或提交。平台每账号每小时模型回复默认上限 30，可配置；匿名访客现有 10 条限制保持。
+平台唯一模型为 RightAPI `glm-5.3-flash`，base_url 为 `https://api.site/v1`。密钥从运行时环境变量或沿用 *_KEY_FILE 的文件注入，不进入代码、日志、快照、转录或提交。平台每账号每小时模型回复默认上限 30，可配置；以 Bot 的 owner 账号汇总名下所有云端 Bot，匿名访客现有 10 条限制保持。合法会话成员的输入沿用既有准入，不因发送者不是 owner 而改为伪引导。
 
 ## 4 结构化卡片与错误
 

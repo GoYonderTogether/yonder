@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import type { BotSource } from "@yonder/bot-definition/source";
 import type { ExecutionEnv } from "@yonder/sdk";
 import {
 	type AgentConfig,
@@ -12,17 +13,12 @@ import {
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { platformGroupBinding } from "../routing/platform-group.js";
-import {
-	credentialPath,
-	FileCredentials,
-	localEnvironment,
-	type RuntimeSessionConfig,
-	workspaceFiles,
-} from "../runtime/index.js";
+import { credentialPath, FileCredentials, localEnvironment, type RuntimeSessionConfig } from "../runtime/index.js";
 import { buildModels } from "../runtime/models.js";
 import { projectRules } from "../runtime/project-rules.js";
 import { createSkills } from "../skills/index.js";
 import { withConsoleBinding } from "./console.js";
+import { createFsBotSource } from "./source-fs.js";
 
 export type KernelLog = (level: "info" | "warn" | "error", message: string, data?: object) => void;
 export const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -70,26 +66,21 @@ export function inspectionServices(home: string, config: YonderConfig, log: Kern
 	};
 }
 
+export function sourceFor(home: string, config: YonderConfig, plugins: LoadedPlugins) {
+	return createFsBotSource(home, { envs: () => plugins.envs, agents: () => config.agents ?? [] });
+}
+
 export function filesFor(
 	home: string,
 	config: YonderConfig,
 	plugins: LoadedPlugins,
 	agent: string,
 	signal?: AbortSignal,
+	source?: BotSource,
 ): WorkspaceFiles {
 	const entry = config.agents?.find((item) => item.id === agent);
 	if (!entry) throw new Error(`Unknown agent: ${agent}`);
-	const cwd = resolve(home, entry.workspace);
-	if (!entry.env || entry.env === "local") return workspaceFiles(localEnvironment(cwd), signal, cwd);
-	const environment = plugins.envs.get(entry.env);
-	if (!environment) throw new Error(`Unknown workspace environment: ${entry.env}`);
-	const files = workspaceFiles(environment, signal, cwd);
-	return {
-		readFile: (path) => files.readFile(resolve(cwd, path)),
-		writeFile: (path, text) => files.writeFile(resolve(cwd, path), text),
-		exists: (path) => files.exists(resolve(cwd, path)),
-		list: (path) => files.list(resolve(cwd, path)),
-	};
+	return (source ?? sourceFor(home, config, plugins)).workspace(entry, signal);
 }
 
 export function projectRulesFor(
@@ -114,6 +105,7 @@ export async function loadAgents(
 	plugins: LoadedPlugins,
 	onRead?: (id: string, text: string) => void,
 	onFailure?: (id: string) => void,
+	source?: BotSource,
 ): Promise<Map<string, AgentConfig>> {
 	const agents = new Map<string, AgentConfig>();
 	for (const entry of config.agents ?? []) {
@@ -122,7 +114,7 @@ export async function loadAgents(
 			...withConsoleBinding(
 				{
 					...(await loadAgentConfig(
-						filesFor(home, config, plugins, entry.id),
+						filesFor(home, config, plugins, entry.id, undefined, source),
 						entry.id,
 						(text) => onRead?.(entry.id, text),
 						() => onFailure?.(entry.id),
@@ -142,8 +134,15 @@ export async function loadAgents(
 	return agents;
 }
 
-export function skillsFor(home: string, config: YonderConfig, plugins: LoadedPlugins, log: KernelLog) {
+export function skillsFor(
+	home: string,
+	config: YonderConfig,
+	plugins: LoadedPlugins,
+	log: KernelLog,
+	source?: BotSource,
+) {
 	return createSkills({
+		source: source ?? sourceFor(home, config, plugins),
 		home,
 		userHome: homedir(),
 		pluginDirs: plugins.skillDirs,
@@ -157,7 +156,7 @@ export function skillsFor(home: string, config: YonderConfig, plugins: LoadedPlu
 			const env = !entry.env || entry.env === "local" ? localEnvironment(root) : plugins.envs.get(entry.env);
 			if (!env) throw new Error(`Unknown workspace environment: ${entry.env}`);
 			return {
-				files: filesFor(home, config, plugins, session.agent),
+				files: filesFor(home, config, plugins, session.agent, undefined, source),
 				root,
 				location: `workspace:${entry.env ?? "local"}`,
 				env,

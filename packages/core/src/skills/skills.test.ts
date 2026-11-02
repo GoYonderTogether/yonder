@@ -4,6 +4,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { presetSession } from "../config/index.js";
 import { presetProfile, resolveProfile } from "../config/test-support.js";
+import { createFsBotSource } from "../kernel/source-fs.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { createSkills } from "./index.js";
 import { addLocalSkill, removeLocalSkill } from "./manage.js";
@@ -195,4 +196,12 @@ test("bundled skills expose only an index until requested", async () => {
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}
+});
+
+test("filesystem skill sources preserve the unknown resident Agent failure", async () => {
+	const home = import.meta.dirname;
+	const skills = createSkills({ home, pluginDirs: [], source: createFsBotSource(home, { agents: () => [] }) });
+	await expect(
+		skills.inspect({ agent: "missing", profile: "default", cwd: home, resolved: resolveProfile({}) }),
+	).rejects.toThrow("Unknown agent: missing");
 });

@@ -1,10 +1,12 @@
 import { join } from "node:path";
+import type { BotSource } from "@yonder/bot-definition/source";
 import type { EventInput, Preset } from "@yonder/sdk";
-import { ConfigError, loadPresets, type WorkspaceFiles } from "./index.js";
+import { ConfigError, loadPresets, loadPresetsFrom, type WorkspaceFiles } from "./index.js";
 import type { AgentConfig, YonderConfig } from "./schema.js";
 
 interface WatchConfigOptions {
 	home: string;
+	source?: BotSource;
 	agents: Map<string, AgentConfig>;
 	presets: Map<string, Preset>;
 	workspaceFiles: (id: string) => WorkspaceFiles | Promise<WorkspaceFiles>;
@@ -42,7 +44,9 @@ export async function watchConfig(options: WatchConfigOptions): Promise<{ reload
 							),
 						);
 				}
-				const nextPresets = await loadPresets(home, options.onPresetRead);
+				const nextPresets = await (options.source
+					? loadPresetsFrom(options.source.home, options.onPresetRead)
+					: loadPresets(home, options.onPresetRead));
 				const signature = JSON.stringify([candidate.config?.agents, [...candidate.agents], [...nextPresets]]);
 				if (signature === previous) {
 					options.onCandidate?.(true, options.candidateRevisions?.() ?? new Map());

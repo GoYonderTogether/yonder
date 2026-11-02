@@ -46,6 +46,18 @@
 		"./official-group": {
 			"types": "./dist/official-group.d.ts",
 			"import": "./dist/official-group.js"
+		},
+		"./source": {
+			"types": "./dist/source.d.ts",
+			"import": "./dist/source.js"
+		},
+		"./load": {
+			"types": "./dist/load.d.ts",
+			"import": "./dist/load.js"
+		},
+		"./subagents": {
+			"types": "./dist/subagents.d.ts",
+			"import": "./dist/subagents.js"
 		}
 	},
 	"files": [

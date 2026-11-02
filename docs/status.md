@@ -6,7 +6,7 @@
 
 ## 共享 Bot 核心重构（2026-11-02，实施中）
 
-目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段 1 文档目标已更新；2026-11-02 续接时原始提交 a6a6c0b5 的完整 build 与默认测试均通过（2660 通过、0 失败、112 跳过），此前沙箱和监听资源阻塞已解除。后续阶段按基线无新增失败且 build/typecheck/lint 通过推进。阶段 2 已外置提示词 HostFacts 并抽出纯系统段装配；完整 build/typecheck/lint 通过，默认测试 2661 通过、0 失败、112 跳过。阶段 3 已将 schema、解析和配置求值迁到唯一 `@yonder/bot-definition` 包并保留旧入口兼容导出；完整 gate 仍通过（2661 通过、0 失败、112 跳过）。完整宿主无关核心、PG 存储、单进程多租户 worker、结构化错误/卡片与远程插件工具仍待实施，不能据局部重构声称可用。实际证据见[阶段检查](verification/shared-bot-core-20261102.md)，逐项交接见工作树根未提交的 `REFACTOR-REPORT.md`。不推送、不部署、不连接生产。
+目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段 1–4 已完成文档、HostFacts/纯装配、唯一 Bot 定义包、fs/PG 来源与虚拟工作区；真实 PG 对照证明同一 agent.yaml/SOUL.md/AGENTS.md 经同一装配输出逐字相同。完整 build/typecheck/lint 通过，默认测试 2666 通过、0 失败、112 跳过，相对 a6a6c0b5 固定基线无新增失败。运行状态/插件存储、完整宿主无关核心、单进程 worker、结构化卡片和设备工具仍待实施；cloud/server 的阶段 9 协议部分在独立仓库先行，尚待完整检查与提交。局部来源测试不代表多租户运行或真实模型验收。证据见[阶段检查](verification/shared-bot-core-20261102.md)和[来源对照](verification/shared-bot-source-20261102.md)，逐项进度见工作树根未提交的 `REFACTOR-REPORT.md`。不推送、不部署、不连接生产。
 
 ## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
 
