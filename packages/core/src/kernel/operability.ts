@@ -314,7 +314,7 @@ export async function projectConversationOperability(options: {
 				participationScope: {
 					...(currentAgent.social?.enabled !== undefined ? { enabled: currentAgent.social.enabled } : {}),
 					...(socialScope ? { scope: socialScope } : {}),
-					includesConversation: socialScope?.includes(conv) ?? false,
+					includesConversation: socialScope ? socialScope.includes(conv) : true,
 					...(conversationOverride ? { conversationOverride } : {}),
 					...(socialDefaults ? { defaults: socialDefaults } : {}),
 				},

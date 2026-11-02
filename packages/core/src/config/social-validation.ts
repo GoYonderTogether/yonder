@@ -143,7 +143,7 @@ function exactGroupBatchErrors(agent: AgentConfig, channels?: ReadonlyMap<string
 					: [`no matching ${plugin}.batch-ready consumer for ${conv} and profile ${profileName}`]),
 			].join("; ");
 			errors.push(
-				`${agent.id}/bindings/${source.id}: ${cause}; use a matching persistent/per:conv, wake:run, reply:none consumer or a source eligible for the existing mechanical companion, then run yonder agents validate and inspect`,
+				`${agent.id}/bindings/${source.id}: ${cause}; use a matching persistent/per:conv, wake:run, reply:none consumer or a source eligible for the existing mechanical companion, then run yonder agents validate ${agent.id} --file <candidate.json> and inspect this conversation with yonder inspect --agent ${agent.id} --conv ${conv}`,
 			);
 			break;
 		}
@@ -217,7 +217,7 @@ export function socialReferenceErrors(
 				)
 			)
 				errors.push(
-					`${agent.id}/social/${scope}: no matching ${plugin}.batch-ready binding uses a profile that selects ${plugin}; add the loaded plugin to that profile's plugins and a matching persistent/per: conv, reply: none batch binding, then run yonder agents validate and inspect the profile`,
+					`${agent.id}/social/${scope}: no matching ${plugin}.batch-ready binding uses a profile that selects ${plugin}; add the loaded plugin to that profile's plugins and a matching persistent/per: conv, reply: none batch binding, then run yonder agents validate ${agent.id} --file <candidate.json> and inspect the target conversation with yonder inspect --agent ${agent.id} --conv <conversation>`,
 				);
 		}
 		const target = config.notifications?.outbound?.target;

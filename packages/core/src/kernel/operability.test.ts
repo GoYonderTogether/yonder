@@ -247,6 +247,7 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 			hooks,
 		});
 		expect(recordFact.prediction).toMatchObject({ route: "dropped", dropReason: "no-binding" });
+		expect(recordFact.prediction?.participationScope?.includesConversation).toBe(true);
 		expect(recordFact.prediction).not.toHaveProperty("wake");
 		expect(
 			await projectConversationOperability({
