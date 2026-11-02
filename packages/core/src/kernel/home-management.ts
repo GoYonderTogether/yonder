@@ -22,6 +22,7 @@ export interface ManagementRequest {
 	agent?: string;
 	profile?: string;
 	preset?: string;
+	expectedFileRevision?: string;
 	value?: unknown;
 }
 export async function manageHome(home: string, request: ManagementRequest, running?: LoadedPlugins): Promise<unknown> {
