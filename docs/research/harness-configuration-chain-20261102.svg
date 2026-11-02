@@ -1,46 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1240" height="920" viewBox="0 0 1240 920" role="img" aria-labelledby="title desc">
 <title id="title">Yonder 配置闭环：真实失败与共享修复</title>
-<desc id="desc">比较飞书真实失败的旧路径与目标共享闭环。图中目标并不代表真实群验收已通过。另列Cloud两个入口的当前证据。</desc>
+<desc id="desc">比较真实失败路径与共享来源连续闭环。目标不代表真实群验收已通过；另列work入口的核验状态。</desc>
 <defs><marker id="arr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#64748b"/></marker></defs>
 <rect width="1240" height="920" fill="#f8fafc"/>
 <g font-family="PingFang SC, Microsoft YaHei, sans-serif" fill="#0f172a">
 <text x="48" y="52" font-size="27" font-weight="700">配置写入成功，不等于运行时接纳，更不等于交付</text>
-<text x="48" y="84" font-size="16" fill="#475569">2026-11-02 · v0.3.26110208 已正式安装核验；Cloud 通过，飞书与 QQ 完整需求仍未通过</text>
+<text x="48" y="84" font-size="16" fill="#475569">2026-11-03 · v0.3.26110209 已安装核验；发布／Cloud 通过，群配置闭环仍未通过</text>
 <text x="48" y="137" font-size="22" font-weight="700">实际暴露的旧路径</text>
 <rect x="48" y="160" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
 <text x="66" y="197" font-size="17">用户用自然语言提出需求</text>
 <path d="M319,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="247" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="284" font-size="17">配置入口与父会话缺少同一份运行事实</text>
+<text x="66" y="284" font-size="17">重要事实被命令过滤，来源没有连到本轮</text>
 <path d="M319,311 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="334" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="371" font-size="17">旧入账／单条公告，被误当完整验证</text>
+<text x="66" y="371" font-size="17">不同渠道输入合并，模糊指代接到了旧任务</text>
 <path d="M319,398 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="421" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="458" font-size="17">仅入账、策略消耗、真实运行没有分层</text>
+<text x="66" y="458" font-size="17">入账／旧公告误当完成，P1 目标转成 QQ 接入</text>
 <path d="M319,485 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="508" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="545" font-size="17">飞书漏执行；QQ 接办停止，需求仍未交付</text>
+<text x="66" y="545" font-size="17">源码检查过关，仍不等于自然原话验收过关</text>
 <text x="650" y="137" font-size="22" font-weight="700">目标：共享 Harness 闭环</text>
 <rect x="650" y="160" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="197" font-size="17">用户原话 + 渠道可信身份／目标</text>
+<text x="668" y="197" font-size="17">用户原话 + 账号／渠道／原始事件</text>
 <path d="M921,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="247" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="284" font-size="17">同一权威投影：首来源、消费者、有效权限</text>
+<text x="668" y="284" font-size="17">主人私聊：同源原件窗口 + 统一运行事实</text>
 <path d="M921,311 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="334" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="371" font-size="17">原生配置 → 完整校验 → 热接纳回执</text>
+<text x="668" y="371" font-size="17">批次／parent：核验原件、身份与来源目标</text>
 <path d="M921,398 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="421" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="458" font-size="17">管理／父会话共用：历史事实 ≠ 当前预测</text>
+<text x="668" y="458" font-size="17">同一 Agent · 群历史独立 · 权限边界不变</text>
 <path d="M921,485 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="508" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="545" font-size="17">新输入 → 实际运行 → 关联送达证据</text>
+<text x="668" y="545" font-size="17">原生配置／重载 → 新输入运行 → 送达证据</text>
 <rect x="48" y="620" width="1144" height="90" rx="12" fill="#fef3c7"/>
-<text x="68" y="649" font-size="18" font-weight="700">失败恢复属于同一条链</text>
-<text x="68" y="677" font-size="17">拒绝时给出可操作错误；修复 patch 后重新完整校验。保留旧有效配置、历史与并发修改。</text>
+<text x="68" y="649" font-size="18" font-weight="700">来源连续，保留用户明确配置的调度模式</text>
+<text x="68" y="677" font-size="17">宿主不按词猜权限或群类型；原始输入和历史保留，截断、未知和未测明确记录。</text>
 <text x="48" y="754" font-size="22" font-weight="700">Cloud：按真实入口判断，不能只比较产品版本号</text>
-<text x="68" y="790" font-size="18" fill="#166534">/work：v08 页面／本机同版，设备、贾维斯历史与输入框已实际加载</text>
+<text x="68" y="790" font-size="18" fill="#166534">/work 已恢复；v09 网页／本机同版发布，部署与服务核验通过</text>
 <text x="68" y="824" font-size="18" fill="#475569">旧 RPC 400 已有修复证据；用户更早那次中断是否同因，仍无法确认</text>
 <text x="48" y="880" font-size="15" fill="#475569">边界：不教用户写配置；不按 Bot 打补丁；保留授权边界；群上下文独立；宿主记录事实，模型决定行动与完成。</text>
 </g></svg>

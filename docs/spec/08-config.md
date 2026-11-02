@@ -129,7 +129,7 @@ identity:
 - 私聊门控须验证真实 `message.in` 的 kind=dm、from 的 owner 关系、该 Agent 的实际 route.session，以及存储 session 的 agent 相同且 mode/key 均为 main；不按 Agent id 或 profile 名猜身份。只在这条主人私有 main 上附该 Agent 的有限精确 conversation operability 摘要，复用3.2投影与accepted revision；不能只检查当前DM本身而漏掉其管理的群。群、访客、其他Agent不收到这份私有摘要。
 - 同一main跨渠道保留私有历史，不等于不同来源是同一任务。对主人私聊附当前origin conv的有界近期主人原件窗口，按01 §4的反向查询读取，再按时间顺序呈现。事件ID、from、conv、owner关系和必要原文来自真实存储且与当前Agent/session核验；不读取其他conv/Agent正文，不用模型概括代替原件。正文过长或窗口截断明确标缺失，不能截去约束后当成完整授权；既有Pi原文/历史不删改。历史窗口只帮助理解当前请求，不把旧命令自动变成新的授权。
 - 批次触发文本可为空，但必须将已准入的sourceEvents还原为有界的当前来源帧：复用原始source的真实conv、agent/session route和批次准入校验，逐条用identity关系标记owner、保留原mentions/引用；来自plugin的触发不冒充原始发言者。非owner成员仍为ambient来源，不从昵称、引用或转述获得owner权限。原文已写入Pi时不声称正文丢失；来源帧明确哪些原件属于当前批次，遗漏/截断显式报告，不因事实注入唤醒其他会话或发送消息。
-- parent仍只沿既有验证后的originals取来源；包装时的 `conv:agent:<id>` 不能取代真实origin conv。profile限定当前能力，不另造Agent身份；同Agent的群上下文与私有main是不同会话范围，私人转录不合并、群权限不扩张，主会话承办经验证的主人任务的能力保持。
+- parent仍只沿既有验证后的originals取来源；包装时的 `conv:agent:<id>` 不能取代真实origin conv。profile限定当前能力，不另造Agent身份；同Agent的群上下文与私有main是不同会话范围，私人转录不合并、群权限不扩张，主会话承办经验证的主人任务的能力保持。 需求以Agent身份与授权功能为准，profile/session是内部实现，不是另一Agent或完整能力开关；未要求共享私人历史时，由同一Agent在独立群会话中办理完整的已授权功能。不能将某一种直接main绑定不支持扩展成整个功能不可实现。
 - 保留现有busy/steer/followup/interrupt契约及显式binding配置，不因新上下文元数据默改输入模式。route.busy仅是所选策略，waiting仅为调用方等结果；实际run.inputs仍是输入组合事实。合并输入须保持各自来源帧，当前输入及其同origin窗口与另一parent任务分栏，不能把共享会话当成目标相同的证明。
 
 ## 4. 一个完整的 agent.yaml（QQ 场景）
