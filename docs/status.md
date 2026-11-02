@@ -6,7 +6,7 @@
 
 ## Harness 自配置闭环（2026-11-01，本地实现，未发布）
 
-共享管理链已补目标 profile 定位、候选路由可接纳性、锁内版本核对、同步热重载及失败恢复；可信 owner 来源跨分身/续办、社交原授权直接应用、真实路由诊断、实际请求模型与附件受限读取导航已接通。完整默认测试 2491 通过 / 0 失败 / 105 跳过，build/typecheck/lint 通过；真实 Luna 自行生成候选并 validate→update→读回→目标 profile 实际运行的本机 CLI 场景 1/1 通过。原始失败、实现边界和证据见[验收记录](verification/harness-self-configuration-20261101.md)，设计见[方案](research/harness-self-configuration-20261101.md)。正式 home/install 未改，真实 QQ/飞书及正式安装验收未执行。
+共享管理链已补目标 profile 定位、候选路由可接纳性、锁内版本核对、同步热重载及失败恢复；可信 owner 来源跨分身/续办、社交原授权直接应用、真实路由诊断、请求模型事实及附件读取导航已接通。按可信接入事实补默认 parent/批次链，可行动错误给出缺项与修复入口；显式 batch.run 普通消息不被关键词/数量二次门槛吞掉。主会话不提供不可执行的 parent_ask，本机执行到只读 CLI inspect 保留当前 home/Agent/profile，显式目标与跨 home 边界优先。最终默认测试 2505 通过 / 0 失败 / 107 跳过，build/typecheck/lint 通过。真实 Luna 用主人自然原话完成私聊模型切换，以及受限群→主会话协助→策略应用/读回→普通非@消息实际批次运行；群场景采用真实内核与本地录制 transport，不代表真实平台验收。历史操作式测试仅证明操作链；自然测试的全部失败、修复与证据见[验收记录](verification/harness-self-configuration-20261101.md)，设计见[方案](research/harness-self-configuration-20261101.md)。正式 home/install 未改，真实 QQ/飞书及正式安装验收未执行。
 
 ## 本轮收敛（2026-10-31，已随 0.3.26110101 发布）
 
