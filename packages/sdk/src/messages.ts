@@ -1,5 +1,5 @@
 import type { NotificationIntent, SocialMessageData } from "./social.js";
-import type { Ref } from "./types.js";
+import type { Ref, YEvent } from "./types.js";
 
 export interface Attachment {
 	kind: "image" | "audio" | "video" | "file";
@@ -87,3 +87,13 @@ export type OutputPart =
 	| { type: "tool"; phase: "start" | "end"; name: string; label?: string; ok?: boolean }
 	| { type: "final"; text: string }
 	| { type: "error"; message: string };
+
+/** Confirmed bot speech only: transport errors never become conversation history. */
+export function isUserVisibleBotSpeech(event: Pick<YEvent, "type" | "data">): boolean {
+	const data = event.data as { content?: { type?: string }; delivery?: { ok?: boolean } };
+	return (
+		(event.type === "message.out" || (event.type.startsWith("channel-") && event.type.endsWith(".anchor-updated"))) &&
+		data.delivery?.ok === true &&
+		data.content?.type !== "error"
+	);
+}

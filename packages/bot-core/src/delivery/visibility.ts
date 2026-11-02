@@ -1,6 +1,7 @@
 import type { Binding } from "@yonder/bot-definition";
 import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 import type { Channel, Delivery, OutMessage, SessionInfo, YEvent } from "@yonder/sdk";
+import { isUserVisibleBotSpeech } from "@yonder/sdk";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/contracts.js";
 import type { MessageRequest } from "./index.js";
@@ -68,7 +69,7 @@ export interface VisibilityDeps {
 export function createVisibility(deps: VisibilityDeps) {
 	const { store, lifetime, streams, ready } = deps;
 	const modelNotice = createModelNotice(deps);
-	const visible = (event: YEvent) => (event.data as { delivery?: Delivery }).delivery?.ok === true;
+	const visible = isUserVisibleBotSpeech;
 	const pendingOrVisible = (events: YEvent[], event: YEvent) =>
 		visible(event) ||
 		event.type === "message.unknown" ||

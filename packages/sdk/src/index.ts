@@ -56,7 +56,6 @@ export function intersectChannelInstances(a?: readonly string[], b?: readonly st
 }
 
 export * from "@yonder/protocol";
-
+export { isUserVisibleBotSpeech } from "./messages.js";
 export type { PluginFileEntry, PluginFileStat, PluginFiles, PluginStorage } from "./plugin-storage.js";
-
 export { intersectResources } from "./resource-scope.js";
