@@ -134,8 +134,10 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 			options,
 		);
 		expect(groupInput.text).toContain(
-			"&quot;self&quot;:{&quot;agent&quot;:&quot;main&quot;,&quot;name&quot;:&quot;贾维斯&quot;}",
+			"&quot;self&quot;:{&quot;agent&quot;:&quot;main&quot;,&quot;name&quot;:&quot;贾维斯&quot;,&quot;identityBasis&quot;:&quot;agent-id&quot;,&quot;profileChangesIdentity&quot;:false,&quot;historyScope&quot;:&quot;session&quot;}",
 		);
+		expect(groupInput.text).toContain("&quot;profileChangesIdentity&quot;:false");
+		expect(groupInput.text).not.toContain("&quot;capabilities&quot;:");
 		const batchInput = await prepareInput(session, config, { ...visitor, type: "social.batch-ready" }, "run", options);
 		expect(batchInput.text).toContain("&quot;name&quot;:&quot;贾维斯&quot;");
 		const mainInput = await prepareInput({ ...session, mode: "main" }, config, sent, "run", options);
