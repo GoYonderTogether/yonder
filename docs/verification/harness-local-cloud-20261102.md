@@ -272,3 +272,32 @@ QQ普通probe01M6F1QPJWTKXARVCQG79XK00E（21:13:07Z）由GPT入口实际收到�
 Harness早期组合6文件12通过5未启用真实模型跳过；随后启用真实模型的组合3文件为3 failed/7 passed：其中真实onboarding与restart用例通过，三个queue用例误将startup run.end当目标，已按实际owner输入关联修正；显式interrupt兼容缺口也在D3修复。D2 foreign-steer对照首次测试仍failed（过早快照投递），但实际事件已证A+C同轮、B后轮且两个conv各自送达；保留失败，不改写成pass。最终D3四场景最近组合为3 passed/1 failed（generation在原5秒窗口内未观测到成功投递标记）；其后同代码仅generation单例1 passed/3 filtered skip，真实assistant streaming前置、A/B/C同轮done、唯一message.out正确parent/conv/delivery.ok且含merged标记、无旧答案。没有将单例通过改写成组合全绿；此前失败原因不能仅凭后续成功追溯定为服务延迟。coherent源提交e423078f537f23aec99ad0aaa85563c03132ae59，Pi源D3同SHA包匹配。
 
 完整共享工作树检查：build通过15s、typecheck通过5s；默认非真实模型全套测试exit0，494文件通过/67跳过，2659测试通过/112跳过（2771 total，455.58s suite/457s command）；file-size和layers通过。完整npm run lint原始失败34 errors/1245 warnings/34 infos，34 errors全部位于foreign未跟踪proposals/brand的18文件；没有修改这些草稿。tracked-source Biome exit0，1632文件、0 errors/1244 warnings/34 infos，不能把它改称完整目录lint通过。日志.cache/checks-d3/私有。该检查对象为ae197ec加当时coherent共享改动，不冒充干净提交CI；最终候选将通过正式CI和发布门禁后安装原home，并继续两端原话真人渠道验收。
+
+
+## v15：正式上线与真实复验，完整交付仍失败
+
+固定候选4e58ceb85f52df472d19efbe59232caaf77b8703正式CI41538017087的11 jobs全通过，AutoRelease41540319131唯一派发Release41540344344成功。v0.3.26110215/tag d7d86c8e1ce92c48f7abec658fe6b807de661983直接parent为候选，最终45资产齐全；Android41540533183、iOS41540541825、Desktop41540536836及Windows安装41540529191成功。原生update exit0，110s；event01M6F7E7T2VTZ2HQV7PHG8DR3F、updateId04a8b512-a521-461e-891b-cc04f3992b70、verified=true/restartRequired=false，原home、PID62581。没有直接改安装文件/收据或预置目标Bot配置。
+
+Cloud既有自动通知未产生匹配run，使用既有Deploy web精确派发41541134034，同tag/SHA静态部署成功。root实际后台Chrome /work打开本机贾维斯v15真实回复和输入框，无设备请求失败；build-version.json实际version15/同完整SHA、builtAt22:55:12.345Z，证据.cache/real-channel-v15-20261102/cloud-jarvis-loaded.json与cloud-build-version.json（600）。历史那次/work恢复前中断根因仍未确证；不能以独立产品版号不同就判协议不兼容。
+
+发布链不全绿：tag CI41540525612 Windows x64初次4失败，488文件通过/4失败/69跳过，2635测试通过/4失败/132跳过；4项分别为sync-pi-durable20s、preparedTranscript20s、social group-recovery40s、kernel/home20s deadline。一次受限只重试x64 job125611227564后，这四项均通过但另3项失败：489文件通过/3失败/69跳过，2636测试通过/3失败/132跳过。workbench-remote负向权限断言期待grant而收到timeout abort；tasks board与tasks各20s deadline。未第三次重试。无runner资源数据，其他timeouts归因unknown。已证test fixture把20s绝对signal跨多步TLS流程复用，最后权限请求可能在signal过期后开始；0fcaf613仅给负向操作新鲜同20s signal，保留能力/资源及grant断言，定向2 passed/2 skipped（5.18s），不改产品/全局timeout或CI workers。Windows ARM64、Linux、macOS tag jobs通过。
+
+原话Feishu first01M6F7GFRA5YVFJMF76Q5GAHB0（22:54:03Z）与second01M6F7JQ5D51H2ED6YW5CW4PZG（22:55:16Z）各为main2单输入轮次，未发生本轮跨源并轮；first曾用bash只读，但没有配置/热重载。reply01M6F7HWZFJQY6C5X91FF7K9NB和01M6F7KDATDEGJXYX8ZJ4NZ2XW仍答旧QQ设置、引用旧03:27回执并说等主人醒来。P1普通probe01M6F8ZC002C41W4MXMCG7C5EZ（23:19:39Z）仅write，无模型路径，故配置目标仍未完成。
+
+QQ first native@01M6F7HV9FGT5ZS60QK96M4YD9（22:54:47Z）收到GPT接手并产生parent01M6F7KCJF4FFW8ZM7GAWGK0X0；转述自行加入不要重复发送。second01M6F7RPJVD8AWQAF572GQR60C与third01M6F7RXDY9JH50Y63EFMDZ57X保持原话，进入GPT batch01M6F7SX3S28TSPRR68BQS0Y3T、run01M6F7TPX49HX41CEQ7VW72P2Z，未发生本轮fresh主发送。Jarvis公开要求再开GPT平台scope仍缺官方状态证据。群原文见.cache/private-delivery-20261102/v15-original-conversations.md（600）。
+
+五分钟窗口外QQ probe01M6F8Y8CC9K645ZK6DFGVW455（23:19:02Z）实际rule-match01M6F8YB9F0QBMV1ED64XKB30F focused=false/matched=true。Zfish先成功发在01M6F8YJW9N0JJ56A81K1GRTB8后，GPT仍有自身batch01M6F8YNR1MTREPWC7D19CW22S与run01M6F8YWTHPJ2S8GYC4DBXCR33（23:19:23Z），之后才read。此项真实确认v15不再让兄弟发言吞掉明确batch.run的普通模型处理；model可沉默仍符合按需说。它不代替P1配置或本轮主发送验收。
+
+新的已证上下文缺口：当前owner-window只取同Feishu DM owner旧输入，没有混入QQ正文；但operability行无可信平台群显示名，事件无群名、session182977 title为空，feishu-p1只是配置标签。Channel.describeConversation为已有精确授权群补平台标签，以对齐自然名称，label不证明membership/权限。parent的原始owner正文虽在conversation JSON，主要任务段仍是模型转述；新内部结构化帧将全部核验owner原件作为primary目标，转述为辅助、不重复正文，guest/mixed/unknown不升权。两项正在共享源码实现与验证，未安装为真实通过。未启用全量provider trace；pi.system/prepared不是最终wire receipt，当前没有已证provider丢失字段，不能以未知假设改SDK发送路径。
+
+## 后续候选：目标名称和主人原文分层
+
+eedc7701集成Luna执行的共享修复：SDK可选精确会话描述、Feishu已有API客户端只读GET、仅主人私有main对已绑定已观测群提供标签；无支持或查询失败显式unknown，不拓展目录或权限。全部核验为owner的parent-request以完整有序原件为primaryRequest，转述为delegateNote，原文只保留一次；访客、混合和伪造来源不升权。FeishuChannel为488行，prompt/index为495行。
+
+实际v15输入对应prepared entries191058/191115的摘要，按源码预算口径JSON.stringify(summary).length均为6961，7行/omitted1，P1在第6行。旧平台工具结果181751含同一精确conv和群名；以该旧名称核对新字段预算，结果7321 JS chars/7329 UTF8 bytes，仍7行/omitted1，P1完整行及名称保留；全unknown路径7283 chars。未抬8000预算，未把历史标签说成此次fresh API查询。此前7237计数边界不同，以此直接解析摘要口径为准。
+
+定向集成3文件31项通过；标签/owner边界4文件14项通过；build/typecheck通过。真实Luna自然fixture首次缺显式测试auth来源而2项跳过（1.76s），随后显式传入既有本仓库测试auth路径，2文件2项通过（76.44s）；事后核对发现未排.cache，实际为当前工作树和.cache内758aae8c旧候选各一份，不能称两个当前源用例，正在排除缓存仅跑当前文件。未复制其他应用OAuth或打印凭据。两份脱敏证据self-config-group-03716d86-1521-4350-bea4-64effcbdd6cf.json及self-config-group-a7f53372-6047-4f5f-9260-9dbc4ea5bba0.json记录原话群主人输入→batch→parent-request→main/private session30，群session2独立；mode=batch/batch.run=true实际写入、热接纳读回，后续普通输入有真实Luna run done及本地录制投递。该fixture不是真实飞书/QQ，不保存最终provider payload，不能单独证明wire字节；结构化输入由实际prepareInput/parent-origin定向断言覆盖。正式CI、安装与实群复验仍待完成。
+
+纠正后的精确当前源命令加`--exclude '**/.cache/**' --maxWorkers=1`，仅运行plugins/social/test/self-configuration-natural-live.test.ts：exit0，1文件/1项通过，99.05s。日志.cache/v16-checks/self-config-natural-live-source.log权限600。先前2pass的统计保留，不将缓存副本计作当前源验证。
+
+eedc7701a27074811a3206eee60e011d7b574ffb源码共享树检查：build通过14.76s、typecheck通过8.82s；默认非真实模型全套`npm test -- --exclude '**/.cache/**' --maxWorkers=1` exit0，494文件通过/67跳过，2664测试通过/112跳过（2776 total），358.01s suite/358.55s command。size/layers通过。完整npm run lint仍exit1：34 errors/1244 warnings/34 infos，34 errors均为foreign未跟踪proposals/brand的18文件；未修改这些草稿。tracked-only Biome检查1632文件exit0、0 errors/1243 warnings/34 infos，不冒充完整目录lint通过。原始日志.cache/v16-checks/。此时仅文档与foreign草稿dirty，后续固定候选须通过干净提交正式CI和发布链再安装，不能以此取代实群交付。
