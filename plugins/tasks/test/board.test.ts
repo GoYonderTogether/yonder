@@ -99,20 +99,24 @@ test("short refs and evidence survive a kernel restart", async () => {
 	}
 });
 
-test("the real PNG renderer handles the populated board", async () => {
-	const mark = phases();
-	mark("fixture start");
-	const f = await fixture();
-	try {
-		mark("ledger start");
-		const { board } = boardRecords(f);
-		mark("native PNG start");
-		expect((await renderPng(board, "zh")).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-	} finally {
-		mark("cleanup start");
-		await f.close();
-	}
-});
+test(
+	"the real PNG renderer handles the populated board",
+	async () => {
+		const mark = phases();
+		mark("fixture start");
+		const f = await fixture();
+		try {
+			mark("ledger start");
+			const { board } = boardRecords(f);
+			mark("native PNG start");
+			expect((await renderPng(board, "zh")).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+		} finally {
+			mark("cleanup start");
+			await f.close();
+		}
+	},
+	process.platform === "win32" ? 60000 : 20000,
+); // Windows CI measured a native renderer cold start above 20s.
 
 test("loaded tasks_show returns board/detail JSON and sends a real PNG through the local channel", async () => {
 	const f = await fixture();
