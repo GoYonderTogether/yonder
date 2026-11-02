@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-context-files",
-	"version": "0.3.26110207",
+	"version": "0.3.26110208",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -16,7 +16,7 @@
 		"dist"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.3.26110207"
+		"@yonder/sdk": "0.3.26110208"
 	},
 	"yonder": {
 		"apiVersion": 1,

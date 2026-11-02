@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.26110208] - 2026-11-02
+
 ### Added
 
 - app：与 Bot 的会话在输入条上方显示一行「内容由 AI 生成」，含 Bot 成员的群聊同样显示，按《人工智能生成合成内容标识办法》作可见标识；与人的会话不显示。
@@ -9,6 +11,15 @@
 - 桌面应用启动时先连接本机 Yonder，服务未运行时才打开 yonderbot.net。
 - Windows 新增 `Yonder Status` 托盘，随 `service install` 注册，显示服务状态、检查更新、停止服务并退出。
 - 正式 Release 后由 CI 构建签名安卓 APK 与桌面安装包，并发布应用内更新清单。
+- app：show AI-generated label in bot chats
+- app：store market needs in cloud watch tasks
+- app：offer core-only and desktop installs on the download page
+- release：build signed Android and desktop packages after a release
+- desktop：load the local core first and add the Windows status tray
+- app：preview and download authorized session attachments
+- workbench：bind session options to models and device execution
+- device：share one executor across multiple Card runtime peers
+- app：connect composer resources models and attachments to real runtimes
 
 ### Changed
 
@@ -16,6 +27,28 @@
 - 发布产物同步上传到阿里云 OSS `yonder-release`，供下载页与应用内更新读取。
 - 安卓应用内更新会校验安装包摘要后交系统安装器确认，不静默安装。
 - 新账号默认 Bot 的中文名改为「小未」（取自 Yonder 的中文名“未至之境”），英文名仍为 Yonder Bot；已有账号保持原名。
+- core：share ignore parsing in configuration layer
+
+### Fixed
+
+- ci：reduce Windows test worker contention
+- mobile：make the shell launch on Android and build on iOS
+- ci：exclude Windows build intermediates from lint
+- ci：capture tray smoke process exit codes
+- kernel：keep shared routing files under size limit
+- windows：retain tray runtime build outputs
+- ci：rely on the runners' preinstalled .NET SDK for the tray
+- windows：copy tray brand assets from tracked files
+- windows：correct tray check disposal timer and outcome access
+- windows：remove invalid trailing commas from tray calls
+- desktop：read the Android version code through PackageInfoCompat
+- service：preserve explicit proxy environment across macOS reinstall
+- prompt：distinguish group execution from private main history
+- workbench：report cloud catalog failures without hiding local models
+- app：surface cloud catalog failures and preserve attachment identity
+- workbench：keep selected local resources reachable in mixed workspaces
+- release：allow slow service startup verification
+- runtime：search remote workspaces with readonly file operations
 
 ## [0.3.26110207] - 2026-11-02
 
