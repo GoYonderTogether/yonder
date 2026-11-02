@@ -24,7 +24,7 @@
 
 ## A 配置与路由契约
 
-- 启动、管理写入、watcher 共用可接纳性校验：拒绝运行时禁止的 social 群→main、默认参与插件缺选、可确定的已有会话 profile 冲突。错误带字段/绑定与实际原因，不自动扩大权限或更换目标。
+- 管理写入、watcher 与启动复用既有可接纳性校验，群→私人main、缺插件和可确定的打开会话profile冲突仍按原规则拒绝。本轮新增的批次消费者完整性检查在候选入口对可证明的群链严格执行；启动保留旧home可运行与自修入口，真实入站对缺链失败关闭并提供inspect诊断。静态未知kind不猜群类型。错误带字段/绑定与真实缺件，不自动扩大权限或更换目标。
 - 管理写入等待同步 reload，返回 saved/accepted/restartRequired 和可核对版本；accepted 仅服务接纳。失败恢复本次文件且报告恢复状态。
 - config.get/update 支持可选既有 profile；省略保持 defaultProfile。CLI agents show/validate/update 继续负责完整配置，不新增工具平台。
 - social.inspect 去掉占位，提供真实策略、绑定/profile、历史入站路由及缺口，标明历史事实与当前预测；无证据保持未知，不发假消息、不唤醒模型验收。
@@ -49,7 +49,7 @@
 
 执行 build/typecheck/npm test/lint，保留原始通过/失败/跳过。真实模型仅 openai/gpt-6-luna；缺测试环境凭据标未测，不复制其他应用 OAuth。源码、真实模型、QQ/飞书、正式安装分别记录。结果写 docs/verification/harness-self-configuration-20261101.md，本方案不是已实现声明。
 
-config_routing 负责 A；delegation_auth 负责 B；runtime_evidence 负责 C 程序；主 Agent 负责规范、公共提示词/skill 和集成验收协调。全部共享 main，不建开发 worktree，不改正式 home/install，不推送触发自动发版。
+早期 config_routing、delegation_auth 等子任务已完成对应源码阶段；当前 Luna 子Agent负责共享默认/消费者修复与正式发布、本机更新，主Agent维护规范、公共指引、差异图并执行集成验收。全部共享main，不建开发worktree；用户已明确授权正式发版更新与真实飞书/QQ群测试。配置须由实际Agent依原话自行完成，不预配目标群伪造通过，失败候选恢复保留原件与备份。
 
 
 ## 2026-11-01 补充：完整默认链与自然语言验收
@@ -93,3 +93,8 @@ config_routing 负责 A；delegation_auth 负责 B；runtime_evidence 负责 C �
 自然群取证发现：主会话正确收到 private profile，却把未指定 --profile 的 inspect 默认 group 权限结果误认为当前权限，又调用仅非主会话可用的 parent_ask。共享修复保持 CLI 兼容默认，明确检查对象；主会话不提供不可执行的 parent_ask，通用委派语义明确接办和内部回传。验收环境恢复真实默认技能发现，不能通过关闭管理知识测试后给用户补操作提示。
 
 进一步重复验收中，即使通用管理技能已可读，裸inspect默认对象误判仍复现；一次成功不足以交付。修复提升至执行边界：仅本机Agent进程中的只读inspect，在实际home匹配且无显式覆盖时沿当前Agent/profile；显式参数和跨home/Agent边界优先，普通终端及配置写入默认不变。环境上下文只定位、不授权，避免再靠用户message或提示词保证不丢当前对象。
+
+
+### 2026-11-02 真实复验后的执行约束
+
+v7已证明原生配置、校验和热重载可由Agent独立完成，但完整群需求仍失败。默认派生误用后置同渠道observer证明前置精确自定义来源，覆盖了真实首匹配语义；随后缺当前群消费者却只入账。参与候选、策略和路由须复用真实顺序匹配结果，消费者按当前事件、插件、conv、profile与会话key证明，不能拿别群消费者放行。已获准profile的机械伴随绑定复用现有机制；不自动为profile增权。群独立上下文与main管理/交付责任可以共存，共享指引必须说清，不能因私人main绑定受限就放弃可行工作。原话、源码检查、正式发布、真实入站/运行/送达分层证据见本轮verification与私有原文导出。
