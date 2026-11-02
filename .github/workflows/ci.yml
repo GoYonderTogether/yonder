@@ -151,6 +151,14 @@ jobs:
       - run: npm run build
       - name: Smoke committed native pipe on minimum Node 22.19
         run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
+      - name: Verify paired device RPC with five fresh fixtures (stop on first failure)
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 5; $i++) {
+            $report = Join-Path $env:RUNNER_TEMP "device-rpc-$i.json"
+            node node_modules/vitest/vitest.mjs run tests/device-cli-plugin.test.ts -t '^standalone executor CLI and default devices plugin complete a paired direct command$' --maxWorkers=1 --reporter=default --reporter=json --outputFile.json="$report"
+            if ($LASTEXITCODE -ne 0) { throw "Fresh device RPC fixture $i failed; no retry performed" }
+          }
       - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json="${{ runner.temp }}/windows-failures.json"
       - run: npm run test:node
       - run: node --test scripts/release/auto-release.test.mjs
@@ -172,4 +180,6 @@ jobs:
         if: failure()
         with:
           name: windows-failures-${{ matrix.arch }}
-          path: ${{ runner.temp }}/windows-failures.json
+          path: |
+            ${{ runner.temp }}/windows-failures.json
+            ${{ runner.temp }}/device-rpc-*.json
