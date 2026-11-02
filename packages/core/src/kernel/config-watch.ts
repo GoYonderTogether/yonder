@@ -157,7 +157,9 @@ export async function watchAgents({
 					candidate: {
 						state:
 							currentCandidate === acceptedCandidate
-								? ("effective" as const)
+								? homeState === "pending-restart"
+									? ("pending-restart" as const)
+									: ("effective" as const)
 								: currentCandidate === rejectedCandidate
 									? ("rejected" as const)
 									: ("pending" as const),

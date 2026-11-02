@@ -121,6 +121,10 @@ test("runtime config facts distinguish rejected edits, accepted revisions, and r
 			const root = await readFile(rootFile, "utf8");
 			await writeFile(rootFile, root.replace("timezone: Asia/Shanghai", "timezone: UTC"));
 			expect((await watcher.status("main")).home.state).toBe("pending-restart");
+			await watcher.reload();
+			const restartRequired = await watcher.status("main");
+			expect(restartRequired.home.state).toBe("pending-restart");
+			expect(restartRequired.candidate.state).toBe("pending-restart");
 		} finally {
 			watcher.close();
 		}
