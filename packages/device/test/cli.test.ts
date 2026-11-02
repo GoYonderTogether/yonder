@@ -1,5 +1,5 @@
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
-import { createHash, createPrivateKey, createPublicKey, randomUUID } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:https";
@@ -8,6 +8,8 @@ import type { TLSSocket } from "node:tls";
 import { fileURLToPath } from "node:url";
 import {
 	type Grant,
+	MAX_MESSAGE_AGE_MS,
+	publicKeyId,
 	type RpcRequest,
 	type RpcResponse,
 	type SignedEnvelope,
@@ -15,7 +17,7 @@ import {
 	verifyMessage,
 } from "@yonder/protocol";
 import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { type PairOffer, readDeviceTrust } from "../src/store.js";
 
 const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
@@ -38,6 +40,68 @@ const run = (args: string[], payload?: unknown) =>
 		}),
 	) as Record<string, unknown>;
 
+function describeRequest(binding: Pick<RpcRequest, "requestId" | "principalId" | "deviceId">): RpcRequest {
+	const issuedAt = Date.now();
+	return {
+		protocol: "yonder.execution",
+		version: 1,
+		kind: "request",
+		...binding,
+		issuedAt,
+		expiresAt: issuedAt + MAX_MESSAGE_AGE_MS,
+		method: "device.describe",
+		params: {},
+	};
+}
+
+function decodeResponse(status: number | undefined, body: Buffer): SignedEnvelope {
+	if (status !== 200)
+		throw new Error(`Execution HTTP status ${status ?? "unknown"}; ${body.length} bytes; outcome unconfirmed`);
+	try {
+		return JSON.parse(body.toString()) as SignedEnvelope;
+	} catch {
+		throw new Error(`Invalid execution JSON response; ${body.length} bytes; outcome unconfirmed`);
+	}
+}
+
+test("CLI request retains a valid authorization window when the clock ticks between reads", () => {
+	const keys = generateKeyPairSync("ed25519"),
+		now = 1_700_000_000_000;
+	const clock = vi
+		.spyOn(Date, "now")
+		.mockReturnValueOnce(now)
+		.mockReturnValue(now + 1);
+	try {
+		const request = describeRequest({
+			requestId: randomUUID(),
+			principalId: publicKeyId(keys.publicKey),
+			deviceId: randomUUID(),
+		});
+		expect(request.expiresAt - request.issuedAt).toBe(MAX_MESSAGE_AGE_MS);
+		expect(
+			verifyMessage(signMessage(request, keys.privateKey), keys.publicKey, {
+				kind: "request",
+				principalId: request.principalId,
+				deviceId: request.deviceId,
+				now: now + 1,
+			}),
+		).toEqual(request);
+	} finally {
+		clock.mockRestore();
+	}
+});
+
+test("CLI HTTP rejection reports status without parsing or disclosing an unauthenticated body", () => {
+	expect(() => decodeResponse(400, Buffer.alloc(0))).toThrow("Execution HTTP status 400; 0 bytes; outcome unconfirmed");
+	const secret = "private response body";
+	expect(() => decodeResponse(400, Buffer.from(secret))).toThrow(
+		`Execution HTTP status 400; ${secret.length} bytes; outcome unconfirmed`,
+	);
+	expect(() => decodeResponse(200, Buffer.alloc(0))).toThrow(
+		"Invalid execution JSON response; 0 bytes; outcome unconfirmed",
+	);
+});
+
 function post(url: string, packet: SignedEnvelope, fingerprint: string): Promise<SignedEnvelope> {
 	return new Promise((resolve, reject) => {
 		const req = request(
@@ -51,9 +115,10 @@ function post(url: string, packet: SignedEnvelope, fingerprint: string): Promise
 				}
 				const chunks: Buffer[] = [];
 				res.on("data", (chunk) => chunks.push(chunk));
+				res.once("error", reject);
 				res.on("end", () => {
 					try {
-						resolve(JSON.parse(Buffer.concat(chunks).toString()) as SignedEnvelope);
+						resolve(decodeResponse(res.statusCode, Buffer.concat(chunks)));
 					} catch (error) {
 						reject(error);
 					}
@@ -156,6 +221,7 @@ test("independent CLI pairs both homes, starts HTTPS daemon, serves signed RPC a
 		{ stdio: ["ignore", "pipe", "pipe"] },
 	);
 	children.push(child);
+	let daemonStderr = "";
 	const ready = await new Promise<Record<string, string>>((resolve, reject) => {
 		let data = "";
 		let error = "";
@@ -165,6 +231,7 @@ test("independent CLI pairs both homes, starts HTTPS daemon, serves signed RPC a
 		});
 		child.stderr?.on("data", (chunk) => {
 			error += chunk.toString();
+			daemonStderr += chunk.toString();
 		});
 		child.on("error", reject);
 		child.on("exit", () => reject(new Error(error || "daemon exited before ready")));
@@ -180,26 +247,62 @@ test("independent CLI pairs both homes, starts HTTPS daemon, serves signed RPC a
 	expect(trust.direct?.url).toBe(ready.url);
 	const controllerKey = createPrivateKey(readFileSync(join(controllerHome, "controller-key.pem")));
 	const requestId = randomUUID();
-	const rpc: RpcRequest = {
-		protocol: "yonder.execution",
-		version: 1,
-		kind: "request",
-		requestId,
-		principalId: grant.principalId,
-		deviceId: offer.deviceId,
-		issuedAt: Date.now(),
-		expiresAt: Date.now() + 60_000,
-		method: "device.describe",
-		params: {},
-	};
+	const rpc = describeRequest({ requestId, principalId: grant.principalId, deviceId: offer.deviceId });
 	if (!ready.url || !trust.direct) throw new Error("missing direct route");
-	const answer = await post(ready.url, signMessage(rpc, controllerKey), trust.direct.tlsFingerprint);
+	const answer = await post(ready.url, signMessage(rpc, controllerKey), trust.direct.tlsFingerprint).catch((error) => {
+		const diagnostics = daemonStderr.split("\n").flatMap((line) => {
+			try {
+				const value = JSON.parse(line).executionDiagnostic;
+				if (
+					!value ||
+					!["authentication", "persistence"].includes(value.stage) ||
+					![
+						"key-id",
+						"principal",
+						"signature",
+						"invalid-now",
+						"future",
+						"expired",
+						"invalid-window",
+						"rejected",
+						"EACCES",
+						"EPERM",
+						"EIO",
+						"ENOSPC",
+						"EROFS",
+						"failed",
+					].includes(value.reason)
+				)
+					return [];
+				return [
+					{
+						stage: value.stage,
+						reason: value.reason,
+						...(Number.isSafeInteger(value.offsetMs) ? { offsetMs: value.offsetMs } : {}),
+					},
+				];
+			} catch {
+				return [];
+			}
+		});
+		throw new Error(JSON.stringify({ message: error instanceof Error ? error.message : "RPC failed", diagnostics }));
+	});
 	const response = verifyMessage(
 		answer,
 		createPublicKey({ key: Buffer.from(trust.publicKey, "base64"), format: "der", type: "spki" }),
 		{ kind: "response", requestId, principalId: grant.principalId, deviceId: offer.deviceId, now: Date.now() },
 	) as RpcResponse;
 	expect(response.ok).toBe(true);
+	// The old two-clock-read fixture could sign this overlong window; the real daemon must reject it.
+	await expect(
+		post(
+			ready.url,
+			signMessage({ ...rpc, requestId: randomUUID(), expiresAt: rpc.issuedAt + MAX_MESSAGE_AGE_MS + 1 }, controllerKey),
+			trust.direct.tlsFingerprint,
+		),
+	).rejects.toThrow("Execution HTTP status 400; 0 bytes; outcome unconfirmed");
+	await expect.poll(() => daemonStderr.includes('"reason":"invalid-window"')).toBe(true);
+
 	child.kill("SIGTERM");
 	await once(child, "exit");
 	expect(run(["peers", "list", "--home", deviceHome])).toEqual([grant.principalId]);

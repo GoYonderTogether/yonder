@@ -10,6 +10,7 @@ import {
 	type DeviceSession,
 	encodeCommand,
 	type Grant,
+	MAX_MESSAGE_AGE_MS,
 	type RpcRequest,
 	type RpcResponse,
 	type SignedEnvelope,
@@ -190,8 +191,9 @@ test.skipIf(!cardRoot)(
 		});
 		await expect.poll(() => stderr.includes('"card":"connected"')).toBe(true);
 		const controllerKey = createPrivateKey(pairing.privateKey);
-		const packet = (method: RpcRequest["method"], params: RpcRequest["params"]) =>
-			signMessage(
+		const packet = (method: RpcRequest["method"], params: RpcRequest["params"]) => {
+			const issuedAt = Date.now();
+			return signMessage(
 				{
 					protocol: "yonder.execution",
 					version: 1,
@@ -199,13 +201,14 @@ test.skipIf(!cardRoot)(
 					requestId: randomUUID(),
 					principalId: grant.principalId,
 					deviceId: offer.deviceId,
-					issuedAt: Date.now(),
-					expiresAt: Date.now() + 60_000,
+					issuedAt,
+					expiresAt: issuedAt + MAX_MESSAGE_AGE_MS,
 					method,
 					params,
 				} as RpcRequest,
 				controllerKey,
 			);
+		};
 		const decode = (envelope: SignedEnvelope, sent: SignedEnvelope): RpcResponse =>
 			verifyMessage(envelope, deviceKey, {
 				kind: "response",
