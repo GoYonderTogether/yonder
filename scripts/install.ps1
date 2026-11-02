@@ -1,27 +1,65 @@
 # Yonder 一键安装（Windows，PowerShell 5.1 及以上）。
 #
 #   irm https://github.com/GoYonderTogether/yonder/releases/latest/download/install.ps1 | iex
+#   & ([scriptblock]::Create((irm https://github.com/GoYonderTogether/yonder/releases/latest/download/install.ps1))) -Desktop
 #
 # 只取 GitHub 上最新的正式 Release 标签，本机构建后放进安装目录，再交给 `yonder update` 收尾
 # （wrapper、current junction、保留最近三版都由它负责，见 docs/spec/09-cli-release.md §3–§4）。
 # 重复执行是幂等的：已安装的版本不会重新构建。
 #
+# -Desktop 在核心装好之后，再静默安装同版本的桌面应用，并把核心装成后台登录任务；
+# 不带时只装核心，桌面应用与后台服务仍由脚本打印的下一步手动完成。
+#
 # 环境变量：
-#   YONDER_INSTALL  安装目录，默认 %LOCALAPPDATA%\YonderHarness\install
-#   YONDER_HOME     数据目录，默认 %LOCALAPPDATA%\YonderHarness\home
-#   YONDER_VERSION  显式指定版本（X.Y.Z 或 vX.Y.Z），默认取最新正式版
-#   YONDER_REPO     仓库地址，默认官方仓库
-param([switch]$DryRun)
+#   YONDER_INSTALL       安装目录，默认 %LOCALAPPDATA%\YonderHarness\install
+#   YONDER_HOME          数据目录，默认 %LOCALAPPDATA%\YonderHarness\home
+#   YONDER_VERSION       显式指定版本（X.Y.Z 或 vX.Y.Z），默认取最新正式版
+#   YONDER_REPO          仓库地址，默认官方仓库
+#   YONDER_DESKTOP_URL   显式指定桌面安装包地址，默认取同一 Release 的 setup.exe
+param([switch]$DryRun, [switch]$Desktop)
 
 $ErrorActionPreference = 'Stop'
 
 $Repo = if ($env:YONDER_REPO) { $env:YONDER_REPO } else { 'https://github.com/GoYonderTogether/yonder.git' }
 $Install = if ($env:YONDER_INSTALL) { $env:YONDER_INSTALL } else { Join-Path $env:LOCALAPPDATA 'YonderHarness\install' }
 $HomeDir = if ($env:YONDER_HOME) { $env:YONDER_HOME } else { Join-Path $env:LOCALAPPDATA 'YonderHarness\home' }
+$Releases = 'https://github.com/GoYonderTogether/yonder/releases/download'
 
 function Say($Message) { Write-Host $Message }
 function Die($Message) { Write-Error "安装失败：$Message"; exit 1 }
 function Step($Message) { Write-Host "`n== $Message" }
+
+# 桌面安装包与 desktop-release.yml 的产物命名一致：Yonder_<version>_x64-setup.exe（Tauri 2 默认）。
+function Install-Desktop {
+	$arch = if ($env:PROCESSOR_ARCHITECTURE) { $env:PROCESSOR_ARCHITECTURE } else { 'unknown' }
+	if ($arch -ne 'AMD64') {
+		Die "桌面应用目前只发布 Windows x64 安装包（当前架构 $arch）。不加 -Desktop 可只装核心。"
+	}
+	$Url = if ($env:YONDER_DESKTOP_URL) { $env:YONDER_DESKTOP_URL } else { "$Releases/v$Version/Yonder_${Version}_x64-setup.exe" }
+	Say "桌面安装包 $Url"
+	$TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("yonder-desktop-" + [guid]::NewGuid().ToString('N'))
+	New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+	try {
+		$Setup = Join-Path $TempDir 'Yonder-setup.exe'
+		Say '下载桌面应用'
+		if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+			& curl.exe -fL --retry 3 --retry-delay 2 -o $Setup $Url
+			if ($LASTEXITCODE -ne 0) { Die "无法下载 $Url" }
+		} else {
+			[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+			Invoke-WebRequest -Uri $Url -OutFile $Setup -UseBasicParsing
+		}
+		if (-not (Test-Path $Setup)) { Die "无法下载 $Url" }
+		# 关闭正在运行的桌面应用，让安装器能替换文件；核心服务不受影响。
+		Get-Process -Name Yonder -ErrorAction SilentlyContinue | Stop-Process -Force
+		Say '静默安装桌面应用'
+		$process = Start-Process -FilePath $Setup -ArgumentList '/S' -Wait -PassThru
+		if ($process.ExitCode -ne 0) { Die "桌面应用安装器退出码 $($process.ExitCode)。" }
+	} finally {
+		Remove-Item -Recurse -Force $TempDir -ErrorAction SilentlyContinue
+	}
+	Say '已安装桌面应用'
+}
 
 Step '检查环境'
 foreach ($tool in @('git', 'npm.cmd', 'node')) {
@@ -61,6 +99,10 @@ if ($DryRun) {
 	Say "npm ci && npm run build（在 $Dir）"
 	Say "node $Dir\packages\cli\dist\index.js update --to $Version --repo $Repo"
 	Say "$Install\bin\yonder.cmd init $HomeDir --model openai/gpt-6-luna（$HomeDir\yonder.yaml 不存在时）"
+	if ($Desktop) {
+		Say '下载并静默安装桌面应用（Yonder_<version>_x64-setup.exe /S）'
+		Say "$Install\bin\yonder.cmd service install --home $HomeDir"
+	}
 	exit 0
 }
 
@@ -131,14 +173,33 @@ if (Test-Path (Join-Path $HomeDir 'yonder.yaml')) {
 }
 
 Step '完成'
-Say "把下面一行加进用户环境变量 PATH 后重开终端："
-Say ''
-Say "  $Install\bin"
-Say ''
-Say '然后：'
-Say ''
-Say '  yonder login openai      # 登录模型供应商'
-Say '  yonder service install   # 装成后台任务，登录时自启'
-Say '  yonder                   # 进入终端界面'
+if ($Desktop) {
+	Step '安装桌面应用'
+	Install-Desktop
+	Step '装成后台任务'
+	# 关掉桌面窗口后核心仍在运行；这是「关掉桌面应用就等于只装了核心」的前提。
+	& $YonderCmd service install --home $HomeDir
+	if ($LASTEXITCODE -ne 0) { Die '装成后台任务失败；可稍后手动运行 yonder service install。' }
+	Say '核心已作为后台任务运行，关闭桌面应用不会停止它'
+	Say '桌面应用在开始菜单里的 Yonder；本机核心不可用时它会回落到 https://yonderbot.net/'
+	Say ''
+	Say '还没登录模型供应商的话，先运行：'
+	Say ''
+	Say "  $YonderCmd login openai"
+} else {
+	Say "把下面一行加进用户环境变量 PATH 后重开终端："
+	Say ''
+	Say "  $Install\bin"
+	Say ''
+	Say '然后：'
+	Say ''
+	Say '  yonder login openai      # 登录模型供应商'
+	Say '  yonder service install   # 装成后台任务，登录时自启'
+	Say '  yonder                   # 进入终端界面'
+	Say ''
+	Say '想要桌面应用：重新运行本脚本并加上 -Desktop，它会装好桌面应用并把核心装成后台任务：'
+	Say ''
+	Say '  & ([scriptblock]::Create((irm https://github.com/GoYonderTogether/yonder/releases/latest/download/install.ps1))) -Desktop'
+}
 Say ''
 Say '回到网页的「添加设备」→「已有设备」，把提示词发给这台机器上的 Bot 即可完成连接。'

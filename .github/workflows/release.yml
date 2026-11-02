@@ -197,6 +197,32 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 安卓 APK 与桌面安装包在各自的原生 runner 上构建后追加到同一个 Release，并上传 OSS。
+      # GITHUB_TOKEN 创建的 Release 不会触发 release: published，所以和 CI 一样在这里显式派发；
+      # 派发后仍未完成的构建只记警告，不回滚已发布的版本（正文与包仍未带上产物，由后续补跑补上）。
+      - name: 派发安卓 APK 与桌面安装包构建
+        continue-on-error: true
+        run: |
+          sha="$(git rev-parse HEAD)"
+          failed=""
+          for workflow in android-release.yml desktop-release.yml; do
+            if ! gh workflow run "$workflow" --ref "v$VERSION" \
+              -f "version=$VERSION" -f "expected_commit=$sha"; then
+              failed="$failed $workflow"
+            fi
+          done
+          {
+            echo "release=published"
+            echo "tag=v$VERSION"
+            echo "sha=$sha"
+            if [ -z "$failed" ]; then echo "packages=dispatched"; else echo "packages=pending:$failed"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$failed" ]; then
+            echo "::warning::Release v$VERSION is public but these builds were not dispatched:$failed. Rerun them manually with workflow_dispatch on tag v$VERSION; do not create a new release."
+          fi
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # 正式版公开后可选通知网页部署；没有跨仓凭据时由私有 Cloud 工作流从公开 Release 协调。
       - name: 派发网页部署
         id: dispatch

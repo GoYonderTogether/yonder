@@ -1,0 +1,188 @@
+# 桌面应用产物：正式 Release 发布后构建 macOS dmg 与 Windows nsis，追加到同一个 GitHub Release，
+# 并上传 OSS desktop/<version>/（见 docs/spec/09 §6.4）。
+#
+# 触发：本仓 Release 由 release.yml 用 GITHUB_TOKEN 创建，GITHUB_TOKEN 产生的 Release 不会再触发
+# 其他 workflow，所以实际入口是 release.yml 在公开 Release 之后显式派发本 workflow
+# （同 ci.yml / ci-windows.yml 的做法）。下面的 release: published 只是对外部手动发布的兜底，
+# 本仓不会由它触发。
+#
+# 版本不从仓库文件读：apps/desktop 不在 npm workspaces 里，bump-versions.mjs 不改它的版本，
+# 构建时用 `tauri build --config '{"version":…}'` 注入本次 Release 的版本。
+#
+# 产物命名（Tauri 2 默认，install.sh / install.ps1 按同一规则拼下载地址）：
+#   macOS   Yonder_<version>_aarch64.dmg
+#   Windows Yonder_<version>_x64-setup.exe
+name: Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (X.Y.Z) to build desktop bundles for
+        required: true
+        type: string
+      expected_commit:
+        description: Full 40-character commit SHA of the release tag
+        required: true
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+# 同一版本只跑一次；重跑会覆盖同名产物。
+concurrency:
+  group: desktop-release-${{ inputs.version || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve version and commit
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.target.outputs.version }}
+      commit: ${{ steps.target.outputs.commit }}
+      tag: ${{ steps.target.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin release version and commit
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version || github.event.release.tag_name }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          set -euo pipefail
+          version="${INPUT_VERSION#v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release version: $version"; exit 1; }
+          tag="v$version"
+          actual="$(gh api "repos/{owner}/{repo}/commits/$tag" --jq .sha)"
+          [[ "$actual" =~ ^[0-9a-f]{40}$ ]] || { echo "Cannot resolve $tag: $actual"; exit 1; }
+          if [ -n "$EXPECTED_COMMIT" ] && [ "$actual" != "$EXPECTED_COMMIT" ]; then
+            echo "Tag $tag points at $actual, not $EXPECTED_COMMIT"; exit 1
+          fi
+          # 只给已发布的正式 Release 出桌面包；草稿与预发布都不构建。
+          state="$(gh release view "$tag" --json isDraft,isPrerelease --jq \
+            'if .isDraft or .isPrerelease then "unstable" else "stable" end')"
+          [ "$state" = "stable" ] || { echo "Release $tag is not a published stable release"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$actual" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  macos:
+    name: macOS dmg
+    needs: resolve
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.0"
+          # 显式指定目标：不依赖 macos-latest 当时是 Intel 还是 Apple Silicon runner，
+          # 产物名与 install.sh --desktop 约定的 aarch64 一致。
+          targets: aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Install Tauri CLI
+        run: npm ci --prefix apps/desktop --no-audit --no-fund
+      - name: Build dmg (ad-hoc signed)
+        # 没有 Developer ID：ad-hoc 签名，不公证。Gatekeeper 要求首次打开右键「打开」（见 README）。
+        # 同时产出 .app，下一步才能对真正打进去的包做 codesign 校验（只出 dmg 时 .app 会被清理）。
+        working-directory: apps/desktop
+        env:
+          APPLE_SIGNING_IDENTITY: "-"
+        run: >-
+          npx --no-install tauri build
+          --target aarch64-apple-darwin
+          --config "{\"version\":\"$VERSION\"}"
+          --bundles app,dmg
+      - name: Collect artifact
+        id: artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 文件名由 Tauri 按 productName/version/arch 生成；到这里架构是固定的。
+          name="Yonder_${VERSION}_aarch64.dmg"
+          bundle="apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle"
+          test -f "$bundle/dmg/$name"
+          codesign --verify --deep --strict "$bundle/macos/Yonder.app"
+          mkdir -p dist && cp "$bundle/dmg/$name" "dist/$name"
+          echo "file=$name" >> "$GITHUB_OUTPUT"
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.resolve.outputs.tag }}" "dist/${{ steps.artifact.outputs.file }}" --clobber
+      - name: Upload to OSS
+        env:
+          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
+          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
+        run: >-
+          node scripts/release/oss.mjs --put
+          --key "desktop/${{ needs.resolve.outputs.version }}/${{ steps.artifact.outputs.file }}"
+          --file "dist/${{ steps.artifact.outputs.file }}"
+
+  windows:
+    name: Windows nsis
+    needs: resolve
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          architecture: x64
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Install Tauri CLI
+        run: npm ci --prefix apps/desktop --no-audit --no-fund
+      - name: Build nsis installer (unsigned)
+        working-directory: apps/desktop
+        shell: pwsh
+        # PowerShell 的双引号字符串不认 `\"`；拼成单个变量再传，避免参数被拆开。
+        run: |
+          $config = '{"version":"' + $env:VERSION + '"}'
+          npx --no-install tauri build --config $config --bundles nsis
+      - name: Collect artifact
+        id: artifact
+        shell: pwsh
+        run: |
+          $name = "Yonder_$($env:VERSION)_x64-setup.exe"
+          $src = "apps/desktop/src-tauri/target/release/bundle/nsis/$name"
+          if (-not (Test-Path $src)) { throw "missing $src" }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item $src "dist/$name"
+          "file=$name" >> $env:GITHUB_OUTPUT
+      - name: Upload to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.resolve.outputs.tag }}" "dist/${{ steps.artifact.outputs.file }}" --clobber
+      - name: Upload to OSS
+        shell: bash
+        env:
+          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
+          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
+        run: >-
+          node scripts/release/oss.mjs --put
+          --key "desktop/${{ needs.resolve.outputs.version }}/${{ steps.artifact.outputs.file }}"
+          --file "dist/${{ steps.artifact.outputs.file }}"
