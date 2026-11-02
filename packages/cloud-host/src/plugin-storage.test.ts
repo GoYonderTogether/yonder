@@ -269,7 +269,7 @@ test("official tasks_show uses the PG ledger and a text board without creating c
 				return { ok: true };
 			},
 		},
-	});
+	} as PluginAPI);
 	const show = registrations.tools.find((tool) => tool.name === "tasks_show")!;
 	const result = await show.execute({}, {
 		agent: "main",
