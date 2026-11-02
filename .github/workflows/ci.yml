@@ -145,10 +145,33 @@ jobs:
         env:
           EXPECTED_ARCH: ${{ matrix.node_arch }}
       - run: choco install ripgrep -y --no-progress
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
       - run: npm ci
       - run: node scripts/check-pi-durable-workspace.mjs
       - run: npm run typecheck
-      - run: npm run build
+      - name: Build (the tray must compile on this runner)
+        env:
+          # 有 SDK 时正常构建；缺 SDK 时这里直接失败，而不是悄悄跳过、让后续冒烟找不到 exe。
+          YONDER_REQUIRE_WINDOWS_STATUS: "1"
+        run: npm run build
+      - name: Smoke Windows status tray build
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'packages/windows-status/dist/YonderStatus.exe'
+          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          $log = Join-Path $env:RUNNER_TEMP 'yonder-status-check.log'
+          $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-missing-install'
+          $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-missing-home'
+          & $exe --check --log $log
+          $check = $LASTEXITCODE
+          if (Test-Path $log) { Get-Content $log | Write-Host }
+          if ($check -ne 0) { throw "status reader self-check failed ($check)" }
+          & $exe --smoke --log $log
+          $smoke = $LASTEXITCODE
+          if (Test-Path $log) { Get-Content $log | Write-Host }
+          if ($smoke -ne 0) { throw "tray host smoke failed ($smoke)" }
       - name: Smoke committed native pipe on minimum Node 22.19
         run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
       - name: Verify paired device RPC with five fresh fixtures (stop on first failure)
@@ -183,3 +206,4 @@ jobs:
           path: |
             ${{ runner.temp }}/windows-failures.json
             ${{ runner.temp }}/device-rpc-*.json
+            ${{ runner.temp }}/yonder-status-check.log

@@ -6,9 +6,15 @@ import { command } from "./exec.js";
 import { installedService } from "./installation.js";
 import { windowsServiceLauncher } from "./launchers.js";
 import { installPath, windowsServicePath, windowsTask } from "./paths.js";
-import type { ServiceAction } from "./service-common.js";
+import type { ServiceAction, ServiceStatus } from "./service-common.js";
+import {
+	installWindowsStatus,
+	startWindowsStatus,
+	uninstallWindowsStatus,
+	windowsStatusInstalled,
+} from "./status-windows.js";
 
-export async function manageWindowsService(action: ServiceAction, options: { home?: string }) {
+export async function manageWindowsService(action: ServiceAction, options: { home?: string }): Promise<ServiceStatus> {
 	let installed = await installedService();
 	const task = (args: string[], allowFailure = false) =>
 		command("schtasks.exe", [...args, "/TN", windowsTask], { allowFailure });
@@ -62,12 +68,18 @@ export async function manageWindowsService(action: ServiceAction, options: { hom
 		await mkdir(dirname(windowsServicePath()), { recursive: true });
 		await writeFile(windowsServicePath(), JSON.stringify({ home, install }), { mode: 0o600 });
 		await task(["/Run"]);
+		// 状态栏与 macOS 对齐：只安装核心也带常驻图标，独立登录任务、不随服务任务重拉。
+		// 安装包没有状态栏产物（回退到旧版本目录）时保持原样，如实报 stopped，不伪装成功。
+		await installWindowsStatus(install, home);
 		installed = { home, install, plist: windowsServicePath() };
 	} else if (action === "uninstall") {
 		if ((await task(["/Query"], true)).code === 0) {
 			await stopTask(installed?.home);
 			await task(["/Delete", "/F"]);
 		}
+		// 先读安装记录再删记录：状态栏脚本就在该安装目录的 bin 下。
+		const record = installed?.install;
+		if (record) await uninstallWindowsStatus(record);
 		await rm(windowsServicePath(), { force: true });
 		return { installed: false, loaded: false };
 	} else if (action !== "status") {
@@ -82,6 +94,8 @@ export async function manageWindowsService(action: ServiceAction, options: { hom
 			}
 		}
 		if ((action === "start" && !running) || action === "restart") await task(["/Run"]);
+		// 启动/重启时也让图标在（老机器升级后第一次 start 就能看到），已在运行时会因单实例锁自然退出。
+		if (action === "start" || action === "restart") await startWindowsStatus();
 	}
 	const registered = (await task(["/Query"], true)).code === 0;
 	let info: { pid?: number } | undefined;
@@ -98,5 +112,8 @@ export async function manageWindowsService(action: ServiceAction, options: { hom
 		...(registered && installed ? { home: installed.home, install: installed.install, plist: installed.plist } : {}),
 		state: info?.pid ? "running" : "stopped",
 		pid: info?.pid ?? null,
+		...(registered
+			? { statusIcon: (await windowsStatusInstalled()) ? ("installed" as const) : ("unavailable" as const) }
+			: {}),
 	};
 }

@@ -13,3 +13,15 @@ tauri-build = { version = "=2.7.4", features = [] }
 
 [dependencies]
 tauri = { version = "=2.12.5", features = [] }
+# local.rs（桌面）与 mobile_update.rs（安卓）都用它。
+serde_json = "=1.0.145"
+# mobile_update.rs 的清单解析与 sha256 校验是纯函数，宿主的 cargo test 也要编译。
+sha2 = "=0.10.9"
+
+# Android 专用：JNI 与下载。精确锁版本，且只作用于 Android 目标，不影响桌面构建。
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "=0.21.1"
+ndk-context = "=0.1.1"
+# ureq 3 的 rustls 后端用 Mozilla 根证书 + ring，不需要额外的 Java 组件或系统证书库接入。
+# 只开 rustls 与 json，不引入代理、cookie 等无关依赖。
+ureq = { version = "=3.5.0", default-features = false, features = ["rustls", "json"] }

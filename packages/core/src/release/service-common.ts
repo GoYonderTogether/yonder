@@ -18,4 +18,6 @@ export interface ServiceStatus {
 	state?: string;
 	pid?: number | null;
 	launcherPid?: number | null;
+	/** Windows only: whether the tray's login task is registered (unavailable = this install has no tray build). */
+	statusIcon?: "installed" | "unavailable";
 }

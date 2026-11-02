@@ -1,7 +1,16 @@
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 
-/// 桌面客户端加载与线上完全相同的站点：同一份前端产物、同一路由、同一数据来源。
-/// 不注入 `__YONDER_SHELL__`、不打包本机运行时、不探测本地网关（见 docs/spec/09 §6.2）。
+#[cfg(desktop)]
+mod local;
+
+// 安卓应用内更新（docs/spec/09 §6.3）。只在 Android 与宿主的 cargo test 下编译：
+// 纯解析/比较/校验有测试，JNI 与下载只在 Android 目标里。
+#[cfg(any(target_os = "android", test))]
+#[cfg_attr(test, allow(dead_code))]
+mod mobile_update;
+
+/// 本机核心不可用时的云端站点；与线上完全相同的产物、路由与数据来源。
+/// 不注入 `__YONDER_SHELL__`、不打包本机运行时（见 docs/spec/09 §6.2）。
 #[cfg(desktop)]
 const CLOUD_ORIGIN: &str = "https://yonderbot.net";
 
@@ -37,17 +46,29 @@ pub fn run() {
         .expect("failed to run Yonder");
 }
 
-/// 站点内的导航留在窗口里；其它协议或域名交给系统浏览器，不在壳内打开第二套页面。
+/// 站点内的导航留在窗口里：本机网关与云端站点算同一个应用；其它协议或域名交给系统浏览器。
 #[cfg(desktop)]
 fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let cloud: tauri::Url = CLOUD_ORIGIN.parse()?;
-    let host = cloud.host_str().map(str::to_owned);
-    WebviewWindowBuilder::new(app, "main", WebviewUrl::External(cloud))
+    let cloud_host = cloud.host_str().map(str::to_owned);
+    // 先探测本机核心；未安装、已停止或命令失败都回落到云端站点。令牌只用于加载，不落日志。
+    let target: tauri::Url = match local::detect_local_url() {
+        Some(url) => url.parse()?,
+        None => cloud,
+    };
+    let local = local::local_endpoint(target.as_str());
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::External(target))
         .title("Yonder")
         .inner_size(1280.0, 800.0)
         .min_inner_size(720.0, 480.0)
         .on_navigation(move |url| {
-            let same_site = url.scheme() == "https" && url.host_str() == host.as_deref();
+            let same_site = local::navigation_allowed(
+                url.scheme(),
+                url.host_str(),
+                url.port_or_known_default(),
+                local.as_ref(),
+                cloud_host.as_deref(),
+            );
             if !same_site {
                 open_external(url.as_str());
             }
@@ -68,6 +89,10 @@ fn setup_mobile(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> 
         .title("Yonder")
         .build()?;
     let _ = window;
+    // 安卓应用内更新（docs/spec/09 §6.3）：启动时检查一次，回到前台再检查。
+    // 系统安装确认框由用户点击；装完由系统重启应用。
+    mobile_update::start(app);
+    mobile_update::watch_resume(app);
     Ok(())
 }
 
