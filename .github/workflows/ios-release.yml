@@ -67,14 +67,14 @@ jobs:
           fi
           version="${tag#v}"
           [[ "$version" =~ ^0\.[0-9]+\.[0-9]{8}$ ]] || {
-            echo "::error::版本不是 0.<minor>.<YYMMDDNN>：$version"
+            echo "::error::version must be 0.<minor>.<YYMMDDNN> (got: $version)"
             exit 1
           }
           head_sha="$(git rev-parse HEAD)"
           if [ -n "$EXPECTED_COMMIT" ]; then
-            [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::expected_commit 不是 40 位 SHA"; exit 1; }
+            [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::expected_commit must be a 40-char SHA"; exit 1; }
             [ "$head_sha" = "$EXPECTED_COMMIT" ] || {
-              echo "::error::$tag 指向 $head_sha，不是预期的 $EXPECTED_COMMIT"
+              echo "::error::$tag points at $head_sha, not $EXPECTED_COMMIT"
               exit 1
             }
           fi
@@ -82,7 +82,7 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "TAG=$tag" >> "$GITHUB_ENV"
           echo "BUILD_NUMBER=${version##*.}" >> "$GITHUB_ENV"
-          echo "版本 $version，tag $tag，提交 $head_sha"
+          echo "version $version, tag $tag, commit $head_sha"
 
       - uses: actions/setup-node@v4
         with:
@@ -106,10 +106,10 @@ jobs:
           TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
         run: |
           set -eu
-          [ -n "${CERT_BASE64:-}" ] || { echo "::error::缺少 secret IOS_DISTRIBUTION_CERT_P12_BASE64"; exit 1; }
-          [ -n "${CERT_PASSWORD:-}" ] || { echo "::error::缺少 secret IOS_DISTRIBUTION_CERT_PASSWORD"; exit 1; }
-          [ -n "${PROFILE_BASE64:-}" ] || { echo "::error::缺少 secret IOS_PROVISIONING_PROFILE_BASE64"; exit 1; }
-          [ -n "${TEAM_ID:-}" ] || { echo "::error::缺少 secret IOS_TEAM_ID"; exit 1; }
+          [ -n "${CERT_BASE64:-}" ] || { echo "::error::missing secret IOS_DISTRIBUTION_CERT_P12_BASE64"; exit 1; }
+          [ -n "${CERT_PASSWORD:-}" ] || { echo "::error::missing secret IOS_DISTRIBUTION_CERT_PASSWORD"; exit 1; }
+          [ -n "${PROFILE_BASE64:-}" ] || { echo "::error::missing secret IOS_PROVISIONING_PROFILE_BASE64"; exit 1; }
+          [ -n "${TEAM_ID:-}" ] || { echo "::error::missing secret IOS_TEAM_ID"; exit 1; }
           dir="$RUNNER_TEMP/yonder-signing"
           mkdir -p "$dir" "$HOME/Library/MobileDevice/Provisioning Profiles"
           keychain="$dir/yonder.keychain-db"
@@ -146,7 +146,7 @@ jobs:
           cd apps/desktop
           npx --no-install tauri ios build --target aarch64 --archive-only --build-number "$BUILD_NUMBER"
           archive="$(find src-tauri/gen/apple/build -maxdepth 1 -name '*.xcarchive' | head -1)"
-          [ -n "$archive" ] || { echo "::error::没有生成 xcarchive"; exit 1; }
+          [ -n "$archive" ] || { echo "::error::no xcarchive was produced"; exit 1; }
           echo "ARCHIVE=$archive" >> "$GITHUB_ENV"
 
       # tauri 生成的 ExportOptions 不带 provisioningProfiles，导出会失败；这里写一份完整的。
@@ -173,7 +173,7 @@ jobs:
           xcodebuild -exportArchive -archivePath "$ARCHIVE" \
             -exportPath "$PWD/dist-ios" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
           ipa="$(find dist-ios -name '*.ipa' | head -1)"
-          [ -n "$ipa" ] || { echo "::error::没有导出 IPA"; exit 1; }
+          [ -n "$ipa" ] || { echo "::error::no IPA was exported"; exit 1; }
           mv "$ipa" dist-ios/yonder-ios.ipa
           ls -l dist-ios/yonder-ios.ipa
 
@@ -184,9 +184,9 @@ jobs:
           ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
         run: |
           set -eu
-          [ -n "${KEY_BASE64:-}" ] || { echo "::error::缺少 secret ASC_API_PRIVATE_KEY_BASE64"; exit 1; }
-          [ -n "${KEY_ID:-}" ] || { echo "::error::缺少 secret ASC_API_KEY_ID"; exit 1; }
-          [ -n "${ISSUER_ID:-}" ] || { echo "::error::缺少 secret ASC_API_ISSUER_ID"; exit 1; }
+          [ -n "${KEY_BASE64:-}" ] || { echo "::error::missing secret ASC_API_PRIVATE_KEY_BASE64"; exit 1; }
+          [ -n "${KEY_ID:-}" ] || { echo "::error::missing secret ASC_API_KEY_ID"; exit 1; }
+          [ -n "${ISSUER_ID:-}" ] || { echo "::error::missing secret ASC_API_ISSUER_ID"; exit 1; }
           keydir="$RUNNER_TEMP/asc/private_keys"
           mkdir -p "$keydir"
           printf '%s' "$KEY_BASE64" | base64 --decode > "$keydir/AuthKey_$KEY_ID.p8"
