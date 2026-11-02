@@ -332,10 +332,19 @@ export async function prepareInput(
 			cliAvailable = false;
 		}
 		const local = session.resolved.env === "local";
+		const hasExec = session.resolved.capabilities.includes("exec");
+		const hasBash = options.offeredTools?.(session).includes("bash") ?? false;
+		const access = !local
+			? "host-only"
+			: !hasExec
+				? "no-local-exec"
+				: hasBash && cliAvailable
+					? "cli-via-exec"
+					: "local-exec";
 		lines.push(
 			local
-				? `management: scope=local home=${label(options.home)} version=${label(options.version)} node=${label(process.execPath)} nodeVersion=${label(process.version)} cli=${cliAvailable ? label(cli) : "unknown"}`
-				: `management: scope=host-only home=${label(options.home)} version=${label(options.version)} node=${label(process.execPath)} nodeVersion=${label(process.version)} cli=${cliAvailable ? label(cli) : "unknown"} remoteHome=unknown remoteNode=unknown remoteCli=unknown`,
+				? `management: scope=local access=${access} home=${label(options.home)} version=${label(options.version)} node=${label(process.execPath)} nodeVersion=${label(process.version)} cli=${access === "cli-via-exec" ? label(cli) : "unknown"}`
+				: `management: scope=host-only access=host-only home=${label(options.home)} version=${label(options.version)} remoteHome=unknown remoteNode=unknown remoteCli=unknown`,
 		);
 		const clock = formatClock((options.now ?? Date.now)(), options.locale, options.timezone);
 		lines.push(

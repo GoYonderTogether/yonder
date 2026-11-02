@@ -76,7 +76,12 @@ export function createToolSend({ store, runtime, resolveTarget, proactive }: Too
 				});
 				after = page.next;
 			} while (!found && after);
-			if (!found) return { ok: false, error: "replyTo 不是该目标会话已接收的真实消息 ID。" };
+			if (!found)
+				return {
+					ok: false,
+					error:
+						"replyTo 不是该目标会话已接收的真实消息 ID。跨会话通知时，请在下一次调用中省略 respondTo 和 replyTo；不要挪用其他会话的消息 ID。原始来源仍由本次运行的 sources 保留。",
+				};
 		}
 		if (!request.respondTo && !request.replyTo && !request.sourceMessageId) {
 			const inputs = ctx.events ?? (ctx.event ? [ctx.event] : []);

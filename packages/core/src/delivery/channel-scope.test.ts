@@ -273,9 +273,21 @@ test("semantic response resolves the source without forcing a quote; batch uses 
 			sourceMessageId: "native",
 		});
 		expect(x.counters[0]!.send.mock.calls.at(-1)?.[1]).not.toHaveProperty("replyTo");
-		expect(await x.delivery.sendTool(x.ctx, { to: input.conv!, text: "bad", respondTo: other.id })).toMatchObject({
+		const badResponse = await x.delivery.sendTool(x.ctx, { to: input.conv!, text: "bad", respondTo: other.id });
+		expect(badResponse).toMatchObject({
 			ok: false,
+			error: expect.stringContaining("respondTo 不是该目标会话已接收的真实入站事件 ID"),
 		});
+		expect(badResponse.error).toContain("下一次调用中省略 respondTo 和 replyTo");
+		expect(badResponse.error).toContain("本次运行的 sources 保留");
+		const badQuote = await x.delivery.sendTool(x.ctx, { to: input.conv!, text: "quote", replyTo: "other-native" });
+		expect(badQuote).toMatchObject({
+			ok: false,
+			error: expect.stringContaining("replyTo 不是该目标会话已接收的真实消息 ID"),
+		});
+		expect(badQuote.error).toContain("下一次调用中省略 respondTo 和 replyTo");
+		expect(badQuote.error).toContain("本次运行的 sources 保留");
+		expect(x.counters[0]!.send).toHaveBeenCalledTimes(1);
 		const batch = await x.store.events.record({
 			type: "channel-qq.group-batch",
 			conv: input.conv!,

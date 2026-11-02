@@ -223,13 +223,26 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(prepared.event).toEqual(event);
 		expect(prepared.text).toContain(`runtime: version=${row.version} home=${directory}`);
 		expect(prepared.text).toContain(`execution: env=local cwd=${directory}`);
-		expect(prepared.text).toContain(`management: scope=local home=${directory} version=${row.version}`);
+		expect(prepared.text).toContain(
+			`management: scope=local access=no-local-exec home=${directory} version=${row.version}`,
+		);
 		expect(prepared.text).toContain(`node=${process.execPath} nodeVersion=${process.version}`);
-		expect(prepared.text).toContain(`cli=${join(process.cwd(), "packages", "cli", "dist", "index.js")}`);
+		expect(prepared.text).toContain("cli=unknown");
 		expect(prepared.text).toContain(`host: platform=${process.platform} prepared=`);
 		expect(prepared.text).toContain("locale=zh-CN timezone=Asia/Shanghai");
 		expect(prepared.text).toContain("星期五");
 		expect(prepared.text).toContain("UTC 2026-10-23T06:00:00.000Z");
+		const cliInput = await prepareInput(
+			row,
+			{ ...session, resolved: resolveProfile({ capabilities: ["exec"] }) },
+			event,
+			"run",
+			{ ...options, offeredTools: () => ["bash"] },
+		);
+		expect(cliInput.text).toContain(
+			`management: scope=local access=local-exec home=${directory} version=${row.version}`,
+		);
+		expect(cliInput.text).toContain("cli=unknown");
 		const connection = newEvent({
 			type: "channel.connected",
 			from: "plugin:channel-card",
@@ -293,13 +306,14 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(passive.text).not.toContain("management: ");
 		const remote = await prepareInput(
 			row,
-			{ ...session, resolved: resolveProfile({ env: "remote" }) },
+			{ ...session, resolved: resolveProfile({ env: "remote", capabilities: ["exec"] }) },
 			event,
 			"run",
-			options,
+			{ ...options, offeredTools: () => ["bash"] },
 		);
-		expect(remote.text).toContain("management: scope=host-only");
+		expect(remote.text).toContain("management: scope=host-only access=host-only");
 		expect(remote.text).toContain("remoteHome=unknown remoteNode=unknown remoteCli=unknown");
+		expect(remote.text).not.toContain(`cli=${join(process.cwd(), "packages", "cli", "dist", "index.js")}`);
 		const input = newEvent({
 			type: "message.in",
 			from: "acct:cli:local",

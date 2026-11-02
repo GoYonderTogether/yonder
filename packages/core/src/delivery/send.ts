@@ -74,7 +74,9 @@ export function createSender(deps: SenderDeps) {
 				const event = await store.events.get(request.respondTo);
 				const source = event && sourceMessage(event);
 				if (event?.type !== "message.in" || event.conv !== resolved.target || !source)
-					throw new Error("respondTo 不是该目标会话已接收的真实入站事件 ID。");
+					throw new Error(
+						"respondTo 不是该目标会话已接收的真实入站事件 ID。跨会话通知时，请在下一次调用中省略 respondTo 和 replyTo；不要挪用其他会话的消息 ID。原始来源仍由本次运行的 sources 保留。",
+					);
 				request = { ...request, sourceMessageId: source };
 			}
 			if (request.mentions?.length) {
