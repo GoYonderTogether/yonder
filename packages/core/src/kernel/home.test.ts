@@ -92,7 +92,7 @@ test("a new exact-conv catchall requires closing an existing session before chan
 	const candidate = structuredClone(previous);
 	candidate.bindings.unshift({
 		id: "exact-group",
-		match: { conv },
+		match: { conv, type: "message.in" },
 		session: { mode: "persistent", per: "conv" },
 		profile: "group",
 		wake: "write",

@@ -354,7 +354,7 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 				issues.push({
 					file,
 					path: `${path}/profile`,
-					message: `可能与绑定 ${previous.id} 进入同一会话键；per:conv 只有在更早的有限精确 conv 接收绑定省略 kind/from/type、channel 与 conv 一致且完整覆盖普通 message.in，所有其他事件域（含 batch/custom type）使用同一 profile 时才可分档。检查打开的会话并显式关闭后，再运行 agents validate/update 并用 agents show 读回`,
+					message: `可能与绑定 ${previous.id} 进入同一会话键；per:conv 只有在更早的有限精确 conv 接收绑定省略 kind/from、channel 与 conv 一致且有效 type 完全相同（普通消息为省略或 message.in），并覆盖对应后置事件域时才可遮蔽；未遮蔽事件（含 batch/custom type）必须使用同一 profile。检查打开的会话并显式关闭后，再运行 agents validate/update 并用 agents show 读回`,
 				});
 			}
 		}

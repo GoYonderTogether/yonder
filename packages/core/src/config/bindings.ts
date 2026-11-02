@@ -47,7 +47,7 @@ const exactConvCatchall = (binding: Binding, conv: string) =>
 	list(binding.match.conv)?.includes(conv) === true &&
 	binding.match.kind === undefined &&
 	binding.match.from === undefined &&
-	binding.match.type === undefined &&
+	effectiveType(binding) === "message.in" &&
 	convChannelMatches(binding, conv);
 
 const effectiveType = (binding: Binding) => binding.match.type ?? "message.in";
