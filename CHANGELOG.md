@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.26110203] - 2026-11-02
+
+### Fixed
+
+- device：bound authenticated request clock waits to connections
+- devices：await local clock before verifying future responses
+- devices：classify authenticated response rejection safely
+- windows：invoke npm command shim from installer
+
 ## [0.3.26110202] - 2026-11-02
 
 ### Fixed
