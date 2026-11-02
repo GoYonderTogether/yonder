@@ -174,8 +174,7 @@ test("parent conversation projects only verified owner source samples", async ()
 	try {
 		const store = await createStore(db, () => "person:owner");
 		await store.identity().createPerson({ id: "owner", name: "Owner" });
-		await store.identity().link("acct:qq:owner-a", "person:owner");
-		await store.identity().link("acct:qq:owner-b", "person:owner");
+		for (let i = 0; i < 10; i++) await store.identity().link(`acct:qq:owner-${i}`, "person:owner");
 		const conv = "conv:qq:work";
 		const session: SessionInfo = {
 			id: "2",
@@ -188,20 +187,20 @@ test("parent conversation projects only verified owner source samples", async ()
 		};
 		await store.sessions.put(session);
 		const route = [{ agent: "main", session: session.id, binding: "group", wake: "run" as const }];
-		const ownerA = await store.events.record(
-			{ type: "message.in", from: "acct:qq:owner-a", conv, data: { text: "owner request A" } },
-			route,
-		);
-		const ownerB = await store.events.record(
-			{ type: "message.in", from: "acct:qq:owner-b", conv, data: { text: "owner request B" } },
-			route,
-		);
+		const ownerSources = [];
+		for (let i = 0; i < 10; i++)
+			ownerSources.push(
+				await store.events.record(
+					{ type: "message.in", from: `acct:qq:owner-${i}`, conv, data: { text: `owner request ${i}` } },
+					route,
+				),
+			);
 		const unrelated = await store.events.record(
-			{ type: "message.in", from: "acct:qq:owner-a", conv, data: { text: "unrelated history body" } },
+			{ type: "message.in", from: "acct:qq:owner-0", conv, data: { text: "unrelated history body" } },
 			route,
 		);
 		const batch = await store.events.record(
-			{ type: "social.batch-ready", conv, data: { sourceEvents: [ownerA.id, ownerB.id] } },
+			{ type: "social.batch-ready", conv, data: { sourceEvents: ownerSources.map((source) => source.id) } },
 			route,
 		);
 		const handoff = await store.events.record({
@@ -213,7 +212,11 @@ test("parent conversation projects only verified owner source samples", async ()
 				kind: "parent-request",
 				target: "main",
 				text: "model paraphrase, not authority",
-				requestOrigin: { session: session.id, inputs: [batch.id], events: [{ id: ownerA.id }, { id: ownerB.id }] },
+				requestOrigin: {
+					session: session.id,
+					inputs: [batch.id],
+					events: ownerSources.map((source) => ({ id: source.id })),
+				},
 			},
 		});
 		const calls: Array<{ agent: string; selector: { conv?: string; eventId?: string } }> = [];
@@ -247,16 +250,21 @@ test("parent conversation projects only verified owner source samples", async ()
 		if (!contextOptions.conversationContext) throw new Error("Missing conversation context callback");
 		const context = await contextOptions.conversationContext(handoff, "main");
 		if (!context) throw new Error("Missing parent conversation context");
-		expect(calls).toEqual([
-			{ agent: "main", selector: { conv, eventId: ownerA.id } },
-			{ agent: "main", selector: { conv, eventId: ownerB.id } },
-		]);
-		const parsed = JSON.parse(context) as { originals: Array<{ text: string }>; operability: SessionOperabilityFact[] };
-		expect(parsed.originals.map((item) => item.text)).toEqual(["owner request A", "owner request B"]);
-		expect(JSON.stringify(parsed.operability)).not.toContain("unrelated history body");
-		expect(JSON.stringify(parsed.operability)).not.toContain("thinking");
-		expect(parsed.operability.map((fact) => fact.selector.eventId)).toEqual([ownerA.id, ownerB.id]);
-		expect(parsed.operability[0]?.prediction?.capabilities?.values).toEqual(["read"]);
+		expect(calls).toHaveLength(8);
+		expect(calls.map((call) => call.selector.eventId)).toEqual(ownerSources.slice(0, 8).map((source) => source.id));
+		expect(calls.every((call) => call.agent === "main" && call.selector.conv === conv)).toBe(true);
+		const parsed = JSON.parse(context) as {
+			originals: Array<{ text: string }>;
+			operability: { limit: number; truncated: boolean; omitted: number; facts: SessionOperabilityFact[] };
+		};
+		expect(parsed.originals.map((item) => item.text)).toEqual(ownerSources.map((_, i) => `owner request ${i}`));
+		expect(parsed.operability).toMatchObject({ limit: 8, truncated: true, omitted: 2 });
+		expect(JSON.stringify(parsed.operability.facts)).not.toContain("unrelated history body");
+		expect(JSON.stringify(parsed.operability.facts)).not.toContain("thinking");
+		expect(parsed.operability.facts.map((fact) => fact.selector.eventId)).toEqual(
+			ownerSources.slice(0, 8).map((source) => source.id),
+		);
+		expect(parsed.operability.facts[0]?.prediction?.capabilities?.values).toEqual(["read"]);
 		expect((await store.sessions.get(session.id))?.profile).toBe("group-readonly");
 		const noProjectorOptions = conversationPromptOptions(
 			store,
@@ -265,10 +273,18 @@ test("parent conversation projects only verified owner source samples", async ()
 		);
 		if (!noProjectorOptions.conversationContext) throw new Error("Missing conversation context callback");
 		const withoutProjector = await noProjectorOptions.conversationContext(handoff, "main");
-		const unknown = JSON.parse(withoutProjector ?? "{}") as { operability?: SessionOperabilityFact[] };
-		expect(unknown.operability?.[0]).toMatchObject({
+		const unknown = JSON.parse(withoutProjector ?? "{}") as {
+			operability?: { limit: number; truncated: boolean; omitted: number; facts: SessionOperabilityFact[] };
+		};
+		expect(unknown.operability).toMatchObject({
+			limit: 8,
+			truncated: true,
+			omitted: 2,
+		});
+		expect(unknown.operability?.facts).toHaveLength(8);
+		expect(unknown.operability?.facts[0]).toMatchObject({
 			status: "unknown",
-			selector: { conv, eventId: ownerA.id },
+			selector: { conv, eventId: ownerSources[0]?.id },
 		});
 
 		const visitor = await store.events.record(
@@ -295,7 +311,7 @@ test("parent conversation projects only verified owner source samples", async ()
 		);
 		if (!visitorOptions.conversationContext) throw new Error("Missing conversation context callback");
 		await visitorOptions.conversationContext(visitorRequest, "main");
-		expect(calls).toHaveLength(2);
+		expect(calls).toHaveLength(8);
 
 		const forged = {
 			...handoff,
@@ -313,7 +329,7 @@ test("parent conversation projects only verified owner source samples", async ()
 		);
 		if (!forgedOptions.conversationContext) throw new Error("Missing conversation context callback");
 		await forgedOptions.conversationContext(forged, "main");
-		expect(calls).toHaveLength(2);
+		expect(calls).toHaveLength(8);
 	} finally {
 		await db.close();
 	}

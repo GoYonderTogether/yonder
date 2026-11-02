@@ -60,30 +60,39 @@ export function conversationPromptOptions(
 				const ownerSourceIds = new Set(
 					originals.filter((original) => original.relation === "owner").map((source) => source.id),
 				);
+				const ownerSources = (sources ?? []).filter((source) => ownerSourceIds.has(source.id));
+				const operabilityLimit = 8;
 				const operability = await Promise.all(
-					(sources ?? [])
-						.filter((source) => ownerSourceIds.has(source.id))
-						.map(async (source) => {
-							const selector: OperabilitySelector = {
-								eventId: source.id,
-								...(source.conv ? { conv: source.conv } : {}),
-							};
-							if (!source.conv)
-								return { status: "unknown" as const, selector, reason: "verified source conversation unavailable" };
-							if (!projectOperability || !agent)
-								return { status: "unknown" as const, selector, reason: "shared projection unavailable" };
-							try {
-								return await projectOperability(agent, selector);
-							} catch {
-								return { status: "unknown" as const, selector, reason: "shared projection unavailable" };
-							}
-						}),
+					ownerSources.slice(0, operabilityLimit).map(async (source) => {
+						const selector: OperabilitySelector = {
+							eventId: source.id,
+							...(source.conv ? { conv: source.conv } : {}),
+						};
+						if (!source.conv)
+							return { status: "unknown" as const, selector, reason: "verified source conversation unavailable" };
+						if (!projectOperability || !agent)
+							return { status: "unknown" as const, selector, reason: "shared projection unavailable" };
+						try {
+							return await projectOperability(agent, selector);
+						} catch {
+							return { status: "unknown" as const, selector, reason: "shared projection unavailable" };
+						}
+					}),
 				);
 				return JSON.stringify({
 					self,
 					verified: !!sources,
 					originals,
-					...(operability.length ? { operability } : {}),
+					...(ownerSources.length
+						? {
+								operability: {
+									limit: operabilityLimit,
+									truncated: ownerSources.length > operabilityLimit,
+									omitted: Math.max(0, ownerSources.length - operabilityLimit),
+									facts: operability,
+								},
+							}
+						: {}),
 				});
 			}
 			if (!event.conv) return undefined;
