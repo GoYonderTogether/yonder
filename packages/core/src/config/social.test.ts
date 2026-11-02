@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { parseAgentConfig, parseYonderConfig } from "./index.js";
+import { type Binding, parseAgentConfig, parseYonderConfig } from "./index.js";
 import { socialReferenceErrors } from "./social-validation.js";
 
 const base = {
@@ -143,6 +143,68 @@ test("group batch bindings cannot collide with DM profiles or disjoint explicit 
 		bindings: [{ ...base.bindings[0], match: { channel: "card", kind: "group" } }, base.bindings[1]],
 	};
 	expect(() => parseAgentConfig(JSON.stringify(overlap))).toThrow("同一会话");
+});
+
+test("finite exact-conv catchalls can shadow ordinary fallbacks without splitting effective key profiles", () => {
+	const base = {
+		schema: 1,
+		id: "main",
+		name: "Main",
+		owner: "person:owner",
+		defaultProfile: "observer",
+		profiles: { observer: {}, group: {}, dm: {} },
+	};
+	const conv = "conv:feishu:room";
+	const session = { mode: "persistent", per: "conv" } as const;
+	const bindings: Binding[] = [
+		{ id: "batch", match: { type: "social.batch-ready", conv }, session, profile: "group", reply: "none" },
+		{ id: "exact", match: { conv }, session, profile: "group", wake: "write", reply: "none" },
+		{
+			id: "batch-fallback",
+			match: { type: "social.batch-ready" },
+			session,
+			profile: "observer",
+			wake: "run",
+			reply: "none",
+		},
+		{ id: "observer", match: { channel: "feishu", kind: ["dm", "group"] }, session, profile: "observer" },
+	];
+	expect(() => parseAgentConfig(JSON.stringify({ ...base, bindings }))).not.toThrow();
+
+	for (const selector of [
+		{ conv, kind: "group" },
+		{ conv, from: "owner" },
+		{ conv, type: "custom.event" },
+	]) {
+		const narrow = [
+			{ ...bindings[0], id: "batch", profile: "group" },
+			{ ...bindings[1], id: "exact", match: selector },
+			bindings[3],
+		];
+		expect(() => parseAgentConfig(JSON.stringify({ ...base, bindings: narrow }))).toThrow("同一会话键");
+	}
+
+	const wrongOrder = [{ ...bindings[3] }, { ...bindings[1], id: "exact" }];
+	expect(() => parseAgentConfig(JSON.stringify({ ...base, bindings: wrongOrder }))).toThrow("同一会话键");
+
+	const batchDifferentProfile: Binding[] = bindings.map((binding) =>
+		binding.id === "batch" ? { ...binding, profile: "dm" } : { ...binding },
+	);
+	expect(() => parseAgentConfig(JSON.stringify({ ...base, bindings: batchDifferentProfile }))).toThrow("batch");
+
+	const sameExactKeyDifferentKinds = [
+		{ id: "group", match: { conv, kind: "group" }, session, profile: "group" },
+		{ id: "dm", match: { conv, kind: "dm" }, session, profile: "dm" },
+	];
+	expect(() => parseAgentConfig(JSON.stringify({ ...base, bindings: sameExactKeyDifferentKinds }))).toThrow(
+		"同一会话键",
+	);
+
+	const ordinaryKindPartitions = [
+		{ id: "group", match: { channel: "feishu", kind: "group" }, session, profile: "group" },
+		{ id: "dm", match: { channel: "feishu", kind: "dm" }, session, profile: "dm" },
+	];
+	expect(() => parseAgentConfig(JSON.stringify({ ...base, bindings: ordinaryKindPartitions }))).not.toThrow();
 });
 
 test("participation plugin references require loading and the matching Bot profile selection", () => {

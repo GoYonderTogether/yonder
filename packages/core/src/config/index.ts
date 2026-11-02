@@ -9,6 +9,7 @@ import {
 import type { Static, TSchema } from "typebox";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
+import { convProfilesConflict, sharedConvKeys } from "./bindings.js";
 import {
 	defaultBudget,
 	defaultLazyGroups,
@@ -290,10 +291,23 @@ const intersects = (a?: string | string[], b?: string | string[]) =>
 function sameSession(a: Binding, b: Binding, agent: AgentConfig): boolean {
 	if (a.session === "main" || b.session === "main") return a.session === b.session;
 	if (typeof a.session === "string" || typeof b.session === "string" || a.session.per !== b.session.per) return false;
-	if (a.session.per === "conv" && !intersects(a.match.conv, b.match.conv)) return false;
+	if (a.session.per === "conv") {
+		const keys = sharedConvKeys(a, b);
+		if (keys !== undefined && !keys.length) return false;
+		// An identical explicit conversation reference is a shared durable key even when event kind differs.
+		if (a.match.conv !== undefined && b.match.conv !== undefined) return true;
+	}
 	// Batch admission only accepts a group/channel source; it can never reuse a DM conversation.
 	const kinds = (binding: Binding) => participationBatchKinds(agent, binding) ?? binding.match.kind;
 	return a.session.per === "person" || (intersects(a.match.channel, b.match.channel) && intersects(kinds(a), kinds(b)));
+}
+
+function profileConflict(agent: AgentConfig, a: Binding, b: Binding): boolean {
+	if (!sameSession(a, b, agent)) return false;
+	if ((a.profile ?? agent.defaultProfile) === (b.profile ?? agent.defaultProfile)) return false;
+	if (typeof a.session !== "object" || a.session.per !== "conv") return true;
+	const keys = sharedConvKeys(a, b);
+	return keys === undefined || keys.some((conv) => convProfilesConflict(agent, conv));
 }
 
 function publicAvatarUrl(value: string): boolean {
@@ -336,14 +350,11 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 			issues.push({ file, path: `${path}/wake`, message: "ephemeral 绑定的 wake 必须为 run" });
 		// ponytail: pairwise checks suit small binding tables; index session scopes if these tables grow.
 		for (const previous of agent.bindings.slice(0, index)) {
-			if (
-				sameSession(binding, previous, agent) &&
-				(binding.profile ?? agent.defaultProfile) !== (previous.profile ?? agent.defaultProfile)
-			) {
+			if (profileConflict(agent, binding, previous)) {
 				issues.push({
 					file,
 					path: `${path}/profile`,
-					message: `可能与绑定 ${previous.id} 进入同一会话，必须使用同一配置档`,
+					message: `可能与绑定 ${previous.id} 进入同一会话键；per:conv 只有在更早的有限精确 conv 接收绑定省略 kind/from/type、channel 与 conv 一致且完整覆盖普通 message.in，所有其他事件域（含 batch/custom type）使用同一 profile 时才可分档。检查打开的会话并显式关闭后，再运行 agents validate/update 并用 agents show 读回`,
 				});
 			}
 		}

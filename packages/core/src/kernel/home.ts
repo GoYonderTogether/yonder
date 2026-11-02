@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import type { Models, Preset, SessionInfo, YEvent } from "@yonder/sdk";
 import { stringify } from "yaml";
 import { bundleFor } from "../bundles.js";
+import { exactConvProfile } from "../config/bindings.js";
 import {
 	type AgentConfig,
 	loadPresets,
@@ -106,6 +107,13 @@ export function protectSessions(
 				errors.push(
 					`session ${session.id}: close before changing binding profile ${changedRoute.oldProfile} to ${changedRoute.nextProfile}; this open session would keep its existing profile. Finish or close session ${session.id} first, then rerun agents validate/update and inspect the next session's profile`,
 				);
+			if (!changedRoute && session.mode === "persistent" && next && session.key.startsWith("conv:")) {
+				const convProfile = exactConvProfile(next, session.key.slice("conv:".length));
+				if (convProfile && session.profile !== convProfile)
+					errors.push(
+						`session ${session.id}: close before applying the exact-conv profile override ${session.profile} to ${convProfile}; the existing transcript is retained and the next input opens a new session. Run yonder sessions close ${session.id}, then agents validate/update and inspect with agents show`,
+					);
+			}
 			const envChanged =
 				oldProfile &&
 				newProfile &&
