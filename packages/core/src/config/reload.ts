@@ -10,7 +10,7 @@ interface WatchConfigOptions {
 	workspaceFiles: (id: string) => WorkspaceFiles | Promise<WorkspaceFiles>;
 	candidate?: () => Promise<{ config: YonderConfig; agents: Map<string, AgentConfig> }>;
 	candidateRevisions?: () => ReadonlyMap<string, string>;
-	onCandidate?: (accepted: boolean, revisions: ReadonlyMap<string, string>) => void;
+	onCandidate?: (accepted: boolean, revisions: ReadonlyMap<string, string>, error?: unknown) => void;
 	onPresetRead?: (file: string, text: string) => void;
 	publish?: (config: YonderConfig) => void;
 	validate(agents: Map<string, AgentConfig>, presets: Map<string, Preset>, config?: YonderConfig): Promise<void>;
@@ -59,7 +59,7 @@ export async function watchConfig(options: WatchConfigOptions): Promise<{ reload
 				options.onCandidate?.(true, options.candidateRevisions?.() ?? new Map());
 				await options.onReload({ type: "config.reload", data: { file: join(home, "yonder.yaml"), ok: true } });
 			} catch (error) {
-				options.onCandidate?.(false, options.candidateRevisions?.() ?? new Map());
+				options.onCandidate?.(false, options.candidateRevisions?.() ?? new Map(), error);
 				const errors =
 					error instanceof ConfigError
 						? error.issues.map((i) => `${i.file}:${i.path}: ${i.message}`)

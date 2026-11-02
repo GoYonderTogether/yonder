@@ -4,6 +4,7 @@ import { basename, join } from "node:path";
 import type { Preset } from "@yonder/sdk";
 import {
 	type AgentConfig,
+	ConfigError,
 	loadYonderConfig,
 	parseAgentConfig,
 	parseYonderConfig,
@@ -13,6 +14,7 @@ import {
 } from "../config/index.js";
 import type { LoadedPlugins } from "../plugins/index.js";
 import type { Store } from "../store/index.js";
+import type { ConfigStatus } from "./config-facts.js";
 import { filesFor, type KernelLog, loadAgents } from "./workspace.js";
 
 /** Hot reload of agent config: candidate loading, validation, scaffolding and publishing. */
@@ -51,6 +53,7 @@ export async function watchAgents({
 	let candidateComplete = false;
 	let acceptedCandidate = "";
 	let rejectedCandidate = "";
+	let rejectedIssues: Array<{ source: string; revision: string; path?: string }> = [];
 	const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 	const fingerprint = (revisions: ReadonlyMap<string, string>) =>
 		hash(JSON.stringify([...revisions].sort(([left], [right]) => left.localeCompare(right))));
@@ -91,15 +94,32 @@ export async function watchAgents({
 		},
 		candidateRevisions: () => observed,
 		onPresetRead: (file, text) => observed.set(`preset:${basename(file)}`, hash(text)),
-		onCandidate: (ok, revisions) => {
+		onCandidate: (ok, revisions, error) => {
 			if (ok) {
 				accepted = new Map(revisions);
 				rejected = new Map();
 				acceptedCandidate = fingerprint(revisions);
 				rejectedCandidate = "";
+				rejectedIssues = [];
 			} else {
-				rejected = new Map([...revisions].filter(([key]) => rejectedSources.has(key)));
-				rejectedCandidate = candidateComplete ? fingerprint(revisions) : "";
+				const issues = error instanceof ConfigError ? error.issues : [];
+				rejected = new Map(issues.length ? [...revisions].filter(([key]) => rejectedSources.has(key)) : []);
+				rejectedCandidate = candidateComplete && issues.length ? fingerprint(revisions) : "";
+				rejectedIssues = [];
+				if (issues.length) {
+					const source = [...rejected.keys()][0];
+					if (source) {
+						const revision = revisions.get(source);
+						if (!revision) return;
+						for (const issue of issues.slice(0, 3)) {
+							const path =
+								issue.path.length <= 128 && /^\/[A-Za-z0-9_~./:@-]*$/.test(issue.path) ? issue.path : undefined;
+							rejectedIssues.push({ source, revision, ...(path ? { path } : {}) });
+						}
+					} else if (rejectedCandidate) {
+						rejectedIssues.push({ source: "candidate", revision: rejectedCandidate });
+					}
+				}
 			}
 		},
 		validate: async (nextAgents, nextPresets, nextConfig) => {
@@ -115,7 +135,7 @@ export async function watchAgents({
 	});
 	return {
 		...watcher,
-		async status(agentId?: string) {
+		async status(agentId?: string): Promise<ConfigStatus> {
 			const state = async (key: string, revision: string, rootRestart = false) => {
 				if (rootRestart) return "pending-restart" as const;
 				if (accepted.get(key) === revision) return "effective" as const;
@@ -136,6 +156,7 @@ export async function watchAgents({
 					currentSources.set(`preset:${name}`, hash(text));
 				}
 				const currentCandidate = fingerprint(currentSources);
+				const rejectedSourceMatches = [...rejected].some(([key, revision]) => currentSources.get(key) === revision);
 				const { agents: _diskAgents, ...diskRest } = disk;
 				const { agents: _runningAgents, ...activeRest } = config;
 				const homeState = await state("home", rootRevision, JSON.stringify(diskRest) !== JSON.stringify(activeRest));
@@ -152,21 +173,47 @@ export async function watchAgents({
 						agentState = rejected.get(`agent:${agentId}`) === agentRevision ? "rejected" : "pending";
 					}
 				}
+				const candidateState =
+					currentCandidate === acceptedCandidate
+						? homeState === "pending-restart"
+							? ("pending-restart" as const)
+							: ("effective" as const)
+						: currentCandidate === rejectedCandidate || rejectedSourceMatches
+							? ("rejected" as const)
+							: ("pending" as const);
+				const issues = rejectedIssues
+					.filter(
+						({ source, revision }) => currentSources.get(source) === revision && accepted.get(source) !== revision,
+					)
+					.map(({ source, path }) => {
+						const scope = source === "home" ? "home" : source === `agent:${agentId}` ? "agent" : "candidate";
+						return { scope, ...(scope !== "candidate" && path ? { path } : {}) } as const;
+					});
+				if (candidateState === "rejected" && !issues.length) issues.push({ scope: "candidate" });
+				const acceptedHome = accepted.get("home");
+				const acceptedAgent = agentId ? accepted.get(`agent:${agentId}`) : undefined;
 				return {
-					home: { state: homeState, revision: rootRevision.slice(0, 12), file: "yonder.yaml" },
-					candidate: {
-						state:
-							currentCandidate === acceptedCandidate
-								? homeState === "pending-restart"
-									? ("pending-restart" as const)
-									: ("effective" as const)
-								: currentCandidate === rejectedCandidate
-									? ("rejected" as const)
-									: ("pending" as const),
-						revision: currentCandidate.slice(0, 12),
+					home: {
+						state: homeState,
+						revision: rootRevision.slice(0, 12),
+						...(acceptedHome ? { acceptedRevision: acceptedHome.slice(0, 12) } : {}),
+						file: "yonder.yaml",
 					},
+					candidate: {
+						state: candidateState,
+						revision: currentCandidate.slice(0, 12),
+						...(acceptedCandidate ? { acceptedRevision: acceptedCandidate.slice(0, 12) } : {}),
+					},
+					...(issues.length ? { issues: issues.slice(0, 3) } : {}),
 					...(agentId && agentRevision && agentState
-						? { agent: { state: agentState, revision: agentRevision.slice(0, 12), file: "agent.yaml" } }
+						? {
+								agent: {
+									state: agentState,
+									revision: agentRevision.slice(0, 12),
+									...(acceptedAgent ? { acceptedRevision: acceptedAgent.slice(0, 12) } : {}),
+									file: "agent.yaml",
+								},
+							}
 						: {}),
 				};
 			} catch {
@@ -178,14 +225,33 @@ export async function watchAgents({
 				} catch {
 					// Missing or unreadable source remains unknown; never infer an accepted snapshot.
 				}
+				const issues = rejectedIssues
+					.filter(({ source, revision: failedRevision }) => source === "home" && revision === failedRevision)
+					.slice(0, 3)
+					.map(({ path }) => ({ scope: "home" as const, ...(path ? { path } : {}) }));
+				const acceptedHome = accepted.get("home");
+				const acceptedAgent = agentId ? accepted.get(`agent:${agentId}`) : undefined;
 				return {
 					home: {
 						state: revision && rejected.get("home") === revision ? ("rejected" as const) : ("unknown" as const),
 						file: "yonder.yaml",
 						...(revision && rejected.get("home") === revision ? { revision: revision.slice(0, 12) } : {}),
+						...(acceptedHome ? { acceptedRevision: acceptedHome.slice(0, 12) } : {}),
 					},
-					candidate: { state: "unknown" as const },
-					...(agentId ? { agent: { state: "unknown" as const, file: "agent.yaml" } } : {}),
+					candidate: {
+						state: "unknown" as const,
+						...(acceptedCandidate ? { acceptedRevision: acceptedCandidate.slice(0, 12) } : {}),
+					},
+					...(issues.length ? { issues } : {}),
+					...(agentId
+						? {
+								agent: {
+									state: "unknown" as const,
+									file: "agent.yaml",
+									...(acceptedAgent ? { acceptedRevision: acceptedAgent.slice(0, 12) } : {}),
+								},
+							}
+						: {}),
 				};
 			}
 		},
