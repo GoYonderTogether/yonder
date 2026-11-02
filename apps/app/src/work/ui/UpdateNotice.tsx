@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { appUrl } from "../../lib/base";
 
 export function UpdateNotice() {
 	const [available, setAvailable] = useState(false);
@@ -6,7 +7,7 @@ export function UpdateNotice() {
 		let active = true;
 		const check = async () => {
 			try {
-				const response = await fetch("/console/version.json", { cache: "no-store" });
+				const response = await fetch(appUrl("version.json"), { cache: "no-store" });
 				if (!response.ok) return;
 				const latest: unknown = await response.json();
 				if (
