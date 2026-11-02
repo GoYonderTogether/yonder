@@ -1114,3 +1114,8 @@ v12真实首个跟进批次的focused已保留至willing，兄弟发言后成功
 ### 2026-11-03：同一投影的有界索引与按需详情
 
 v12实测owner prepared约52k字符，其中owner-private frame原始18k、escaped约30k；8个完整operability事实约17k，主因是重复预测能力/工具/scope及管理与配置对象，不是近期原话或运行历史。其他已选turn contributions约20k另计，不把它们全部算进本修复。把已有CLI摘要映射提升到core让宿主/CLI复用同一有界索引，完整projector/inspect仍保留；明确本Agent精确binding视图不是全局成员目录，避免把缺少GPT原生conv误判未入群。省略结构项有计数，不断截身份/权限做假完整，不改Bot配置、persona或用户原话。边界见08 §3.2。
+
+
+### 2026-11-03：现有配置事务与外部能力事实
+
+v13主会话群发已真实完成，群普通消息已进入GPT模型，但仍错误要求先改未查询的QQ平台范围，P1仍未配置可参与链。复核现有social.update标准路径已有derived consumer与CAS/验证/回滚，不另造配置DSL、任务判官或第二runtime；先修optional social revision崩溃、batch浅覆盖丢已有配置，并把既有inspect接到重载后回执。QQ status/README的无条件平台设置指令改为known/unknown与实测入站分层，不加虚构平台API或扩大权限。见08/11。

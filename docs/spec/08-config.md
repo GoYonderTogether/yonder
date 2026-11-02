@@ -111,6 +111,8 @@ identity:
 
 工作区读取沿执行环境，事实只投影当前 Agent 与 home 的安全状态和复查入口，不展示配置正文、凭据、其他 Agent 的私密内容或未经筛选的解析错误。脚本退出成功、文件读回、接纳、路由、运行与送达互不替代；宿主不根据工具命令或模型措辞猜测写入者、不自动回滚，也不替模型宣告任务完成。
 
+social 的首条目标策略可以从完全未写social的Agent初始化：缺省policy有稳定revision，inspect与CAS update不得因可选字段缺失抛类型错误。conversation patch对已知嵌套batch字段做局部合并，保留未指定的同级窗口、count与限制；完整替换/删除仍沿已声明契约，不发明递归合并任意对象。update成功重载后复用既有target inspect返回本次policy revision、配置接纳与source/consumer后置事实；接纳、静态路径可用和新输入实际运行/送达继续分开，未知显式unknown。未选plugin、scope排除或source不支持派生时给准确缺口与既有修复入口，不默认扩大profile权限。
+
 ### 3.2 自管理的会话运行事实
 
 复用全局 `inspect` 与运行中已接纳快照，提供一份共享的只读会话运行投影；管理反馈、social 路由检查与已验证的 parent-request 上下文共用它，不各自重写匹配、参与策略或权限规则，不新增执行系统、意图匹配器或任务完成判官。

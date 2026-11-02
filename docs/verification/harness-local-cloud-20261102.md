@@ -216,3 +216,20 @@ v12后源码收口：15add313以内部必填类型把focused贯穿willing→Grou
 同一只读prepared190206快照：operability JSON对象17091字符/字节→7237字符/字节；整个owner frame JSON字符18346→8492。8条完整fact保留7、omitted=1/truncated=true；详情仍可inspect。原有3条owner历史窗口不改，约20k post-turn其他上下文未改；未重测最终新prepared turn总大小，不把原escaped conversation行与新raw JSON混同比较。
 
 当前源树最终构建scripts/build-tsc.mjs通过；整合来源、私有主会话、摘要预算/unknown/revision、parent、公共提示词、CLI、群关注/context/rhythm/delivery/recovery：15文件59项全部通过（69.15秒，排除.cache）。最终全量typecheck、size、相关Biome与diff通过，stable prompt原7300词上限保持。下一正式版/本机更新和两端原话实测仍未执行，不将此源码阶段计作完整交付。
+
+
+## v13：关注连续与有界视图上线，配置闭环仍未完整
+
+候选2ddb5f11（含15add313/f2790622）CI41506377340通过；AutoRelease41508821553唯一派发Release41508850220，正式v0.3.26110213/tag f41f484f3bc7f2d046db1fbcd3b9faefaaf6b4df。精确pin产品update verified=true/ready，event01M6EVDZ8RENSKAC6AC06659RM/updateId2c9be187-a978-47e7-a6d7-7a043446a880，原home/PID77028；新Feishu/QQ gateways约19:22:55Z全部就绪。
+
+全平台发布通过：tag CI41509084986，Windows双架构真实安装41509089476，Android41509093842，iOS TestFlight41509103090，Desktop41509098500。Desktop DMG首次runner capacity取消，其他CI成功后只重试该job125496737271一次，新job125505921379取得runner并成功。最终GitHub实查45资产四项native齐全，不把初始41/中途44当最终。Cloud同tag41509477042成功；Chrome实际/work读到最新v13主会话回复和输入框，公网build-version=13/同完整SHA，builtAt19:24:16.359Z。证据.cache/real-channel-v13-20261102/cloud-work-jarvis-loaded.json与cloud-version-browser.json。
+
+真实原话全部保留。QQfirst01M6EVFRHVB9QXC8SQ6BKWVYWR19:23:56先误称要邀请自己；但19:24:45实际parent请求01M6EVH8C2ZHNVY47CT998B2RW后，main150858核实已在本群原生收发，并由GPT公开更正。second01M6EVMW5BZT0CPSESRA5MCND119:26:43与third01M6EVP8595X5SFXNMC6TJYT9G19:27:28进入GPT批次并运行，公开承认普通消息收到，却把未查询的平台范围当作必须用户先改，没完成本轮GPT配置/重载/主发送。probe01M6EVWN4RMW48HTE7WZ94HNBW19:30:58在Jarvis回答后仍获GPT batch-ready01M6EVX7XS64RX634V81VAQM4319:31:18及run.end01M6EVXQZKG3KJ03D7988Q8ECG19:31:34，不能把兄弟“在”当该run；本次确有自身运行。
+
+飞书first01M6EVG8RBGHR795MV82MAB3RC19:24:12仍只复述旧配置；second01M6EVNENWGZEW6J55035D2NWM19:27:02后，main2确实向P1新发公告01M6EVNRHGP3AEHQ57A6YN860R19:27:12、delivery成功，并给DM回执。但仍称无需配置，P1probe01M6EVW71XAK3MRW7P15N161BY19:30:44只write，无模型链，故部分动作通过、整体未交付。原话/实际回复白名单见.cache/private-delivery-20261102/v13-original-conversations.md（600）。
+
+本轮进一步共享根因：QQ status/README无条件要求先把群范围设all，而插件没有bot_state查询（官方接口仅部分白名单）；这将unknown误报missing。f139c906按精确instance+group显示platformReceiveScope=unknown和basis=recorded-event的lastNativeIngress，local allowedGroups/groupParticipation分开，不冒平台永久全量证明、不发明API。不扩大权限或改真实群。
+
+另从默认分支发现可复现程序缺陷（不是声称当前P1已触发）：social未写时revision(undefined)会hash TypeError；conversation batch/signals局部patch会丢同级值。db2facfd/04072660复用既有effectivePolicy合并已声明的batch/signals，保留YAML其他键与注释、可初始化首条policy；重载后返回独立postcondition，配置接受、当前静态source/consumer与历史执行分栏，读取失败unknown而不撤销已成功重载。314f59d5/79acd0be重写公共功能语义：Agent判断需获准模型处理而非只存储，batch只是可用路径之一，显式模式与准入/权限不被改掉；不改Bot persona或在user message塞配置步骤。
+
+最终当前源树build-tsc通过，整合23文件118项全通过（76.38秒，排除.cache），typecheck、size、相关Biome/diff通过，原7300词预算保持。source-only QQ测试22项与social/相关prompt23项独立通过；早期QQ镜像误跑失败来自.cache，未算作source结果。下一正式版、本机更新与真实原话重验仍待执行，不以源码/平台发布通过冒完整交付。
