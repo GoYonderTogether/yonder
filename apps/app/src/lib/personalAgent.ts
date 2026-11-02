@@ -4,8 +4,8 @@ import { atom } from "nanostores";
 import { api } from "../api";
 import { $session } from "../store";
 
-/** 每个新账号自动得到的默认 Bot：中文名「小歪」（小 y），英文名 Yonder Bot。 */
-export const DEFAULT_BOT = { name: "小歪", englishName: "Yonder Bot" } as const;
+/** 每个新账号自动得到的默认 Bot：中文名「小未」（取自 Yonder 的中文名“未至之境”），英文名 Yonder Bot。 */
+export const DEFAULT_BOT = { name: "小未", englishName: "Yonder Bot" } as const;
 
 const revision = atom(0);
 const key = (account: string) => `yonder:personal-agent:${account}`;

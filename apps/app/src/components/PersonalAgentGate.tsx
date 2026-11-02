@@ -3,7 +3,7 @@ import { type ReactNode, useEffect } from "react";
 import { ensureDefaultBot, usePersonalAgent } from "../lib/personalAgent";
 import { useSocialService } from "../lib/useWorkEntry";
 
-/** 已登录用户直接进聊天列表；联系人加载完仍没有任何自己的 Bot 时，自动创建默认 Bot「小歪」。 */
+/** 已登录用户直接进聊天列表；联系人加载完仍没有任何自己的 Bot 时，自动创建默认 Bot「小未」。 */
 export function PersonalAgentGate({ children }: { children: ReactNode }) {
 	const { agents, me, isSuccess } = usePersonalAgent();
 	const social = useSocialService();

@@ -81,7 +81,7 @@ beforeEach(() => {
 			id: "conv1",
 			code: "ABC123",
 			kind: "dm",
-			title: "小歪",
+			title: "小未",
 			memberIds: ["me", "bot1"],
 			unread: 2,
 			last: {

@@ -556,7 +556,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 	const ownerBinding = owner.data;
 	const ownerEligible = other?.kind === "agent" && other.ownerId === me?.id && !!other.deviceId;
 	const agentOnline = other?.kind === "agent" && !!other.online;
-	// 云端 Bot（小歪）没有设备，不能显示「电脑离线」：只有绑了设备的 Agent 才提示离线。
+	// 云端 Bot（小未）没有设备，不能显示「电脑离线」：只有绑了设备的 Agent 才提示离线。
 	const cloudBot = other?.kind === "agent" && !other.deviceId && other.ownerId === me?.id;
 	const offlineAgent = other?.kind === "agent" && !other.online && !cloudBot;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 切换会话时重置
@@ -972,7 +972,7 @@ export function Composer({
 	reply?: Message;
 	onClearReply?: () => void;
 	offline: boolean;
-	/** 对方是没有设备的云端 Bot（小歪）：只能引导，不是「离线」 */
+	/** 对方是没有设备的云端 Bot（小未）：只能引导，不是「离线」 */
 	cloudBot?: boolean;
 	/** 私聊对象是 Bot 时传入：发完后重新取它的在线状态，避免页面里缓存的「在线」过期而漏掉离线提示 */
 	agentId?: string;
@@ -1196,7 +1196,7 @@ export function Composer({
 					value={text}
 					readOnly={sending}
 					rows={1}
-					placeholder={cloudBot ? "小歪暂时只能帮你开始" : offline ? OFFLINE_HINT : "输入消息"}
+					placeholder={cloudBot ? "小未暂时只能帮你开始" : offline ? OFFLINE_HINT : "输入消息"}
 					onChange={(e) => {
 						setMentionTokens(editedMentions(text, e.target.value, mentionTokens));
 						setText(e.target.value);

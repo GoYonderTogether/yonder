@@ -70,13 +70,13 @@ describe("通讯录的「我的 Bot」", () => {
 	it("在好友列表下方列出自己的 Bot，不列别人的 Bot", async () => {
 		api.contacts.mockResolvedValue([
 			{ id: "friend1", kind: "human", name: "阿明" },
-			{ id: "bot1", kind: "agent", name: "小歪", ownerId: "me" },
+			{ id: "bot1", kind: "agent", name: "小未", ownerId: "me" },
 			{ id: "bot2", kind: "agent", name: "别人的 Bot", ownerId: "someone" },
 		]);
 		await render();
 		const section = container.querySelector('[data-testid="my-bots"]');
 		expect(section?.textContent).toContain("我的 Bot");
-		expect(section?.textContent).toContain("小歪");
+		expect(section?.textContent).toContain("小未");
 		expect(section?.textContent).not.toContain("别人的 Bot");
 		// 好友在前，我的 Bot 在后。
 		const text = container.textContent ?? "";
@@ -84,8 +84,8 @@ describe("通讯录的「我的 Bot」", () => {
 	});
 
 	it("「发消息」直接开与这个 Bot 的私聊", async () => {
-		api.contacts.mockResolvedValue([{ id: "bot1", kind: "agent", name: "小歪", ownerId: "me" }]);
-		api.openDm.mockResolvedValue({ id: "conv1", code: "ABC123", kind: "dm", title: "小歪", memberIds: ["me", "bot1"] });
+		api.contacts.mockResolvedValue([{ id: "bot1", kind: "agent", name: "小未", ownerId: "me" }]);
+		api.openDm.mockResolvedValue({ id: "conv1", code: "ABC123", kind: "dm", title: "小未", memberIds: ["me", "bot1"] });
 		await render();
 		const send = [...container.querySelectorAll("button")].find((b) => b.textContent?.includes("发消息"));
 		expect(send).toBeTruthy();

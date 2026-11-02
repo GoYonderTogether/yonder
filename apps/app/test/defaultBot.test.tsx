@@ -64,10 +64,10 @@ async function render(node: React.ReactNode) {
 	});
 }
 
-describe("默认 Bot 小歪", () => {
+describe("默认 Bot 小未", () => {
 	it("账号没有任何自己的 Bot 时自动创建一次（并发渲染也只一次）", async () => {
 		api.contacts.mockResolvedValue([{ id: "f1", kind: "agent", name: "别人的", ownerId: "other" }]);
-		api.ensureDefaultBot.mockResolvedValue({ id: "a1", kind: "agent", name: "小歪", ownerId: "me" });
+		api.ensureDefaultBot.mockResolvedValue({ id: "a1", kind: "agent", name: "小未", ownerId: "me" });
 		await render(
 			<>
 				<PersonalAgentGate>
@@ -80,7 +80,7 @@ describe("默认 Bot 小歪", () => {
 		);
 		expect(container.textContent).toContain("chat-list");
 		expect(api.ensureDefaultBot).toHaveBeenCalledTimes(1);
-		expect(api.ensureDefaultBot).toHaveBeenCalledWith({ name: "小歪", englishName: "Yonder Bot" });
+		expect(api.ensureDefaultBot).toHaveBeenCalledWith({ name: "小未", englishName: "Yonder Bot" });
 	});
 
 	it("已有自己的 Bot 时不创建，也不拦截到选择页", async () => {

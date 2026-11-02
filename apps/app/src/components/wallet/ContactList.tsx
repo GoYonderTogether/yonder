@@ -206,7 +206,7 @@ export function ContactList({ q, active }: { q: string; active?: string }) {
 	const failure = data ? null : error;
 	const hit = (a: Actor) => !q.trim() || a.name.includes(q.trim());
 	const friends = (data ?? []).filter((a) => a.kind === "human" && hit(a));
-	// 我的 Bot：自己名下（含云端小歪）的 Agent；别人公开的 Bot 不在这里列。
+	// 我的 Bot：自己名下（含云端小未）的 Agent；别人公开的 Bot 不在这里列。
 	const bots = (data ?? []).filter((a) => a.kind === "agent" && a.ownerId === me?.id && hit(a));
 	if (failure)
 		return (

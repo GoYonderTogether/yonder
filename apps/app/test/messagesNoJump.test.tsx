@@ -40,7 +40,7 @@ beforeEach(() => {
 	$session.set({ actor: { id: "me", kind: "human", name: "我" } });
 	api.actors.mockResolvedValue([]);
 	api.subscribe.mockReturnValue(() => {});
-	api.contacts.mockResolvedValue([{ id: "bot1", kind: "agent", name: "小歪", ownerId: "me" }]);
+	api.contacts.mockResolvedValue([{ id: "bot1", kind: "agent", name: "小未", ownerId: "me" }]);
 });
 
 afterEach(async () => {
@@ -81,11 +81,11 @@ describe("消息页不自动跳转", () => {
 
 	it("有会话时也不自动进入第一个会话", async () => {
 		api.conversations.mockResolvedValue([
-			{ id: "conv1", code: "ABC123", kind: "dm", title: "小歪", memberIds: ["me", "bot1"], unread: 0 },
+			{ id: "conv1", code: "ABC123", kind: "dm", title: "小未", memberIds: ["me", "bot1"], unread: 0 },
 		]);
 		await render();
 		expect(pathname).toBe("/");
-		expect(container.textContent).toContain("小歪");
+		expect(container.textContent).toContain("小未");
 		expect(container.querySelector("main")?.textContent).toBe("");
 		expect(container.querySelector('main svg[aria-hidden="true"]')).toBeTruthy();
 		expect(container.textContent).not.toContain("还没有会话");
@@ -94,7 +94,7 @@ describe("消息页不自动跳转", () => {
 
 	it("点「开始聊天」才开私聊并进入会话", async () => {
 		api.conversations.mockResolvedValue([]);
-		api.openDm.mockResolvedValue({ id: "conv1", code: "ABC123", kind: "dm", title: "小歪", memberIds: ["me", "bot1"] });
+		api.openDm.mockResolvedValue({ id: "conv1", code: "ABC123", kind: "dm", title: "小未", memberIds: ["me", "bot1"] });
 		await render();
 		const start = button("开始聊天");
 		expect(start).toBeTruthy();
