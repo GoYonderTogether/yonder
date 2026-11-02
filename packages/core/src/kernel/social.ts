@@ -204,19 +204,15 @@ export function createSocial(options: {
 			if (patch.judge && patch.judge.preset !== before.judge?.preset)
 				throw new SocialError("forbidden", "Judge must already be configured", { reason: "scope_denied" });
 			const previousConversationPolicy = disk.social?.conversations?.[request.conv];
-			const conversationPolicy = {
-				...previousConversationPolicy,
-				...patch,
-				...(previousConversationPolicy?.batch || patch.batch
-					? { batch: { ...previousConversationPolicy?.batch, ...patch.batch } }
-					: {}),
-			};
+			const conversationPolicy = effectivePolicy(previousConversationPolicy, patch);
 			after = effectivePolicy(disk.social?.defaults?.[kind], conversationPolicy);
 			if (request.dryRun !== false) return { before, after, affected: [request.conv], revision: current };
-			document.set("social", {
-				...disk.social,
-				conversations: { ...disk.social?.conversations, [request.conv]: conversationPolicy },
-			});
+			if (disk.social === undefined) {
+				document.set("social", { conversations: { [request.conv]: conversationPolicy } });
+			} else {
+				if (!disk.social.conversations) document.setIn(["social", "conversations"], {});
+				document.setIn(["social", "conversations", request.conv], conversationPolicy);
+			}
 			const candidate = parseAgentConfig(document.toString(), file, request.agent);
 			const agents = new Map(options.agents);
 			agents.set(request.agent, { ...candidate, bindings: agent.bindings });

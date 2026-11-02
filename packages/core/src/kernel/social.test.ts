@@ -148,23 +148,30 @@ test("verified owner requests preview or apply directly and preserve revision co
 	const home = await tempHome("yonder-social-policy-");
 	try {
 		const file = join(home, "agent.yaml");
-		const raw = JSON.stringify({
-			schema: 1,
-			id: "main",
-			name: "Main",
-			owner: "person:owner",
-			defaultProfile: "default",
-			profiles: { default: {} },
-			bindings: [],
-			social: {
-				enabled: true,
-				authorized: { conversations: ["conv:test:group"] },
-				defaults: { group: { mode: "batch" } },
-				conversations: {
-					"conv:test:group": { batch: { count: 9, delaySeconds: 17, maxMessages: 23, maxBytes: 8192 } },
+		const raw = JSON.stringify(
+			{
+				schema: 1,
+				id: "main",
+				name: "Main",
+				owner: "person:owner",
+				defaultProfile: "default",
+				profiles: { default: {} },
+				bindings: [],
+				social: {
+					enabled: true,
+					authorized: { conversations: ["conv:test:group"] },
+					defaults: { group: { mode: "batch" } },
+					conversations: {
+						"conv:test:group": {
+							batch: { count: 9, delaySeconds: 17, maxMessages: 23, maxBytes: 8192 },
+							signals: { botMention: "record", ownerMention: "consider" },
+						},
+					},
 				},
 			},
-		});
+			null,
+			2,
+		).replace('    "conversations": {', '    # preserve conversation comment\n    "conversations": {');
 		await writeFile(file, raw);
 		await writeFile(join(home, "yonder.yaml"), "{}");
 		const agents = new Map([["main", parseAgentConfig(raw)]]);
@@ -217,6 +224,7 @@ test("verified owner requests preview or apply directly and preserve revision co
 			expectedRevision: initial.revision,
 			patch: {
 				mode: "mention" as const,
+				signals: { botMention: "respond" as const },
 				triggers: { regex: ["^设计|界面$"], exclude: ["广告"], minLength: 2, maxLength: 2048 },
 			},
 			reason: "owner request",
@@ -240,10 +248,12 @@ test("verified owner requests preview or apply directly and preserve revision co
 		// Trusted continuation source resolution is injected from the kernel's durable event ledger.
 		const continuation = { ...ctx, event: { ...ownerEvent, id: "continued", type: "runtime.continuation" } };
 		await service.update({ ...request, dryRun: false }, continuation);
-		expect(parseAgentConfig(await readFile(file, "utf8")).social?.conversations?.[request.conv]?.mode).toBe("mention");
-		expect(parseAgentConfig(await readFile(file, "utf8")).social?.conversations?.[request.conv]?.triggers).toEqual(
-			request.patch.triggers,
-		);
+		const appliedConfig = await readFile(file, "utf8");
+		const appliedPolicy = parseAgentConfig(appliedConfig).social?.conversations?.[request.conv];
+		expect(appliedPolicy?.mode).toBe("mention");
+		expect(appliedPolicy?.triggers).toEqual(request.patch.triggers);
+		expect(appliedPolicy?.signals).toEqual({ botMention: "respond", ownerMention: "consider" });
+		expect(appliedConfig).toContain("# preserve conversation comment");
 		expect(events.map((e) => (e.data as { result: string }).result)).toEqual(["rejected", "rejected", "applied"]);
 		await expect(service.update({ ...request, dryRun: false }, ctx)).rejects.toMatchObject({ code: "conflict" });
 		await service.auditDenied(
