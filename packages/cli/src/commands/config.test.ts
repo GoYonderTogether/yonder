@@ -226,6 +226,14 @@ test("agents show summarizes scope and bot source facts without changing config 
 		expect(stderrText).not.toContain("wake=run configuration");
 		expect(stderrText).toContain("relation");
 		expect(stderrText).not.toContain("bot sender caused");
+		const summaryText = stderrText.slice(stderrText.indexOf(": {") + 2).trim();
+		const summary = JSON.parse(summaryText);
+		expect(summary).toMatchObject({
+			agent: "main",
+			scope: { basis: "current-agent-exact-binding-conversations", globalMembershipDirectory: false },
+		});
+		expect(summaryText).not.toContain('"values"');
+		expect(summaryText).not.toContain('"plugins"');
 	} finally {
 		managed.mockRestore();
 		out.mockRestore();

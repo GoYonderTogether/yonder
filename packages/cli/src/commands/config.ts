@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { env, stderr } from "node:process";
-import { inspectSkills } from "@yonder/core";
+import { inspectSkills, summarizeAgentOperability } from "@yonder/core";
 import { homeFor, managed, namedOptions, type Options, output, print, skillsUsage, UsageError } from "./context.js";
 
 function currentInspectContext(home: string) {
@@ -21,151 +21,6 @@ function currentInspectContext(home: string) {
 			return { home: runtimeHome, agent, profile };
 	} catch {}
 	return undefined;
-}
-
-const short = (value: unknown, max = 96) => (typeof value === "string" ? value.slice(0, max) : undefined);
-const shortList = (value: unknown, max = 12) =>
-	Array.isArray(value) ? value.filter((item) => typeof item === "string").slice(0, max) : undefined;
-function operabilitySummary(value: unknown) {
-	const report = value as {
-		status?: string;
-		limit?: number;
-		truncated?: boolean;
-		reason?: string;
-		conversations?: Array<Record<string, unknown>>;
-	};
-	return {
-		status: report.status ?? "unknown",
-		limit: report.limit,
-		truncated: report.truncated ?? false,
-		reason: short(report.reason),
-		conversations: (report.conversations ?? []).map((item) => {
-			const history = item.history as Record<string, unknown> | undefined;
-			const route = history?.route as Record<string, unknown> | undefined;
-			const policy = (history?.participation as Record<string, unknown> | undefined)?.policy as
-				| Record<string, unknown>
-				| undefined;
-			const prediction = item.prediction as Record<string, unknown> | undefined;
-			const predictedParticipation = prediction?.participation as Record<string, unknown> | undefined;
-			const scope = prediction?.participationScope as Record<string, unknown> | undefined;
-			const defaults = scope?.defaults as Record<string, unknown> | undefined;
-			const override = scope?.conversationOverride as Record<string, unknown> | undefined;
-			const consumer = prediction?.consumer as Record<string, unknown> | undefined;
-			const consumerReason = short(consumer?.reason, 72);
-			const capabilities = prediction?.capabilities as Record<string, unknown> | undefined;
-			const tools = capabilities?.tools as Record<string, unknown> | undefined;
-			const execution = history?.execution as { state?: string; runs?: Array<Record<string, unknown>> } | undefined;
-			const delivery = history?.delivery as { state?: string; receipts?: Array<Record<string, unknown>> } | undefined;
-			const sample = item.sample as Record<string, unknown> | undefined;
-			const sampleMentions = sample?.mentions as Record<string, unknown> | undefined;
-			const processing = () => {
-				const reason = short(predictedParticipation?.reason, 48);
-				const senderFact = typeof sample?.senderIsBot === "boolean" ? `; senderIsBot=${sample.senderIsBot}` : "";
-				if (prediction?.route === "dropped")
-					return `route dropped${reason ? ` (participation reason=${reason})` : ""}${senderFact}; see route/history facts`;
-				if (
-					prediction?.wake === "write" &&
-					(consumerReason === "outside-social-scope" || scope?.includesConversation === false)
-				)
-					return `record-only: wake=write; social consumer not applicable because scope excludes this conversation; no social batch path selected${senderFact}`;
-				if (reason === "batch" || reason === "folded")
-					return `policy-controlled ${reason} candidate; final route/run unproven${senderFact}`;
-				if (reason && predictedParticipation?.run === false)
-					return `record-only: participation reason=${reason}; no model run predicted by this participation decision${senderFact}`;
-				if (prediction?.wake === "write")
-					return `wake=write records input without direct model execution; later batch processing unproven${senderFact}`;
-				if (prediction?.wake === "run")
-					return `wake=run configuration; current admission/execution unproven${senderFact}`;
-				return `wake/run path unknown${prediction?.state ? ` (prediction=${prediction.state})` : ""}${reason ? `; participation reason=${reason}` : ""}; current admission/execution unproven${senderFact}`;
-			};
-			return {
-				status: item.status ?? "unknown",
-				reason: short(item.reason),
-				management: item.management,
-				sample: sample
-					? {
-							eventId: short(sample.eventId),
-							conv: short(sample.conv, 120),
-							kind: short(sample.kind, 32),
-							from: short(sample.from, 120),
-							relation: sample.relation,
-							senderIsBot: sample.senderIsBot,
-							mentioned: sample.mentioned,
-							nativeKind: short(sample.nativeKind, 48),
-							mentions: sampleMentions
-								? {
-										bot: sampleMentions.bot,
-										owner: sampleMentions.owner,
-										everyone: sampleMentions.everyone,
-									}
-								: undefined,
-						}
-					: undefined,
-				history: {
-					route: route
-						? {
-								binding: short(route.binding),
-								session: short(route.session),
-								profile: short(route.profile),
-								wake: route.wake,
-								dropped: route.dropped,
-							}
-						: undefined,
-					participation: history?.participation
-						? {
-								reason: (history.participation as Record<string, unknown>).reason,
-								plugin: (history.participation as Record<string, unknown>).plugin,
-								mode: policy?.mode,
-								batchRun: (policy?.batch as Record<string, unknown> | undefined)?.run,
-							}
-						: undefined,
-					execution: execution
-						? {
-								state: execution.state,
-								runs: (execution.runs ?? []).slice(0, 3),
-								more: Math.max(0, (execution.runs?.length ?? 0) - 3),
-							}
-						: undefined,
-					delivery: delivery
-						? {
-								state: delivery.state,
-								receipts: (delivery.receipts ?? []).slice(0, 3),
-								more: Math.max(0, (delivery.receipts?.length ?? 0) - 3),
-							}
-						: undefined,
-				},
-				prediction: prediction
-					? {
-							state: prediction.state,
-							route: prediction.route,
-							dropReason: prediction.dropReason,
-							processing: processing(),
-							binding: short(prediction.binding),
-							profile: short(prediction.profile),
-							wake: prediction.wake,
-							participation: predictedParticipation,
-							participationScope: {
-								enabled: scope?.enabled,
-								includesConversation: scope?.includesConversation,
-								mode: override?.mode ?? defaults?.mode,
-								batchRun: ((override?.batch ?? defaults?.batch) as Record<string, unknown> | undefined)?.run,
-							},
-							consumer,
-							reply: prediction.reply,
-							capabilities: {
-								values: shortList(capabilities?.values),
-								plugins: shortList(capabilities?.plugins),
-								offer: shortList(tools?.offer),
-								search: shortList(tools?.search),
-								channelInstances: shortList(capabilities?.channelInstances),
-								messageSend: capabilities?.messageSend,
-							},
-						}
-					: undefined,
-				configuration: item.configuration,
-			};
-		}),
-	};
 }
 
 /** `agents`/`presets`, `plugins`/`models`/`inspect` and `skills`: management over the control socket. */
@@ -215,7 +70,7 @@ export async function runConfig(command: string, options: Options, rest: string[
 						stderr.write("Session operability: unknown (runtime evidence unavailable; config stdout remains valid)\n");
 					else
 						stderr.write(
-							`Session operability (current runtime; may differ from config stdout): ${JSON.stringify(operabilitySummary(inspection.operability ?? { status: "unknown" }))}\n`,
+							`Session operability (current runtime; may differ from config stdout): ${JSON.stringify(summarizeAgentOperability(id ?? "unknown", (inspection.operability ?? { status: "unknown", limit: 0, truncated: false, conversations: [] }) as Parameters<typeof summarizeAgentOperability>[1]))}\n`,
 						);
 				} catch {
 					stderr.write("Session operability: unknown (runtime inspection unavailable)\n");

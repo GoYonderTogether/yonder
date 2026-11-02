@@ -38,6 +38,7 @@ export {
 	packageVersion,
 	setNamedCredential,
 } from "./kernel/index.js";
+export { summarizeAgentOperability } from "./kernel/operability-summary.js";
 export {
 	checkRelease,
 	compareVersions,

@@ -10,6 +10,7 @@ import { parentOrigins } from "../tools/parent-origin.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
 import type { AgentOperabilityFact, OperabilitySelector, SessionOperabilityFact } from "./operability.js";
+import { summarizeAgentOperability } from "./operability-summary.js";
 import { batchSourceFrame } from "./source-context.js";
 import { createSubagentTool } from "./subagents.js";
 import { filesFor, projectRulesFor } from "./workspace.js";
@@ -116,6 +117,7 @@ async function ownerPrivateMainContext(
 			conversations: [],
 		};
 	}
+	const summary = summarizeAgentOperability(agent, operability);
 	return JSON.stringify({
 		scope: "owner-private-main",
 		identity: { ...agentIdentity(agent, agents.get(agent)?.name), profile: session.profile, session: session.id },
@@ -126,7 +128,7 @@ async function ownerPrivateMainContext(
 		groupContextMerged: false,
 		expandsOwnerPermissions: false,
 		history,
-		operability,
+		operability: summary,
 	});
 }
 

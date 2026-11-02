@@ -147,7 +147,11 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 			expect(value.historyContextOnly).toBe(true);
 			expect(value.groupContextMerged).toBe(false);
 			expect(value.expandsOwnerPermissions).toBe(false);
-			expect(value.operability.conversations[0].selector.conv).toBe(`conv:qq:${id}`);
+			expect(value.operability).toMatchObject({
+				agent: id,
+				scope: { basis: "current-agent-exact-binding-conversations", globalMembershipDirectory: false },
+				conversations: [{ conv: `conv:qq:${id}` }],
+			});
 		}
 	} finally {
 		await db.close();
