@@ -4,8 +4,10 @@ import type { Channel, ToolContext, YEvent } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseAgentConfig, type YonderConfig } from "../config/index.js";
+import type { Principal } from "../control/method-types.js";
 import type { Store } from "../store/index.js";
-import { createSocial, createSocialSupport } from "./social.js";
+import { createSocial } from "./social.js";
+import { createSocialSupport } from "./social-support.js";
 
 test("social inspection separates stored route facts from configured match prediction", async () => {
 	const raw = JSON.stringify({
@@ -319,6 +321,160 @@ test("verified owner requests preview or apply directly and preserve revision co
 				);
 			}
 		}
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("explicit ordinary batches preflight the candidate before preview or write", async () => {
+	const home = await tempHome("yonder-social-batch-preflight-");
+	try {
+		const conv = "conv:test:group";
+		const file = join(home, "agent.yaml");
+		const raw = JSON.stringify({
+			schema: 1,
+			id: "main",
+			name: "Main",
+			owner: "person:owner",
+			defaultProfile: "feishu-p1",
+			profiles: { "feishu-p1": { plugins: [] } },
+			bindings: [],
+			social: {
+				enabled: true,
+				authorized: { conversations: [conv] },
+				scope: ["conv:test:other"],
+				defaults: { group: { mode: "batch" } },
+				conversations: {},
+			},
+		});
+		await writeFile(file, raw);
+		await writeFile(join(home, "yonder.yaml"), "{}");
+		const agents = new Map([["main", parseAgentConfig(raw)]]);
+		let routeState: "missing" | "ready" | "unknown" = "missing";
+		let candidateChecks = 0;
+		let validations = 0;
+		const service = createSocial({
+			home,
+			config: { agents: [{ id: "main", workspace: "." }] } as YonderConfig,
+			agents,
+			assert: () => {},
+			owner: async () => true,
+			ownerInput: async (_agent, caller) => caller.event?.from === "acct:test:owner",
+			target: async () => ({ kind: "group" }),
+			record: async () => {},
+			validate: async () => {
+				validations++;
+			},
+			reload: async () => {
+				agents.set("main", parseAgentConfig(await readFile(file, "utf8")));
+			},
+			inspectRoute: async (_agent, _conv, _event, _policy, candidate) => {
+				if (candidate) candidateChecks++;
+				const operability =
+					routeState === "unknown"
+						? { status: "unknown" as const, reason: "no trusted sample" }
+						: {
+								status: "observed" as const,
+								prediction: {
+									state: "matched" as const,
+									profile: "feishu-p1",
+									participation: { plugin: "social" },
+									participationScope: { includesConversation: routeState === "ready" },
+									consumer:
+										routeState === "missing"
+											? {
+													state: "unavailable" as const,
+													profile: "feishu-p1",
+													plugin: "social",
+													pluginSelected: false,
+													matchingConsumer: false,
+												}
+											: { state: "available" as const, profile: "feishu-p1", plugin: "social", derived: false },
+									capabilities: {
+										values: [],
+										plugins: candidate?.profiles["feishu-p1"]?.plugins ?? [],
+										tools: { offer: [], search: [] },
+										messageSend: false,
+									},
+								},
+							};
+				return { detail: "candidate route", capabilityGaps: [], operability };
+			},
+		});
+		const owner: Principal = { transport: "socket", kind: "local", id: "local-owner", scopes: ["admin", "owner"] };
+		const request = async (patch: Record<string, unknown>, expectedRevision: string, dryRun = true) =>
+			service.update(
+				{ agent: "main", conv, expectedRevision, patch: patch as never, reason: "owner request", dryRun },
+				owner,
+			);
+		const firstRevision = (await service.inspect({ agent: "main", conv }, owner)).revision;
+		const original = await readFile(file, "utf8");
+		for (const dryRun of [true, false]) {
+			let failure: unknown;
+			try {
+				await request({ batch: { run: true } }, firstRevision, dryRun);
+			} catch (error) {
+				failure = error;
+			}
+			expect(failure).toMatchObject({ code: "invalid_params" });
+			const preflight = (failure as { data?: { preflight?: string } })?.data?.preflight;
+			expect(preflight).toContain('"dependency":"social.scope"');
+			expect(JSON.parse(preflight ?? "{}")).toMatchObject({
+				state: "blocked",
+				gaps: [
+					{ dependency: "social.scope", field: "social.scope" },
+					{ dependency: "participation-plugin", object: "agent:main.profiles.feishu-p1", field: "plugins" },
+					{ dependency: "batch-consumer", fields: ["match", "profile", "session", "wake", "reply"] },
+				],
+			});
+			expect(await readFile(file, "utf8")).toBe(original);
+		}
+		expect(candidateChecks).toBe(2);
+		expect(validations).toBe(0);
+		await expect(request({ batch: { run: true } }, "stale")).rejects.toMatchObject({ code: "conflict" });
+		expect(candidateChecks).toBe(2);
+
+		const scopedRaw = (await readFile(file, "utf8"))
+			.replace('"conv:test:other"', `"${conv}"`)
+			.replace('"plugins":[]', '"plugins":["social"]');
+		const scoped = parseAgentConfig(scopedRaw);
+		await writeFile(file, JSON.stringify(scoped));
+		agents.set("main", scoped);
+		routeState = "unknown";
+		const scopedRevision = (await service.inspect({ agent: "main", conv }, owner)).revision;
+		await expect(request({ mode: "batch", batch: { run: true } }, scopedRevision)).resolves.toMatchObject({
+			after: { mode: "batch" },
+		});
+		routeState = "ready";
+		const readyRevision = (await service.inspect({ agent: "main", conv }, owner)).revision;
+		await expect(request({ batch: { run: true } }, readyRevision, false)).resolves.toMatchObject({
+			after: { mode: "batch" },
+		});
+
+		const afterReady = (await service.inspect({ agent: "main", conv }, owner)).revision;
+		await expect(request({ mode: "batch" }, afterReady)).resolves.toMatchObject({ after: { mode: "batch" } });
+		await request({ mode: "record" }, afterReady);
+		await request({ mode: "mute" }, afterReady);
+		expect(candidateChecks).toBe(5);
+		const visitor = {
+			agent: "main",
+			session: "s",
+			profile: "feishu-p1",
+			capabilities: ["admin"],
+			event: { id: "visitor", type: "message.in", from: "acct:test:visitor", conv, data: { kind: "group" } },
+		} as unknown as ToolContext;
+		await expect(
+			service.update(
+				{
+					agent: "main",
+					conv,
+					expectedRevision: afterReady,
+					patch: { batch: { run: true } },
+					reason: "visitor request",
+				},
+				visitor,
+			),
+		).rejects.toMatchObject({ code: "forbidden" });
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

@@ -2,12 +2,8 @@ import type { Channel, Hook } from "@yonder/sdk";
 import type { AgentConfig } from "../config/index.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
 import type { Store } from "../store/index.js";
-import {
-	type AgentOperabilityFact,
-	type OperabilitySelector,
-	projectAgentOperability,
-	projectConversationOperability,
-} from "./operability.js";
+import { projectAgentOperability } from "./agent-operability.js";
+import { type AgentOperabilityFact, type OperabilitySelector, projectConversationOperability } from "./operability.js";
 
 export async function extendRuntimeInspection(options: {
 	result: unknown;

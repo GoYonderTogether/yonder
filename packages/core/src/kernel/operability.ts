@@ -98,14 +98,6 @@ export type AgentOperabilityFact = {
 	conversations: SessionOperabilityFact[];
 };
 
-const exactConversations = (agent: AgentConfig) => [
-	...new Set(
-		agent.bindings.flatMap((binding) => {
-			const conv = binding.match.conv;
-			return typeof conv === "string" ? [conv] : (conv ?? []);
-		}),
-	),
-];
 async function sampleFor(store: Store, selector: OperabilitySelector): Promise<{ event?: YEvent; unknown?: string }> {
 	if (selector.eventId) {
 		const page = await store.events.query({
@@ -146,6 +138,7 @@ export async function projectConversationOperability(options: {
 	channels: Map<string, Channel>;
 	hooks: ReadonlyMap<string, readonly Hook[]>;
 	configuration?: SessionOperabilityFact["configuration"];
+	batchRequested?: boolean;
 }): Promise<SessionOperabilityFact> {
 	const { agent, selector, store } = options;
 	if (!selector.conv && !selector.eventId)
@@ -266,7 +259,7 @@ export async function projectConversationOperability(options: {
 				state: "not-applicable",
 				...(outsideScope ? { reason: "outside-social-scope" } : {}),
 			};
-			if (participation?.reason === "batch") {
+			if (participation?.reason === "batch" || options.batchRequested) {
 				const result = await batchConsumerForSource(currentAgent, event, match, channel, store, plugin);
 				consumer =
 					"issue" in result
@@ -442,59 +435,5 @@ export async function projectConversationOperability(options: {
 			authority: "existing local agent management authorization required",
 		},
 		...(options.configuration ? { configuration: options.configuration } : {}),
-	};
-}
-
-export async function projectAgentOperability(options: {
-	agent: AgentConfig;
-	agents: Iterable<AgentConfig>;
-	selector?: OperabilitySelector;
-	store?: Store;
-	channels?: Map<string, Channel>;
-	hooks?: ReadonlyMap<string, readonly Hook[]>;
-	configuration?: SessionOperabilityFact["configuration"];
-}): Promise<AgentOperabilityFact> {
-	const limit = 20;
-	if (!options.store || !options.channels || !options.hooks)
-		return {
-			status: "unknown",
-			limit,
-			truncated: false,
-			conversations: [
-				{ status: "unknown", selector: options.selector ?? {}, reason: "runtime session evidence is unavailable" },
-			],
-		};
-	const selector = options.selector ?? {};
-	const convs =
-		selector.conv || selector.eventId
-			? [selector.conv].filter((item): item is string => !!item)
-			: exactConversations(options.agent).slice(0, limit);
-	if (selector.eventId && !selector.conv) {
-		const sample = await sampleFor(options.store, selector);
-		if (sample.event?.conv) convs.push(sample.event.conv);
-	}
-	const unique = [...new Set(convs)];
-	const truncated = !selector.conv && !selector.eventId && exactConversations(options.agent).length > limit;
-	const conversations = await Promise.all(
-		unique.map((conv) =>
-			projectConversationOperability({
-				agent: options.agent,
-				agents: options.agents,
-				selector: { conv, ...(selector.eventId ? { eventId: selector.eventId } : {}) },
-				store: options.store!,
-				channels: options.channels!,
-				hooks: options.hooks!,
-				configuration: options.configuration,
-			}),
-		),
-	);
-	if (selector.eventId && !unique.length)
-		conversations.push({ status: "unknown", selector, reason: "event is not a stored message.in with a conversation" });
-	return {
-		status: conversations.some((item) => item.status === "observed") ? "observed" : "unknown",
-		limit,
-		truncated,
-		...(!unique.length && !selector.eventId ? { reason: "agent has no exact-conversation source bindings" } : {}),
-		conversations,
 	};
 }

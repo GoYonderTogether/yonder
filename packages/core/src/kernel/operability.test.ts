@@ -3,8 +3,10 @@ import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
 import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
-import { projectAgentOperability, projectConversationOperability } from "./operability.js";
+import { projectAgentOperability } from "./agent-operability.js";
+import { projectConversationOperability } from "./operability.js";
 import { socialPluginHooks } from "./social-plugin.test-support.js";
+import { batchPreflightData } from "./social-preflight.js";
 
 test("inspect projects bounded exact-conversation facts and follows QQ batch source edges", async () => {
 	const conv = "conv:qq:group:target";
@@ -245,6 +247,36 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 		});
 		expect(feishuFact?.sample).not.toHaveProperty("senderIsBot");
 		expect(JSON.stringify(report)).not.toContain("private body");
+		const qqOutsideScopeAgent = parseAgentConfig(
+			JSON.stringify({
+				...agent,
+				social: { ...agent.social, scope: [outside] },
+				bindings: agent.bindings.map((binding) =>
+					binding.id === "qq-source"
+						? { ...binding, match: { ...binding.match, channel: "qq", kind: "group" } }
+						: binding,
+				),
+			}),
+		);
+		const qqOutsideScope = await projectConversationOperability({
+			agent: qqOutsideScopeAgent,
+			agents: [qqOutsideScopeAgent, foreign],
+			selector: { conv, eventId: qq.id },
+			store,
+			channels: new Map([["qq", channel]]),
+			hooks,
+			batchRequested: true,
+		});
+		expect(qqOutsideScope.prediction).toMatchObject({
+			participation: { reason: "batch" },
+			participationScope: { includesConversation: false },
+			consumer: { state: "available" },
+		});
+		await expect(
+			batchPreflightData("main", conv, { mode: "batch", batch: { run: true } }, qqOutsideScopeAgent, async () => ({
+				operability: qqOutsideScope,
+			})),
+		).resolves.toBeUndefined();
 		const recordAgent = parseAgentConfig(
 			JSON.stringify({
 				schema: 1,

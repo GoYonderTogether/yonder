@@ -155,3 +155,31 @@ test("非主人调用被拒绝", async () => {
 	expect(result).toEqual({ text: expect.stringContaining("forbidden"), isError: true });
 	expect((await service.inspect({ agent: "main", conv }, owner)).policy).toEqual({});
 });
+
+test("普通批次预检错误将结构化修复项提供给模型", async () => {
+	const service = {
+		...socialStore().service,
+		update: async () => {
+			throw Object.assign(new Error("Ordinary batch processing is blocked"), {
+				data: { preflight: JSON.stringify({ state: "blocked", gaps: [{ dependency: "batch-consumer" }] }) },
+			});
+		},
+	} as SocialAPI;
+	const { call } = tools(service);
+	const result = await call(
+		"social_update",
+		{
+			agent: "main",
+			conv,
+			expectedRevision: "revision-1",
+			patch: { mode: "batch", batch: { run: true } },
+			reason: "owner request",
+		},
+		owner,
+	);
+	expect(result).toMatchObject({ isError: true });
+	expect(JSON.parse(result.text)).toMatchObject({
+		error: "Ordinary batch processing is blocked",
+		details: { preflight: { state: "blocked", gaps: [{ dependency: "batch-consumer" }] } },
+	});
+});
