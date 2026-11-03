@@ -49,7 +49,9 @@ describe("Feishu read-only conversation background", () => {
 				emptyLedger,
 			);
 			expect(text).not.toContain("历史读取未完成");
-			expect(text).toContain("Second");
+			expect(text).toContain("消息ID:ahead-first");
+			expect(text).toContain("消息ID:ahead-latest");
+			expect(text.match(/原件已在当前正文独立提供/g)).toHaveLength(2);
 			expect(text).toContain("待处理ID中有0条");
 			const range = new URL(String(api.request.mock.calls[0]?.[0]), "https://feishu.invalid").searchParams;
 			expect(range.get("start_time")).toBe(String(Math.floor((now + 2000) / 1000)));
@@ -58,29 +60,79 @@ describe("Feishu read-only conversation background", () => {
 			clock.mockRestore();
 		}
 	});
-	it("shows the old pending greeting together with later user and bot replies, not as new requests", async () => {
+	it("shows current pending metadata without copying its body into history", async () => {
 		const api = client([
 			{
 				items: [
 					row("bot-answer", now - 100, "Already answered", "app"),
 					row("other", now - 200, "Other bot reply", "app"),
 					row("user-new", now - 300, "New question"),
-					row("old-greeting", now - 5000, "Hi"),
+					row("old-greeting", now - 5000, "Current body stays in the original input"),
 				],
 			},
 			{ items: [row("prior", now - 6000, "Earlier context")] },
 		]);
-		const text = await conversationContext(api, event(), signal(), emptyLedger);
-		expect(text).toContain("本次待处理项（原输入独立提供）");
+		const text = await conversationContext(
+			api,
+			event({ text: "Current body stays in the original input" }),
+			signal(),
+			emptyLedger,
+		);
+		expect(text).toContain("本次待处理项；原件在当前正文独立提供");
+		expect(text).toContain("消息ID:old-greeting");
+		expect(text).toContain("原件已在当前正文独立提供");
+		expect(text).not.toContain("Current body stays in the original input");
 		expect(text).toContain("仅背景，不是待执行请求");
 		expect(text).toContain("app:app-id");
 		expect(text).toContain("Already answered");
 		expect(text).toContain("Other bot reply");
-		expect(text.indexOf("Earlier context")).toBeLessThan(text.indexOf("Hi"));
-		expect(text.indexOf("Hi")).toBeLessThan(text.indexOf("New question"));
+		expect(text.indexOf("Earlier context")).toBeLessThan(text.indexOf("New question"));
+		expect(text.indexOf("New question")).toBeLessThan(text.indexOf("Already answered"));
 		expect(api.request).toHaveBeenCalledTimes(2);
 		expect(text).toContain("固定截止:");
 		expect(Buffer.byteLength(text)).toBeLessThanOrEqual(65536);
+	});
+	it("keeps a different native ID with identical text as historical context", async () => {
+		const api = client([
+			{
+				items: [
+					row("pending-id", now - 300, "Same native text", "user", {
+						parent_id: "quoted-source",
+						thread_id: "thread-1",
+						root_id: "root-1",
+					}),
+					row("historical-id", now - 200, "Same native text"),
+					row("pending-image", now - 100, "", "user", {
+						thread_id: "thread-1",
+						deleted: true,
+						msg_type: "image",
+						body: { content: '{"image_key":"pending-image"}' },
+					}),
+				],
+			},
+		]);
+		const text = await conversationContext(
+			api,
+			event({
+				text: "Same native text",
+				threadId: "thread-1",
+				originals: [
+					{ messageId: "pending-id", createdAt: String(now - 300) },
+					{ messageId: "pending-image", createdAt: String(now - 100) },
+				],
+			}),
+			signal(),
+			emptyLedger,
+		);
+		expect(text.match(/Same native text/g)).toHaveLength(1);
+		expect(text).toContain(
+			"消息ID:pending-id | 本次待处理项；原件在当前正文独立提供 | 引用:quoted-source | 线程:thread-1 | 根:root-1",
+		);
+		expect(text).toContain(
+			"消息ID:pending-image | 本次待处理项；原件在当前正文独立提供 | 线程:thread-1 | 平台记录已删除",
+		);
+		expect(text).toContain("pending-image");
+		expect(text).toContain("消息ID:historical-id | 仅背景，不是待执行请求");
 	});
 	it("pages with a fixed cutoff and retains platform tie order rather than sorting IDs", async () => {
 		const api = client([
@@ -156,7 +208,7 @@ describe("Feishu read-only conversation background", () => {
 			emptyLedger,
 		);
 		expect(text).not.toContain("FUTURE");
-		expect(text.match(/本次待处理项（原输入独立提供）/g)).toHaveLength(2);
+		expect(text.match(/本次待处理项；原件在当前正文独立提供/g)).toHaveLength(2);
 		expect(text).toContain("引用:parent");
 		const controller = new AbortController();
 		controller.abort();
@@ -188,18 +240,19 @@ describe("Feishu read-only conversation background", () => {
 			{ items: [card("card"), card("failed"), card("unknown"), card("other-bot", "other-app")] },
 			{ items: [] },
 		]);
-		const output = (id: string, text: string, receipt = {}) => ({
+		const output = (id: string, text: string, receipt = {}, parent: string | null = "source-event") => ({
 			id,
 			ts: new Date(now).toISOString(),
 			type: "message.out",
 			conv: "conv:test:chat",
+			...(parent === null ? {} : { parent }),
 			data: { text, delivery: { ok: true, id, ...receipt } },
 		});
 		const query = vi
 			.fn()
 			.mockResolvedValueOnce({
 				events: [
-					output("card", "我已经回复了旧问候"),
+					output("card", "之前的配置已经有效，任务完成"),
 					output("failed", "FAILED MUST NOT APPEAR", { ok: false }),
 					output("unknown", "UNKNOWN MUST NOT APPEAR", { uncertain: true }),
 				],
@@ -212,8 +265,10 @@ describe("Feishu read-only conversation background", () => {
 				],
 			});
 		const text = await conversationContext(api, event(), signal(), { query });
-		expect(text).toContain("我已经回复了旧问候");
-		expect(text).toContain("正文来源:Yonder成功投递记录");
+		expect(text).toContain("之前的配置已经有效，任务完成");
+		expect(text).toContain("Yonder送达正文：回执仅证明该文本已送达，不证明其中的配置、动作或任务结论属实");
+		expect(text).toContain("Yonder来源事件:source-event");
+		expect(text).toContain(`Yonder记录时间:${new Date(now).toISOString()}`);
 		expect(text).toContain("引用:old-greeting");
 		expect(text).not.toContain("FAILED MUST");
 		expect(text).not.toContain("UNKNOWN MUST");
@@ -221,6 +276,33 @@ describe("Feishu read-only conversation background", () => {
 		expect(text).not.toContain("WRONG SOURCE MUST");
 		expect(query.mock.calls[0]?.[0]).toMatchObject({ type: "message.out", conv: "conv:test:chat" });
 		expect(query.mock.calls[1]?.[0]).toMatchObject({ after: "ledger-next" });
+	});
+	it("marks missing delivery provenance as unknown", async () => {
+		const api = client([
+			{
+				items: [
+					row("card", now - 100, "compatibility", "app", {
+						sender: { id: "own-app", sender_type: "app", id_type: "app_id" },
+					}),
+				],
+			},
+			{ items: [] },
+		]);
+		const text = await conversationContext(api, event(), signal(), {
+			query: async () => ({
+				events: [
+					{
+						id: "out",
+						ts: new Date(now).toISOString(),
+						type: "message.out",
+						conv: "conv:test:chat",
+						data: { text: "Delivered text", delivery: { ok: true, id: "card" } },
+					},
+				],
+			}),
+		});
+		expect(text).toContain("Yonder来源事件:unknown");
+		expect(text).toContain("Delivered text");
 	});
 	it("reapplies the same UTF8 budget after successful delivery text expands a card", async () => {
 		const api = client([
@@ -253,7 +335,16 @@ describe("Feishu read-only conversation background", () => {
 		expect(text).not.toContain("Older context");
 	});
 	it("reports ledger failures separately and propagates cancellation during ledger lookup", async () => {
-		const api = client([{ items: [row("a", now - 100, "Platform text")] }, { items: [] }]);
+		const api = client([
+			{
+				items: [
+					row("a", now - 100, "Platform text", "app", {
+						sender: { id: "own-app", id_type: "app_id", sender_type: "app" },
+					}),
+				],
+			},
+			{ items: [] },
+		]);
 		const text = await conversationContext(api, event(), signal(), {
 			query: async () => {
 				throw new Error("private");
@@ -261,6 +352,7 @@ describe("Feishu read-only conversation background", () => {
 		});
 		expect(text).toContain("成功投递账本读取未完成");
 		expect(text).toContain("Platform text");
+		expect(text).not.toContain("Yonder送达正文");
 		expect(text).not.toContain("private");
 		const controller = new AbortController();
 		const second = client([{ items: [row("b", now - 100, "Platform")] }, { items: [] }]);

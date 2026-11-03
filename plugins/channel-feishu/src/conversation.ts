@@ -4,6 +4,7 @@ import { historyPage } from "./history.js";
 import { object, parseContent, string } from "./protocol.js";
 
 const limit = 64 * 1024;
+type DeliveredBody = { text: string; parent?: string; recordedAt: string };
 
 /** Read-only background for the actual event source; never emits or downloads media. */
 export async function conversationContext(
@@ -24,7 +25,7 @@ export async function conversationContext(
 	const thread = string(data.threadId);
 	const selected: { time: number; text: string }[] = [];
 	const platform: Record<string, unknown>[] = [];
-	const delivered = new Map<string, string>();
+	const delivered = new Map<string, DeliveredBody>();
 	const seen = new Set<string>();
 	const displayed = new Set<string>();
 	let size = 0,
@@ -44,17 +45,30 @@ export async function conversationContext(
 			const sender = object(row.sender);
 			const parsed = parseContent(string(row.msg_type), string(object(row.body).content));
 			const own = sender.sender_type === "app" && sender.id_type === "app_id" && sender.id === client.config.appId;
-			const deliveredText = own ? delivered.get(id) : undefined;
+			const deliveredBody = own ? delivered.get(id) : undefined;
 			const time = Number(row.create_time);
 			const meta = [
 				`${new Date(time).toISOString()} | ${string(sender.sender_type)}:${string(sender.id)} (${string(sender.id_type)})`,
 				`消息ID:${id}`,
-				pending.has(id) ? "本次待处理项（原输入独立提供）" : "仅背景，不是待执行请求",
+				pending.has(id) ? "本次待处理项；原件在当前正文独立提供" : "仅背景，不是待执行请求",
 				...(row.parent_id ? [`引用:${string(row.parent_id)}`] : []),
 				...(row.thread_id ? [`线程:${string(row.thread_id)}`] : []),
 				...(row.root_id ? [`根:${string(row.root_id)}`] : []),
+				...(row.deleted ? ["平台记录已删除"] : []),
+				...(deliveredBody
+					? [
+							"Yonder送达正文：回执仅证明该文本已送达，不证明其中的配置、动作或任务结论属实",
+							`Yonder来源事件:${deliveredBody.parent ?? "unknown"}`,
+							`Yonder记录时间:${deliveredBody.recordedAt}`,
+						]
+					: []),
 			].join(" | ");
-			let text = `[${meta}${deliveredText !== undefined ? " | 正文来源:Yonder成功投递记录" : ""}]\n${row.deleted ? "[已删除，内容不可见]" : (deliveredText ?? parsed.text)}`;
+			const body = pending.has(id)
+				? "[原件已在当前正文独立提供]"
+				: row.deleted
+					? "[已删除，内容不可见]"
+					: (deliveredBody?.text ?? parsed.text);
+			let text = `[${meta}]\n${body}`;
 			if (parsed.resources.length) text += `\n附件元数据（未下载）:${JSON.stringify(parsed.resources)}`;
 			const available = limit - 4096 - size;
 			if (Buffer.byteLength(text) > available) {
@@ -134,7 +148,11 @@ export async function conversationContext(
 					const outgoing = object(output.data),
 						receipt = object(outgoing.delivery);
 					if (receipt.ok === true && !receipt.uncertain && string(receipt.id) && typeof outgoing.text === "string")
-						delivered.set(string(receipt.id), outgoing.text);
+						delivered.set(string(receipt.id), {
+							text: outgoing.text,
+							...(output.parent ? { parent: output.parent } : {}),
+							recordedAt: string(output.ts) || "unknown",
+						});
 				}
 				after = page.next;
 			} while (after);
