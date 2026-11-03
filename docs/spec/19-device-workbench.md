@@ -74,7 +74,7 @@
 
 共享控制面增量接口：`models.list {}` 返回 providers/models 结构化目录；`workspaces.list {}` 返回当前宿主的可选资源和可用权限预设；`sessions.options.get {id}` 读取会话实际模型/effort/permission/resources 与运行状态；`sessions.options.set {id,model?,effort?,permission?,resources?}` 在 owner 边界校验并持久覆盖。`sessions.open` 可带同形 options，旧调用不变。运行或工具在途时拒绝切换资源；模型/effort 下一轮生效。具体 DTO 由共享实现和对应 schema 单源维护，不在前后端各造一套模型命名。
 
-多设备执行沿已有 devices 插件扩展注册文件/进程动作。选择远程资源可为该运行启用已安装的 devices 能力，不自动安装插件，不扩大设备集合。默认远程目录通过 ExecutionEnv 使用普通文件/进程工具，额外目标通过 `devices_operation` 显式指定设备和操作；注册动作和调用前校验共同按 read/write/exec 收窄，路径 scopeRoots 由受信控制器与 grant 决定，不接受模型自报权限。远程传输不是授予模型任意网络操作能力的理由。子任务继承实际资源及能力上限。
+多设备执行沿已有 devices 插件扩展注册文件/进程动作。选择远程资源可为该运行启用已安装的 devices 能力，不自动安装插件，不扩大设备集合；插件未安装或未加载时，会话必须如实报告“devices 插件未加载”并指出安装入口，不得让 `devices_*` 工具静默消失或静默变成无授权。默认远程目录通过 ExecutionEnv 使用普通文件/进程工具，额外目标通过 `devices_operation` 显式指定设备和操作；注册动作和调用前校验共同按 read/write/exec 收窄，路径 scopeRoots 由受信控制器与 grant 决定，不接受模型自报权限。远程传输不是授予模型任意网络操作能力的理由。子任务继承实际资源及能力上限。
 
 远程文件传输与读取有明确上限，超限明确报错。远程 readonly 的 grep/find 通过目录和文件读取实现，不授予 exec；本地 rg/fd 行为不变。远程搜索使用 glob 与受限正则，支持根目录及下级的基础 ignore/negation，不宣称完整 Git ignore 或 Rust regex 兼容；超过读取限额的文件报告跳过，遍历规模超限时提示收窄范围，正则运行有单文件截止与显式错误，取消停止搜索。产品须如实呈现这些限制。
 
@@ -115,11 +115,30 @@ Runtime.setHostTools直接接收实际工具值，复用原registry安装/卸载
 
 ## 9. Bot×设备允许表（2026-11-03 主人批准）
 
-账号级数据，回答"哪个 Bot 可以向哪台设备发起"。它不签发 grant，也不改变执行端能力上限；实际执行仍是资源集合 ∩ 设备 grant ∩ 执行端本地策略。
+账号级数据，回答“哪个 Bot 可以向哪台设备发起”。它不签发 grant，也不改变执行端能力上限；实际执行仍是资源集合 ∩ 设备 grant ∩ 执行端本地策略。
 
-- 语义三态：未配置表示"全部设备"（默认）；配置为设备 ID 列表表示收窄到这些设备；空列表表示不允许任何设备。新绑定的设备自动进入所有未收窄 Bot 的默认集合，收窄过的 Bot 不自动扩大。
+- 语义三态：未配置表示“全部设备”（默认）；配置为设备 ID 列表表示收窄到这些设备；空列表表示不允许任何设备。新绑定的设备自动进入所有未收窄 Bot 的默认集合，收窄过的 Bot 不自动扩大。
 - 身份两侧都用云端 UUID：Bot 侧是云端 `accounts.id`（`kind='agent'`），设备侧是 `devices.id`。执行端 deviceId 只在执行端与云端映射表出现（18 §5），不进这张表，网页与模型都不能填写。
 - 修改只由当前账号的已核实主人经网页会话发起；设备凭据、Bot 自己的工具与模型都不能改表。撤销某个 Bot 对某台设备的授权在下一次调用生效；设备离线时改动在重连后生效。撤销不是解绑设备，也不删除历史。
-- 表与解绑联动：DELETE /api/devices/:id 后该设备从所有 Bot 的允许集合消失；重新绑定按新设备处理，需要主人重新确认收窄。
-- 网页接口（形状沿用现有 devices 路由风格）：`GET /api/bot-devices` 返回 `{bots:[{botId, devices: string[]|null}]}`，`null` 表示默认全部；`PUT /api/bot-devices/:botId` 正文 `{devices: string[]|null}`，只接受当前账号的设备 ID，非本账号 ID 返回 404 且不泄露存在性。读取只返回主人自己的数据；其他账号一律 404。没有独立的能力查询接口，允许表不是 grant。
-- 已知缺口：这张表与上述接口属本规范新增，尚未实现；当前代码没有 Bot→设备授权列（见 [status](../status.md)）。
+- 表与解绑联动：`DELETE /api/devices/:id` 后该设备从所有 Bot 的允许集合消失；重新绑定按新设备处理，需要主人重新确认收窄。
+- 生效方式：执行端决定授权，允许表只约束“云端愿意为哪个 Bot 介绍哪个目标”。表变化时云端经同一中继（18 §3 的 `allow.policy`）把“该 Bot 对应该设备的请求是否仍允许”告诉执行端；执行端据此撤销或重新签发 grant。不让提示词、模型或网页代替这一步。
+
+网页接口（挂在既有 devices 路由风格下）：
+
+| 方法与路径 | 正文 / 返回 | 语义 |
+|---|---|---|
+| `GET /api/bots/:id/devices` | `{botId, mode:'all'\|'selected', devices:[{id,name,kind,online}], allowed:[deviceId]}` | 读这个 Bot 的生效集合。`mode='all'` 时 `allowed` 是当前账号全部有效设备；`selected` 时是收窄后的列表。 |
+| `PUT /api/bots/:id/devices` | 正文 `{mode:'all'}` 或 `{mode:'selected', devices:[uuid]}`，返回同 GET | 设置模式与列表。`selected` 只接受当前账号的有效设备 ID；任一 ID 不属于本账号返回 404 `not_found`，不泄露存在性。 |
+
+只有 Bot 的主人能读写；其他账号的 Bot ID 一律 404 `not_found`。Bot 自己的设备凭据不能读写这张表。没有独立的能力查询接口，允许表不是 grant。
+
+## 10. 主人可见的 grant 与撤销（2026-11-03 主人批准）
+
+执行端把它当前的全部 grant 摘要上报给云端（18 §3 的 `grants` 帧），云端只保存摘要供主人查看，不把它们当作授权来源；执行端仍是唯一判定点。
+
+- `GET /api/devices/:id/grants` 返回该设备主人可见的全部 grant：`{grants:[{grantId,principalId,botId,botLabel,source,targetIds,capabilities,readRoots,writeRoots,revision,issuedAt,expiresAt,revokedAt}]}`。主人能看到自己设备发给**所有**控制端的 grant，不只当前网页会话自己的那一份。其他账号一律 404 `not_found`。
+- `DELETE /api/devices/:id/grants/:grantId` 由主人撤销任意一条：云端经同一中继下发 `grant.revoke`；在线时立即生效，离线时保留待投递、重连后再发。返回 `{revoked:true, pending:boolean}`，`pending` 表示设备当前不在线、命令尚未送达。不存在的 grant 返回 404 `not_found`。
+- 设备从未上报过 grant（例如还没连过收件箱）时如实返回空列表与 `observed:false`，不把“没收到”当成“没有授权”。
+- 撤销不删除历史，也不解绑设备；重复撤销幂等。模型和 Bot 自己的工具都不能调用这两个接口。
+
+`grants.list` RPC（18 §3）只服务已配对 principal 自己的 grant，保持最小可见性；主人视图是网页侧的另一条路径。

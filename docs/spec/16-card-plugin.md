@@ -57,7 +57,7 @@
 
 渠道配置 `{endpoint?:string, device?:{kind?:'laptop'|'desktop'|'server'}}`；endpoint 默认 https://yonderbot.net，不含凭据。setup 只注册，不联网。服务端 `devices.kind` 的允许集另含 `cloud`（云端 Runtime 行）与下述 `harness`。
 
-**外部 harness 设备（`kind: 'harness'`，2026-11-03 主人批准）。** 除真实的 Yonder 设备外，一类由连接器注册的"设备"也走同一套 `/ws/device`、`PUT /api/device/agents`、消息帧与工作桥：连接器把外部 agent 框架（DSH、Hermes、OpenClaw 等）伪装成一台设备接入。云端不按框架分支；契约、连接器须实现的协议子集、安装/卸载与版本降级规则见 [23-harness-connector](23-harness-connector.md)。与真实设备的差别只有三点：设备行标 `kind='harness'`，便于网页如实显示来源，服务端需按现有 `devices_kind_check` 方式放宽允许集；连接器不上报执行端 deviceId 与公钥，因而不参与 18 的配对与 grant，工作桥只提供该框架自己的会话方法，不提供设备执行能力；卸载连接器后设备与 Bot 按既有退役语义下线，不删除历史。除这三点外，设备归属、`PUT /api/device/agents` 的全量对齐语义、消息补收、主人 DM 与解绑规则与真实设备相同。此类别与本节其余内容同属未实现规范。
+**外部 harness 设备（`kind: 'harness'`，2026-11-03 主人批准）。** 除真实的 Yonder 设备外，一类由连接器注册的"设备"也走同一套 `/ws/device`、`PUT /api/device/agents`、消息帧与工作桥：连接器把外部 agent 框架（DSH、Hermes、OpenClaw 等）伪装成一台设备接入。云端不按框架分支；契约、连接器须实现的协议子集、安装/卸载与版本降级规则见 [23-harness-connector](23-harness-connector.md)。与真实设备的差别只有三点：设备行标 `kind='harness'`，便于网页如实显示来源；连接器不上报执行端 deviceId 与公钥，因而不参与 18 的配对与 grant，工作桥只提供该框架自己的会话方法，不提供设备执行能力；卸载连接器后设备与 Bot 按既有退役语义下线，不删除历史。`kind` 的允许集由新增前向迁移放宽（`devices` 与 `device_codes` 两处 CHECK 都加 `harness`），与 006 迁移放宽 `cloud` 的做法一致；旧值保持有效。除这三点外，设备归属、`PUT /api/device/agents` 的全量对齐语义、消息补收、主人 DM 与解绑规则与真实设备相同。此类别与本节其余内容同属未实现规范。
 
 名片接口返回真实 Card（id、ownerId、respondentId、title、markdown、display?、status、rev、updatedAt 等），工具只返回非秘密结果。Agent 同步接口是 upsert，不删除未提交的远端 Agent；本地映射仅保留当前启用 Agent，不接纳已移除目标。
 

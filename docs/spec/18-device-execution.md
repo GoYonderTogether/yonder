@@ -17,7 +17,17 @@
 
 配对有两个来源，执行端是唯一的最终判定点。
 
-**云端介绍配对（默认）。** 云端已分别认证两台设备的 deviceToken，并能证明二者属于同一 human 账号（19 §1 已明确此版本信任云端经 TLS 转交主人请求）。同账号的控制端与执行端同时在线时，云端把双方公钥与执行端 deviceId 互相转交，并附上"同一主人"的签名声明；执行端在本地核对声明的主体确实是自己登记过的云账号后，直接为该控制端签发 grant，能力取（云端声明的请求能力 ∩ 执行端本地策略上限 ∩ 允许表指定的目标范围）。转交内容仍走签名封套与 challenge-response，云端不能凭空指定公钥或扩大能力；云端只做介绍，签发与否由执行端决定。云端设备 uuid 与执行端 deviceId 的对应关系由执行端 hello 上报后持久保存（§3），不在网页或模型侧自由填写。
+**云端介绍配对（默认）。** 云端已分别认证两台设备的 deviceToken，并能证明二者属于同一 human 账号（19 §1 已明确此版本信任云端经 TLS 转交主人请求）。同账号的控制端与执行端同时在线时，云端把控制端公钥与执行端 deviceId 互相转交，并附上“同一主人”的声明；执行端在本地核对声明确实指向自己登记的云账号与本机 deviceId 后，直接为该控制端签发 grant，能力取（控制端请求 ∩ 执行端本地策略上限 ∩ 允许表指定的目标范围）。转交内容仍走签名封套与 challenge-response，云端不能凭空指定公钥或扩大能力；云端只做介绍，签发与否由执行端决定。云端设备 uuid 与执行端 deviceId 的对应关系由执行端自报后持久保存（§5），不在网页或模型侧自由填写。
+
+自动签发的 grant 受执行端本地策略约束：能力与动作取“控制端请求 ∩ 执行端后端实际注册的动作”，目标取“请求 ∩ 执行端真实报告的目标”；请求里出现执行端未注册的动作或目标即整条拒绝，不静默收窄。资源根按控制端请求授予，但目录与执行能力仍是执行端本地判定点（05 §3）。
+
+介绍不另开通道，只用既有 `/ws/execution` 中继与签名封套：
+
+- **执行端收件箱。** 执行端用自己的设备 bearer token 在既有 `/api/execution/ticket` 上申请“收件箱”票据（不指定对端）并连上 `/ws/execution`。云端按该连接的真实 deviceToken 登记它属于哪台云端设备，之后把同账号控制端发来的签名封套转发到这条连接；执行端在同一连接上回包。原有的“指定对端”票据与对称连接保留，手工配置不受影响。
+- **云端只加声明，不改签名。** 转发时云端在 relay 外层消息上附加 `attestation`（不进签名封套，也不改 relay 帧本身），内容是固定字段的 HMAC-SHA256：`[ownerId, cloudDeviceId, executorDeviceId, action, subject, issuedAt, expiresAt]`，密钥是执行端 device token 的 SHA-256 原始字节。云端只存 token 哈希、执行端持有 token，双方能算出同一密钥，因此声明只对这一台执行端有效，不能被挪用到别的设备；云端也改不了封套内的签名。`action` 为 `introduce`（subject 是 principalId）、`revoke`（grantId）或 `policy`（botId）。
+- **控制端身份。** `principalId` 仍等于控制端 Ed25519 公钥 SPKI DER 的 SHA-256，执行端只按包内公钥验签后再核对声明；云端既不能替控制端签名，也不能把别人的声明转给第三方。身份按账号复用一份：设备 Harness 用既有 `controller-key.pem`，云端 worker 每账号持有一份（19 §7）。“哪个 Bot”由 grant 上的 `botId` 区分，不为每个 Bot 另发密钥。
+
+执行端在本地设置“只接受手工配对”时拒绝一切介绍，返回 `UNPAIRED`，不签发、不扩大任何能力。
 
 **手工离线配对（保留，可作为执行端强制模式）。** 执行端本地管理命令创建一次性、有截止时间的 pairingId/code，并显示执行端公钥 fingerprint；控制端在私网连接前核对端点 TLS fingerprint 与执行端公钥 fingerprint，发送自己的公钥及签名挑战响应；执行端本地可信操作者核对控制端 fingerprint，确认目标/能力/资源/期限；双方分别持久保存对方公钥与身份绑定后才完成。执行端可以设为"只接受手工配对"，此时云端介绍配对一律拒绝，手工流程照常；设置本身是执行端本地动作，云端不能改。
 
@@ -78,8 +88,34 @@ RPC 名称与 params：
 | `commands.submit` | `{commandBase64}` | CommandReceipt；解码为 SubmitCommand |
 | `commands.status` | `{commandId}` | CommandReceipt（只读，不 dispatch） |
 | `commands.cancel` | `{commandId}` | CommandReceipt；未终止不能假称cancelled |
-| `grants.list` | `{}` | 本设备发给当前已配对 principal 的 grant 摘要（grantId、targetIds、capabilities、readRoots、writeRoots、revision、issuedAt、expiresAt、revokedAt）；只读，不创建、扩大或续期 grant |
+| `grants.list` | `{}` | 本设备发给当前已配对 principal 的 grant 摘要（grantId、botId、label、targetIds、capabilities、readRoots、writeRoots、revision、issuedAt、expiresAt、revokedAt）；只读，不创建、扩大或续期 grant |
+| `device.introduce` | `{label,botId,capabilities,targetIds,actions,readRoots,writeRoots}` | 云端介绍配对的控制端发送：`{grant, principalId}`。执行端按包内公钥验签（其 SHA-256 必须等于 principalId），再核对同一中继帧上的介绍声明；manual-only 时返回 `UNPAIRED` |
 | `grants.revoke` | `{grantId}` | `{revoked:true}`，仅已配对主体撤销自己的grant；由管理CLI调用，不注册Agent工具 |
+
+`Grant` 另行携带可选 `botId`（云端账号 UUID，手工配对时为空）、`label`（控制端自报的可读名，仅用于展示）、`source: 'cloud'|'manual'`，供主人侧辨认“这是哪个 Bot 拿到的授权”。grant 摘要与完整 grant 由同一 schema 推导。
+
+**云端介绍的中继消息。** 介绍复用既有 relay 帧，不新增第二个通道，也不改 relay 帧（`{protocol,version,routeId,envelope}` 保持冻结）。声明加在 relay **外层消息**上，只由云端在转发时附加，不进签名封套：
+
+```ts
+type CloudAttestation = {
+  ownerId: string; cloudDeviceId: string; executorDeviceId: string;
+  action: 'introduce' | 'revoke' | 'policy'; subject: string;
+  issuedAt: number; expiresAt: number; mac: string; // base64url HMAC-SHA256
+};
+```
+
+`mac` 覆盖 `JSON.stringify([ownerId, cloudDeviceId, executorDeviceId, action, subject, issuedAt, expiresAt])`，密钥是执行端 device token 的 SHA-256 原始 32 字节。云端只存 token 哈希，执行端持有 token，双方能算出同一密钥，因此声明不能被挪用到别的设备；控制端不能伪造，云端也不能把声明发给未被介绍的设备。`subject` 在 `introduce` 时是 principalId，`revoke` 时是 grantId，`policy` 时是 botId。执行端要核对 `executorDeviceId`/`cloudDeviceId`/`ownerId` 与自己登记一致、`action`/`subject` 与收到的请求相符、未过有效期。
+
+**执行端收件箱的帧。** 执行端在 `/ws/execution` 的收件箱连接上另发两类帧，服务端只在对端是执行端收件箱时投递对应下行帧：
+
+| 方向 | type | 内容 |
+|---|---|---|
+| 上行 | `executor.hello` | `{executorDeviceId,publicKey}`，deviceToken 认证后自报执行端身份（§5） |
+| 上行 | `grants` | `{grants: Grant[]}`，本设备全部 grant 的完整摘要；每次变化后上报，云端保存供主人查看 |
+| 下行 | `grant.revoke` | `{grantId,attestation}`，云端按主人撤销请求转发 |
+| 下行 | `allow.policy` | `{botId,allowed,attestation}`，允许表变化时下发 |
+
+撤销与策略帧都幂等；执行端离线时云端保留待投递，重连后再发。命令结果仍按 §4 的账本规则，未知结果绝不重放。
 
 `RpcRequest`：`{protocol:'yonder.execution',version:1,kind:'request',requestId,principalId,deviceId,issuedAt,expiresAt,method,params}`。`RpcResponse`：相同身份/版本/关联字段，kind=response，再加 `ok:true,result` 或 `ok:false,error`。响应签名 key 属于 device；请求签名 key 属于 principal。由已配对记录校验，不能混用方向。
 
@@ -99,9 +135,11 @@ DeviceDescriptor 包含 role、OS版本、host/process架构、runtime、targets
 
 ## 5. 模型工具和管理命令名称（后续实现）
 
-2026-11-03 设备身份统一（主人批准）：执行端在 Card `/ws/device` 的 hello 里增量上报执行端 deviceId 与 Ed25519 公钥，云端把它与自己的 `devices.id` 的对应关系持久保存；之后网页、工作桥与允许表一律使用云端 UUID，插件与执行端之间使用执行端 UUID，两者只在云端映射表与执行端本地配对记录处对接，不再靠人手把同一个字符串填进两边配置。上报是执行端自证身份，云端不能代替它填写；同一云端设备重连时上报不同执行端 deviceId 视为更换执行端，旧映射保留为历史但不继续有效。
+2026-11-03 设备身份统一（主人批准）：执行端在 `/ws/execution` 中继连接上用 `executor.hello {executorDeviceId, publicKey}` 自报执行端 deviceId 与 Ed25519 公钥，云端按该连接已认证的 deviceToken 把它与自己的 `devices.id` 的对应关系持久保存；之后网页、工作桥、允许表与设备列表一律使用云端 UUID，插件与执行端之间使用执行端 UUID，两者只在云端映射表和执行端本地配对记录处对接，不再靠人手把同一个字符串填进两边配置。上报是执行端自证身份，云端不能代替它填写；同一云端设备重连时上报不同执行端 deviceId 视为更换执行端，旧映射保留为历史但不继续有效。新映射出现前已存在的、由操作者手工把两个 UUID 对齐的配置继续按原样工作，不因新增映射表而失效。
 
 2026-11-02 多运行宿主接入补充：executor 的 `--card-config` 私有文件兼容原单连接对象，并可接受连接对象数组；每项建立独立的 CardDaemonConnection，共享唯一 executor、持久账本及设备写锁。中继按源/目标连接区分路由，不广播命令，不让第二连接替换其他目标。同一设备可服务多个明确获授的运行宿主，云账号归属核验不替代执行端配对与 grant。
+
+2026-11-03 云端介绍接入补充：同一私有文件接受省略 `peerDeviceId` 的条目，表示“收件箱”连接——执行端用该 token 申请不指定对端的中继票据，连上后按 §2 自报 `executor.hello`，接收同账号控制端的介绍与撤销。收件箱与指定对端连接可以并存。执行端本地策略由 `pairing policy` 管理并持久保存在执行端 home，云端无法修改。
 
 插件 `@yonder/plugin-devices`，id=`devices`：`devices_list`, `devices_describe`, `devices_apps`, `devices_open`, `devices_observe`, `devices_execute`, `devices_operation`, `devices_status`, `devices_cancel`, `devices_close`。前三类/observe/status/close需要read（远端调用另需network）；open需要read+network并取真实ctx能力交集；execute静态声明exec/read/write/network/message，后端再依action声明限制；operation按 action 声明取能力，文件读写受 512 KiB 与选定目录约束，process.exec 另需 exec；cancel需要exec+network。工具参数只有deviceId/session handle/action/arguments/commandId等业务字段，没有principal、grant创建、权限或签名密钥参数。grant 由云端介绍配对或手工配对签发后，插件经只读 `grants.list` 从执行端取回当前快照，不再要求操作者手工抄写；没有可发现 grant 时如实报告无授权，不把空列表当成设备不存在。
 
