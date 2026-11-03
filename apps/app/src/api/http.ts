@@ -1,6 +1,17 @@
 import type { Listing, WatchTask } from "../market/types";
 import type { ApiClient, ListingInput, MarketCapabilities } from "./client";
-import type { Actor, Card, CodeSent, Conversation, Device, Message, Session, ShareLink } from "./types";
+import type {
+	Actor,
+	BotDevices,
+	Card,
+	CodeSent,
+	Conversation,
+	Device,
+	DeviceGrants,
+	Message,
+	Session,
+	ShareLink,
+} from "./types";
 
 /** 社交服务的基址：缺省同源；挂在本机网关下时由 VITE_SOCIAL_BASE 指向云端或测试后端。 */
 const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_BASE as string | undefined) ?? "";
@@ -215,6 +226,12 @@ export const httpApi: ApiClient = {
 	renameDevice: (deviceId, name) => request(`/devices/${encodeURIComponent(deviceId)}`, json("PATCH", { name })),
 	setDeviceOnline: (deviceId, online) =>
 		request(`/devices/${encodeURIComponent(deviceId)}/online`, json("PUT", { online })),
+	deviceGrants: (deviceId) => request<DeviceGrants>(`/devices/${encodeURIComponent(deviceId)}/grants`),
+	revokeDeviceGrant: (deviceId, grantId) =>
+		request(`/devices/${encodeURIComponent(deviceId)}/grants/${encodeURIComponent(grantId)}`, json("DELETE")),
+	botDevices: (botId) => request<BotDevices>(`/bots/${encodeURIComponent(botId)}/devices`),
+	setBotDevices: (botId, input) =>
+		request<BotDevices>(`/bots/${encodeURIComponent(botId)}/devices`, json("PUT", input)),
 	contacts: () => request<Actor[]>("/contacts"),
 	createBot: (input) => request<Actor>("/bots", json("POST", input)),
 	ensureDefaultBot: (input) => request<Actor>("/me/default-bot", json("POST", input)),

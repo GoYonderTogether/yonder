@@ -1,4 +1,4 @@
-import { Laptop, Monitor, Server } from "lucide-react";
+import { Cable, Laptop, Monitor, Server } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api";
@@ -13,6 +13,7 @@ export const deviceIcon: Record<DeviceKind, typeof Laptop> = {
 	desktop: Monitor,
 	server: Server,
 	cloud: Server,
+	harness: Cable,
 };
 
 export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {

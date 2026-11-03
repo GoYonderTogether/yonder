@@ -10,6 +10,7 @@ import type {
 } from "../market/types";
 import type {
 	Actor,
+	BotDevices,
 	Card,
 	CodeSendInput,
 	CodeSent,
@@ -17,6 +18,7 @@ import type {
 	Conversation,
 	ConversationDetail,
 	Device,
+	DeviceGrants,
 	DeviceKind,
 	GroupPreview,
 	Message,
@@ -158,13 +160,21 @@ export interface ApiClient {
 	deviceCode(code: string): Promise<{ name: string; kind: DeviceKind; status: string }>;
 	confirmDevice(code: string): Promise<void>;
 
-	// 设备：Yonder 所在的电脑。多设备部署插件接入前，只有本机
+	// 设备：Yonder 所在的电脑，含云端运行时与外部 harness 连接器（kind='harness'）
 	devices(): Promise<Device[]>;
 	removeDevice(deviceId: string): Promise<void>;
 	createInvite(): Promise<{ code: string; expiresAt: string }>;
 	renameDevice(deviceId: string, name: string): Promise<Device>;
 	/** 一次开关某台设备上全部 Agent 的联网 */
 	setDeviceOnline(deviceId: string, online: boolean): Promise<Device>;
+	/** 主人可见的全部 grant 摘要（执行端上报的回读，不是授权来源） */
+	deviceGrants(deviceId: string): Promise<DeviceGrants>;
+	/** 撤销一条 grant；`pending` 表示设备离线，命令排队中、尚未生效 */
+	revokeDeviceGrant(deviceId: string, grantId: string): Promise<{ revoked: true; pending: boolean }>;
+	/** Bot 的可操作设备（账号级允许表，默认全部） */
+	botDevices(botId: string): Promise<BotDevices>;
+	/** all 或 selected（空数组＝不允许任何设备） */
+	setBotDevices(botId: string, input: { mode: "all" } | { mode: "selected"; devices: string[] }): Promise<BotDevices>;
 
 	// 联系人：Yonder 接入的全部 Agent 自动出现，不需要手动连接
 	contacts(): Promise<Actor[]>;
