@@ -4,6 +4,7 @@ import { batchConsumerForSource } from "../routing/batch-consumer.js";
 import { batchPlugin, participationPlugin } from "../routing/participation.js";
 import { decideParticipation } from "../routing/social.js";
 import { resolveSourceBindings } from "../routing/source-binding.js";
+import { policyDrops, wakeFor } from "../routing/wake.js";
 import type { Store } from "../store/index.js";
 
 export type OperabilitySelector = { conv?: string; eventId?: string };
@@ -298,27 +299,15 @@ export async function projectConversationOperability(options: {
 				? (data.social?.mentions?.bot ?? data.mentioned) === true
 				: data.mentioned === true;
 			const ownerMention = participation?.reason === "mention" && data.social?.mentions?.owner === true;
-			const policyDrops =
-				!!participation &&
-				!participation.run &&
-				participation.reason !== "batch" &&
-				participation.reason !== "folded" &&
-				!ownerMention;
-			const predictedWake =
-				participation?.reason === "batch" ||
-				participation?.reason === "folded" ||
-				ownerMention ||
-				(match.wake === "mention" && !mentioned) ||
-				match.wake === "write"
-					? "write"
-					: "run";
+			const dropped = policyDrops(participation, ownerMention);
+			const predictedWake = wakeFor(participation, ownerMention, match.wake, mentioned);
 			prediction = {
 				state: "matched",
-				route: policyDrops ? "dropped" : "not-evaluated",
-				...(policyDrops ? { dropReason: "no-binding" as const } : {}),
+				route: dropped ? "dropped" : "not-evaluated",
+				...(dropped ? { dropReason: "no-binding" as const } : {}),
 				binding: match.id,
 				profile: profileId,
-				...(!policyDrops ? { wake: predictedWake } : {}),
+				...(!dropped ? { wake: predictedWake } : {}),
 				participation: participation
 					? {
 							reason: participation.reason,

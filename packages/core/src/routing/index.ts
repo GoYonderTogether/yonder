@@ -22,6 +22,7 @@ import {
 import { decideParticipation, socialBindingAllowed } from "./social.js";
 import { resolveSourceBindings } from "./source-binding.js";
 import type { CreateRouterOptions, RoutedRun } from "./types.js";
+import { policyDrops, wakeFor } from "./wake.js";
 
 type Wake = "run" | "write";
 export function createRouter({
@@ -295,7 +296,7 @@ export function createRouter({
 			const ownerMention =
 				decision?.reason === "mention" &&
 				(event.data as { social?: { mentions?: { owner?: boolean } } }).social?.mentions?.owner === true;
-			if (decision && !decision.run && decision.reason !== "batch" && decision.reason !== "folded" && !ownerMention) {
+			if (policyDrops(decision, ownerMention)) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
 			}
@@ -399,14 +400,7 @@ export function createRouter({
 			}
 			const data = event.data as { mentioned?: unknown; social?: { mentions?: { bot?: boolean } } };
 			const mentioned = decision ? (data.social?.mentions?.bot ?? data.mentioned) === true : data.mentioned === true;
-			const wake: Wake =
-				decision?.reason === "batch" || decision?.reason === "folded" || ownerMention
-					? "write"
-					: (binding.wake ?? "run") === "mention" && !mentioned
-						? "write"
-						: binding.wake === "write"
-							? "write"
-							: "run";
+			const wake: Wake = wakeFor(decision, ownerMention, binding.wake, mentioned);
 			routes.push({
 				agent: agent.id,
 				binding: binding.id,
