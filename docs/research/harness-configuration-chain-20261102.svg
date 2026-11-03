@@ -5,7 +5,7 @@
 <rect width="1240" height="920" fill="#f8fafc"/>
 <g font-family="PingFang SC, Microsoft YaHei, sans-serif" fill="#0f172a">
 <text x="48" y="52" font-size="27" font-weight="700">从写入配置，到可核验的配置与交付闭环</text>
-<text x="48" y="84" font-size="16" fill="#475569">2026-11-03 · v0.3.26110301 已安装；发布／Cloud 通过，真实群配置与新投递仍未完整通过</text>
+<text x="48" y="84" font-size="16" fill="#475569">2026-11-03 · v0.3.26110302 已安装；发布／Cloud 通过，P1 模型接收链仍未通过</text>
 <text x="48" y="137" font-size="22" font-weight="700">实际暴露的旧路径</text>
 <rect x="48" y="160" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
 <text x="66" y="197" font-size="17">用户用自然语言提出需求</text>
@@ -40,7 +40,7 @@
 <text x="68" y="649" font-size="18" font-weight="700">程序维护边界，不能靠一句“已完成”跨过</text>
 <text x="68" y="677" font-size="17">权限与历史隔离；来源与关注连续；平台状态、入账、运行、投递分层，未知和省略显式记录。</text>
 <text x="48" y="754" font-size="22" font-weight="700">Cloud：按真实入口判断，不能只比较产品版本号</text>
-<text x="68" y="790" font-size="18" fill="#166534">/work 已恢复；26110301 浏览器／本机同版，真实历史与输入框核验通过</text>
+<text x="68" y="790" font-size="18" fill="#166534">/work 已恢复；26110302 浏览器／本机同版，真实历史与输入框核验通过</text>
 <text x="68" y="824" font-size="18" fill="#475569">旧 RPC 400 已有修复证据；用户更早那次中断是否同因，仍无法确认</text>
 <text x="48" y="880" font-size="15" fill="#475569">边界：不教用户写配置；不按 Bot 打补丁；保留授权边界；群上下文独立；宿主记录事实，模型决定行动与完成。</text>
 </g></svg>
