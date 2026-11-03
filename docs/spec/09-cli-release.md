@@ -157,19 +157,17 @@ Windows 状态栏是一个常驻托盘 `Yonder Status`，用户级登录自启�
 
 ### 6.4 桌面安装包分发
 
-### 6.5 iOS 与 TestFlight
-
-由 `ios-release.yml` 在正式 Release 后从 secrets 还原 Apple Distribution 证书与 App Store 分发 profile，`tauri ios build --archive-only` 归档，再用带 `provisioningProfiles` 映射的 ExportOptions 执行 `xcodebuild -exportArchive` 导出 IPA（Tauri 自带的导出步骤不带这个映射，实测报 `exportArchive requires a provisioning profile`）。IPA 经 App Store Connect API Key 用 `altool --upload-app` 上传 TestFlight，并作为附件追加到同一 Release。
-
-`apps/desktop/prepare-ios.mjs` 负责重放 `tauri ios init` 之后被覆盖的设置：团队、手动签名、profile 名，以及把 `iPhone Developer` 改成 `iPhone Distribution`。App 图标必须是 1024 无 alpha（上传报 90717），由 `scripts/flatten-icon.swift` 铺白底后重出整套尺寸。签名 secrets 为 `IOS_DISTRIBUTION_CERT_P12_BASE64`、`IOS_DISTRIBUTION_CERT_PASSWORD`、`IOS_PROVISIONING_PROFILE_BASE64`、`IOS_TEAM_ID`；上传用 `ASC_API_KEY_ID`、`ASC_API_ISSUER_ID`、`ASC_API_PRIVATE_KEY_BASE64`。
-
-### 6.4 桌面安装包分发
-
 由 `desktop-release.yml` 在正式 Release 后构建 macOS dmg、Windows nsis，上传同一 GitHub Release 与 OSS `desktop/<version>/`。macOS 在没有 Developer ID 时 ad-hoc 签名，Gatekeeper 需右键打开；Windows 未签名，出现 SmartScreen 警告。签名与公证另立验收。
 
 发布产物统一放在对象存储 bucket `yonder-release`（阿里云 OSS，cn-hangzhou，public-read），只放发布产物。凭据经 CI secrets `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` 提供，不进仓库。安卓签名 secrets 为 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`（workflow 还原到临时目录后以 `--keystore` / `--alias` 与 `YONDER_ANDROID_KEYSTORE_PASSWORD` 交给 `apps/desktop/prepare-android.mjs`，构建后删除 keystore；本地构建可直接用脚本的同名环境变量 `YONDER_ANDROID_KEYSTORE` / `YONDER_ANDROID_KEYSTORE_PASSWORD`）。
 
 发布相关操作可以经本机阿里云 CLI（3.5.2）直接对 bucket 执行；bot 使用同一 CLI 与 agent-vault 中登记的凭据，凭据不进仓库、不进文档。
+
+### 6.5 iOS 与 TestFlight
+
+由 `ios-release.yml` 在正式 Release 后从 secrets 还原 Apple Distribution 证书与 App Store 分发 profile，`tauri ios build --archive-only` 归档，再用带 `provisioningProfiles` 映射的 ExportOptions 执行 `xcodebuild -exportArchive` 导出 IPA（Tauri 自带的导出步骤不带这个映射，实测报 `exportArchive requires a provisioning profile`）。IPA 经 App Store Connect API Key 用 `altool --upload-app` 上传 TestFlight，并作为附件追加到同一 Release。
+
+`apps/desktop/prepare-ios.mjs` 负责重放 `tauri ios init` 之后被覆盖的设置：团队、手动签名、profile 名，以及把 `iPhone Developer` 改成 `iPhone Distribution`。App 图标必须是 1024 无 alpha（上传报 90717），由 `scripts/flatten-icon.swift` 铺白底后重出整套尺寸。签名 secrets 为 `IOS_DISTRIBUTION_CERT_P12_BASE64`、`IOS_DISTRIBUTION_CERT_PASSWORD`、`IOS_PROVISIONING_PROFILE_BASE64`、`IOS_TEAM_ID`；上传用 `ASC_API_KEY_ID`、`ASC_API_ISSUER_ID`、`ASC_API_PRIVATE_KEY_BASE64`。
 
 ## 7. 统一诊断
 
