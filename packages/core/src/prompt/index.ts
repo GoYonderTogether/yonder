@@ -15,7 +15,7 @@ import {
 } from "@yonder/sdk";
 import type { WorkspaceFiles } from "../config/index.js";
 import type { PromptPart, RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
-import { builtinPromptSections, promptSectionIds } from "./content.js";
+import { builtinPromptSections, escapeXmlText, promptSectionIds } from "./content.js";
 import { expandTemplate } from "./templates.js";
 
 /** Core context: no optional plugin or template fallback is needed for peer collaboration. */
@@ -456,9 +456,9 @@ export async function prepareInput(
 	) {
 		const participants = await options.conversationContext?.(event, session.agent ?? null, signal);
 		if (typeof participants === "string") {
-			if (participants) lines.push(`conversation: ${label(participants)}`);
+			if (participants) lines.push(`conversation: ${escapeXmlText(participants)}`);
 		} else if (participants) {
-			lines.push(`conversation: ${label(participants.context)}`);
+			lines.push(`conversation: ${escapeXmlText(participants.context)}`);
 			if (participants.ownerTask && event.type === "message.in" && data.kind === "parent-request") {
 				const { text: delegateNote = "" } = event.data as { text?: string };
 				ownerTask = {
@@ -480,6 +480,7 @@ export async function prepareInput(
 	return {
 		text: [
 			lines.join("\n"),
+			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 			ownerTask
 				? JSON.stringify(ownerTask)
 				: event.type === "runtime.continuation"
@@ -487,7 +488,6 @@ export async function prepareInput(
 					: message
 						? await messageText(options, session, data.text ?? "")
 						: JSON.stringify(event.data),
-			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 		]
 			.filter(Boolean)
 			.join("\n\n"),

@@ -51,7 +51,8 @@ export async function sendGuard(
 	const { to, agent, session, room } = options;
 	if (!room?.convs.has(to)) return undefined;
 	if (options.paused) return "本群已暂停此 Bot 的发言；不要重试发送，等待明确恢复。";
-	if (room.turn?.session !== session) return "本群当前没有此Bot的发言机会；不要重试发送，等待下一次群输入。";
+	if (room.turn?.session !== session)
+		return "本群当前没有此Bot的发言机会；不要重试当前群发送。若本轮仍需交付已核验原请求，且工具目录提供 parent_ask，可把原始请求与原群交付要求交所属 Agent 主会话按既有权限继续；若缺工具、main 绑定或发送权限，须明确报告未投递。自主评论不要借此绕过群协调。";
 	const turn = room.turn;
 	const reason = await superseded(api, room, turn, agent, to);
 	if (!reason) return undefined;

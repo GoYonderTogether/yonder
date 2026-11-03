@@ -18,7 +18,7 @@ const input = (instance: string, conv: string, mentioned: boolean) => ({
 });
 
 test("real owned group delivery keeps an addressed resident's turn across ordinary inputs and leaves private delivery alone", async () => {
-	const fixture = await groupFixture();
+	const fixture = await groupFixture({ captureSocialApi: true });
 	const { kernel, probe } = fixture;
 	try {
 		await probe.ios["qq-main"].emit(input("qq-main", mainConv, true));
@@ -59,7 +59,7 @@ test("real owned group delivery keeps an addressed resident's turn across ordina
 			.toBe(true);
 		await expect(
 			probe.api.messages.send({ owner: owner(main), to: mainConv, text: "运行结束后不可继续借用旧机会" }),
-		).rejects.toThrow("发言机会");
+		).rejects.toThrow("工具目录提供 parent_ask");
 		const privateSource = await probe.ios["qq-main"].emit(input("qq-main", privateConv, false));
 		const privateSession = privateSource.routes?.find((route) => route.agent === "main" && !route.dropped)?.session;
 		if (!privateSession) throw new Error("Real private write session missing");

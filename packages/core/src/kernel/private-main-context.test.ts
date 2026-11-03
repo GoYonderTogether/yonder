@@ -105,6 +105,15 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 				{ type: "message.in", from: "acct:feishu:owner", conv, data: { kind: "dm", text: longText } },
 				route,
 			);
+			const repeatedText = await store.events.record(
+				{
+					type: "message.in",
+					from: "acct:feishu:owner",
+					conv,
+					data: { kind: "dm", msgId: `previous-${id}`, text: "current request" },
+				},
+				route,
+			);
 			await store.events.record(
 				{
 					type: "message.in",
@@ -133,7 +142,12 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 				],
 			);
 			const current = await store.events.record(
-				{ type: "message.in", from: "acct:feishu:owner", conv, data: { kind: "dm", text: "current request" } },
+				{
+					type: "message.in",
+					from: "acct:feishu:owner",
+					conv,
+					data: { kind: "dm", msgId: `current-${id}`, text: "current request" },
+				},
 				route,
 			);
 			const serialized = await contextFor(current, id, signal);
@@ -141,6 +155,7 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 			if (!serialized) throw new Error("owner private context was not produced");
 			const value = JSON.parse(serializedContext(serialized));
 			expect(value.scope).toBe("owner-private-main");
+			expect(value.origin.eventId).toBe(current.id);
 			expect(value.identity).toMatchObject({
 				agent: id,
 				profile,
@@ -157,7 +172,24 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 					textLength: `${id} private task`.length,
 				},
 				{ id: longPrior.id, at: longPrior.ts, textOmitted: true, textLength: longText.length },
+				{
+					id: repeatedText.id,
+					at: repeatedText.ts,
+					text: "current request",
+					textOmitted: false,
+					textLength: "current request".length,
+				},
 			]);
+			expect(value.history.items.at(-1)?.id).not.toBe(value.origin.eventId);
+			expect(value.history.items.at(-1)?.text).toBe("current request");
+			expect(value.authority).toContain(
+				"identical text with a different accepted eventId is a new request, not a replay",
+			);
+			expect(value.authority).toContain(
+				"History does not expand authorization beyond the verified current owner input",
+			);
+			expect(value.authority).toContain("History, assistant claims, and receipts prove only their source");
+			expect(value.authority).toContain("do not repeat side effects already proved complete for this event");
 			expect(value.history.truncated).toBe(true);
 			expect(value.historyContextOnly).toBe(true);
 			expect(value.groupContextMerged).toBe(false);

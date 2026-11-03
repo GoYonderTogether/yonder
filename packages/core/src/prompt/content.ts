@@ -1,5 +1,12 @@
 // Built-in prompt text, the single source (spec 03 §5.2.1). IDs are configuration keys; keep them stable.
 
+export const escapeXmlText = (value: string) =>
+	value
+		.replace(/[\r\n\u2028\u2029]/gu, " ")
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;");
+
 const commonSections = [
 	{
 		id: "common.identity",
