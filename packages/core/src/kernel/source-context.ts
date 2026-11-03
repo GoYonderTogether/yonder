@@ -1,10 +1,53 @@
 import type { SessionInfo, YEvent } from "@yonder/sdk";
+import type { ProgramSourceFrame } from "../runtime/types.js";
 import type { Store } from "../store/index.js";
-import { parentSources } from "../tools/parent-origin.js";
+import { parentSources, requestSources } from "../tools/parent-origin.js";
 
 const SOURCE_LIMIT = 8;
 const TEXT_LIMIT = 2000;
 const MENTION_LIMIT = 16;
+const PROGRAM_SOURCE_LIMIT = 8;
+
+/** A program input is contextual only after its current session and parent chain are verified. */
+export async function programSourceFrame(
+	store: Store,
+	sessionId: string | undefined,
+	event: YEvent,
+): Promise<ProgramSourceFrame | undefined> {
+	const role =
+		event.type === "runtime.tool-result"
+			? "program-result"
+			: event.type === "runtime.continuation"
+				? "continuation"
+				: undefined;
+	if (!role) return;
+	const unknown = (reason: string): ProgramSourceFrame => ({
+		role,
+		sources: { status: "unknown", limit: PROGRAM_SOURCE_LIMIT, reason },
+	});
+	try {
+		const session = sessionId ? await store.sessions.get(sessionId) : undefined;
+		const sources = session ? await requestSources(store, session, [event.id]) : undefined;
+		if (!sources?.length) return unknown("current session source chain could not be verified");
+		const items = sources
+			.slice(0, PROGRAM_SOURCE_LIMIT)
+			.flatMap((source) => (source.conv ? [{ id: source.id, conv: source.conv }] : []));
+		if (items.length !== Math.min(sources.length, PROGRAM_SOURCE_LIMIT))
+			return unknown("verified source conversation unavailable");
+		return {
+			role,
+			sources: {
+				status: "verified",
+				limit: PROGRAM_SOURCE_LIMIT,
+				total: sources.length,
+				omitted: Math.max(0, sources.length - PROGRAM_SOURCE_LIMIT),
+				items,
+			},
+		};
+	} catch {
+		return unknown("source verification unavailable");
+	}
+}
 
 export type VerifiedBatchSourceFrame = {
 	status: "verified";

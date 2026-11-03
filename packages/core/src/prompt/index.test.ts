@@ -482,6 +482,20 @@ test("owner, parent, and late tool inputs keep distinct host contexts", async ()
 				if (event.id === owner.id) return JSON.stringify({ source: owner.id, conv: owner.conv, contextOnly: true });
 				if (event.id === parent.id)
 					return JSON.stringify({ source: parent.id, conv: parent.conv, verifiedParent: true });
+				if (event.id === tool.id)
+					return {
+						context: "",
+						programInput: {
+							role: "program-result",
+							sources: {
+								status: "verified",
+								limit: 8,
+								total: 1,
+								omitted: 0,
+								items: [{ id: owner.id, conv: "conv:feishu:private" }],
+							},
+						},
+					};
 				if (event.id === ownerParent.id)
 					return {
 						context: JSON.stringify({ self: "helper", verified: true, operability: { status: "observed" } }),
@@ -530,6 +544,10 @@ test("owner, parent, and late tool inputs keep distinct host contexts", async ()
 		expect(ownerParentPrepared.text.endsWith(`${ownerText}"}]}}`)).toBe(true);
 		expect(toolPrepared.text).not.toContain("conversation:");
 		expect(toolPrepared.text).toContain("late result");
+		expect(toolPrepared.text).toContain(
+			`program-input: {"role":"program-result","sources":{"status":"verified","limit":8,"total":1,"omitted":0,"items":[{"id":"${owner.id}","conv":"${owner.conv}"}]}}`,
+		);
+		expect(toolPrepared.text.match(/late result/g)).toHaveLength(1);
 	} finally {
 		await db.close();
 		await rm(directory, { recursive: true, force: true });

@@ -14,9 +14,10 @@ import {
 	type YEvent,
 } from "@yonder/sdk";
 import type { WorkspaceFiles } from "../config/index.js";
-import type { PromptPart, RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
+import type { ProgramSourceFrame, PromptPart, RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
 import { builtinPromptSections, escapeXmlText, promptSectionIds } from "./content.js";
 import { expandTemplate } from "./templates.js";
+import { needsTurnContext } from "./turn-context.js";
 
 /** Core context: no optional plugin or template fallback is needed for peer collaboration. */
 export const peerWorkspaceContext: ContextContribution = {
@@ -90,10 +91,12 @@ export interface PromptOptions {
 		event: YEvent,
 		agent: string | null,
 		signal?: AbortSignal,
+		sessionId?: string,
 	): Promise<
 		| string
 		| {
 				context: string;
+				programInput?: ProgramSourceFrame;
 				ownerTask?: { sources: Array<Record<string, unknown> & { id: string; text: string }> };
 		  }
 		| undefined
@@ -444,21 +447,14 @@ export async function prepareInput(
 			`notice: yonder harness updated from ${row.version} to ${options.version}; details: yonder changelog --from ${row.version} --to ${options.version}`,
 		);
 	}
-	if (
-		wake === "run" &&
-		event.conv &&
-		(data.kind === "group" ||
-			data.kind === "channel" ||
-			(event.type === "message.in" && data.kind === "dm") ||
-			data.kind === "parent-request" ||
-			event.type.endsWith(".group-batch") ||
-			event.type.endsWith(".batch-ready"))
-	) {
-		const participants = await options.conversationContext?.(event, session.agent ?? null, signal);
+	if (wake === "run" && needsTurnContext(event, data)) {
+		const participants = await options.conversationContext?.(event, session.agent ?? null, signal, row.id);
 		if (typeof participants === "string") {
 			if (participants) lines.push(`conversation: ${escapeXmlText(participants)}`);
 		} else if (participants) {
-			lines.push(`conversation: ${escapeXmlText(participants.context)}`);
+			if (participants.context) lines.push(`conversation: ${escapeXmlText(participants.context)}`);
+			if (participants.programInput)
+				lines.push(`program-input: ${escapeXmlText(JSON.stringify(participants.programInput))}`);
 			if (participants.ownerTask && event.type === "message.in" && data.kind === "parent-request") {
 				const { text: delegateNote = "" } = event.data as { text?: string };
 				ownerTask = {

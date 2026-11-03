@@ -37,6 +37,13 @@ export interface PromptPart {
 	text: string;
 }
 
+export interface ProgramSourceFrame {
+	role: "program-result" | "continuation";
+	sources:
+		| { status: "verified"; limit: number; total: number; omitted: number; items: Array<{ id: string; conv: string }> }
+		| { status: "unknown"; limit: number; reason: string };
+}
+
 export interface RuntimeOptions {
 	db: Db;
 	home: string;

@@ -2,7 +2,7 @@ import type { SessionInfo } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
-import { batchSourceFrame } from "./source-context.js";
+import { batchSourceFrame, programSourceFrame } from "./source-context.js";
 
 test("batch source frame verifies current sources and marks owner separately from ambient members", async () => {
 	const conv = "conv:qq:group:source-frame";
@@ -165,6 +165,120 @@ test("batch source frame verifies current sources and marks owner separately fro
 		const longFrame = await batchSourceFrame(store, session, longBatch);
 		expect(longFrame?.sources[0]).toMatchObject({ textLength: 2500, textOmitted: true });
 		expect(longFrame?.sources[0]).not.toHaveProperty("text");
+	} finally {
+		await db.close();
+	}
+});
+
+test("program input frame follows only its verified source chain", async () => {
+	const conv = "conv:qq:group:program-source-frame";
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db, () => "person:owner");
+		const session: SessionInfo = {
+			id: "156",
+			agent: "target",
+			mode: "persistent",
+			key: conv,
+			profile: "group",
+			opened: new Date().toISOString(),
+			version: "test",
+		};
+		await store.sessions.put(session);
+		const sourceRoute = [{ agent: "target", session: session.id, binding: "source", wake: "write" as const }];
+		const source = await store.events.record(
+			{ type: "message.in", from: "acct:qq:owner", conv, data: { kind: "group", text: "first request" } },
+			sourceRoute,
+		);
+		const result = await store.events.record(
+			{
+				type: "runtime.tool-result",
+				parent: source.id,
+				conv,
+				data: { session: session.id, job: "job-1", text: "program report" },
+			},
+			[{ agent: "target", session: session.id, binding: "background", wake: "run" }],
+		);
+		const later = await store.events.record(
+			{ type: "message.in", from: "acct:qq:owner", conv, data: { kind: "group", text: "later request" } },
+			sourceRoute,
+		);
+		const frame = await programSourceFrame(store, session.id, result);
+		expect(frame).toEqual({
+			role: "program-result",
+			sources: { status: "verified", limit: 8, total: 1, omitted: 0, items: [{ id: source.id, conv }] },
+		});
+		expect(JSON.stringify(frame)).not.toContain(later.id);
+
+		const continuation = await store.events.record(
+			{
+				type: "runtime.continuation",
+				parent: source.id,
+				conv,
+				data: { session: session.id, job: "job-2", text: "continue" },
+			},
+			[{ agent: "target", session: session.id, binding: "continuation", wake: "run" }],
+		);
+		expect(await programSourceFrame(store, session.id, continuation)).toMatchObject({
+			role: "continuation",
+			sources: { status: "verified", total: 1, items: [{ id: source.id, conv }] },
+		});
+		expect(await programSourceFrame(store, "missing-session", result)).toMatchObject({
+			role: "program-result",
+			sources: { status: "unknown" },
+		});
+		const forged = await store.events.record(
+			{
+				type: "runtime.tool-result",
+				parent: source.id,
+				conv: "conv:qq:other",
+				data: { session: session.id, job: "forged", text: "untrusted" },
+			},
+			[{ agent: "target", session: session.id, binding: "background", wake: "run" }],
+		);
+		expect(await programSourceFrame(store, session.id, forged)).toMatchObject({
+			role: "program-result",
+			sources: { status: "unknown" },
+		});
+
+		const many = [];
+		for (let index = 0; index < 9; index++)
+			many.push(
+				await store.events.record(
+					{
+						type: "message.in",
+						from: "acct:qq:owner",
+						conv,
+						data: { kind: "group", text: `source ${index}` },
+					},
+					sourceRoute,
+				),
+			);
+		const sourceEvents = many.map((event) => event.id).sort();
+		const batch = await store.events.record(
+			{
+				type: "social.batch-ready",
+				from: "plugin:social",
+				conv,
+				data: { agent: "target", through: sourceEvents.at(-1), sourceEvents },
+			},
+			[{ agent: "target", session: session.id, binding: "batch", wake: "run" }],
+		);
+		const manyResult = await store.events.record(
+			{
+				type: "runtime.tool-result",
+				parent: batch.id,
+				conv,
+				data: { session: session.id, job: "many", text: "report" },
+			},
+			[{ agent: "target", session: session.id, binding: "background", wake: "run" }],
+		);
+		const bounded = await programSourceFrame(store, session.id, manyResult);
+		expect(bounded).toMatchObject({
+			role: "program-result",
+			sources: { status: "verified", limit: 8, total: 9, omitted: 1 },
+		});
+		expect(bounded?.sources.status === "verified" ? bounded.sources.items : []).toHaveLength(8);
 	} finally {
 		await db.close();
 	}
