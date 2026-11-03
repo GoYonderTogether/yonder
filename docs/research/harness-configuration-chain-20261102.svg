@@ -5,34 +5,34 @@
 <rect width="1240" height="920" fill="#f8fafc"/>
 <g font-family="PingFang SC, Microsoft YaHei, sans-serif" fill="#0f172a">
 <text x="48" y="52" font-size="27" font-weight="700">从写入配置，到可核验的配置与交付闭环</text>
-<text x="48" y="84" font-size="16" fill="#475569">2026-11-03 · v0.3.26110215 已安装；QQ 独立处理有实证，配置与新投递仍未完整通过</text>
+<text x="48" y="84" font-size="16" fill="#475569">2026-11-03 · v0.3.26110301 已安装；发布／Cloud 通过，真实群配置与新投递仍未完整通过</text>
 <text x="48" y="137" font-size="22" font-weight="700">实际暴露的旧路径</text>
 <rect x="48" y="160" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
 <text x="66" y="197" font-size="17">用户用自然语言提出需求</text>
 <path d="M319,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="247" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="284" font-size="17">群名缺失，靠旧对话／配置片段猜目标与完成</text>
+<text x="66" y="284" font-size="17">旧回执被当成本轮完成，忽略当前配置缺口</text>
 <path d="M319,311 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="334" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
 <text x="66" y="371" font-size="17">把程序入账当看过，把平台未知当缺权限</text>
 <path d="M319,398 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="421" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="458" font-size="17">共享发言机会推进了别人的处理游标</text>
+<text x="66" y="458" font-size="17">模型想发，工具只说无机会、不要重试</text>
 <path d="M319,485 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="508" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
 <text x="66" y="545" font-size="17">异源合并或转述覆盖原话，交付要求被漏掉</text>
 <text x="650" y="137" font-size="22" font-weight="700">共享 Harness 新约束（实施／验收中）</text>
 <rect x="650" y="160" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="197" font-size="17">核验主人原文为主目标；转述只作辅助</text>
+<text x="668" y="197" font-size="17">主人原件为目标；新请求与旧回执分清</text>
 <path d="M921,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="247" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="284" font-size="17">平台精确群名对齐目标；完整依赖预检</text>
+<text x="668" y="284" font-size="17">精确群名与完整缺口；JSON 保持可读结构</text>
 <path d="M921,311 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="334" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
 <text x="668" y="371" font-size="17">同一 Agent、群历史独立 → 校验／原子重载</text>
 <path d="M921,398 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="421" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="458" font-size="17">模型处理 ≠ 发言竞争；别人先答不能吞输入</text>
+<text x="668" y="458" font-size="17">模型处理独立；受限交付交主会话接办</text>
 <path d="M921,485 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="508" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
 <text x="668" y="545" font-size="17">新输入 → 本 Agent 真实运行 → 实际送达</text>
@@ -40,7 +40,7 @@
 <text x="68" y="649" font-size="18" font-weight="700">程序维护边界，不能靠一句“已完成”跨过</text>
 <text x="68" y="677" font-size="17">权限与历史隔离；来源与关注连续；平台状态、入账、运行、投递分层，未知和省略显式记录。</text>
 <text x="48" y="754" font-size="22" font-weight="700">Cloud：按真实入口判断，不能只比较产品版本号</text>
-<text x="68" y="790" font-size="18" fill="#166534">/work 已恢复；v15 浏览器／本机同版，真实历史与输入框核验通过</text>
+<text x="68" y="790" font-size="18" fill="#166534">/work 已恢复；26110301 浏览器／本机同版，真实历史与输入框核验通过</text>
 <text x="68" y="824" font-size="18" fill="#475569">旧 RPC 400 已有修复证据；用户更早那次中断是否同因，仍无法确认</text>
 <text x="48" y="880" font-size="15" fill="#475569">边界：不教用户写配置；不按 Bot 打补丁；保留授权边界；群上下文独立；宿主记录事实，模型决定行动与完成。</text>
 </g></svg>

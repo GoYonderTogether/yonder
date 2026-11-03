@@ -301,3 +301,18 @@ eedc7701集成Luna执行的共享修复：SDK可选精确会话描述、Feishu�
 纠正后的精确当前源命令加`--exclude '**/.cache/**' --maxWorkers=1`，仅运行plugins/social/test/self-configuration-natural-live.test.ts：exit0，1文件/1项通过，99.05s。日志.cache/v16-checks/self-config-natural-live-source.log权限600。先前2pass的统计保留，不将缓存副本计作当前源验证。
 
 eedc7701a27074811a3206eee60e011d7b574ffb源码共享树检查：build通过14.76s、typecheck通过8.82s；默认非真实模型全套`npm test -- --exclude '**/.cache/**' --maxWorkers=1` exit0，494文件通过/67跳过，2664测试通过/112跳过（2776 total），358.01s suite/358.55s command。size/layers通过。完整npm run lint仍exit1：34 errors/1244 warnings/34 infos，34 errors均为foreign未跟踪proposals/brand的18文件；未修改这些草稿。tracked-only Biome检查1632文件exit0、0 errors/1243 warnings/34 infos，不冒充完整目录lint通过。原始日志.cache/v16-checks/。此时仅文档与foreign草稿dirty，后续固定候选须通过干净提交正式CI和发布链再安装，不能以此取代实群交付。
+
+
+## v0.3.26110301：全部发布门禁通过，实际配置与交付仍未完成
+
+候选ddae602994cc180557b6c867b9609cfc32401eaf，push CI41548031895为11/11 jobs成功；唯一AutoRelease41550207700、Release41550223979成功。正式tag/SHA为v0.3.26110301/deeaa2ffdadf0ec845f636225dfaaec79c62714a，parent精确为候选；45资产齐全。tag CI41550377177为11/11成功；Windows双架构安装41550380595、Android41550383918、Desktop41550387225、iOS41550390582成功，无失败后重试。原生updater exit0/105.34s，event01M6FBTB6PX2475CTW18Q9Z0CB、updateId c3d505bb-db7c-40f0-8037-4aea201b418b、verified=true/restartRequired=false；原home、PID35862/launcher35723，实际origin.commit与tag一致。没有预配置Bot/群或换owner模型。随后正常ff-only合入release元数据，main与origin/main/tag一致。
+
+Release自动Cloud通知未产生对应run，既有Deploy web仅手动精确派发一次41550938085并成功。root后台Chrome真实/work打开贾维斯本轮两条26110301回复及输入框，无设备请求错误；public build-version实见同version/SHA、builtAt2026-11-03T00:11:07.698Z（不把服务器目标元数据生成时刻冒称浏览器字段）。证据.cache/real-channel-26110301-20261103/cloud-*.json权限600；owned session lpms已stop。此前用户那次/work中断仍无确切历史根因，不能认定产品版本不匹配。
+
+实群watermark row16449，00:09:43Z。Feishu第一原话input01M6FBVHWFCAR9ZV74V619Y9R0（00:09:59Z）/run01M6FBW0BWF9SSV1B9FBCYGMNQ，第二input01M6FBY5YPXCGGXZ3GJ1TAK0W9（00:11:26Z）/run01M6FBYDSF1Z3V4AEJVVHFTSCW均main session2独立单输入，真实model workbuddy/deepseek-v4.1-flash；两轮无toolCall，reply01M6FBWDFCBQS96CNV1FT5CZRG、01M6FBYTABF1H9ZY8D2XB4QVBK仍据旧03:27回执声称不必修改/不再发送并转QQ手机scope。P1 probe01M6FC5544KGJ8PCA5M9MDHS8E（00:15:14Z）已实际入账，未有本Agent模型处理/新发送，因此失败保留。
+
+只读核对实际prepared：本版pi.system hash已更新；原文、当前event、P1 platform-exact名称和wake=write/scope excludes/record-only缺口均完整保留。第二input正常Pi user191393经prepared191397原生replace装配，非旧缓存。groupContextMerged=false；旧owner历史只作背景。生效beforeRequest为core图片/limits/recovery/system-as-user及tasks-budget/wechat-watch，实际systemAsUser关闭；代码追踪均不删除当前user正文，只可能追加提醒/裁旧图片。最终provider wire仍未直接捕获，不启用含正文/秘密的全量trace，不把prepared夸称wire证据。该prepared为31783 JS chars；conversation JSON原始8576，文本节点将1158个双引号转实体后14366，多出5790；摘要本身7321仍完整未超8000。新事件native msgId彼此不同且按ID去重，projector只按当前source关联run/receipt；旧回执只出现在旧对话叙述中，宿主未把其计作当前投递。
+
+QQ首条native@GPT input01M6FC037FCS5452GWFA6S141V（00:12:28Z），公开接手reply01M6FC0WAW0S4TYTXN3RZWX9C2；parent01M6FC13DZNR93XYV73J8R3469（00:13:01Z），main session150858 run01M6FC23TQ1ARJHM2DEV0G8XVD结束。后两句原话分别GPT input01M6FC2A3AJ1B2PT3NAZ6YK3WE（00:13:41Z）和01M6FC2GNYGQ894GETJABHE1A7（00:13:48Z）；各自进入batch01M6FC2D11F896NZY78MJMDKJ7与合并batch01M6FC2KJY1J16VNSZF2G2CK84，run01M6FC44SJVD632Z1Z2JXYTPBE inputs含两批及parent返回runtime.tool-result，不是仅旁观游标。模型两次实际message_send到正确群/respondTo第三句，但均遭social beforeSend“当前没有发言机会；不要重试”拒绝，最终NO_REPLY且无fresh message.out。来源群session不持有当前GroupTurn；该共享gate先于respondTo目标校验运行，不能据respondTo或owner身份偷授lease。
+
+下一修复沿已存在职责边界：无机会错误指出条件化的parent_ask→所属main按核验原件及原群完成的入口；不新建lease/队列，不放松暂停/已可靠回应/权限。主人私有main用既有event身份明确本轮新请求与旧回执边界，结构化JSON文本保留引号但保留&<>及换行安全；不改Bot persona，不改变模型，不把当前失败事后改成通过。规范02/03/11及decisions已先更新，Luna正在最小实现。原对话快照.cache/private-delivery-20261102/26110301-original-conversations.md权限600，最大row16536，14入站/3出站及57条白名单关联事件；不含thinking/凭据。
