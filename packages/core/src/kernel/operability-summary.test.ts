@@ -34,9 +34,7 @@ test("summarizes exact current-Agent evidence without turning it into membership
 					participationScope: { enabled: true, scope: ["secret-conv"], includesConversation: false },
 					consumer: { state: "not-applicable", reason: "outside-social-scope" },
 					capabilities: {
-						values: ["secret-tool"],
 						plugins: ["secret-plugin"],
-						tools: { offer: ["secret"], search: [] },
 						messageSend: false,
 					},
 				},
@@ -73,7 +71,6 @@ test("summarizes exact current-Agent evidence without turning it into membership
 			},
 		],
 	});
-	expect(json).not.toContain("secret-tool");
 	expect(json).not.toContain("secret-plugin");
 	expect(json).not.toContain("secret-conv");
 	expect(summary.conversations[0]).not.toHaveProperty("selector");

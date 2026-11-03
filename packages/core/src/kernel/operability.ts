@@ -76,14 +76,7 @@ export type SessionOperabilityFact = {
 			derived?: boolean;
 		};
 		reply?: "auto" | "none";
-		deliver?: { to: string; via?: string };
-		capabilities?: {
-			values: string[];
-			plugins?: string[];
-			tools: { offer: string[]; search: string[] };
-			channelInstances?: string[];
-			messageSend: boolean;
-		};
+		capabilities?: { plugins?: string[]; messageSend: boolean };
 	};
 	configuration?: {
 		basis: "accepted" | "candidate";
@@ -344,14 +337,7 @@ export async function projectConversationOperability(options: {
 				},
 				consumer,
 				reply: match.reply ?? "auto",
-				...(match.deliver ? { deliver: match.deliver } : {}),
-				capabilities: {
-					values: security.capabilities,
-					plugins,
-					tools,
-					...(scope ? { channelInstances: scope } : {}),
-					messageSend,
-				},
+				capabilities: { plugins, messageSend },
 			};
 		}
 	}

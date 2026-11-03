@@ -248,7 +248,7 @@ test("parent conversation projects only verified owner source samples", async ()
 				prediction: {
 					state: "matched",
 					profile: "group-readonly",
-					capabilities: { values: ["read"], tools: { offer: ["parent_ask"], search: [] }, messageSend: false },
+					capabilities: { plugins: ["read"], messageSend: false },
 				},
 			};
 		};
@@ -280,7 +280,7 @@ test("parent conversation projects only verified owner source samples", async ()
 		expect(JSON.stringify(sources)).not.toContain("unrelated history body");
 		expect(JSON.stringify(sources)).not.toContain("thinking");
 		expect(sources.slice(0, 8).map((source) => source.id)).toEqual(ownerSources.slice(0, 8).map((source) => source.id));
-		expect(sources[0]?.operability?.prediction?.capabilities?.values).toEqual(["read"]);
+		expect(sources[0]?.operability?.prediction?.capabilities?.plugins).toEqual(["read"]);
 		expect((await store.sessions.get(session.id))?.profile).toBe("group-readonly");
 		const noProjectorOptions = conversationPromptOptions(
 			store,
