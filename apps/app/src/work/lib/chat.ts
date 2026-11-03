@@ -77,6 +77,10 @@ export function inputDetails(text: string, original?: string) {
 		const suffix = body.slice(original.length).trim();
 		if (suffix) metadata.push({ label: "上下文注入", text: suffix, offset: original.length });
 		body = original;
+	} else if (original !== undefined && original.length > 0 && body.endsWith(original)) {
+		const prefix = body.slice(0, -original.length).trim();
+		if (prefix) metadata.push({ label: "上下文注入", text: prefix, offset: 0 });
+		body = original;
 	} else if (original !== undefined) {
 		if (body.trim()) metadata.push({ label: "准备后的输入", text: body, offset: 0 });
 		body = original;

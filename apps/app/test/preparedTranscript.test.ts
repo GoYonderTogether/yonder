@@ -12,7 +12,7 @@ import { localEnvironment, workspaceFiles } from "../../../packages/core/src/run
 import { buildModels } from "../../../packages/core/src/runtime/models";
 import { readTranscript, transcriptItem } from "../../../packages/core/src/runtime/transcript";
 import { createStore } from "../../../packages/core/src/store";
-import { fromTranscript, timeBucket } from "../src/work/lib/chat";
+import { fromTranscript, inputDetails, timeBucket } from "../src/work/lib/chat";
 import { emptyView, reduce } from "../src/work/lib/useSession";
 
 test("real preparation and stored edit project metadata without losing the original or page boundary", async () => {
@@ -108,4 +108,14 @@ test("raw input XML stays visible, and time buckets split at five minutes or a d
 	expect(timeBucket(start + 299_999, start)).toBeUndefined();
 	expect(timeBucket(start + 300_000, start)).toBeTruthy();
 	expect(timeBucket(new Date(2026, 9, 31).getTime(), new Date(2026, 9, 30, 23, 59).getTime())).toBeTruthy();
+});
+
+test("prepared input recognizes background before the exact current body", () => {
+	const original = "当前原话";
+	const details = inputDetails(`历史记录含有${original}\n背景上下文\n${original}`, original);
+	expect(details.body).toBe(original);
+	expect(details.metadata).toEqual([{ label: "上下文注入", text: `历史记录含有${original}\n背景上下文`, offset: 0 }]);
+	const generic = inputDetails("未知准备格式", original);
+	expect(generic.body).toBe(original);
+	expect(generic.metadata).toEqual([{ label: "准备后的输入", text: "未知准备格式", offset: 0 }]);
 });

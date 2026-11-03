@@ -143,14 +143,14 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 			options,
 		);
 		expect(groupInput.text).toContain(
-			"&quot;self&quot;:{&quot;agent&quot;:&quot;main&quot;,&quot;name&quot;:&quot;贾维斯&quot;,&quot;identityBasis&quot;:&quot;agent-id&quot;,&quot;profileChangesIdentity&quot;:false,&quot;historyScope&quot;:&quot;session&quot;}",
+			'"self":{"agent":"main","name":"贾维斯","identityBasis":"agent-id","profileChangesIdentity":false,"historyScope":"session"}',
 		);
-		expect(groupInput.text).toContain("&quot;profileChangesIdentity&quot;:false");
-		expect(groupInput.text).not.toContain("&quot;capabilities&quot;:");
+		expect(groupInput.text).toContain('"profileChangesIdentity":false');
+		expect(groupInput.text).not.toContain('"capabilities":');
 		const batchInput = await prepareInput(session, config, { ...visitor, type: "social.batch-ready" }, "run", options);
-		expect(batchInput.text).toContain("&quot;name&quot;:&quot;贾维斯&quot;");
+		expect(batchInput.text).toContain('"name":"贾维斯"');
 		const mainInput = await prepareInput({ ...session, mode: "main" }, config, sent, "run", options);
-		expect(mainInput.text).toContain("&quot;verified&quot;:true");
+		expect(mainInput.text).toContain('"verified":true');
 		expect(mainInput.text).toContain("visitor original");
 		expect(mainInput.text).not.toContain("owner original");
 		const ownerCtx = { ...ctx, event: owner, events: [owner] };

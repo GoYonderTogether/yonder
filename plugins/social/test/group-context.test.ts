@@ -35,15 +35,13 @@ test("a group turn injects one compact context block with self, senders, coverag
 		expect(history).toHaveLength(0);
 		const batchText = blocks.filter((text) => text.includes('"publicHistory"'));
 		expect(batchText).toHaveLength(1);
-		expect(JSON.parse(batchText[0]!.slice(batchText[0]!.indexOf('{"agent"')))).toMatchObject({
-			publicHistory: expect.any(Array),
-		});
+		const batches = (await kernel.events.query({ type: "social.batch-ready", conv: mainConv })).events;
+		expect(JSON.parse(batchText[0]!.trim().split("\n").at(-1)!)).toEqual(batches[0]?.data);
 		// 房间索引的大字段不再每轮重复。
 		expect(block).not.toContain('"people"');
 		expect(block).not.toContain('"evidence"');
 		// 内核不再为批次重复注入成员/recentSent。
 		expect(blocks.join("\n")).not.toContain('"recentSent"');
-		const batches = (await kernel.events.query({ type: "social.batch-ready", conv: mainConv })).events;
 		const publicHistory = (batches[0]!.data as { publicHistory?: unknown[] }).publicHistory ?? [];
 		expect(publicHistory.length).toBeGreaterThan(0);
 		expect(publicHistory.length).toBeLessThanOrEqual(30);
