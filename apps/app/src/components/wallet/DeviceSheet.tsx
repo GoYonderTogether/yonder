@@ -47,12 +47,15 @@ export function DeviceSheet({
 	open,
 	onOpenChange,
 	onChanged,
+	onRemoved = onChanged,
 }: {
 	device: Device;
 	agents: number;
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
 	onChanged: () => void;
+	/** 解绑成功后额外回调；详情页据此回到列表，普通改名仍留在原页。 */
+	onRemoved?: () => void;
 }) {
 	const [name, setName] = useState(device.name);
 	const [confirmRemove, setConfirmRemove] = useState(false);
@@ -81,9 +84,9 @@ export function DeviceSheet({
 		setRemoving(true);
 		try {
 			await api.removeDevice(device.id);
-			onChanged();
 			onOpenChange(false);
 			toast("设备已解绑");
+			onRemoved();
 		} catch (error) {
 			toast(error instanceof Error ? error.message : "解绑失败", true);
 		} finally {
