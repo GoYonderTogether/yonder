@@ -111,3 +111,6 @@ v7已证明原生配置、校验和热重载可由Agent独立完成，但完整�
 发版、安装与Cloud各有证据：候选CI、tag门禁、资产、产品原生updater回执和实际进程分别核对；Cloud实际build-version及/work工作RPC另验。Release的派发步骤success可能只是缺CLOUD_DISPATCH_TOKEN而记web-pending-reconcile，不能当网页已部署；不同产品版本号也不直接证明workProtocol不兼容。当前Cloud已恢复可用，历史那次中断原因仍未知。
 
 自然模型测试保留失败/跳过和正确检查对象。所有当前源测试排除.cache副本；配置成功不代表普通消息进入模型，run done不代表群已投递。缺少生命周期证据时，只增强既有测试的有界白名单诊断再复测，不改原话、成功断言或超时来换通过，不启用完整provider正文/秘密trace。真实飞书/QQ仍是最终验收。
+
+
+后台结果与历史正文还需明确证据类型。runtime.tool-result/continuation复用当前真实会话和requestSources核父链，只给有限原请求ID/conv与total/omitted，无法核验即unknown；报告不是新主人指令，也不能证明后来输入已完成，不复制原件/结果正文、不自动fan-out。飞书背景按native ID去掉当前pending正文副本，保留不同ID的同文历史；已送达助手叙述保留原parent和记录时刻，回执只证送达、不把内容自述升级为当前配置事实。原始来源、实时有效状态和实际投递分别作为证据，模型据当前目标决策，而非由第二个模型或新账本裁决完成。

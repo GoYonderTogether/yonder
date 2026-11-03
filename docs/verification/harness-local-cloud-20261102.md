@@ -350,3 +350,14 @@ Cloud缺自动token条件仍待协调，精确既有Deploy web仅一次手动dis
 QQ first GPT native@01M6FGCY1NQT8ZPQ224CT7TNHD（01:29:23Z）获群session155642直发机会，实际out01M6FGDWVCWHCRF6VN1EP2AHC8（01:29:55Z）。parent01M6FGE79QH23TKQC76V07ZE6E（01:30:06Z）只覆盖first原件，所属main150858两次bash核查后done，无本轮原QQ群主会话发送。second GPT01M6FGEK7VGBYJAAYFY56A2D6K（01:30:18Z）、third01M6FGEX09B1R89EG1JRK8RY0V（01:30:28Z）各自进入GPT两批sourceEvents及run01M6FGFY2SY…（01:31:02Z），并有该群session成功out01M6FGFMFD8GJVM2FMVXA4F7X9（01:30:52Z，respondTo third）。回复正确区分平台范围unknown、不再断言手机开关必缺；但其主会话发言测试成功仍引用既往事实，本轮main未覆盖third要求。新无机会错误未触发，不能称该错误引导已实群验证。最初子Agent误把旧191562/191574拒绝归入本轮，已按source纠正：它们属于26110301旧third，当前两次send均成功，不能据旧错误推断本版加载旧插件。下一核查聚焦后台报告覆盖first与后续owner新要求之间的来源/权威分层，不新增队列或凭model话语提权。
 
 本轮原文导出.cache/private-delivery-20261102/26110302-original-conversations.md（600），五conv与白名单生命周期，snapshot max row16618。不把GPT群自己新发、其他Bot回答、main早期检查三种事实互换。用户已确认同Agent办事、群历史独立；main办事后群渠道转述本身符合既有规范，待解决的是后续新要求是否实际被接办，而非擅增“出站session字段必须main”的硬条件。
+
+
+### 后续已实现的来源约束与源码检查
+
+b47df995先更新03/11及decisions后，4b0ce927/37d59876实现Feishu pending正文不复制、不同native ID同文历史保留；每条已送达助手叙述保留parent source与output记录时间，证据语义在header只说明一次，未知来源保留unknown，64KiB/取消/读取失败与跨会话边界不变。Feishu conversation定向13/13通过。
+
+56261aa967feab0adc0ef80738bcbd3cbbffb641将实际prepare row.id传给兼容的conversationContext可选第4参数；kernel的programSourceFrame沿现有requestSources核runtime.tool-result/continuation父链，role明确program-result或continuation，最多8个原始source ID/conv并给total/omitted，缺来源/当前会话或核验失败unknown。source frame不复制原文/结果，不以data.session或正文自述提权，不自动转发/另排队；common runtime.events重写同文/同source重放语义，并明确程序结果不证明后到请求完成，owner frame只留origin及历史不扩权，不叠相同规则。4文件20项定向组合通过，包含真实Store→prepareInput证明first结果不关联later third、跨conv/缺session不升级、9源预览8及continuation正文一次；prompt预算7300与index495行不抬。
+
+真实Luna自然fixture仅一次，当前精确文件且排.cache：1文件/1项通过，76.67s；配置/parent main-private/ordinary批次实际run done，第二批无出站。证据.cache/self-config-group-2c5af122-b73b-4450-8670-54efc131e189.json与natural-live.log权限600；这是temp home/local recording transport，不等同正式飞书/QQ。旧自然fixture那次71.41s失败仍保留未归因，不以本次通过追溯抹除。
+
+完整source检查HEAD56261aa9：build exit0/15.170s、typecheck exit0/6.371s；默认非真实模型全套明确排.cache，496文件通过/67跳过（563），2670测试通过/112跳过（2782），349.82s suite/350.260s command。size/layers单独通过，无baseline增长/向上依赖。tracked Biome传入1704个recognized paths、实际checked1606，0 errors/1243 warnings/34 infos；完整npm run lint前段Biome仍exit1，34 errors/1244 warnings/34 infos，链内后续size/layers未执行。JSON和git ls-files核34错误均在foreign未跟踪proposals/brand（parse16、useButtonType14、useIterableCallbackReturn2、format2），不改草稿也不称整目录lint通过。日志.cache/26110303-source-checks/（目录700，日志600）。正式发布/安装与原话实群复验尚待完成，源码检查不代替交付。
