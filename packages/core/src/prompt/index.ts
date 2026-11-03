@@ -417,6 +417,7 @@ export async function prepareInput(
 	const images: Attachment[] = [];
 	const limits = model?.inputLimits;
 	const attachmentReader = options.offeredTools?.(session).includes("conversation_attachment_read");
+	const readable: number[] = [];
 	for (const [index, attachment] of attachments.entries()) {
 		const bytes = attachment.bytes;
 		const reference = `message=${label(event.id)} index=${index}`;
@@ -434,14 +435,16 @@ export async function prepareInput(
 			lines.push(
 				`attachment: ${label(attachment.name ?? attachment.kind)} (${label(attachment.mime)}${attachment.bytes === undefined ? "" : `, ${Math.ceil((bytes ?? 0) / 1024)} KB`}) ${label(attachment.uri)}; ${reference}`,
 			);
-			if (event.type === "message.in")
-				lines.push(
-					attachmentReader
-						? `attachment access: use conversation_attachment_read with message="${label(event.id)}" and attachment=${index} for supported text; cached paths do not grant workspace access or parse binary formats`
-						: "attachment access: conversation_attachment_read is not offered in this profile; a cached path does not grant workspace access or prove the file has been read",
-				);
+			if (event.type === "message.in") readable.push(index);
 		}
 	}
+	// One sentence per turn for every readable attachment, instead of repeating it per file.
+	if (readable.length)
+		lines.push(
+			attachmentReader
+				? `attachment access: use conversation_attachment_read with message="${label(event.id)}" and attachment=${readable.join(", ")} for supported text; cached paths do not grant workspace access or parse binary formats`
+				: "attachment access: conversation_attachment_read is not offered in this profile; a cached path does not grant workspace access or prove the file has been read",
+		);
 	if (wake === "run" && row.version !== options.version) {
 		lines.push(
 			`notice: yonder harness updated from ${row.version} to ${options.version}; details: yonder changelog --from ${row.version} --to ${options.version}`,

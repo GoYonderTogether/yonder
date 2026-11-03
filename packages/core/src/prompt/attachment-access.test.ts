@@ -62,6 +62,8 @@ test("received attachment references lead to the offered scoped reader without o
 		const prepared = await prepareInput(row, session, event, "run", options);
 		expect(prepared.text).toContain(`message=${event.id} index=0`);
 		expect(prepared.text).toContain(`use conversation_attachment_read with message="${event.id}" and attachment=0`);
+		// One shared access sentence per turn, not one per attachment.
+		expect(prepared.text.match(/attachment access: /gu)).toHaveLength(1);
 		const reader = createConversationTools(store, home).find((tool) => tool.name === "conversation_attachment_read");
 		if (!reader) throw new Error("Scoped attachment reader is missing");
 		const ctx: ToolContext = {

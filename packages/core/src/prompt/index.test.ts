@@ -745,7 +745,7 @@ test("model discipline loads for every model and task sessions must report STATU
 test("built-in prompt states autonomy, goal-first and stop-when-enough within a word budget", () => {
 	const all = [commonPrompt, residentPrompt, runtimePrompt, cliPrompt].join("\n");
 	const words = all.trim().split(/\s+/u).length;
-	// Measured 7016 words before O52 round 1 added environment, update-interval, steering and delegation sentences (7272); the ceiling is not a reason to cut explanatory text.
+	// Measured 7016 words before O52 round 1 added environment, update-interval, steering and delegation sentences (7272); prompt audit restorations put it at 7290. The ceiling is not a reason to cut explanatory text.
 	expect(words).toBeLessThanOrEqual(7300);
 	for (const line of [
 		"Never give the person a command, script or approval step you can run yourself",
@@ -762,20 +762,26 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 	}
 	expect(runtimePrompt).toContain("Same Agent spans main/group sessions");
 	expect(runtimePrompt).toContain("profiles select capabilities, not identity");
-	expect(runtimePrompt).toContain("Group/private-main histories stay separate");
-	expect(runtimePrompt).toContain("not every group message must enter private main");
-	expect(runtimePrompt).toContain("Rejected private-main binding does not block supported work");
+	expect(runtimePrompt).toContain("Not every group message must enter private main");
+	expect(runtimePrompt).toContain("a rejected private-main binding does not block supported work");
 	expect(runtimePrompt).toContain("authorized model processing, not storage");
-	expect(runtimePrompt).toContain("Batches need mode=batch, batch.run=true, selected plugin and consumer");
-	expect(runtimePrompt).toContain("wake:write stores; admitted triggers/batches may run");
+	expect(runtimePrompt).toContain("Batches need a selected policy plugin and consumer");
+	expect(runtimePrompt).toContain("wake:write stores; admitted triggers and batches may run");
 	expect(runtimePrompt).toContain("wake:run follows policy/admission");
 	expect(runtimePrompt).toContain("reply:none blocks auto-replies");
 	expect(runtimePrompt).toContain(
 		"Report unsupported routing or private-history sharing only if the owner requires it",
 	);
+	expect(runtimePrompt).toContain("use parent_ask for assigned work needing your main");
+	// The five-state ladder and the method/execution split are the capability contract.
 	expect(runtimePrompt).toContain(
-		"Non-main sessions of a resident Agent use parent_ask when work needs the same Agent's main",
+		"Installed, loaded, selected by this profile, offered to the model and permitted for this call are different states",
 	);
+	expect(runtimePrompt).toContain("a skill is a method, a plugin supplies execution");
+	// Config-field trivia lives in the skill, not the base prompt.
+	expect(runtimePrompt).not.toContain("mode=batch");
+	expect(runtimePrompt).not.toContain("batch.run=true");
+	expect(runtimePrompt).not.toContain("yonder-self-management");
 	expect(runtimePrompt).not.toContain("within its own profile");
 	// No persona or product names in the built-in base.
 	for (const forbidden of ["Jarvis", "Luna", "SYSTEM.md"]) {

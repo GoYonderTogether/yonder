@@ -21,7 +21,7 @@ import type { Store } from "../store/index.js";
 import { ownerIdentity } from "../store/sessions.js";
 import { coreToolCapabilities } from "./catalog.js";
 import type { DeliveryPort } from "./delivery-port.js";
-import { fail, requireCapability, tool, withSignal } from "./helpers.js";
+import { fail, managementCli, requireCapability, tool, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
 import { parentSources } from "./parent-origin.js";
 import { sourceBlock } from "./sources.js";
@@ -214,7 +214,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				const answer = reply.results.find((answer) => answer.agent === ctx.agent);
 				if (!answer)
 					throw new Error(
-						`所属 Agent 没有接收 parent-request 的 main 绑定（目标 ${ctx.agent}）。用 yonder agents show ${ctx.agent} --home <active home> 检查 match.channel=agent、kind=parent-request、from=acct:agent:${ctx.agent} 和 session=main；若缺少，维护者可用现有 Agent 配置管理补这条精确绑定，再运行 agents validate 并用 agents show 读回。绑定只建立路由，不授予主人权限；main 仍核验原始请求。`,
+						`所属 Agent 没有接收 parent-request 的 main 绑定（目标 ${ctx.agent}）。用 ${managementCli.show(ctx.agent)} 检查 match.channel=agent、kind=parent-request、from=acct:agent:${ctx.agent} 和 session=main；若缺少，维护者可用现有 Agent 配置管理补这条精确绑定，再用 ${managementCli.validate(ctx.agent)} 校验并以 ${managementCli.show(ctx.agent)} 读回。绑定只建立路由，不授予主人权限；main 仍核验原始请求。`,
 					);
 				return {
 					...result({ status: answer.status, session: answer.session, text: answer.text, reason: answer.reason }),
@@ -268,8 +268,8 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 					const target = agents.get(request.agent)!;
 					throw new Error(
 						canReceivePeerAsk(target)
-							? `${request.agent} 的现有 binding 没有匹配这条 agent_ask。用 yonder agents show ${request.agent} --home <active home> 检查 channel=agent、kind=agent 以及 from 是否包含当前调用方 ${ctx.agent}；保留已有目标范围，修正后运行 agents validate，再用 agents show/inspect 读回。`
-							: `${request.agent} 没有接收 agent_ask 的 binding（需要 channel=agent、kind=agent），所以收不到；这是配置缺口，不是它拒绝。用 yonder agents show ${request.agent} --home <active home> 查看现状；维护者可为目标 Agent 添加受限 peer profile 和精确绑定，再运行 agents validate 并用 agents show/inspect 读回。不要扩大陌生人入口或权限；修复前先告诉主人交接未送达。`,
+							? `${request.agent} 的现有 binding 没有匹配这条 agent_ask。用 ${managementCli.show(request.agent)} 检查 channel=agent、kind=agent 以及 from 是否包含当前调用方 ${ctx.agent}；保留已有目标范围，修正后用 ${managementCli.validate(request.agent)} 校验，再读回配置并以 ${managementCli.inspect(request.agent)} 确认实际加载。`
+							: `${request.agent} 没有接收 agent_ask 的 binding（需要 channel=agent、kind=agent），所以收不到；这是配置缺口，不是它拒绝。用 ${managementCli.show(request.agent)} 查看现状；维护者可为目标 Agent 添加受限 peer profile 和精确绑定，再用 ${managementCli.validate(request.agent)} 校验并读回。不要扩大陌生人入口或权限；修复前先告诉主人交接未送达。`,
 					);
 				}
 				return {

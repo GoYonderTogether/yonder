@@ -395,7 +395,10 @@ test("agent_ask admits a plain request but reports optional effort denial before
 		noRoute = true;
 		const missingBinding = await tool.execute({ agent: "helper", text: "Plain request" }, ctx);
 		expect(missingBinding.isError).toBe(true);
-		expect(missingBinding.text).toMatch(/没有接收 agent_ask 的 binding.*agents validate.*agents show/u);
+		expect(missingBinding.text).toContain("没有接收 agent_ask 的 binding");
+		expect(missingBinding.text).toContain("yonder agents show helper --home <active home>");
+		expect(missingBinding.text).toContain("yonder agents validate helper --file <json> --home <active home>");
+		expect(missingBinding.text).not.toContain("agents inspect");
 	} finally {
 		await db.close();
 	}

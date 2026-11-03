@@ -27,6 +27,17 @@ export function requireCapability(
 		: "";
 	throw new Error(`需要 ${capability} 能力。${detail}`);
 }
+/**
+ * Real management CLI forms, in one place so tool error text cannot drift into commands that do not exist.
+ * `--file` is required for validate; `inspect` is the top-level command, not an `agents` subcommand.
+ */
+export const managementCli = {
+	show: (agent: string, home = "<active home>") => `yonder agents show ${agent} --home ${home}`,
+	validate: (agent: string, home = "<active home>", file = "<json>") =>
+		`yonder agents validate ${agent} --file ${file} --home ${home}`,
+	inspect: (agent: string) => `yonder inspect --agent ${agent}`,
+};
+
 export async function withSignal<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 	signal.throwIfAborted();
 	let aborted: (() => void) | undefined;
