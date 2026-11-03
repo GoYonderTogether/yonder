@@ -73,6 +73,12 @@ export interface CommandRecord {
 interface PairPending {
 	offer: PairOffer;
 }
+export type PairingPolicy = "cloud-or-manual" | "manual-only";
+/** What this executor learned about its own cloud registration from its inbox connection. */
+export interface CloudIdentity {
+	ownerId: string;
+	cloudDeviceId: string;
+}
 export interface StoreData {
 	deviceId: string;
 	privateKey: string;
@@ -83,6 +89,14 @@ export interface StoreData {
 	commands: Record<string, CommandRecord>;
 	requests: Record<string, { digest: string; response: unknown }>;
 	pending: Record<string, PairPending>;
+	/** Absent means the default: cloud-introduced pairing is allowed. */
+	pairingPolicy?: PairingPolicy;
+	cloud?: CloudIdentity;
+	/**
+	 * Per-Bot allow table mirrored from the cloud: a list of cloud device UUIDs, `null` for
+	 * "all devices", or absent for "no statement yet" (treated as all).
+	 */
+	allowance?: Record<string, string[] | null>;
 }
 const iso = () => new Date().toISOString();
 const fingerprint = (key: KeyObject) => publicKeyId(key);
@@ -234,6 +248,118 @@ export class ExecutorStore {
 			if (persist) this.save();
 		}
 	}
+	/**
+	 * Owner-initiated revocation (executor CLI or the cloud relay on the owner's behalf).
+	 * It does not need a principal because it is a withdrawal, never a grant.
+	 */
+	revokeAny(grantId: string): void {
+		const grant = this.data.grants[grantId];
+		if (!grant) throw new Error("COMMAND_NOT_FOUND");
+		if (grant.revokedAt) return;
+		grant.revokedAt = iso();
+		grant.revision++;
+		this.save();
+	}
+	get pairingPolicy(): PairingPolicy {
+		return this.data.pairingPolicy ?? "cloud-or-manual";
+	}
+	setPolicy(policy: PairingPolicy): void {
+		if (policy !== "cloud-or-manual" && policy !== "manual-only") throw new Error("INVALID_REQUEST");
+		this.data.pairingPolicy = policy;
+		this.save();
+	}
+	rememberCloud(identity: CloudIdentity): void {
+		if (!/^[a-f0-9-]{36}$/.test(identity.ownerId) || !/^[a-f0-9-]{36}$/.test(identity.cloudDeviceId))
+			throw new Error("INVALID_REQUEST");
+		this.data.cloud = { ownerId: identity.ownerId, cloudDeviceId: identity.cloudDeviceId };
+		this.save();
+	}
+	/**
+	 * Issues a grant for a controller the cloud introduced. The caller has already verified the
+	 * attestation; this only decides what may be granted locally.
+	 */
+	introduce(input: {
+		principalId: string;
+		publicKey: string;
+		botId: string | null;
+		label: string;
+		capabilities: Grant["capabilities"];
+		targetIds: string[];
+		actions: string[];
+		readRoots: string[];
+		writeRoots: string[];
+		ttlMs?: number;
+	}): Grant | undefined {
+		const capabilities = [...new Set(input.capabilities)];
+		const targetIds = [...new Set(input.targetIds)];
+		const readRoots = [...new Set(input.readRoots)];
+		const writeRoots = [...new Set(input.writeRoots)];
+		if (!capabilities.length || !targetIds.length) return undefined;
+		const existing = Object.values(this.data.grants).find(
+			(g) =>
+				g.deviceId === this.data.deviceId &&
+				g.principalId === input.principalId &&
+				!g.revokedAt &&
+				Date.parse(g.expiresAt) > Date.now() &&
+				g.botId === input.botId &&
+				sameSet(g.capabilities, capabilities) &&
+				sameSet(g.targetIds, targetIds) &&
+				sameSet(g.actions, input.actions) &&
+				sameSet(g.readRoots, readRoots) &&
+				sameSet(g.writeRoots, writeRoots),
+		);
+		// Repeat introductions must not mint a second grant for the same authority.
+		if (existing) return existing;
+		const issuedAt = iso();
+		const grant: Grant = {
+			grantId: randomUUID(),
+			deviceId: this.data.deviceId,
+			principalId: input.principalId,
+			revision: 1,
+			capabilities,
+			targetIds,
+			actions: [...new Set(input.actions)],
+			readRoots,
+			writeRoots,
+			issuedAt,
+			expiresAt: new Date(Date.now() + (input.ttlMs ?? 24 * 60 * 60_000)).toISOString(),
+			revokedAt: null,
+			botId: input.botId,
+			label: input.label,
+			source: "cloud",
+		};
+		if (!Check(GrantSchema, grant)) throw new Error("INVALID_REQUEST");
+		this.data.peers[input.principalId] = input.publicKey;
+		this.data.grants[grant.grantId] = grant;
+		this.save();
+		return grant;
+	}
+	/** A Bot may address this device only if the mirrored allow table still includes it. */
+	allows(botId: string | null | undefined, cloudDeviceId: string): boolean {
+		if (!botId) return false;
+		const value = this.data.allowance?.[botId];
+		return value === undefined || value === null || value.includes(cloudDeviceId);
+	}
+	/** Mirrors the cloud's allow table and revokes grants that just became disallowed. */
+	applyAllowance(botId: string, devices: string[] | null): string[] {
+		if (!/^[a-f0-9-]{36}$/.test(botId) || (devices !== null && !devices.every((d) => /^[a-f0-9-]{36}$/.test(d))))
+			throw new Error("INVALID_REQUEST");
+		this.data.allowance = { ...this.data.allowance, [botId]: devices === null ? null : [...new Set(devices)] };
+		const revoked: string[] = [];
+		if (!this.allows(botId, this.data.cloud?.cloudDeviceId ?? ""))
+			for (const grant of Object.values(this.data.grants))
+				if (grant.botId === botId && grant.source === "cloud" && !grant.revokedAt) {
+					grant.revokedAt = iso();
+					grant.revision++;
+					revoked.push(grant.grantId);
+				}
+		this.save();
+		return revoked;
+	}
+	/** Summaries the owner and the controller may read; never a capability to use them. */
+	summaries(): Grant[] {
+		return Object.values(this.data.grants).map((grant) => structuredClone(grant));
+	}
 }
 
 /** Controller data lives only in its own private home; no Card token is consulted. */
@@ -303,3 +429,6 @@ export function readDeviceTrust(home: string, deviceId: string): DeviceTrustReco
 	if (!/^[a-f0-9-]{36}$/.test(deviceId)) throw new Error("INVALID_REQUEST");
 	return JSON.parse(readFileSync(join(home, `device-${deviceId}.json`), "utf8")) as DeviceTrustRecord;
 }
+
+const sameSet = (a: readonly string[], b: readonly string[]) =>
+	a.length === b.length && [...a].sort().join("\0") === [...b].sort().join("\0");

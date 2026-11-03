@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-import { createHash, X509Certificate } from "node:crypto";
+import { createHash, createPublicKey, X509Certificate } from "node:crypto";
 import { readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { type Grant, publicKeyId } from "@yonder/protocol";
+import { attestationKey, type Grant, publicKeyId } from "@yonder/protocol";
 import type { BackendProvider } from "./backend-provider.js";
 import { type CardConnectionConfig, CardDaemonConnection } from "./card-connection.js";
 import { DeviceExecutor } from "./executor.js";
+import { CardInboxConnection, type InboxConnectionConfig } from "./inbox-connection.js";
 import {
 	ControllerPairing,
 	type DirectRoute,
 	ExecutorStore,
 	type PairConfirmation,
+	type PairingPolicy,
 	type PairOffer,
 	type PairProof,
 } from "./store.js";
@@ -25,6 +27,12 @@ const input = <T>(): T => JSON.parse(readFileSync(0, "utf8")) as T;
 const output = (value: unknown): void => {
 	process.stdout.write(`${JSON.stringify(value)}\n`);
 };
+/** Derived from the same device token the inbox authenticates with. */
+const inboxKey = (connection: InboxConnectionConfig): Buffer =>
+	attestationKey(readFileSync(connection.tokenFile, "utf8").trim());
+/** The executor self-reports the same key it signs responses with. */
+const executorPublicKey = (executor: DeviceExecutor): string =>
+	createPublicKey(executor.store.key).export({ format: "der", type: "spki" }).toString("base64");
 const certificateFingerprint = (path: string): string =>
 	createHash("sha256")
 		.update(new X509Certificate(readFileSync(path)).raw)
@@ -74,6 +82,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 			process.stderr.write(`${JSON.stringify({ executionDiagnostic: diagnostic })}\n`);
 		});
 		const cards: CardDaemonConnection[] = [];
+		const inboxes: CardInboxConnection[] = [];
 		try {
 			const host = options.host ?? "127.0.0.1";
 			const port = options.port === undefined ? 0 : Number(options.port);
@@ -86,21 +95,42 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 			if (options["card-config"]) {
 				const config = JSON.parse(readFileSync(options["card-config"], "utf8")) as
 					| CardConnectionConfig
-					| CardConnectionConfig[];
+					| InboxConnectionConfig
+					| Array<CardConnectionConfig | InboxConnectionConfig>;
 				const connections = Array.isArray(config) ? config : [config];
 				if (!connections.length) throw new Error("INVALID_REQUEST");
-				cards.push(
-					...connections.map(
-						(connection) =>
-							new CardDaemonConnection(
+				for (const connection of connections) {
+					// An entry without a peer is the inbox: the cloud introduces controllers to it.
+					if (!("peerDeviceId" in connection)) {
+						inboxes.push(
+							new CardInboxConnection(
 								connection,
-								(envelope, signal) => executor.handle(envelope, signal),
-								(state) =>
-									process.stderr.write(`${JSON.stringify({ card: state, peerDeviceId: connection.peerDeviceId })}\n`),
+								{
+									introduce: (envelope, attestation, signal) => executor.introduce(envelope, attestation, signal),
+									grants: () => executor.summaries(),
+									revoke: (grantId) => executor.revokeGrant(grantId),
+									allowance: (botId, devices) => executor.applyAllowance(botId, devices),
+									registered: (identity) => executor.rememberCloud(identity, inboxKey(connection)),
+									state: (state) => process.stderr.write(`${JSON.stringify({ inbox: state })}\n`),
+									diagnostic: (message) => process.stderr.write(`${JSON.stringify({ inboxDiagnostic: message })}\n`),
+								},
+								executor.deviceId,
+								executorPublicKey(executor),
 							),
-					),
-				);
+						);
+						continue;
+					}
+					cards.push(
+						new CardDaemonConnection(
+							connection,
+							(envelope, signal) => executor.handle(envelope, signal),
+							(state) =>
+								process.stderr.write(`${JSON.stringify({ card: state, peerDeviceId: connection.peerDeviceId })}\n`),
+						),
+					);
+				}
 				for (const card of cards) card.start();
+				for (const inbox of inboxes) inbox.start();
 			}
 			output({
 				deviceId: executor.deviceId,
@@ -113,6 +143,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 			});
 		} finally {
 			for (const card of cards) card.close();
+			for (const inbox of inboxes) inbox.close();
 			await executor.close();
 		}
 		return;
@@ -142,11 +173,13 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 			return;
 		}
 		if (group === "grants" && operation === "revoke") {
-			const grantId = required(options, "grant-id");
-			const grant = store.data.grants[grantId];
-			if (!grant) throw new Error("COMMAND_NOT_FOUND");
-			store.revoke(grant.principalId, grantId);
+			store.revokeAny(required(options, "grant-id"));
 			output({ revoked: true });
+			return;
+		}
+		if (group === "pairing" && operation === "policy") {
+			if (options.set !== undefined) store.setPolicy(options.set as PairingPolicy);
+			output({ policy: store.pairingPolicy });
 			return;
 		}
 		throw new Error("UNSUPPORTED_OPERATION");

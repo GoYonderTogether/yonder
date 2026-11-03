@@ -17,6 +17,8 @@ export interface RegisteredDevice {
 	controllerKey: KeyObject;
 	deviceKey: KeyObject;
 	grants: readonly Grant[];
+	/** Set for cloud-discovered devices: the label/Bot the controller introduces itself as. */
+	introduce?: { label: string; botId: string | null };
 	routes: readonly {
 		kind: "direct" | "card";
 		/** Adapter owns authenticated TLS/WSS and Card framing; return the inner signed envelope. */
