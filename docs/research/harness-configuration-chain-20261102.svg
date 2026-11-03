@@ -23,7 +23,7 @@
 <text x="66" y="545" font-size="17">异源合并或转述覆盖原话，交付要求被漏掉</text>
 <text x="650" y="137" font-size="22" font-weight="700">共享 Harness 新约束（实施／验收中）</text>
 <rect x="650" y="160" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="197" font-size="17">主人原件为目标；新请求与旧回执分清</text>
+<text x="668" y="197" font-size="17">背景先于原件；本轮请求有独立来源</text>
 <path d="M921,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="247" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
 <text x="668" y="284" font-size="17">精确群名与完整缺口；JSON 保持可读结构</text>

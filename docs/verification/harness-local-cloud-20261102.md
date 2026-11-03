@@ -316,3 +316,24 @@ Release自动Cloud通知未产生对应run，既有Deploy web仅手动精确派�
 QQ首条native@GPT input01M6FC037FCS5452GWFA6S141V（00:12:28Z），公开接手reply01M6FC0WAW0S4TYTXN3RZWX9C2；parent01M6FC13DZNR93XYV73J8R3469（00:13:01Z），main session150858 run01M6FC23TQ1ARJHM2DEV0G8XVD结束。后两句原话分别GPT input01M6FC2A3AJ1B2PT3NAZ6YK3WE（00:13:41Z）和01M6FC2GNYGQ894GETJABHE1A7（00:13:48Z）；各自进入batch01M6FC2D11F896NZY78MJMDKJ7与合并batch01M6FC2KJY1J16VNSZF2G2CK84，run01M6FC44SJVD632Z1Z2JXYTPBE inputs含两批及parent返回runtime.tool-result，不是仅旁观游标。模型两次实际message_send到正确群/respondTo第三句，但均遭social beforeSend“当前没有发言机会；不要重试”拒绝，最终NO_REPLY且无fresh message.out。来源群session不持有当前GroupTurn；该共享gate先于respondTo目标校验运行，不能据respondTo或owner身份偷授lease。
 
 下一修复沿已存在职责边界：无机会错误指出条件化的parent_ask→所属main按核验原件及原群完成的入口；不新建lease/队列，不放松暂停/已可靠回应/权限。主人私有main用既有event身份明确本轮新请求与旧回执边界，结构化JSON文本保留引号但保留&<>及换行安全；不改Bot persona，不改变模型，不把当前失败事后改成通过。规范02/03/11及decisions已先更新，Luna正在最小实现。原对话快照.cache/private-delivery-20261102/26110301-original-conversations.md权限600，最大row16536，14入站/3出站及57条白名单关联事件；不含thinking/凭据。
+
+
+### 同版 Cloud 通知的已证配置缺口
+
+只读筛选两个Release日志的reason/result/warning后确认：41540344344与41550223979均为result=web-pending-reconcile，reason=CLOUD_DISPATCH_TOKEN is not configured; Cloud schedule is the fallback。缺token分支按设计warning后exit0；因此step success没有代表派发。主仓发送repository_dispatch type=deploy-web与Cloud现有接收器匹配；旧agent-web-deploy接收器不在这两次路径。现有证据只证明缺配置及手动同tag部署成功，不证明schedule损坏，也不证明它就是用户更早/work连接中断原因。未读取/创建/扩展凭据；跨仓自动通知的既有配置项与权限要求见09，当前Cloud已经同版可用。
+
+### 下一源码候选与失败回归
+
+5da41f8f集成公共修复：conversation JSON文本与XML属性分别编码；owner事实保留历史不扩权，明确当前source与旧receipt；turn补充背景移到当前原文/verified ownerTask之前，原请求最后且只一次；social仅无发言机会错误提供条件化parent/main接办路径，不改lease/pause/superseded逻辑。不是Bot persona或home修补。首轮定向core17/17、social3文件10/10通过；typecheck、size通过，prompt/index.ts499行。
+
+build15.46s/typecheck4.88s通过后，默认全套exit1：492文件通过/3失败/67跳过，2662测试通过/3失败/112跳过，352.69s。失败为preparedTranscript.test、group-context.test、parent-origin.test各一项；正核查旧格式/顺序断言，不删除隔离/原件/编辑页边界断言来制造通过。
+
+同一当前源真实Luna自然fixture一次运行exit1，1文件/1项失败，71.41s；ordinary source01M6FDJ80A33XRG5F3X4H15HQS后30s未观察到batch-ready。失败前首原话已进入batch→parent main/private，00:39:34Z social.policy-change applied确证mode=batch/run:true、目标精确scope/authorized、group选择social且有实际message_send/parent_ask；00:39:46Z本地录制出站ok、00:39:51Z群首run done。普通输入00:39:52Z按run:true路由group session2，有reason=batch的social-decision，却无对应batch/run；00:39:57Z的main run.end属于旧parent，不冒充ordinary运行。现有failure快照未包含admitBatch实际返回、rule-match/read/failed/group-turn等必要诊断，临时home按fixture既有finally已清理，故原因未知，不追溯猜为consumer/延迟。失败证据.cache/self-config-group-77e41032-0202-4fdd-b553-0df84afb3d00.failure.json（600），日志.cache/26110302-checks/natural-live-source.log（600）。正在仅补诊断观测后同原话复测，成功断言/超时/配置种子不改。
+
+
+随后查明preparedTranscript是一处真实消费端兼容缺口：原inputDetails只认识正文前缀，新顺序背景在前时把整段标作准备后输入，丢上下文注入标记。a270e8f9仅增原文后缀识别，兼容旧前缀与未知格式，原件/分页边界断言保留；另两处测试按新JSON引号与正文位置精确断言，群正文解析与真实batch.data完全相等，不加任意JSON扫描器。第一次定向6文件16pass未排.cache、混入三份旧候选副本，不能算当前源；纠正后明确排.cache仅3文件9项通过，4.70s。没有删除原安全/来源/能力隔离断言。
+
+0c1f883b仅增强自然fixture诊断：复用captureSocialApi，原admitBatch参数/返回/异常原样透传，记录有界的source/session/时刻/结果元数据；失败捕获增加既有rule/read/failed/turn事件，不改原话、配置种子、成功断言或30s窗口。该唯一诊断复跑1文件/1项通过，94.42s；ordinary01M6FE1KT1AR2153XZQ4WQBD51（00:48:15.681Z）两次实际admitBatch均返回session2，batch01M6FE2FNRM395EZN0DVVDJ9R0（00:48:44.216Z）含该原件，后续真实Luna run done。入站到batch约28.535s，本次第二批无出站，符合看后可沉默。它证明本次消费链成立，不追溯解释旧run超30s原因；旧failure仍未归因、不改称修复。成功证据.cache/self-config-group-32c3bb18-7b7e-4be0-952a-b9c320ba9fbe.json及natural-live-diagnostic.log均600。当前最终产品源码及诊断在跑新一轮完整默认检查；不继续无新证据重复真实模型测试。
+
+
+最终产品源码HEAD0c1f883ba1416f86ca6c2da6952568b5c2972cb3：重新build/typecheck均exit0（独立wall-clock未记录，未为补时长重复成功检查）。默认全套明确排.cache，exit0，495文件通过/67跳过（562），2666测试通过/112跳过（2778），351.24s。size和layers单独exit0；完整npm run lint在首段biome check . exit1，故其链内后续size/layers未执行，不把单独检查说成整条成功。full lint为34 errors/1244 warnings/34 infos，JSON与git ls-files逐path核实34/34 errors均来自foreign未跟踪proposals/brand（parse16、useButtonType14、useIterableCallbackReturn2、format2），无tracked-source error。tracked Biome传入1702个recognized-extension paths，实际checked1604，0 errors/1243 warnings/34 infos，明确区分传参数与实际检查数。日志.cache/26110303-final/（目录700、日志600），保留首轮失败和误含cache副本结果，不改称全部历史尝试全绿。当前候选仍待正式CI/发布/安装与两端原话复验。
