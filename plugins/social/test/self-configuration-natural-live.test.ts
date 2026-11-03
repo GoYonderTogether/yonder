@@ -145,17 +145,50 @@ test.skipIf(!enabled)(
 		let groupSessionId: string | undefined;
 		let generatedParentBinding: unknown;
 		let explicitBatchBindingIds: string[] = [];
+		const batchAdmissions: Array<Record<string, unknown>> = [];
 		try {
 			fixture = await groupFixture({
 				social: true,
 				officialGroup: true,
 				ownerHandoff: true,
 				initialBatchRun: false,
+				captureSocialApi: true,
 				authSource,
 				model: "openai/gpt-6-luna",
 				allowProvider: true,
 			});
 			const { home, kernel, probe } = fixture;
+			const social = probe.socialApi?.social;
+			if (!social) throw new Error("Social API capture missing");
+			const admitBatch = social.admitBatch.bind(social);
+			social.admitBatch = async (request) => {
+				const started = Date.now();
+				const input = {
+					agent: request.agent,
+					conv: request.conv,
+					through: request.through,
+					sourceEvents: [...request.sourceEvents],
+					policyRevision: request.policyRevision,
+				};
+				try {
+					const result = await admitBatch(request);
+					batchAdmissions.push({
+						...input,
+						startedAt: new Date(started).toISOString(),
+						elapsedMs: Date.now() - started,
+						resultSession: result?.session ?? null,
+					});
+					return result;
+				} catch (error) {
+					batchAdmissions.push({
+						...input,
+						startedAt: new Date(started).toISOString(),
+						elapsedMs: Date.now() - started,
+						thrown: error instanceof Error ? error.name : "unknown",
+					});
+					throw error;
+				}
+			};
 			const initialAgent = parse(await readFile(resolve(fixture.home, "agents/main/agent.yaml"), "utf8")) as {
 				bindings: Array<{ id: string; match?: unknown; session?: unknown; profile?: unknown }>;
 			};
@@ -318,6 +351,7 @@ test.skipIf(!enabled)(
 						dropped: route.dropped,
 					})),
 				},
+				batchAdmissions,
 				batch: batch && { id: batch.id, parent: batch.parent, data: batch.data },
 				followupRun: followupRun && {
 					status: (followupRun.data as { status?: string }).status,
@@ -366,6 +400,10 @@ test.skipIf(!enabled)(
 						"social.policy-change",
 						"routing.social-decision",
 						"social.batch-ready",
+						"social.rule-match",
+						"social.batch-read",
+						"social.batch-failed",
+						"social.group-turn",
 					];
 					const pages = await Promise.all(
 						types.map((type) => kernel.events.query({ type, after: firstId, limit: 500 })),
@@ -414,6 +452,9 @@ test.skipIf(!enabled)(
 							routes: event.routes?.map((route) => ({
 								agent: route.agent,
 								session: route.session,
+								binding: route.binding,
+								wake: route.wake,
+								reply: route.reply,
 								dropped: route.dropped,
 							})),
 							data: Object.fromEntries(
@@ -431,10 +472,24 @@ test.skipIf(!enabled)(
 									"before",
 									"after",
 									"sourceEvents",
+									"through",
 									"policyRevision",
+									"batchBinding",
+									"consumerIssue",
+									"profile",
+									"repair",
+									"plugin",
+									"pluginSelected",
+									"matchingConsumer",
 									"run",
 									"matched",
 									"focused",
+									"counter",
+									"regexErrors",
+									"rulesRevision",
+									"direct",
+									"source",
+									"conversations",
 									"kind",
 									"text",
 									"delivery",
@@ -443,6 +498,7 @@ test.skipIf(!enabled)(
 								),
 							),
 						})),
+						batchAdmissions,
 						sessionToolEvidence,
 						configuredPolicy: currentAgent.social?.conversations?.[mainConv],
 						groupProfile: currentAgent.profiles?.group,
