@@ -237,12 +237,18 @@ describe("Feishu read-only conversation background", () => {
 				parent_id: "old-greeting",
 			});
 		const api = client([
-			{ items: [card("card"), card("failed"), card("unknown"), card("other-bot", "other-app")] },
+			{ items: [card("card"), card("card-2"), card("failed"), card("unknown"), card("other-bot", "other-app")] },
 			{ items: [] },
 		]);
-		const output = (id: string, text: string, receipt = {}, parent: string | null = "source-event") => ({
+		const output = (
+			id: string,
+			text: string,
+			receipt = {},
+			parent: string | null = "source-event",
+			ts = new Date(now).toISOString(),
+		) => ({
 			id,
-			ts: new Date(now).toISOString(),
+			ts,
 			type: "message.out",
 			conv: "conv:test:chat",
 			...(parent === null ? {} : { parent }),
@@ -253,6 +259,7 @@ describe("Feishu read-only conversation background", () => {
 			.mockResolvedValueOnce({
 				events: [
 					output("card", "之前的配置已经有效，任务完成"),
+					output("card-2", "第二条历史助手文本", {}, "source-event-2", new Date(now + 1000).toISOString()),
 					output("failed", "FAILED MUST NOT APPEAR", { ok: false }),
 					output("unknown", "UNKNOWN MUST NOT APPEAR", { uncertain: true }),
 				],
@@ -266,9 +273,14 @@ describe("Feishu read-only conversation background", () => {
 			});
 		const text = await conversationContext(api, event(), signal(), { query });
 		expect(text).toContain("之前的配置已经有效，任务完成");
-		expect(text).toContain("Yonder送达正文：回执仅证明该文本已送达，不证明其中的配置、动作或任务结论属实");
+		expect(text).toContain("宿主当前状态事实优先");
+		expect(text).toContain("Yonder已送达助手叙述只证明对应文本曾在所标来源时间送达");
+		expect(text.match(/Yonder已送达助手叙述 \|/g)).toHaveLength(2);
+		expect(text.match(/宿主当前状态事实优先/g)).toHaveLength(1);
 		expect(text).toContain("Yonder来源事件:source-event");
+		expect(text).toContain("Yonder来源事件:source-event-2");
 		expect(text).toContain(`Yonder记录时间:${new Date(now).toISOString()}`);
+		expect(text).toContain(`Yonder记录时间:${new Date(now + 1000).toISOString()}`);
 		expect(text).toContain("引用:old-greeting");
 		expect(text).not.toContain("FAILED MUST");
 		expect(text).not.toContain("UNKNOWN MUST");
@@ -352,7 +364,7 @@ describe("Feishu read-only conversation background", () => {
 		});
 		expect(text).toContain("成功投递账本读取未完成");
 		expect(text).toContain("Platform text");
-		expect(text).not.toContain("Yonder送达正文");
+		expect(text).not.toContain("Yonder已送达助手叙述 |");
 		expect(text).not.toContain("private");
 		const controller = new AbortController();
 		const second = client([{ items: [row("b", now - 100, "Platform")] }, { items: [] }]);
