@@ -129,4 +129,25 @@ describe("Bot 的可操作设备", () => {
 		await render();
 		expect(container.textContent).toContain("未绑定设备");
 	});
+
+	it("keeps excluded devices reachable in the edit view instead of hiding them (V3-web)", async () => {
+		// 收窄后摘要只显示生效集合（research/04 流程 3）；进入修改时被排除的设备要能再次看到、重新勾上。
+		api.botDevices.mockResolvedValue({ botId: "bot", mode: "selected", devices, allowed: ["d1"] });
+		api.deviceGrants.mockResolvedValue({ observed: true, grants: [] });
+		await render();
+		const text = container.textContent ?? "";
+		expect(text).toContain("已收窄到 1 台设备");
+		expect(text).toContain("MacBook");
+		// 摘要里没有未允许的设备，也没有给它们编造状态词。
+		expect(text).not.toContain("家里的 Mac");
+		const edit = [...container.querySelectorAll("button")].find((b) => b.textContent === "修改");
+		if (!edit) throw new Error("missing 修改 button");
+		await act(() => edit.dispatchEvent(new window.Event("click", { bubbles: true })));
+		const edit_text = container.textContent ?? "";
+		expect(edit_text).toContain("家里的 Mac");
+		// 未允许的设备在编辑视图里就是未勾选的复选框，不显示「可执行」。
+		const excluded = container.querySelector('input[aria-label="允许 家里的 Mac"]') as HTMLInputElement;
+		expect(excluded.checked).toBe(false);
+		expect(edit_text).not.toContain("可执行");
+	});
 });

@@ -56,3 +56,34 @@ it("离线云设备仍可进入本地通知，不暴露网关令牌或误启设�
 	expect(host.querySelector('a[aria-label="返回"]')?.getAttribute("href")).toBe("/me/settings");
 	await act(() => root.unmount());
 });
+
+it("设备设置只留管理入口，链接到设备对象页", async () => {
+	// 设备的状态、Bot、会话与授权都在 /me/devices（research/04 §4 流程 1），设置里不再重复管理动作。
+	const { document, window } = parseHTML("<html><body></body></html>");
+	vi.stubGlobal("window", window);
+	vi.stubGlobal("document", document);
+	vi.stubGlobal("HTMLElement", window.HTMLElement);
+	vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+	$session.set({ actor: { id: "owner", kind: "human", name: "主人" } });
+	const host = document.createElement("div");
+	document.body.appendChild(host);
+	const root = createRoot(host as never);
+	await act(async () => {
+		root.render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<MemoryRouter initialEntries={["/me/settings/devices"]}>
+					<Routes>
+						<Route path="/me/settings/:section?" element={<SettingsPage />} />
+					</Routes>
+				</MemoryRouter>
+			</QueryClientProvider>,
+		);
+	});
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	});
+	expect(host.textContent).toContain("管理设备");
+	const link = [...host.querySelectorAll("a")].find((a) => a.textContent === "管理设备");
+	expect(link?.getAttribute("href")).toBe("/me/devices");
+	await act(() => root.unmount());
+});
