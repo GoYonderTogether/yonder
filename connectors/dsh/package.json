@@ -16,9 +16,9 @@
 		}
 	},
 	"files": [
-		"dist",
+		"README.md",
 		"cordis.patch.yml",
-		"README.md"
+		"dist"
 	],
 	"dsh": {
 		"bundle": {

@@ -14,15 +14,13 @@ export interface ConnectorConfig {
 }
 
 export interface ConnectorState {
-	/** Cloud Bot account id → harness agent key (`preset:<id>`). */
-	botAgents: Record<string, string>;
 	/** Harness agent key → harness session id used for that Bot's conversation. */
 	botSessions: Record<string, string>;
 	/** `${agentId}:${convId}` → highest message seq accepted by the harness. */
 	cursors: Record<string, number>;
 }
 
-const emptyState = (): ConnectorState => ({ botAgents: {}, botSessions: {}, cursors: {} });
+const emptyState = (): ConnectorState => ({ botSessions: {}, cursors: {} });
 
 /** `$DSH_HOME/yonder`; DSH_HOME defaults to `~/.dsh` exactly as DSH itself resolves it. */
 export function stateDir(env: NodeJS.ProcessEnv = process.env, home = process.env.HOME ?? ""): string {
@@ -54,11 +52,7 @@ export function readState(dir: string): ConnectorState {
 		const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
 		if (!parsed || typeof parsed !== "object") return emptyState();
 		const row = parsed as Record<string, unknown>;
-		return {
-			botAgents: strings(row.botAgents),
-			botSessions: strings(row.botSessions),
-			cursors: numbers(row.cursors),
-		};
+		return { botSessions: strings(row.botSessions), cursors: numbers(row.cursors) };
 	} catch {
 		return emptyState();
 	}

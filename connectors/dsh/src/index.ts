@@ -10,12 +10,12 @@ import { WorkBridge } from "./work.js";
 /** Plugin name shown by the harness Loader. */
 export const name = "yonder-connector";
 /**
- * The connector declares no hard service dependency: DSH then always starts, and the
- * optional services are picked up through dynamic injection. A harness whose session API
- * is missing or incompatible keeps the status tool and no background connection
- * (spec 23 §4: degrade, never fail startup).
+ * `tools` is the only hard dependency (the status tool). The session API and preset
+ * registry are picked up through dynamic injection, so a harness without them starts
+ * normally and keeps the status tool (spec 23 §4: degrade, never fail startup).
  */
-export const inject: string[] = [];
+const INJECT = ["tools"];
+export const inject = INJECT;
 
 export interface Config {
 	/** Cloud origin; defaults to the public site. */
@@ -39,22 +39,36 @@ export interface PresetRow {
 
 /** The subset of DSH's context this plugin uses, kept structural so the connector needs no DSH types. */
 export interface DshContext {
-	get<T>(name: string): T | undefined;
+	/** Resolve an injected service; a service this plugin did not declare reads as absent. */
+	get?<T>(name: string): T | undefined;
+	/** Services this plugin declares; DSH then exposes them on the context. */
+	tools?: ToolRegistry;
 	inject?(names: string[], callback: (child: DshContext) => void): void;
 	on?(event: "session/event", listener: (session: { id: string }, event: unknown) => void): () => void;
 	effect?(setup: () => () => void): void;
 	logger?(scope: string): { warn(message: string): void; info?(message: string): void };
-	tools?: { register(tool: unknown): () => void };
 	/** Resolved at runtime by DSH; declared structurally for the plugin body. */
 	readonly config?: Config;
+}
+
+interface ToolRegistry {
+	register(tool: unknown): () => void;
 }
 
 interface SessionApi {
 	list(request: { cursor?: string }, signal: AbortSignal): Promise<{ items: unknown[] }>;
 	page(
-		request: { address: { kind: "session"; sessionId: string }; beforeSeq?: number; maxMessages?: number },
+		request: {
+			address: { kind: "session"; sessionId: string };
+			/** Required by DSH; must not exceed the session cursor. */
+			throughSeq: number;
+			beforeSeq?: number;
+			maxMessages?: number;
+		},
 		signal: AbortSignal,
 	): Promise<{ records: unknown[]; hasMore: boolean }>;
+	/** Current log cursor for one session (DSH's sequenced projection baseline). */
+	projections(request: { sessionId: string }, signal: AbortSignal): Promise<{ kind?: string; asOfSeq?: number } | null>;
 	create(request: { cwd?: string; agentPreset?: string }, signal: AbortSignal): Promise<{ sessionId: string }>;
 	prompt(
 		request: {
@@ -103,9 +117,14 @@ export function dshHarness(sessions: SessionApi, presets: PresetApi): HarnessSer
 			return harnessSession(page.items.find((item) => (item as { sessionId?: unknown }).sessionId === id));
 		},
 		async transcript(id, range, signal) {
+			// DSH requires an explicit cut at or below the session cursor; `throughSeq: -1` would be
+			// an empty page, so a missing cut reads the current baseline first.
+			const cut = await logCut(sessions, id, signal);
+			if (cut === undefined) return { items: [], hasMore: false };
 			const page = await sessions.page(
 				{
 					address: { kind: "session", sessionId: id },
+					throughSeq: cut,
 					...(range.before === undefined ? {} : { beforeSeq: range.before }),
 					maxMessages: range.limit,
 				},
@@ -144,6 +163,12 @@ export function dshHarness(sessions: SessionApi, presets: PresetApi): HarnessSer
 	};
 }
 
+/** The included log cut for one session, or undefined when DSH has no baseline yet. */
+async function logCut(sessions: SessionApi, id: string, signal: AbortSignal): Promise<number | undefined> {
+	const baseline = await sessions.projections({ sessionId: id }, signal);
+	return typeof baseline?.asOfSeq === "number" ? baseline.asOfSeq : undefined;
+}
+
 /** Register the connector: background connection, Bot registration, and one status tool. */
 export function apply(ctx: DshContext, config: Config = {}): void {
 	const endpoint = config.endpoint?.trim() || DEFAULT_ENDPOINT;
@@ -155,7 +180,7 @@ export function apply(ctx: DshContext, config: Config = {}): void {
 		return;
 	}
 	const dir = config.stateDir ?? stateDir();
-	const stored = readConfig(dir);
+	const stored = safeConfig(dir);
 	if (!stored) {
 		registerStatus(ctx, async () => "未连接 Yonder：在终端或让我运行 `npx -y @yonder/connect dsh` 完成安装。");
 		return;
@@ -194,8 +219,8 @@ function start(ctx: DshContext, endpoint: string, deviceToken: string, dir: stri
 	// Dynamic injection: DSH resolves these services after the profile has composed them.
 	ctx.inject?.([...SERVICES], (child) => {
 		if (stopped) return;
-		const sessions = child.get<SessionApi>("sessionController");
-		const presetApi = child.get<PresetApi>("agentPresets");
+		const sessions = child.get?.<SessionApi>("sessionController");
+		const presetApi = child.get?.<PresetApi>("agentPresets");
 		if (!sessions || !presetApi) {
 			log(ctx, "DSH 的会话服务不可用，连接器只提供状态工具。");
 			return;
@@ -306,7 +331,15 @@ async function putAgents(
 
 /** The single model-facing tool: connection status. Read-only, no session access. */
 function registerStatus(ctx: DshContext, read: () => Promise<string>): void {
-	ctx.tools?.register({
+	try {
+		ctx.tools?.register(statusTool(read));
+	} catch {
+		// A harness without a tool registry still gets the connection; only the status tool is lost.
+	}
+}
+
+function statusTool(read: () => Promise<string>) {
+	return {
 		name: "yonder_status",
 		description: "Report whether this harness is connected to a Yonder account and how many Bots it registered.",
 		parameters: { type: "object", properties: {}, additionalProperties: false },
@@ -317,14 +350,23 @@ function registerStatus(ctx: DshContext, read: () => Promise<string>): void {
 		async execute() {
 			return { status: await read() };
 		},
-	});
+	};
 }
 
 function log(ctx: DshContext, message: string): void {
 	try {
-		ctx.logger?.("yonder-connector").warn(message);
+		(ctx.logger?.("yonder-connector") as { warn?(message: string): void } | undefined)?.warn?.(message);
 	} catch {
 		/* Logging must never break the connector. */
+	}
+}
+
+/** Read the stored config; an unreadable file is reported as "not connected" rather than thrown. */
+function safeConfig(dir: string): { endpoint: string; deviceToken: string } | undefined {
+	try {
+		return readConfig(dir);
+	} catch {
+		return undefined;
 	}
 }
 
