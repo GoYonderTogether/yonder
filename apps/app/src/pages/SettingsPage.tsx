@@ -170,6 +170,10 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 								{!available && !!devices.data?.length && (
 									<p className="mt-2 text-small text-muted">请选择支持工作台的在线设备。</p>
 								)}
+								{/* 设备是一个对象：状态、Bot、会话与授权都在设备页，设置里只留入口。 */}
+								<Link to="/me/devices" className="mt-3 inline-block text-small text-accent-ink">
+									管理设备
+								</Link>
 							</section>
 						)}
 						<DeviceQueries key={`${session?.actor.id ?? "local"}:${node.id}`}>

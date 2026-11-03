@@ -274,6 +274,7 @@ export function SessionOptions({
 				{workspaces.isLoading && <p className="p-2 text-small">读取已授权设备…</p>}
 				{workspaces.error && (
 					<p role="alert" className="p-2 text-caption text-danger">
+						{/* 选远程资源却没有加载 devices 插件时，宿主返回真实原因；原样显示，不伪装成「没有设备」。 */}
 						{workspaces.error.message}
 					</p>
 				)}
