@@ -374,7 +374,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 - **包**：`@yonder/plugin-devices`，id `devices`；[README](../plugins/devices/README.md)、[源码](../plugins/devices/src/index.ts)。
 - **贡献**：工具 `devices_list`、`devices_describe`、`devices_apps`、`devices_open`、`devices_observe`、`devices_execute`、`devices_operation`、`devices_status`、`devices_cancel`、`devices_close`；按需 skill `devices`；生命周期 trigger `devices-connections` 只关闭自身连接。`devices_operation` 是工作台远程资源的显式入口（fs.read/stat/list/canonical/write/mkdir/remove/rename 与 process.exec），按 action 声明能力，文件上限 512 KiB，目录受选定资源约束。
-- **接入**：仅从显式配置的配对目录读取 W1 信任记录和现有 grant 快照；direct HTTPS 固定证书指纹，可选 Card relay。安装插件不自动注册设备，也不扩大任何 Agent 权限。
+- **接入**：仅从显式配置的配对目录读取 W1 信任记录，并经执行端只读 `grants.list` 取回 grant 快照（18 §3；尚无手工抄写之外的现成发现路径，见 status）；direct HTTPS 固定证书指纹，可选 Card relay。安装插件不自动注册设备，也不扩大任何 Agent 权限。
 - **边界**：命令在控制端先持久记录，结果以执行端权威账本为准；未知状态不自动重放。Card relay 不是端到端加密，执行端的常驻 Card 连接和真实 guest GUI 尚未验收。
 
 ## code-intel：可选代码导航

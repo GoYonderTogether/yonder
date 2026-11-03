@@ -31,6 +31,7 @@
 | 1 | [spec/20-stability.md](spec/20-stability.md) | 0.3 起不可破坏的冻结清单、弃用与破坏性变更流程、golden 检查 | 改任何公共契约 |
 | 1 | [spec/21-clipboard-vault.md](spec/21-clipboard-vault.md) | 引用剪贴板、Keychain 秘密与类型化目的地（原 15 号，2026-10-31 改号） | 改剪贴板或秘密消费者 |
 | 1 | [spec/22-shared-bot-core.md](spec/22-shared-bot-core.md) | 共享 Bot 核心、云端 worker、存储、卡片与真实错误 | 改内核或云端 Bot |
+| 1 | [spec/23-harness-connector.md](spec/23-harness-connector.md) | 外部 harness 连接器契约：设备通道子集、工作方法、安装/卸载与降级（D2） | 写 DSH/Hermes/OpenClaw 连接器 |
 | 2 | [plugins.md](plugins.md) | 官方插件清单：贡献、事件、工具 | 用或写插件 |
 | 2 | [prompts/README.md](prompts/README.md) | 系统底座、两类官方常驻模板、来源映射与小上下文配置入口 | 调整 Agent 提示词 |
 | 2 | [reference.md](reference.md) | 核心工具、CLI 命令、SDK 接口的注册名参考 | 查名字时 |

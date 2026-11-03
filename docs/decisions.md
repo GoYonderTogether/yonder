@@ -1,5 +1,17 @@
 # 决策记录
 
+## 2026-11-03：Bot 网络三层打通：云端介绍配对、允许表、外部 harness 连接器（主人批准）
+
+主人明确要求三层各自可组合：任何登录端能看全部设备（①），Bot 可住云端或任意本机、也可来自 DSH/Hermes/OpenClaw（②），每个 Bot 默认可操作主人的全部设备、可按 Bot 收窄（③）。据此批准四条决定。
+
+**D1 授权由云端代为介绍配对。** 新增账号级 Bot×设备允许表，默认"全部设备"，新绑定设备自动进入默认集合，主人可按 Bot 收窄成指定列表。实际执行仍要设备端 grant，但不再要求人工双端核对指纹：两台设备都已用自己 deviceToken 绑定到同一云账号时，云端把控制端与执行端公钥互相转交并声明"同一主人"，执行端在本地核对后自动签发 grant，能力取云端请求 ∩ 执行端本地策略 ∩ 允许表目标。理由是 19 §1 已写明信任云端经 TLS 转交主人请求，再要求人工核对只多一道用户不会做的手续；手工离线配对保留为高安全选项，并允许执行端设为"只接受手工配对"。代价是云端被攻破时攻击者能替自己签 grant，缓解只有执行端本地策略、设备与网页可见的 grant 列表和撤销。见 18 §2、19 §7/§9、05 §3。
+
+**D2 外部 harness 用连接器伪装成一台设备。** 云端已有 `/ws/device` 登记、`PUT /api/device/agents`、消息帧与工作桥，连接器只实现这套协议的子集，云端与网页不为每个框架改代码。连接器必须实现设备 hello、Bot 登记、消息收发、`sessions.list/open/submit/transcript/abort` 与事件流；harness 会话状态与转录仍归 harness，Yonder 不复制。每个框架一层薄适配：DSH 用进程内 bundle 插件，Hermes 用平台插件，OpenClaw 用 feature 插件。不把 A2A 当主协议：它只覆盖消息，看不到也驱动不了会话列表，DSH 也不讲 A2A，以后可作为只聊天的低配接入。代价是多一个规范面与三个适配维护点，而云端已能承载。见 16 §5、新增 23。
+
+**D3 DSH 的"一句话"安装是一条 shell 命令。** DSH 的 `plugin_manager` 工具默认只在 Creator 预设开启，agent 也不能直接写 profile 目录，所以形式定为用户发一句 `npx -y @yonder/connect dsh`，由 DSH 的 agent 用 bash 执行并批准一次越权；该命令只装连接器包、写自己的状态目录、打开 `/connect?code=…`。硬规矩：不改 PATH/git config/环境变量，不装全局命令，状态只写 `$DSH_HOME/yonder/`，入站只用带鉴权的路由，不读写 DSH 的 sessions/storages，声明版本范围并在不匹配时降级为只提供工具。此路径在 DSH 默认预设下是否成立尚未实测；不成立就退回用户自己在终端粘贴同一条命令。发布到 npm 属对外动作，另立确认。见 23 §6。
+
+**D4 底座先合入 shared-bot-core。** 两个仓库各自合并、跑全量检查，不 push；新功能都在合并后的基线上做。代价是合并冲突要按两侧意图逐项取舍（提示词装配、路由唤醒 helper、operability 适配、decision 日志都各有两侧改动），且旧 core 兼容门面已删除，调用方全部改为直连真实包。
+
 ## 2026-11-03：owner设备插件与原生program ToolTask（BRIEF授权阶段11）
 
 复用一次绑定的工作授权及现work-bridge，新增真worker窄工具分支而不伪web会话；DB owner/设备/mapping、本机已接纳defaultProfile/ToolPolicy和原grant仍为上限。云端默认capabilities不默增exec；多Agent按namespace显式选择，无手动会话再绑定。来源仅owner DM或capture得到的真实程序refs，新增ExecutionOwner.inputs和可信core submit metadata，旧无refs程序保普通行为不授设备，修改程序执行参数不能保留旧owner资格；cron更新/启用一律重捕获，包含delivery/schedule，避免把旧owner来源用于新投递目标，task_run补实际resources继承。

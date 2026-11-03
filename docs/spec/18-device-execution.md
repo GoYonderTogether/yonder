@@ -15,7 +15,13 @@
 
 采用 Node `crypto` 的标准 Ed25519 签名（RFC8032），传输使用校验端点的 TLS/WSS。只对原始 UTF-8 JSON 字节签名，不发明加密算法、KDF 或 JSON canonicalization。
 
-离线双端配对流程：执行端本地管理命令创建一次性、有截止时间的 pairingId/code，并显示执行端公钥 fingerprint；控制端在私网连接前核对端点 TLS fingerprint 与执行端公钥 fingerprint，发送自己的公钥及签名挑战响应；执行端本地可信操作者核对控制端 fingerprint，确认目标/能力/资源/期限；双方分别持久保存对方公钥与身份绑定后才完成。code 单独不授予执行权；签名挑战证明持有私钥，未完成两端确认不能提交命令。配对全过程不依赖 Card、云账号、外部授权服务。
+配对有两个来源，执行端是唯一的最终判定点。
+
+**云端介绍配对（默认）。** 云端已分别认证两台设备的 deviceToken，并能证明二者属于同一 human 账号（19 §1 已明确此版本信任云端经 TLS 转交主人请求）。同账号的控制端与执行端同时在线时，云端把双方公钥与执行端 deviceId 互相转交，并附上"同一主人"的签名声明；执行端在本地核对声明的主体确实是自己登记过的云账号后，直接为该控制端签发 grant，能力取（云端声明的请求能力 ∩ 执行端本地策略上限 ∩ 允许表指定的目标范围）。转交内容仍走签名封套与 challenge-response，云端不能凭空指定公钥或扩大能力；云端只做介绍，签发与否由执行端决定。云端设备 uuid 与执行端 deviceId 的对应关系由执行端 hello 上报后持久保存（§3），不在网页或模型侧自由填写。
+
+**手工离线配对（保留，可作为执行端强制模式）。** 执行端本地管理命令创建一次性、有截止时间的 pairingId/code，并显示执行端公钥 fingerprint；控制端在私网连接前核对端点 TLS fingerprint 与执行端公钥 fingerprint，发送自己的公钥及签名挑战响应；执行端本地可信操作者核对控制端 fingerprint，确认目标/能力/资源/期限；双方分别持久保存对方公钥与身份绑定后才完成。执行端可以设为"只接受手工配对"，此时云端介绍配对一律拒绝，手工流程照常；设置本身是执行端本地动作，云端不能改。
+
+code 单独不授予执行权；签名挑战证明持有私钥，未完成确认不能提交命令。手工配对全过程不依赖 Card、云账号、外部授权服务；云端介绍配对只在双方都已用 deviceToken 绑定到同一云账号时成立，且不改变执行端的能力上限。
 
 W0 只在内存生成短期测试密钥，验证签名/受众/时效/主体绑定。真正的配对存储和管理命令归 W1；真实持续身份/凭据配置须另行确认，不读写用户正式 home。未配对模板不包含长期私钥。
 
@@ -72,11 +78,12 @@ RPC 名称与 params：
 | `commands.submit` | `{commandBase64}` | CommandReceipt；解码为 SubmitCommand |
 | `commands.status` | `{commandId}` | CommandReceipt（只读，不 dispatch） |
 | `commands.cancel` | `{commandId}` | CommandReceipt；未终止不能假称cancelled |
+| `grants.list` | `{}` | 本设备发给当前已配对 principal 的 grant 摘要（grantId、targetIds、capabilities、readRoots、writeRoots、revision、issuedAt、expiresAt、revokedAt）；只读，不创建、扩大或续期 grant |
 | `grants.revoke` | `{grantId}` | `{revoked:true}`，仅已配对主体撤销自己的grant；由管理CLI调用，不注册Agent工具 |
 
 `RpcRequest`：`{protocol:'yonder.execution',version:1,kind:'request',requestId,principalId,deviceId,issuedAt,expiresAt,method,params}`。`RpcResponse`：相同身份/版本/关联字段，kind=response，再加 `ok:true,result` 或 `ok:false,error`。响应签名 key 属于 device；请求签名 key 属于 principal。由已配对记录校验，不能混用方向。
 
-错误码冻结为：`INVALID_REQUEST, UNSUPPORTED_VERSION, UNPAIRED, UNAUTHORIZED, WRONG_TARGET, GRANT_EXPIRED, GRANT_REVOKED, LEASE_EXPIRED, LEASE_STALE, COMMAND_CONFLICT, COMMAND_NOT_FOUND, BUSY, UNSUPPORTED_OPERATION, OUTCOME_UNKNOWN, INTERNAL_ERROR`。unknown receipt 是事实，不自动转换为可重试错误。VM checkpoint restore 固定 unsupported，不注册 restore RPC。
+错误码冻结为：`INVALID_REQUEST, UNSUPPORTED_VERSION, UNPAIRED, UNAUTHORIZED, WRONG_TARGET, GRANT_EXPIRED, GRANT_REVOKED, LEASE_EXPIRED, LEASE_STALE, COMMAND_CONFLICT, COMMAND_NOT_FOUND, BUSY, UNSUPPORTED_OPERATION, OUTCOME_UNKNOWN, INTERNAL_ERROR`。执行端在 manual-only 模式下拒绝云端介绍配对仍用 `UNPAIRED`，不新增错误码；拒绝原因在本地管理输出里说明是策略拒绝。unknown receipt 是事实，不自动转换为可重试错误。VM checkpoint restore 固定 unsupported，不注册 restore RPC。
 
 DeviceDescriptor 包含 role、OS版本、host/process架构、runtime、targets、能力/支持状态、资源及各自采集时间、应用清单摘要、ready/busy/offline/degraded/unpaired、各 route 状态。AppInventory 区分 available/unsupported/denied/error，包含 observedAt、complete、items；UiSnapshot 明确 deviceSession、targetId、observedAt、结构化UI/可选小图。schema中的 `checkpointRestore:'unsupported'` 为首版固定值；不将 UI snapshot 当完整架构/应用清单。
 
@@ -92,11 +99,13 @@ DeviceDescriptor 包含 role、OS版本、host/process架构、runtime、targets
 
 ## 5. 模型工具和管理命令名称（后续实现）
 
+2026-11-03 设备身份统一（主人批准）：执行端在 Card `/ws/device` 的 hello 里增量上报执行端 deviceId 与 Ed25519 公钥，云端把它与自己的 `devices.id` 的对应关系持久保存；之后网页、工作桥与允许表一律使用云端 UUID，插件与执行端之间使用执行端 UUID，两者只在云端映射表与执行端本地配对记录处对接，不再靠人手把同一个字符串填进两边配置。上报是执行端自证身份，云端不能代替它填写；同一云端设备重连时上报不同执行端 deviceId 视为更换执行端，旧映射保留为历史但不继续有效。
+
 2026-11-02 多运行宿主接入补充：executor 的 `--card-config` 私有文件兼容原单连接对象，并可接受连接对象数组；每项建立独立的 CardDaemonConnection，共享唯一 executor、持久账本及设备写锁。中继按源/目标连接区分路由，不广播命令，不让第二连接替换其他目标。同一设备可服务多个明确获授的运行宿主，云账号归属核验不替代执行端配对与 grant。
 
-插件 `@yonder/plugin-devices`，id=`devices`：`devices_list`, `devices_describe`, `devices_apps`, `devices_open`, `devices_observe`, `devices_execute`, `devices_operation`, `devices_status`, `devices_cancel`, `devices_close`。前三类/observe/status/close需要read（远端调用另需network）；open需要read+network并取真实ctx能力交集；execute静态声明exec/read/write/network/message，后端再依action声明限制；operation按 action 声明取能力，文件读写受 512 KiB 与选定目录约束，process.exec 另需 exec；cancel需要exec+network。工具参数只有deviceId/session handle/action/arguments/commandId等业务字段，没有principal、grant创建、权限或签名密钥参数。
+插件 `@yonder/plugin-devices`，id=`devices`：`devices_list`, `devices_describe`, `devices_apps`, `devices_open`, `devices_observe`, `devices_execute`, `devices_operation`, `devices_status`, `devices_cancel`, `devices_close`。前三类/observe/status/close需要read（远端调用另需network）；open需要read+network并取真实ctx能力交集；execute静态声明exec/read/write/network/message，后端再依action声明限制；operation按 action 声明取能力，文件读写受 512 KiB 与选定目录约束，process.exec 另需 exec；cancel需要exec+network。工具参数只有deviceId/session handle/action/arguments/commandId等业务字段，没有principal、grant创建、权限或签名密钥参数。grant 由云端介绍配对或手工配对签发后，插件经只读 `grants.list` 从执行端取回当前快照，不再要求操作者手工抄写；没有可发现 grant 时如实报告无授权，不把空列表当成设备不存在。
 
-管理CLI属于executor包，不是Agent工具：`yonder-executor init`, `serve`, `pair start`, `pair approve`, `pair connect`, `peers list`, `grants list`, `grants revoke`。code/私钥通过私有文件/stdin，不放命令行或日志。full发行包含该管理组件，可作为controller/executor；execution-only没有模型或Agent管理路径。此处固定名字，W0不创建这些bin占位。
+管理CLI属于executor包，不是Agent工具：`yonder-executor init`, `serve`, `pair start`, `pair approve`, `pair connect`, `peers list`, `grants list`, `grants revoke`, `pairing policy manual-only|cloud-or-manual`。code/私钥通过私有文件/stdin，不放命令行或日志。full发行包含该管理组件，可作为controller/executor；execution-only没有模型或Agent管理路径。此处固定名字，W0不创建这些bin占位。
 
 ## 6. 跨仓共享与工作包所有权
 

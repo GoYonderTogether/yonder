@@ -4,6 +4,14 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## Bot 网络规范落地（2026-11-03，仅设计）
+
+主人批准 D1–D4 与 V1–V16（见 [decisions](decisions.md)）。本轮只做 P0 合并与 P1 文档：
+
+- **P0 已完成**：`refactor/shared-bot-core` 已合入两个仓库的 `feat/bot-network` 分支（未 push、未部署）。合并解决提示词装配、路由唤醒 helper、operability 适配与 decision 日志的冲突，两侧意图都保留；合并后 `npm ci`、build、typecheck、lint 通过；全部 Vitest **2775 通过 / 0 失败 / 113 跳过**（520 文件通过 / 67 跳过，85.58 秒），Node 测试 83/0/0/0/0。云端 server build/typecheck 通过，真实 PG/Redis 后端 **208 通过 / 0 失败 / 0 跳过**（22 suites，59.42 秒），deploy 19/0、market 13/0、MessageBubble SSR 3/0；根与 server 仍无 lint 脚本。A6 与 A9 在合并后的树上以真实 glm-5.3-flash 复测通过；本机无 `openai/gpt-6-luna` 凭据，真实 Luna 用例仍是未测。
+- **P1 已完成**：spec 18 §2（配对来源）、19 §7 与新增 §9（Bot×设备允许表）、05 §3（跨设备能力上限）、16 §5（外部 harness 设备）、新增 [23](spec/23-harness-connector.md)（连接器契约）；`devices_operation` 与 21 个 channel-mcp 工具已同步到 18 与 [plugins.md](plugins.md)。
+- **尚未实现**：云端介绍配对、`grants.list` RPC、执行端 hello 身份上报、Bot×设备允许表与其 HTTP 接口、设备详情页、`@yonder/connect` 与三个连接器。规范是目标，代码仍停在 P0 基线；本页不把规范写成已完成。
+
 ## 共享 Bot 核心修复轮（2026-11-03）
 
 按独立review完成修复；两次merge保留main截至4e58ceb8的75条提交，主分支未写入。core兼容门面、九个短转发壳及两个单实现port已删除，调用方直连真实包；共享createBot/唯一Runtime/FS与PG两实现保持。PG按需记录/文档读取，不激活回放全历史；模型绑定复用现WeakMap、timeout按Bot隔离。真实idle释放、在线turn超时唯一error、提交后HTTP防重复与关闭时观察排空均有回归。
