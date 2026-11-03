@@ -106,16 +106,20 @@ type CloudAttestation = {
 
 `mac` 覆盖 `JSON.stringify([ownerId, cloudDeviceId, executorDeviceId, action, subject, issuedAt, expiresAt])`，密钥是执行端 device token 的 SHA-256 原始 32 字节。云端只存 token 哈希，执行端持有 token，双方能算出同一密钥，因此声明不能被挪用到别的设备；控制端不能伪造，云端也不能把声明发给未被介绍的设备。`subject` 在 `introduce` 时是 principalId，`revoke` 时是 grantId，`policy` 时是 botId。执行端要核对 `executorDeviceId`/`cloudDeviceId`/`ownerId` 与自己登记一致、`action`/`subject` 与收到的请求相符、未过有效期。
 
-**执行端收件箱的帧。** 执行端在 `/ws/execution` 的收件箱连接上另发两类帧，服务端只在对端是执行端收件箱时投递对应下行帧：
+**执行端收件箱的帧。** 收件箱票据是 `/api/execution/ticket` 正文 `{inbox:true}`（不指定对端）。执行端连上 `/ws/execution` 后：
 
 | 方向 | type | 内容 |
 |---|---|---|
-| 上行 | `executor.hello` | `{executorDeviceId,publicKey}`，deviceToken 认证后自报执行端身份（§5） |
-| 上行 | `grants` | `{grants: Grant[]}`，本设备全部 grant 的完整摘要；每次变化后上报，云端保存供主人查看 |
-| 下行 | `grant.revoke` | `{grantId,attestation}`，云端按主人撤销请求转发 |
-| 下行 | `allow.policy` | `{botId,allowed,attestation}`，允许表变化时下发 |
+| 上行 | `executor.hello` | `{executorDeviceId,publicKey}`；deviceToken 已认证，这是自报身份（§5） |
+| 下行 | `executor.registered` | `{ownerId,cloudDeviceId}`，云端告诉执行端它属于哪个账号/设备 |
+| 上行 | `grants` | `{grants: Grant[]}`，本设备全部 grant；连接成功、每次变化与每次下行之后上报 |
+| 下行 | `relay` | `{routeId,sourceDeviceId,frame,attestation}`，控制端的签名请求；执行端用同一 `routeId` 在 `relay` 帧里回签名响应 |
+| 下行 | `grant.revoke` | `{grantId,attestation}`，`attestation.subject` 等于 grantId |
+| 下行 | `allow.policy` | `{botId,devices:string[]\|null,attestation}`，`null` 表示全部；`subject` 等于 botId |
 
-撤销与策略帧都幂等；执行端离线时云端保留待投递，重连后再发。命令结果仍按 §4 的账本规则，未知结果绝不重放。
+撤销与策略帧都幂等；执行端离线时云端把撤销写入待投递表，重连 `executor.hello` 后补发，并补发当前允许表。命令结果仍按 §4 的账本规则，未知结果绝不重放。执行端对拒绝的介绍回签名 `ok:false`（`UNPAIRED`/`UNAUTHORIZED`/`GRANT_REVOKED`/`UNSUPPORTED_OPERATION`），不留下让控制端只能超时的空回。
+
+**控制端到云端的入口。** 控制器用任何同账号设备凭据 `POST /api/devices/:id/relay`，正文 `{frame}`（完整 relay 帧），得到执行端签名封套。云端只按目标设备的收件箱转发，不解析、不改写内层。`GET /api/device/devices` 给设备凭据读本账号设备与各执行端自报的 `{deviceId,publicKey}`；`GET /api/device/agents` 给设备凭据读本机 Bot 映射 `{key,accountId,name}`，供控制器按“实际运行的 Agent”介绍自己而不是整个账号。
 
 `RpcRequest`：`{protocol:'yonder.execution',version:1,kind:'request',requestId,principalId,deviceId,issuedAt,expiresAt,method,params}`。`RpcResponse`：相同身份/版本/关联字段，kind=response，再加 `ok:true,result` 或 `ok:false,error`。响应签名 key 属于 device；请求签名 key 属于 principal。由已配对记录校验，不能混用方向。
 

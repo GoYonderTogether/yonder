@@ -1,8 +1,19 @@
 # 项目状态
 
-更新：2026-11-03。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
+更新：2026-11-04。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
+
+## Bot 网络 P2 实现（2026-11-04）
+
+按主人对 P0–P1 六项问题的裁决实现（D5–D10，见 [decisions](decisions.md)）。两个 worktree 本地提交，未 push、未部署。
+
+- **已实现**：执行端 `/ws/execution` 收件箱与 `executor.hello` 自报身份、云端 UUID↔执行端 UUID 映射；`device.introduce` 与云端 HMAC 声明，执行端本地决定 grant；`grants.list`；执行端 grant 摘要上报、主人网页撤销（含离线排队）与 `grant.revoke`/`allow.policy` 下发；Bot×设备允许表与 `GET|PUT /api/bots/:id/devices`；设备凭据接口 `GET /api/device/devices`、`/api/device/agents`；`kind='harness'` 前向迁移（022）；默认发行包含 `devices` 插件；安装器写 `yonder-executor`/`yonder-clipboard`/`yonder-qq` 启动器；远程资源缺插件时报真实错误。
+- **已用真实进程验证**：两台设备同账号免手工配对互相列出与远程读写（V2）、按 Bot 收窄被执行端拒绝（V3 后端）、跨账号拒绝（V4）、在线与离线主人撤销（V5）、manual-only 拒绝云端介绍而手工配对仍可用（V6）。证据见[本轮验收](verification/bot-network-p2-20261104.md)。
+- **尚未实现**：网页设备详情/Bot 可操作设备/撤销界面（P3）、`@yonder/connect` 与三个连接器（P4–P5）、真实模型下的云端 Bot 跨设备调用回合、安装版实际执行一次更新。
+- **未测**：真实 `openai/gpt-6-luna`（本机无凭据）；Windows 启动器；生产 2 核 2 GB 共存。
+
+计数：yonder `npm test` 2788 通过 / 0 失败 / 113 跳过（521 文件通过 / 67 跳过），`test:node` 83/0；build、typecheck、lint（含 size 645 与 layer 109/750、基线 0）全部通过。云端 server 真实 PG/Redis 211 通过 / 0 失败 / 0 跳过（22 suites），deploy 19/0、market 13/0、SSR 3/0，build/typecheck/version 通过；云端仍无 lint 脚本。
 
 ## Bot 网络规范落地（2026-11-03，仅设计）
 

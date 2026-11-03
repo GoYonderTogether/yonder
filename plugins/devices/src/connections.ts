@@ -20,8 +20,10 @@ export interface CloudConfig {
 	baseUrl: string;
 	/** Device bearer credential name in yonder.yaml credentials. */
 	credential: string;
-	/** Bot whose devices this controller may use; defaults to the local agent's cloud account. */
+	/** Bot whose devices this controller may use; defaults to this host's mapped Bot for its agent. */
 	botId?: string;
+	/** Local Agent key whose cloud Bot identity should be used when `botId` is absent. */
+	agent?: string;
 	/** Readable name shown to the device owner next to the grant. */
 	label?: string;
 	allowInsecureLoopback?: boolean;
@@ -54,6 +56,7 @@ export const configSchema = {
 				baseUrl: string,
 				credential: string,
 				botId: uuid,
+				agent: string,
 				label: string,
 				allowInsecureLoopback: { type: "boolean" },
 			},
@@ -112,6 +115,26 @@ export async function controllerKey(pairingHome: string): Promise<KeyObject> {
 	return key;
 }
 
+/** The cloud Bot account this host's own Agent is registered as, for the grant's botId. */
+async function resolveBotId(
+	base: URL,
+	token: () => Promise<string>,
+	agent: string | undefined,
+): Promise<string | null> {
+	if (!agent) return null;
+	const response = await fetch(new URL("/api/device/agents", base), {
+		headers: { authorization: `Bearer ${await token()}` },
+		redirect: "error",
+	});
+	if (!response.ok) {
+		await response.body?.cancel().catch(() => {});
+		return null;
+	}
+	const rows = (await response.json()) as Array<{ key?: unknown; accountId?: unknown }>;
+	const match = rows.find((row) => row.key === agent);
+	return typeof match?.accountId === "string" ? match.accountId : null;
+}
+
 async function cloudDevices(
 	config: CloudConfig,
 	token: () => Promise<string>,
@@ -139,6 +162,7 @@ async function cloudDevices(
 	}
 	const body = (await listing.json()) as { devices?: unknown };
 	if (!Array.isArray(body.devices)) throw new Error("Cloud device list is invalid");
+	const botId = config.botId ?? (await resolveBotId(base, token, config.agent));
 	const records: RegisteredDevice[] = [];
 	for (const entry of body.devices) {
 		if (!entry || typeof entry !== "object") continue;
@@ -158,7 +182,7 @@ async function cloudDevices(
 			executorDeviceId: executor.deviceId as string,
 			grants: [],
 			routes: [new CloudRoute({ baseUrl: config.baseUrl, deviceId: device.id }, token, allowLoopback)],
-			introduce: { label: config.label ?? device.name, botId: config.botId ?? null },
+			introduce: { label: config.label ?? device.name, botId },
 		});
 	}
 	// The current grant set comes from the executor itself (grants.list), never from configuration.
