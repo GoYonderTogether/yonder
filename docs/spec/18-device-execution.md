@@ -94,7 +94,7 @@ DeviceDescriptor 包含 role、OS版本、host/process架构、runtime、targets
 
 2026-11-02 多运行宿主接入补充：executor 的 `--card-config` 私有文件兼容原单连接对象，并可接受连接对象数组；每项建立独立的 CardDaemonConnection，共享唯一 executor、持久账本及设备写锁。中继按源/目标连接区分路由，不广播命令，不让第二连接替换其他目标。同一设备可服务多个明确获授的运行宿主，云账号归属核验不替代执行端配对与 grant。
 
-插件 `@yonder/plugin-devices`，id=`devices`：`devices_list`, `devices_describe`, `devices_apps`, `devices_open`, `devices_observe`, `devices_execute`, `devices_status`, `devices_cancel`, `devices_close`。前三类/observe/status/close需要read（远端调用另需network）；open需要read+network并取真实ctx能力交集；execute静态声明exec/read/write/network/message，后端再依action声明限制；cancel需要exec+network。工具参数只有deviceId/session handle/action/arguments/commandId等业务字段，没有principal、grant创建、权限或签名密钥参数。
+插件 `@yonder/plugin-devices`，id=`devices`：`devices_list`, `devices_describe`, `devices_apps`, `devices_open`, `devices_observe`, `devices_execute`, `devices_operation`, `devices_status`, `devices_cancel`, `devices_close`。前三类/observe/status/close需要read（远端调用另需network）；open需要read+network并取真实ctx能力交集；execute静态声明exec/read/write/network/message，后端再依action声明限制；operation按 action 声明取能力，文件读写受 512 KiB 与选定目录约束，process.exec 另需 exec；cancel需要exec+network。工具参数只有deviceId/session handle/action/arguments/commandId等业务字段，没有principal、grant创建、权限或签名密钥参数。
 
 管理CLI属于executor包，不是Agent工具：`yonder-executor init`, `serve`, `pair start`, `pair approve`, `pair connect`, `peers list`, `grants list`, `grants revoke`。code/私钥通过私有文件/stdin，不放命令行或日志。full发行包含该管理组件，可作为controller/executor；execution-only没有模型或Agent管理路径。此处固定名字，W0不创建这些bin占位。
 

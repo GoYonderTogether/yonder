@@ -62,6 +62,7 @@
   - `channel-mcp_sessions_get`：读取指定会话元数据。
   - `channel-mcp_sessions_open`：按已有preset打开会话。
   - `channel-mcp_sessions_submit`：向preset会话提交输入，并按参数等待或立即返回。
+  - `channel-mcp_sessions_command`：向已有会话发送原生斜杠/控制命令并取回结果。
   - `channel-mcp_sessions_watch`：被动观察已有运行进度，观察连接断开不取消任务。
   - `channel-mcp_sessions_abort`：显式取消会话运行及相应排队输入。
   - `channel-mcp_sessions_close`：关闭指定会话。
@@ -74,6 +75,7 @@
   - `channel-mcp_identity_link`：在权限允许时建立账号与人物映射。
   - `channel-mcp_identity_unlink`：在权限允许时解除身份映射。
   - `channel-mcp_messages_send`：通过共享投递入口向指定人、账号或会话发送消息及附件。
+  - `channel-mcp_cron_manage`：以已认证主人身份管理定时任务；已有任务保留原执行主人与权限。
 - **边界**：本插件不连接任意MCP服务器；渠道的主动send不提供远端推送，结果经ask、watch或事件查询取回。
 
 ## 04 browser-skill：浏览器操作
@@ -371,7 +373,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 ## devices：已配对设备控制
 
 - **包**：`@yonder/plugin-devices`，id `devices`；[README](../plugins/devices/README.md)、[源码](../plugins/devices/src/index.ts)。
-- **贡献**：工具 `devices_list`、`devices_describe`、`devices_apps`、`devices_open`、`devices_observe`、`devices_execute`、`devices_status`、`devices_cancel`、`devices_close`；按需 skill `devices`；生命周期 trigger `devices-connections` 只关闭自身连接。
+- **贡献**：工具 `devices_list`、`devices_describe`、`devices_apps`、`devices_open`、`devices_observe`、`devices_execute`、`devices_operation`、`devices_status`、`devices_cancel`、`devices_close`；按需 skill `devices`；生命周期 trigger `devices-connections` 只关闭自身连接。`devices_operation` 是工作台远程资源的显式入口（fs.read/stat/list/canonical/write/mkdir/remove/rename 与 process.exec），按 action 声明能力，文件上限 512 KiB，目录受选定资源约束。
 - **接入**：仅从显式配置的配对目录读取 W1 信任记录和现有 grant 快照；direct HTTPS 固定证书指纹，可选 Card relay。安装插件不自动注册设备，也不扩大任何 Agent 权限。
 - **边界**：命令在控制端先持久记录，结果以执行端权威账本为准；未知状态不自动重放。Card relay 不是端到端加密，执行端的常驻 Card 连接和真实 guest GUI 尚未验收。
 
