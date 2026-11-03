@@ -168,6 +168,10 @@ export interface Device {
 	workProtocol?: 1;
 	/** Present only after that device's executor reported its own identity. */
 	executor?: DeviceExecutor;
+	/** ISO time of the last completed device hello; absent when it never connected. */
+	lastSeenAt?: string;
+	/** ISO time of the newest message this device's own Bots sent; absent when it never sent one. */
+	lastActiveAt?: string;
 }
 
 /** One grant summary the executor reported, shown back to its owner (spec 19 §10). */
