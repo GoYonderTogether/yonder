@@ -2,8 +2,119 @@ import { type Channel, type Hook, parseRef } from "@yonder/sdk";
 import type { AgentConfig } from "../config/index.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
 import type { Store } from "../store/index.js";
-import { projectAgentOperability } from "./agent-operability.js";
-import { type AgentOperabilityFact, type OperabilitySelector, projectConversationOperability } from "./operability.js";
+import {
+	type AgentOperabilityFact,
+	type OperabilitySelector,
+	projectConversationOperability,
+	type SessionOperabilityFact,
+} from "./operability.js";
+
+type ConfigStatus = { agent?: { state: string; revision?: string; acceptedRevision?: string } } | undefined;
+type Loaded = { channels: Map<string, Channel>; hooks: ReadonlyMap<string, readonly Hook[]> };
+
+/** One shape for the configuration fact; callers differ only in basis, revisions and the state fallback. */
+function configurationOf(
+	status: ConfigStatus,
+	input: {
+		basis?: "accepted" | "candidate";
+		revision?: string | undefined;
+		diskRevision?: string | undefined;
+		stateFallback?: string;
+	} = {},
+): NonNullable<SessionOperabilityFact["configuration"]> {
+	const state = status?.agent?.state ?? input.stateFallback;
+	return {
+		basis: input.basis ?? "accepted",
+		...(input.revision ? { revision: input.revision } : {}),
+		...(input.diskRevision ? { diskRevision: input.diskRevision } : {}),
+		...(status?.agent?.acceptedRevision ? { acceptedRevision: status.agent.acceptedRevision } : {}),
+		...(state ? { state } : {}),
+	};
+}
+
+const unavailableAgent = (): AgentOperabilityFact => ({
+	status: "unknown",
+	limit: 20,
+	truncated: false,
+	conversations: [],
+});
+
+const exactConversations = (agent: AgentConfig) => [
+	...new Set(
+		agent.bindings.flatMap((binding) => {
+			const conv = binding.match.conv;
+			return typeof conv === "string" ? [conv] : (conv ?? []);
+		}),
+	),
+];
+
+export async function projectAgentOperability(options: {
+	agent: AgentConfig;
+	agents: Iterable<AgentConfig>;
+	selector?: OperabilitySelector;
+	store?: Store;
+	channels?: Map<string, Channel>;
+	hooks?: ReadonlyMap<string, readonly Hook[]>;
+	configuration?: SessionOperabilityFact["configuration"];
+}): Promise<AgentOperabilityFact> {
+	const limit = 20;
+	const { store, channels, hooks } = options;
+	if (!store || !channels || !hooks)
+		return {
+			status: "unknown",
+			limit,
+			truncated: false,
+			conversations: [
+				{ status: "unknown", selector: options.selector ?? {}, reason: "runtime session evidence is unavailable" },
+			],
+		};
+	const selector = options.selector ?? {};
+	const agents = [...options.agents];
+	const convs =
+		selector.conv || selector.eventId
+			? [selector.conv].filter((item): item is string => !!item)
+			: exactConversations(options.agent).slice(0, limit);
+	const unique = [...new Set(convs)];
+	const truncated = !selector.conv && !selector.eventId && exactConversations(options.agent).length > limit;
+	const conversations = await Promise.all(
+		unique.map((conv) =>
+			projectConversationOperability({
+				agent: options.agent,
+				agents,
+				selector: { conv, ...(selector.eventId ? { eventId: selector.eventId } : {}) },
+				store,
+				channels,
+				hooks,
+				configuration: options.configuration,
+			}),
+		),
+	);
+	if (selector.eventId && !selector.conv) {
+		const fact = await projectConversationOperability({
+			agent: options.agent,
+			agents,
+			selector,
+			store,
+			channels,
+			hooks,
+			configuration: options.configuration,
+		});
+		if (fact.selector.conv) conversations.push(fact);
+		else
+			conversations.push({
+				status: "unknown",
+				selector,
+				reason: "event is not a stored message.in with a conversation",
+			});
+	}
+	return {
+		status: conversations.some((item) => item.status === "observed") ? "observed" : "unknown",
+		limit,
+		truncated,
+		...(!unique.length && !selector.eventId ? { reason: "agent has no exact-conversation source bindings" } : {}),
+		conversations,
+	};
+}
 
 export async function extendRuntimeInspection(options: {
 	result: unknown;
@@ -23,13 +134,10 @@ export async function extendRuntimeInspection(options: {
 		options.configStatus(agentId),
 		store.sessions.list({ agent: agentId, open: true }),
 	]);
-	const configuration = {
-		basis: "accepted" as const,
-		...(status.agent?.acceptedRevision ? { revision: status.agent.acceptedRevision } : {}),
-		...(status.agent?.revision ? { diskRevision: status.agent.revision } : {}),
-		...(status.agent?.acceptedRevision ? { acceptedRevision: status.agent.acceptedRevision } : {}),
-		...(status.agent?.state ? { state: status.agent.state } : {}),
-	};
+	const configuration = configurationOf(status, {
+		revision: status.agent?.acceptedRevision,
+		diskRevision: status.agent?.revision,
+	});
 	const operability = await projectAgentOperability({
 		agent,
 		agents: agents.values(),
@@ -58,7 +166,7 @@ export async function extendRuntimeInspection(options: {
 export function managementOperabilityProjector(options: {
 	agents: Map<string, AgentConfig>;
 	store: Store;
-	loaded: { channels: Map<string, Channel>; hooks: ReadonlyMap<string, readonly Hook[]> };
+	loaded: Loaded;
 	configStatus(agentId: string): Promise<{ agent?: { state: string; acceptedRevision?: string } } | undefined>;
 }) {
 	return async (
@@ -71,7 +179,7 @@ export function managementOperabilityProjector(options: {
 		},
 	): Promise<AgentOperabilityFact> => {
 		const agent = input.agents.get(agentId);
-		if (!agent) return { status: "unknown", limit: 20, truncated: false, conversations: [] };
+		if (!agent) return unavailableAgent();
 		const status = await options.configStatus(agentId);
 		return projectAgentOperability({
 			agent,
@@ -79,19 +187,11 @@ export function managementOperabilityProjector(options: {
 			store: options.store,
 			channels: options.loaded.channels,
 			hooks: options.loaded.hooks,
-			configuration: {
+			configuration: configurationOf(status, {
 				basis: input.basis,
-				...(input.basis === "accepted"
-					? status?.agent?.acceptedRevision
-						? { revision: status.agent.acceptedRevision }
-						: {}
-					: input.revision
-						? { revision: input.revision }
-						: {}),
-				...(input.basis === "accepted" && input.revision ? { diskRevision: input.revision } : {}),
-				...(status?.agent?.acceptedRevision ? { acceptedRevision: status.agent.acceptedRevision } : {}),
-				...(status?.agent?.state ? { state: status.agent.state } : {}),
-			},
+				revision: input.basis === "accepted" ? status?.agent?.acceptedRevision : input.revision,
+				diskRevision: input.basis === "accepted" ? input.revision : undefined,
+			}),
 		});
 	};
 }
@@ -99,10 +199,8 @@ export function managementOperabilityProjector(options: {
 export function conversationOperabilityProjector(options: {
 	agents: Map<string, AgentConfig>;
 	store: Store;
-	loaded: { channels: Map<string, Channel>; hooks: ReadonlyMap<string, readonly Hook[]> };
-	configStatus(
-		agentId: string,
-	): Promise<{ agent?: { state: string; revision?: string; acceptedRevision?: string } } | undefined>;
+	loaded: Loaded;
+	configStatus(agentId: string): Promise<ConfigStatus>;
 }) {
 	return async (agentId: string, selector: OperabilitySelector) => {
 		const agent = options.agents.get(agentId);
@@ -115,14 +213,11 @@ export function conversationOperabilityProjector(options: {
 			store: options.store,
 			channels: options.loaded.channels,
 			hooks: options.loaded.hooks,
-			configuration: {
-				basis: "accepted",
-				...(status?.agent?.acceptedRevision
-					? { revision: status.agent.acceptedRevision, acceptedRevision: status.agent.acceptedRevision }
-					: {}),
-				...(status?.agent?.revision ? { diskRevision: status.agent.revision } : {}),
-				state: status?.agent?.state ?? "unknown",
-			},
+			configuration: configurationOf(status, {
+				revision: status?.agent?.acceptedRevision,
+				diskRevision: status?.agent?.revision,
+				stateFallback: "unknown",
+			}),
 		});
 	};
 }
@@ -130,14 +225,12 @@ export function conversationOperabilityProjector(options: {
 export function agentOperabilityProjector(options: {
 	agents: Map<string, AgentConfig>;
 	store: Store;
-	loaded: { channels: Map<string, Channel>; hooks: ReadonlyMap<string, readonly Hook[]> };
-	configStatus(
-		agentId: string,
-	): Promise<{ agent?: { state: string; revision?: string; acceptedRevision?: string } } | undefined>;
+	loaded: Loaded;
+	configStatus(agentId: string): Promise<ConfigStatus>;
 }) {
 	return async (agentId: string): Promise<AgentOperabilityFact> => {
 		const agent = options.agents.get(agentId);
-		if (!agent) return { status: "unknown", limit: 20, truncated: false, conversations: [] };
+		if (!agent) return unavailableAgent();
 		const status = await options.configStatus(agentId);
 		return projectAgentOperability({
 			agent,
@@ -145,13 +238,11 @@ export function agentOperabilityProjector(options: {
 			store: options.store,
 			channels: options.loaded.channels,
 			hooks: options.loaded.hooks,
-			configuration: {
-				basis: "accepted",
-				...(status?.agent?.acceptedRevision ? { revision: status.agent.acceptedRevision } : {}),
-				...(status?.agent?.revision ? { diskRevision: status.agent.revision } : {}),
-				...(status?.agent?.acceptedRevision ? { acceptedRevision: status.agent.acceptedRevision } : {}),
-				state: status?.agent?.state ?? "unknown",
-			},
+			configuration: configurationOf(status, {
+				revision: status?.agent?.acceptedRevision,
+				diskRevision: status?.agent?.revision,
+				stateFallback: "unknown",
+			}),
 		});
 	};
 }
@@ -160,10 +251,8 @@ export function agentOperabilityProjector(options: {
 export function ownerAgentOperabilityProjector(options: {
 	agents: Map<string, AgentConfig>;
 	store: Store;
-	loaded: { channels: Map<string, Channel>; hooks: ReadonlyMap<string, readonly Hook[]> };
-	configStatus(
-		agentId: string,
-	): Promise<{ agent?: { state: string; revision?: string; acceptedRevision?: string } } | undefined>;
+	loaded: Loaded;
+	configStatus(agentId: string): Promise<ConfigStatus>;
 }) {
 	const project = agentOperabilityProjector(options);
 	return async (agentId: string, signal?: AbortSignal): Promise<AgentOperabilityFact> => {
@@ -207,7 +296,7 @@ export function extendKernelInspection(options: {
 	request: { agent?: string; conv?: string; eventId?: string };
 	agents: Map<string, AgentConfig>;
 	store: Store;
-	loaded: { channels: Map<string, Channel>; hooks: ReadonlyMap<string, readonly Hook[]> };
+	loaded: Loaded;
 	currentConfig(session: string): RuntimeSessionConfig | undefined;
 	configStatus(agentId: string): Promise<{ agent?: { state: string; revision?: string; acceptedRevision?: string } }>;
 }) {

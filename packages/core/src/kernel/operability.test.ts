@@ -4,9 +4,12 @@ import { parseAgentConfig } from "../config/index.js";
 import { platformGroupBinding } from "../routing/platform-group.js";
 import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
-import { projectAgentOperability } from "./agent-operability.js";
 import { projectConversationOperability } from "./operability.js";
-import { agentOperabilityProjector, ownerAgentOperabilityProjector } from "./operability-adapters.js";
+import {
+	agentOperabilityProjector,
+	ownerAgentOperabilityProjector,
+	projectAgentOperability,
+} from "./operability-adapters.js";
 import { socialPluginHooks } from "./social-plugin.test-support.js";
 import { batchPreflightData } from "./social-preflight.js";
 
