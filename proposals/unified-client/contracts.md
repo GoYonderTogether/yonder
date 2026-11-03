@@ -122,6 +122,30 @@ interface InputReceipt { event: string; session: string; deduped?: boolean }
 | `views.act` | ViewDecl.actScope（默认 write，不低于 write） | `{ viewId: string; action: string; input?: unknown; session?: string }` | `{ content?: ViewContent }` | §11/§14 |
 | `events.query` | read | `EventQuery`（sdk `types.ts`：`id,type,from,conv,agent,since,until,after,limit`） | `EventPage` | 已有 |
 
+#### 共享Bot设备工具（2026-11-03，维护者BRIEF授权，已实现）
+
+精确语义见 `docs/spec/19-device-workbench.md` §8；沿既有工作桥、注册表与owner校验，不新增网页会话或模型运行循环。
+
+| 方法 | scope | params | result | 限制 |
+|---|---|---|---|---|
+| `tools.catalog` | owner | `{ agent: string; source: DeviceProgramSource; ceiling: DeviceProgramCeiling }` | `{ tools: { name; description; parameters; capabilities; guidelines?; plugin?; exposure: "offer"\|"search" }[] }` | 已接纳Agent默认profile的真实可调用目录 |
+| `tools.call` | owner | 同catalog参数，另加 `{ tool: string; arguments: Record<string, unknown> }` | SDK `ToolResult`（`text`, `isError?`, `images?`, `attachments?`） | 原生program ToolTask执行/取已存结果，保schema/hooks/intent/replay |
+
+```ts
+type DeviceProgramSource = {
+  instance: "card";
+  cloudBotId: string; ownerId: string; deviceId: string; platformAgentId: string;
+  callerSession: string; invocationId: string; sourceMessageIds: string[];
+};
+type DeviceProgramCeiling = {
+  capabilities: Capability[]; channelInstances?: string[]; resources?: WorkspaceResource[];
+};
+```
+
+这两个方法只接可信Card gateway的remote principal（owner scope、`card:<实际渠道实例>`），不是普通网页/本机socket的通用工具后门。source里的平台ID及非空sourceMessageIds为UUID，callerSession/invocationId为受限字符串；source与ceiling由真实worker/服务端调用链填入，不来自模型业务arguments。server按Bot owner、owner DM来源、有效设备session/在线peer及未退役Agent映射核验，注入映射key；本机再次校验主人关联与实际默认profile。权限/资源只求交，显式空资源拒绝，默认cloud不增加exec。
+
+同可信来源、Bot、调用会话、设备Agent与profile复用隔离程序会话；稳定invocation只关联一个真实ToolTask，同键不同tool/arguments冲突。设备断线/取消/超时沿工作桥报真实错误或outcome_unknown，未知副作用不自动重放，不声称未执行；正常工具失败由ToolResult.isError表达。全部请求字段由现TypeBox schema校验；since=1，无新scope或协议版本。
+
 #### 已有、保持原名、暂不进 B 线前端
 
 `terminal.templates`（read，`{ id?: string, preset?: string }` → 模板名称与说明，按会话或草稿预设过滤）、`awake.status`（read）、`channels.list`（read）、`channels.login`（admin，用 `connection.signal` 取消）、`release.result`、`sessions.notify`（write）、`management`（admin）、`terminal.sessions/presets/channels/queued/dequeue/info`、`service.info`（read，`local:true`）、`identity.lookup/link/unlink/person`、`stop`（admin，`local:true`）、`social.groups`（admin，只读：列出该 Agent 的群会话及生效的标签/模式；增补，FIX-social-02）、`config.get`（read，`{ agent?: string }` → 该 Agent 的配置视图与 `home` 字段）、`config.update`（admin，`{ agent?, scope?: "agent"|"home", expectedRevision, patch }`，白名单键、校验后原子写入并重载；增补，IMP-21）。迁入注册表时 scope 沿用上述标注，行为不变。

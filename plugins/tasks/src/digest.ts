@@ -50,21 +50,24 @@ export function digest(api: PluginAPI, store: Store, config: Config, now = Date.
 					(e) => e.from === `agent:${owner.agent}` && (e.data as { to?: string }).to === message.to,
 				);
 			const ctx = { ...owner, capabilities: [], signal: new AbortController().signal } as unknown as ToolContext;
-			const tasks = store
-				.list(ctx)
-				.filter((t) =>
-					owner.agent ? t.ownerAgent === owner.agent : t.ownerAgent === null && t.session === owner.session,
-				);
+			const tasks = (await store.list(ctx)).filter((t) =>
+				owner.agent ? t.ownerAgent === owner.agent : t.ownerAgent === null && t.session === owner.session,
+			);
 			const priority = (state: string) =>
 				state === "waiting-user" || state === "review" ? 0 : state === "blocked" ? 1 : 2;
 			const candidates = tasks
 				.filter((t) => t.state === "waiting-user" || t.state === "review" || t.state === "blocked" || t.lastDeliveryAt)
-				.filter((t) => t.state !== "cancelled" && !store.digestSeen(t, message.to, time))
-				.sort((a, b) => priority(a.state) - priority(b.state));
+				.filter((t) => t.state !== "cancelled");
+			const unseen = await Promise.all(
+				candidates.map(async (task) => ((await store.digestSeen(task, message.to, time)) ? undefined : task)),
+			);
 			const lines: string[] = [];
 			const zh = api.locale.startsWith("zh");
-			for (const task of candidates.slice(0, Math.min(5, config.tailDigest?.lines ?? 5))) {
-				if (!store.claimDigest(task, message.to, time)) continue;
+			for (const task of unseen
+				.filter((task): task is NonNullable<typeof task> => Boolean(task))
+				.sort((a, b) => priority(a.state) - priority(b.state))
+				.slice(0, Math.min(5, config.tailDigest?.lines ?? 5))) {
+				if (!(await store.claimDigest(task, message.to, time))) continue;
 				const label =
 					priority(task.state) === 0
 						? zh

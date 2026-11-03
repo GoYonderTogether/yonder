@@ -20,7 +20,7 @@ import {
 import { createConnection } from "node:net";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { controlEndpoint, lockHome } from "@yonder/core";
+import { controlEndpoint, lockHome } from "@yonder/local-host";
 import { moveInstall, planInstall } from "./migrate-install.js";
 import { planServices, userServiceStopped } from "./migrate-services.js";
 import { rewriteText, shellLine } from "./migrate-text.js";

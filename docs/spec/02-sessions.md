@@ -251,7 +251,7 @@ submit 的 wait:false（默认）返回本次实际 session.input 的 InputRecei
 
 ### 运行结束与关闭原因（BE-05）
 
-一次运行结束后是否关闭会话由关闭策略决定（`packages/core/src/sessions/close-policy.ts` 的 `closeOnRunEnd`）。`ephemeral` 会话不承载后续输入，任何结束都关闭，关闭原因在成功时为 `completed`，否则是本次状态 `error`/`aborted`/`limit`。`task` 会话只在本次运行 `status: done` 且其 `close` 不是 `manual` 时按 `completed` 关闭；失败、中止、超限或 `manual` 都保持打开，可以继续 `submit`，后台回报仍落回同一会话。这样做的代价是失败的 task 会话要手动关闭，按年龄或空闲清理留作后续卡（决定见 `docs/decisions.md`）。`main`、`persistent` 不按本策略关闭。
+一次运行结束后是否关闭会话由关闭策略决定（`packages/bot-core/src/sessions/close-policy.ts` 的 `closeOnRunEnd`）。`ephemeral` 会话不承载后续输入，任何结束都关闭，关闭原因在成功时为 `completed`，否则是本次状态 `error`/`aborted`/`limit`。`task` 会话只在本次运行 `status: done` 且其 `close` 不是 `manual` 时按 `completed` 关闭；失败、中止、超限或 `manual` 都保持打开，可以继续 `submit`，后台回报仍落回同一会话。这样做的代价是失败的 task 会话要手动关闭，按年龄或空闲清理留作后续卡（决定见 `docs/decisions.md`）。`main`、`persistent` 不按本策略关闭。
 
 ### 分叉与 Bot 会话视图（FIX-core-02）
 

@@ -1,89 +1,49 @@
 import { randomUUID } from "node:crypto";
-import type { DatabaseSync } from "node:sqlite";
-import { parseRef, type RenderContext, type ToolContext } from "@yonder/sdk";
+import { intersectResources, parseRef, type RenderContext, type ToolContext } from "@yonder/sdk";
 import { TURN_ONE_LINE } from "../prompts.js";
 import { auditorRejection } from "../views.js";
+import { applyLedgerEvent, type TaskLedger } from "./ledger.js";
 import {
 	type AuditResult,
-	applyEvent,
 	countsAsActivity,
+	instructionFields,
 	type Moment,
 	type Open,
 	ongoing,
 	own,
-	type Projected,
 	type Task,
 	type TaskEvent,
-	toRow,
+	type TaskExecutionMetadata,
 	transitions,
 } from "./project.js";
-import { all, count, current, digests, find, history, moments, rendered } from "./query.js";
+import { all, count, digests, find, history, moments, rendered } from "./query.js";
 
 const minutes = (since: string, now: number) => `${Math.floor((now - Date.parse(since)) / 60000)}m`;
 
-export function writeRow(db: DatabaseSync, projected: Projected): void {
-	const row = toRow(projected);
-	db.prepare(`INSERT INTO task_current(id, ref, title, state, owner, parent, session, origin, revision, record)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET ref = excluded.ref, title = excluded.title, state = excluded.state,
-			owner = excluded.owner, parent = excluded.parent, session = excluded.session, origin = excluded.origin,
-			revision = excluded.revision, record = excluded.record`).run(
-		row.id,
-		row.ref,
-		row.title,
-		row.state,
-		row.owner,
-		row.parent,
-		row.session,
-		row.origin,
-		row.revision,
-		row.record,
-	);
-}
-
-const projects = new Set<TaskEvent["kind"]>(["open", "update", "done", "wake", "audit", "spend"]);
-
-/** 事件与投影必须一起落地：读到半个状态比读得慢更糟。 */
+/** 追加真实事件，并通过同一 reducer 更新当前投影。 */
 export function append(
-	db: DatabaseSync,
+	events: TaskLedger,
 	task: string,
 	kind: TaskEvent["kind"],
 	data: TaskEvent["data"],
 	now = Date.now(),
-	inTransaction = false,
 ): number {
 	const at = new Date(now).toISOString();
-	if (!inTransaction) db.exec("BEGIN IMMEDIATE");
-	try {
-		const result = db
-			.prepare("INSERT INTO events(task, kind, at, data) VALUES (?, ?, ?, ?)")
-			.run(task, kind, at, JSON.stringify(data));
-		const seq = Number(result.lastInsertRowid);
-		if (projects.has(kind)) {
-			const map = new Map<string, Projected>();
-			const existing = current(db, task);
-			if (existing) map.set(task, existing);
-			applyEvent(map, { seq, task, kind, at, data } as TaskEvent);
-			const next = map.get(task);
-			if (next) writeRow(db, next);
-		}
-		if (!inTransaction) db.exec("COMMIT");
-		return seq;
-	} catch (error) {
-		if (!inTransaction) db.exec("ROLLBACK");
-		throw error;
-	}
+	const seq = events.nextSeq++;
+	const event = { seq, task, kind, at, data } as TaskEvent;
+	applyLedgerEvent(events, event);
+	return seq;
 }
 
 /** 任务树最深两层：根任务之下还能挂一层子任务。 */
 export const MAX_DEPTH = 2;
 
 /** 新任务挂在 `parent` 下时的祖先数：父任务自身算一层，再往上数。 */
-function depthUnder(db: DatabaseSync, parent: Task): number {
+function depthUnder(events: TaskLedger, parent: Task): number {
 	let depth = 1;
 	let cursor = parent;
 	while (cursor.parent) {
-		const next = find(db, cursor.parent);
+		const next = find(events, cursor.parent);
 		if (!next) break;
 		depth += 1;
 		cursor = next;
@@ -92,17 +52,17 @@ function depthUnder(db: DatabaseSync, parent: Task): number {
 }
 
 /** 父任务必须存在、不能落在自己子树里（成环）、且不能超过 MAX_DEPTH。 */
-function checkParent(db: DatabaseSync, parentId: string, task?: Task): Task {
-	const parent = find(db, parentId);
+function checkParent(events: TaskLedger, parentId: string, task?: Task): Task {
+	const parent = find(events, parentId);
 	if (!parent) throw new Error("Parent task not found");
 	if (task) {
 		let cursor: Task | undefined = parent;
 		while (cursor) {
 			if (cursor.id === task.id) throw new Error("A task cannot be nested under itself");
-			cursor = cursor.parent ? find(db, cursor.parent) : undefined;
+			cursor = cursor.parent ? find(events, cursor.parent) : undefined;
 		}
 	}
-	if (depthUnder(db, parent) > MAX_DEPTH) throw new Error(`Task nesting is limited to ${MAX_DEPTH} levels`);
+	if (depthUnder(events, parent) > MAX_DEPTH) throw new Error(`Task nesting is limited to ${MAX_DEPTH} levels`);
 	return parent;
 }
 
@@ -115,10 +75,10 @@ const quiet = (kind: TaskEvent["kind"]) =>
 const normalizeBlocker = (note: string) => note.replace(/\s+/gu, " ").trim().toLowerCase();
 
 /** 从最近一条报告往回数：同一个阻塞连着报了几轮，遇到别的进展就停。 */
-function blockerRounds(db: DatabaseSync, id: string, note: string): number {
+function blockerRounds(events: TaskLedger, id: string, note: string): number {
 	const wanted = normalizeBlocker(note);
 	let rounds = 0;
-	for (const event of history(db, id).reverse()) {
+	for (const event of history(events, id).reverse()) {
 		if (quiet(event.kind)) continue;
 		if (event.kind !== "update" || !event.data.note || normalizeBlocker(event.data.note) !== wanted) break;
 		rounds += 1;
@@ -126,8 +86,8 @@ function blockerRounds(db: DatabaseSync, id: string, note: string): number {
 	return rounds;
 }
 
-export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
-	const parent = args.parent ? checkParent(db, args.parent) : undefined;
+export function openTask(events: TaskLedger, args: Open, ctx: ToolContext, metadata?: TaskExecutionMetadata): Task {
+	const parent = args.parent ? checkParent(events, args.parent) : undefined;
 	const origin = args.origin ?? ctx.event?.conv;
 	if (origin !== undefined) {
 		try {
@@ -140,9 +100,10 @@ export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
 	const task: Task = {
 		id: randomUUID(),
 		// 短号沿用账本里的开单序号，投影里的行数就是已开单数。
-		ref: `T${count(db) + 1}`,
+		ref: `T${count(events) + 1}`,
 		ownerAgent: ctx.agent,
 		session: ctx.session,
+		...metadata,
 		parent: parent?.id ?? null,
 		title: args.title,
 		objective: args.objective,
@@ -160,19 +121,19 @@ export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
 		lastDeliveryAt: null,
 		wakeups: 0,
 	};
-	append(db, task.id, "open", task);
+	append(events, task.id, "open", task);
 	return task;
 }
 
 /** 一条 patch 的全部校验与落地；批量更新在同一条事务里复用它。 */
 function change(
-	db: DatabaseSync,
+	events: TaskLedger,
 	id: string,
 	patch: Partial<Task> & { note?: string },
 	ctx: ToolContext,
-	inTransaction: boolean,
+	metadata?: TaskExecutionMetadata,
 ): Task {
-	const task = find(db, id);
+	const task = find(events, id);
 	if (!task || !own(task, ctx)) throw new Error("Task not found for caller");
 	if (!ongoing(task)) throw new Error("Task is closed");
 	if (patch.state && patch.state !== task.state && !transitions[task.state].includes(patch.state))
@@ -180,14 +141,14 @@ function change(
 	if (patch.state === "blocked" && patch.state !== task.state) {
 		const note = patch.note?.trim();
 		if (!note) throw new Error("Blocking a task requires a note saying what blocks it");
-		const rounds = blockerRounds(db, task.id, note) + 1;
+		const rounds = blockerRounds(events, task.id, note) + 1;
 		if (rounds < BLOCKER_ROUNDS)
 			throw new Error(
 				`Blocking needs the same blocker reported on ${BLOCKER_ROUNDS} consecutive updates; this is report ${rounds} of ${BLOCKER_ROUNDS}. Keep the task active, report the blocker again with tasks_update next turn, and mark it blocked on report ${BLOCKER_ROUNDS}.`,
 			);
 	}
 	if (patch.parent !== undefined && patch.parent !== null && patch.parent !== task.parent)
-		patch.parent = checkParent(db, patch.parent, task).id;
+		patch.parent = checkParent(events, patch.parent, task).id;
 	if (
 		patch.state === "done" &&
 		(!patch.deliverable?.trim() ||
@@ -197,110 +158,106 @@ function change(
 	)
 		throw new Error("Done requires a deliverable and one evidence entry per acceptance point");
 	patch.lastActivityAt = new Date().toISOString();
+	if (metadata) {
+		const resources = intersectResources(task.resources, metadata.resources);
+		Object.assign(patch, {
+			executionOwner: metadata.executionOwner,
+			...(resources === undefined ? {} : { resources }),
+		});
+	}
 	if (patch.deliverable?.trim()) patch.lastDeliveryAt = patch.lastActivityAt;
-	append(db, task.id, patch.state === "done" ? "done" : "update", patch, Date.now(), inTransaction);
+	append(events, task.id, patch.state === "done" ? "done" : "update", patch);
 	const { note: _, ...fields } = patch;
 	return { ...task, ...fields };
 }
 
 export function changeTask(
-	db: DatabaseSync,
+	events: TaskLedger,
 	id: string,
 	patch: Partial<Task> & { note?: string },
 	ctx: ToolContext,
+	metadata?: TaskExecutionMetadata,
 ): Task {
-	return change(db, id, patch, ctx, false);
+	return change(events, id, patch, ctx, metadata);
 }
 
 /** 一批更新要么全部落地、要么一条都不留：任一条不合法就回滚整批。 */
 export function changeTasks(
-	db: DatabaseSync,
+	events: TaskLedger,
 	updates: ReadonlyArray<{ id: string } & Partial<Task> & { note?: string }>,
 	ctx: ToolContext,
+	metadata?: TaskExecutionMetadata,
 ): Task[] {
 	if (!updates.length) throw new Error("updates requires at least one entry");
-	db.exec("BEGIN IMMEDIATE");
-	try {
-		const changed = updates.map(({ id, ...patch }) => change(db, id, patch, ctx, true));
-		db.exec("COMMIT");
-		return changed;
-	} catch (error) {
-		db.exec("ROLLBACK");
-		throw error;
-	}
+	return updates.map(({ id, ...patch }) =>
+		change(events, id, patch, ctx, instructionFields.some((field) => field in patch) ? metadata : undefined),
+	);
 }
 
 export function claimMoments(
-	db: DatabaseSync,
+	events: TaskLedger,
 	now: number,
 	stallMinutes: number,
 	userWaitMinutes: number,
 	postCompact: boolean,
 ) {
-	db.exec("BEGIN IMMEDIATE");
-	try {
-		const due: Array<{ task: Task; moment: Moment; minutes: number; waitingFor: string; seq: number }> = [];
-		// 只对状态命中、可能需要提醒的任务读历史，与账本总量无关。
-		for (const task of moments(db, postCompact)) {
-			const events = history(db, task.id);
-			const activity = events.filter((event) => countsAsActivity(event.kind)).at(-1)!;
-			const done = events.find((event) => event.kind === "done");
-			// origin 只记录来源：自检输入一律投到任务的会话里，旧的自由文本 origin 不会被当成目标。
-			const moment: Moment | undefined =
-				task.state === "active"
-					? "stall"
-					: task.state === "waiting-user" && task.origin
-						? "user-wait"
-						: task.state === "done" && postCompact
-							? "postCompact"
-							: undefined;
-			if (!moment) continue;
-			// 连续失败只记一次：上一次提醒失败后没有新进展，就不再按窗口重发（BE-01）。
-			const failed = events.findLast(
-				(event) => event.kind === "moment-result" && event.data.moment === moment && Boolean(event.data.error),
-			);
-			if (failed && !events.some((event) => event.seq > failed.seq && countsAsActivity(event.kind))) continue;
-			const last = events.findLast((event) => event.kind === "moment" && event.data.moment === moment);
-			const since =
-				moment === "postCompact"
-					? done!.at
-					: moment === "user-wait"
-						? events.findLast((event) => event.data.state === "waiting-user")!.at
-						: activity.at;
-			const window = moment === "stall" ? stallMinutes : moment === "user-wait" ? userWaitMinutes : 15;
-			if (moment === "postCompact" && last) continue;
-			if (moment === "user-wait" && last && Date.parse(last.at) >= Date.parse(since)) continue;
-			if (now - Math.max(Date.parse(since), last ? Date.parse(last.at) : 0) < window * 60000) continue;
-			const seq = append(db, task.id, "moment", { moment }, now, true);
-			due.push({
-				task,
-				moment,
-				minutes: Math.floor((now - Date.parse(since)) / 60000),
-				waitingFor: events.findLast((event) => event.data.note)?.data.note ?? task.objective,
-				seq,
-			});
-		}
-		db.exec("COMMIT");
-		return due;
-	} catch (error) {
-		db.exec("ROLLBACK");
-		throw error;
+	const due: Array<{ task: Task; moment: Moment; minutes: number; waitingFor: string; seq: number }> = [];
+	// 只对状态命中、可能需要提醒的任务读历史，与账本总量无关。
+	for (const task of moments(events, postCompact)) {
+		const taskEvents = history(events, task.id);
+		const activity = taskEvents.filter((event) => countsAsActivity(event.kind)).at(-1)!;
+		const done = taskEvents.find((event) => event.kind === "done");
+		// origin 只记录来源：自检输入一律投到任务的会话里，旧的自由文本 origin 不会被当成目标。
+		const moment: Moment | undefined =
+			task.state === "active"
+				? "stall"
+				: task.state === "waiting-user" && task.origin
+					? "user-wait"
+					: task.state === "done" && postCompact
+						? "postCompact"
+						: undefined;
+		if (!moment) continue;
+		// 连续失败只记一次：上一次提醒失败后没有新进展，就不再按窗口重发（BE-01）。
+		const failed = taskEvents.findLast(
+			(event) => event.kind === "moment-result" && event.data.moment === moment && Boolean(event.data.error),
+		);
+		if (failed && !taskEvents.some((event) => event.seq > failed.seq && countsAsActivity(event.kind))) continue;
+		const last = taskEvents.findLast((event) => event.kind === "moment" && event.data.moment === moment);
+		const since =
+			moment === "postCompact"
+				? done!.at
+				: moment === "user-wait"
+					? taskEvents.findLast((event) => event.data.state === "waiting-user")!.at
+					: activity.at;
+		const window = moment === "stall" ? stallMinutes : moment === "user-wait" ? userWaitMinutes : 15;
+		if (moment === "postCompact" && last) continue;
+		if (moment === "user-wait" && last && Date.parse(last.at) >= Date.parse(since)) continue;
+		if (now - Math.max(Date.parse(since), last ? Date.parse(last.at) : 0) < window * 60000) continue;
+		const seq = append(events, task.id, "moment", { moment }, now);
+		due.push({
+			task,
+			moment,
+			minutes: Math.floor((now - Date.parse(since)) / 60000),
+			waitingFor: taskEvents.findLast((event) => event.data.note)?.data.note ?? task.objective,
+			seq,
+		});
 	}
+	return due;
 }
 
 export function momentResult(
-	db: DatabaseSync,
+	events: TaskLedger,
 	id: string,
 	moment: Moment,
 	data: { result?: unknown; error?: string },
 	now: number,
 ): void {
-	append(db, id, "moment-result", { moment, ...data }, now);
+	append(events, id, "moment-result", { moment, ...data }, now);
 }
 
 /** 审计结论进账本：驳回也要落库，下一轮渲染据此注入审计员的反对意见。 */
-export function recordAudit(db: DatabaseSync, id: string, result: Omit<AuditResult, "at">, now = Date.now()): void {
-	append(db, id, "audit", { auditResult: { ...result, at: new Date(now).toISOString() } }, now);
+export function recordAudit(events: TaskLedger, id: string, result: Omit<AuditResult, "at">, now = Date.now()): void {
+	append(events, id, "audit", { auditResult: { ...result, at: new Date(now).toISOString() } }, now);
 }
 
 /**
@@ -308,28 +265,28 @@ export function recordAudit(db: DatabaseSync, id: string, result: Omit<AuditResu
  * `warned` 记下收尾提示已注入，避免每轮重复。
  */
 export function spendTokens(
-	db: DatabaseSync,
+	events: TaskLedger,
 	id: string,
 	used: number,
 	warned: boolean,
 	now = Date.now(),
 ): Task | undefined {
-	const task = find(db, id);
+	const task = find(events, id);
 	if (!task) return undefined;
 	const budget = { ...task.budget, used: Math.max(task.budget.used ?? 0, used) };
 	if (warned) budget.warned = true;
 	if (budget.used === (task.budget.used ?? 0) && Boolean(budget.warned) === Boolean(task.budget.warned)) return task;
-	append(db, id, "spend", { budget }, now);
+	append(events, id, "spend", { budget }, now);
 	return { ...task, budget };
 }
 
-export function renderTurn(db: DatabaseSync, ctx: RenderContext): string | undefined {
+export function renderTurn(events: TaskLedger, ctx: RenderContext): string | undefined {
 	ctx.signal?.throwIfAborted();
 	const now = Date.now();
 	const mine = (task: Task) => own(task, { agent: ctx.agent || null, session: ctx.session }) && ongoing(task);
-	const tasks = all(db).filter(({ task }) => mine(task));
+	const tasks = all(events).filter(({ task }) => mine(task));
 	const marks = rendered(
-		db,
+		events,
 		tasks.map(({ task }) => task.id),
 		ctx.session,
 	);
@@ -354,7 +311,7 @@ export function renderTurn(db: DatabaseSync, ctx: RenderContext): string | undef
 			task.auditResult?.verdict === "rejected" ? `${auditorRejection(task.auditResult.reason)}\n${block}` : block,
 		);
 		if (counted || mark?.revision !== revision)
-			append(db, task.id, "wake", {
+			append(events, task.id, "wake", {
 				renderedSession: ctx.session,
 				renderedRevision: revision,
 				counted,
@@ -375,35 +332,28 @@ const digestFingerprint = (task: Task) =>
 export const DIGEST_TTL_MS = 6 * 3600000;
 
 export function claimDigest(
-	db: DatabaseSync,
+	events: TaskLedger,
 	task: Task,
 	destination: string,
 	now: number,
 	ttl = DIGEST_TTL_MS,
 ): boolean {
-	db.exec("BEGIN IMMEDIATE");
-	try {
-		const fingerprint = digestFingerprint(task);
-		const last = digests(db, task.id).findLast((event) => event.data.destination === destination);
-		const claimed = last?.data.fingerprint !== fingerprint || now - Date.parse(last.at) >= ttl;
-		if (claimed)
-			append(db, task.id, "digest", { destination, fingerprint, lastDeliveryAt: task.lastDeliveryAt }, now, true);
-		db.exec("COMMIT");
-		return claimed;
-	} catch (error) {
-		db.exec("ROLLBACK");
-		throw error;
-	}
+	const fingerprint = digestFingerprint(task);
+	const last = digests(events, task.id).findLast((event) => event.data.destination === destination);
+	const claimed = last?.data.fingerprint !== fingerprint || now - Date.parse(last.at) >= ttl;
+	if (claimed)
+		append(events, task.id, "digest", { destination, fingerprint, lastDeliveryAt: task.lastDeliveryAt }, now);
+	return claimed;
 }
 
 export function digestSeen(
-	db: DatabaseSync,
+	events: TaskLedger,
 	task: Task,
 	destination: string,
 	now = Date.now(),
 	ttl = DIGEST_TTL_MS,
 ): boolean {
-	return digests(db, task.id).some(
+	return digests(events, task.id).some(
 		(event) =>
 			event.data.destination === destination &&
 			now - Date.parse(event.at) < ttl &&

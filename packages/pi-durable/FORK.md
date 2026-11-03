@@ -95,5 +95,26 @@ server decode timing. Deferred results retain their originating sidecar, not a n
 
 Source packages retain version 1.3.0 here: no publish or dependency version bump is implied. The upstream lockstep
 package artifact flow is `scripts/pack-packages.mjs` followed by `scripts/use-local-packages.mjs` for an isolated
-consumer; production consumption needs a separately approved coherent fork release/dependency update. Syncing this
-commit into Yonder vendors only durable and continues resolving npm pi-ai 1.3.0 until that separate integration.
+consumer. Yonder bundles the matching pi-ai artifact from the recorded D3 fork commit
+`91e8c7a958ad15a7f5a4be9e6a76c0162ee77c1c` in `third_party/pi-ai`;
+see CONTRIBUTING.md for the coherent rebuild procedure. Main's previous anchor
+overlay has been reconciled into this fork source; it is no longer a local overlay.
+The separately authorized native program ToolTask overlay below remains local to
+this shared-Bot branch and protected by the source-sync guard.
+
+## Harness-local native program ToolTask overlay
+
+The Harness adds a `program` root input to the existing `pi.tool` task in
+`src/harness/tool.ts`. It reuses native tool lookup, argument validation,
+`beforeTool`/`afterTool` hooks, durable execution intent, replay policy, output
+limits, and terminal task outcomes. Program calls do not append transcript
+entries or create a nested parent. The adapter persists invocation pointers and
+per-task authority snapshots alongside task creation. This overlay is not part
+of the recorded Pi fork commit and must remain protected by the sync guard until
+it is migrated and verified in the Pi fork.
+
+Stage 11 request tool availability: `src/harness/types.ts` allows `GenerationHooks.beforeRequest` to return `toolsRemoved`; `src/harness/generation.ts` unions all hook removals, restricts them to that phase's offered names and applies them after message hooks for the current provider request only. It cannot add tools or clear another hook's removal.
+
+Stage 11 native program execution also changes `src/harness/types.ts`, `src/harness/scheduler.ts` and `src/harness/harness.ts` to carry the actual task ID to `HarnessOptions.env` through `EnvTarget.taskId`; `TaskScheduler` supplies its active invocation ID to `Harness.buildEnv`. The task agent callback awaits `beforeAgent` and then resolves against the current registry snapshot. These changes let the adapter recover a program task's own frozen environment and agent scope without substituting mutable conversation state.
+
+Program ToolTasks execute the existing SDK registration within their native task instead of starting a separate `yonder.background` task; ordinary model calls retain the background wrapper. The program task still runs the same registered `ToolTask` hooks, argument checks, intent/replay policy, output handling and owned-child cancellation.

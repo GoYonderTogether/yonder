@@ -11,7 +11,7 @@ interface Registered {
 }
 
 /**
- * 与 `packages/core/src/kernel/social.ts` 的 authorize/update 同规则的最小服务：
+ * 与 `packages/local-host/src/kernel/social.ts` 的 authorize/update 同规则的最小服务：
  * 写操作要 admin 能力加一条主人私聊事件，预览不落盘。插件只依赖 SDK，故测试里自建这份语义。
  */
 function socialStore() {

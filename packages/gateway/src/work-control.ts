@@ -1,4 +1,4 @@
-import { type HostCtx, MethodError, registry } from "@yonder/core";
+import { type HostCtx, MethodError, registry } from "@yonder/local-host";
 import type { WorkControl } from "@yonder/sdk";
 import { mapEvent } from "./events.js";
 import { sessionSnapshot } from "./snapshot.js";

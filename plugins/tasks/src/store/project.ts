@@ -1,4 +1,4 @@
-import type { ToolContext } from "@yonder/sdk";
+import type { ExecutionOwner, ToolContext, WorkspaceResource } from "@yonder/sdk";
 
 export type State = "open" | "active" | "waiting-user" | "blocked" | "review" | "done" | "cancelled";
 export interface TaskContent {
@@ -21,11 +21,23 @@ export interface TaskContent {
 	/** A small child task that does not gate its parent's completion. */
 	lightweight?: boolean;
 }
+export const instructionFields = [
+	"title",
+	"objective",
+	"acceptance",
+	"nonGoals",
+	"budget",
+	"contract",
+	"lightweight",
+] as const satisfies readonly (keyof TaskContent)[];
 export interface Task extends TaskContent {
 	id: string;
 	ref: string;
 	ownerAgent: string | null;
 	session: string;
+	/** Native source for future task continuations; it does not change task ownership. */
+	executionOwner?: ExecutionOwner;
+	resources?: WorkspaceResource[];
 	parent: string | null;
 	state: State;
 	deliverable: string | null;
@@ -53,6 +65,10 @@ export type Open = Omit<TaskContent, "budget"> & {
 	parent?: string;
 	origin?: string;
 };
+export interface TaskExecutionMetadata {
+	executionOwner: ExecutionOwner;
+	resources?: WorkspaceResource[];
+}
 export type Update = Partial<TaskContent> & {
 	state?: Exclude<State, "open" | "done">;
 	deliverable?: string;

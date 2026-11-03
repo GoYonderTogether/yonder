@@ -1,5 +1,35 @@
 # 决策记录
 
+## 2026-11-03：owner设备插件与原生program ToolTask（BRIEF授权阶段11）
+
+复用一次绑定的工作授权及现work-bridge，新增真worker窄工具分支而不伪web会话；DB owner/设备/mapping、本机已接纳defaultProfile/ToolPolicy和原grant仍为上限。云端默认capabilities不默增exec；多Agent按namespace显式选择，无手动会话再绑定。来源仅owner DM或capture得到的真实程序refs，新增ExecutionOwner.inputs和可信core submit metadata，旧无refs程序保普通行为不授设备，修改程序执行参数不能保留旧owner资格；cron更新/启用一律重捕获，包含delivery/schedule，避免把旧owner来源用于新投递目标，task_run补实际resources继承。
+
+同会话稳定program conversation+每invocation原生ToolTask指针保存handle和幂等，复用schema/hooks/intent/replay，不合成模型输入、不直接call tool.execute、不污染主人对话。只在唯一adapter刷新实际宿主工具值，每run冻结授权名单/目标/facts，与当前在线集合取交，访客/群不拉owner目录；客户端不是工具宿主，不从设备种类虚构能力。原生Harness在beforeAgent准备后读取当时registry解析Agent，修复首次动态工具仍取准备前快照的缺口；同phase缓存Agent时，beforeRequest用可选toolsRemoved对本次请求只减不增，保持每次provider请求边界离线过滤。环境seam另逐次传真实taskId，使beforeTool前的env可读取本task快照；普通conversation级调用兼容。任务定义与调度不变，adapter仍按冻结名单取交。直接修改本仓自有pi-durable的有限overlay由BRIEF明确授权，FORK记实文件，原来源/保护/旧overlay保留，不访问外部fork/push。详见19 §8与CONTRIBUTING任务例外。
+
+## 2026-11-03：共享Bot最终卡片的单结果语义（BRIEF授权阶段10）
+
+卡片工具与人工名片草稿分开：新增channel-card_reply_card只准备当前真实来源的最终interactive。复用原beforeSend、PluginFiles与事件监听，以native runId关联单张意图，FS/PG同实现；同run最后成功保存者生效。核心只把可信最终来源交给hook，先准备再判断有效内容/持久化run.end，沿原ledger投递；有效卡片+空文本不是空回答，失败不预发卡片。message.attempt持久完整outgoing后清意图，重试仍用原卡片，不发明通用defer队列、额外发送收据或完整outbox恢复。每次新send/prepare管线调用一遍hook，既有attempt重试复用持久outgoing而不重跑hook；不宣称跨重试全局exactly-once。未进入首attempt的回复沿原文本恢复语义。现有card_push的人工作品草稿行为不变。准备阶段以SDK只读autoReplySource识别当前仍有效run的来源；adapter只读已匹配route ID与本轮冻结binding.reply，避免把waiting=false误作auto或采用已过期的Route.reply。不新增匹配器/授权服务，后台保留旧runId但不能借新run准备卡片。同阶段实测发现单结果渠道reply:none会使Worker永等source回执并堵住后续消息；共享最终路径对此waiting=false来源返回固定系统error，不回模型正常文本，不说动作未执行，不由Worker外层竞态补发。普通本机静默与io.ask不变。仅本次两worktree实施与本机验证，不部署。
+
+## 2026-11-02：共享 Bot 核心与单进程云端 worker（维护者授权）
+
+维护者授权本次 BRIEF 架构变更：Bot schema、解析与配置求值归 `@yonder/bot-definition`，本机和云端共用，旧路径兼容导出而不复制实现。BotSource 复用现有 WorkspaceFiles 并提供 home、workspace、模板与 skill 来源，本机与 PG 使用同一加载/重载和解析算法；canonical 路径属于来源事实，不由核心猜测。运行状态以既有 pi Storage 与领域 Store 为边界；PG 先复用 pi-durable 的提交校验/读算法持久化增量批次，避免复制运行循环或 SQL 后端；持久 ID、原子提交、隔离和资源预算必须实测。插件存储采用 open(root?) 的 FS/PG 文件/文档能力，保留 memory 已配置用户库与 tasks 旧 SQLite 只读事件导入；周期策略保留在插件，以宿主唯一调度器驱动相同 tick，避免每 Bot 常驻资源。包边界采用 bot-core.createBot 单一共享主线、runtime-adapter 唯一 pi 进口（纯默认入口与显式 node/postgres）、local-host 本机装配；旧 core 只兼容导出。层级检查追踪跨 workspace 传递导入，禁止共享入口反向加载宿主代码，notifications/budget 持久化归 Store，SDK 注册能力不经 testing 入口。本机与云端使用同一个 Bot 定义解析、提示词装配、路由/会话/投递和运行循环。宿主文件、进程与事实从核心移到存储与环境适配，保留唯一 pi 运行适配入口；本机目录 + 单连接 SQLite 行为保持，云端采用 PostgreSQL + Redis 与虚拟工作区，不为人格新开列。插件私有数据走按插件、租户隔离的存储能力。
+
+生产只有 2 核 2–4 GB、3 Mbps，故一个 worker 按消息激活全部 Bot，以 LRU 释放空闲实例，不为账号/Bot 启动容器、子进程、定时器或长连接。复用 channel-card、/ws/device 与 appendMessage，不使云端 server 依赖 @yonder 包。平台唯一模型为 RightAPI glm-5.3-flash；真实失败作为独立 error 消息，不能伪造回复，错误不进入模型历史。卡片支持每按钮链接，设备工具沿已有工作桥鉴权。完整契约与验收见 [22](spec/22-shared-bot-core.md)。本次只在两个指定 worktree 实施与本机验证，不推送、部署或改 Docker 托管逻辑、安装脚本和发布流水线。
+
+本次保留原 SDK `executionContext(signal)` 公开契约（spec/04）：SDK index 仅可使用 chord/context 的 `BACKGROUND_CONTEXT`、`withAbortSignal` 构造纯取消上下文；pi-ai/pi-durable 仍只能 import type。精确例外由同一层级检查限定符号，不开放第二套模型或会话运行。
+
+阶段7将既有模型健康与官方额度维护统一为 Runtime.maintenance(now) 的确定性 tick，由本机或云端的单宿主调度器驱动；原core兼容工厂在Node宿主保留并清理驱动。保留原探测/轮询节奏与首次读取，不能以去掉interval为由停掉已有行为。
+
+阶段8主系统sections与keys默认由createBot调用同一systemPromptParts/systemPromptKeys提供，本机可保留原配置接纳事实扩展，不能依赖每个宿主重复补装人格主段。
+
+阶段8接线先明确现有契约：worker以真实渠道emit保留自动投递，按source的最终send/sent完成串行处理，不用会抑制渠道回复的ask，也不在外层竞争补发。TriggerIO.schedule改为可await的持久deadline确认，两个实际宿主分别内存/PG实现；LRU解绑保留持久计划，用户取消才删除。无环境由共享NoEnvironment明确拒绝文件/进程操作，来源与私有存储照常工作；程序模型运行使用同一平台owner额度桶，不能绕开server原准入。SDK结构化内容/error能力是worker真实接线的前置，先随阶段8完成，阶段9再完成两份客户端呈现；属于依赖顺序调整，不删减验收。
+
+云端单结果是渠道明确能力output.singleResult：保留共享路由/投递，但禁止同源即时工具消息抢占唯一结果，返回真实失败并指导写最终回复；跨会话主动投递保持原权限与deliveryId。模型回退通知不额外发送；卡片只准备最终意图、失败不预先投递。该差异由BRIEF每用户输入仅一结果的硬约束要求，不改变本机多段输出，也不添加通用延迟发送框架。
+
+LRU只在真实工作全部结束后释放：Runtime pending与scheduler tick/Trigger.busy共同判定，异步cron/market任务包含结果持久化和投递；忙状态解除唤醒等候激活，不能把launch返回当完成。复用现有Trigger生命周期，不引入第二任务管理器。
+
+维护者同日澄清阶段门槛：先在原始 a6a6c0b5 记录完整测试与 build 基线，后续不得新增测试失败，build/typecheck/lint 必须通过；基线已有的机器原因失败可保留，不再因这些失败停止。
+
 ## 2026-11-03 已配置会话的精确平台标签（主人要求）
 
 配置标签不能证明平台群名；为补这项缺失的身份映射，在现有Channel上新增可选只读describeConversation，飞书复用现有客户端精确读取群信息，QQ无接口保持unknown。仅核验owner私有main时，对当前Agent已有精确绑定且摘要限量的已知群补标签；摘要预算不变，旧CLI/inspect不产生被动网络请求。标签是身份帮助，不授权、不证明membership/收发可用，不改BOT配置/人设，不增加意图模型、名称解析正则、目录存储或缓存。见04 §3.1与11飞书能力。

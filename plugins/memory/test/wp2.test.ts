@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
-import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { DateTime } from "luxon";
 import { afterEach, expect, it } from "vitest";
 import { heading, moment, weekInfo } from "../src/calendar.js";
@@ -42,6 +42,7 @@ async function setup(root: string, extra = {}) {
 		events: EventInput[] = [];
 	await plugin.setup({
 		...api,
+		storage: createFilePluginStorage(root),
 		config: {
 			root,
 			owner: "person:test",

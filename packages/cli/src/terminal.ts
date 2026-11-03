@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { CustomEditor, copyToClipboard } from "@earendil-works/pi-coding-agent";
 import { Container, Spacer, setKeybindings } from "@earendil-works/pi-tui";
-import { requestControl } from "@yonder/core";
+import { requestControl } from "@yonder/local-host";
 import { chatCommands } from "@yonder/sdk";
 import {
 	createChatViewport,

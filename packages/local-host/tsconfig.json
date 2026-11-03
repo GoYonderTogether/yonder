@@ -1,0 +1,20 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"references": [
+		{
+			"path": "../bot-core"
+		},
+		{
+			"path": "../runtime-adapter"
+		},
+		{
+			"path": "../bot-definition"
+		},
+		{
+			"path": "../sdk"
+		},
+		{
+			"path": "../protocol"
+		}
+	]
+}

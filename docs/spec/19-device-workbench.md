@@ -7,7 +7,7 @@
 - 复用 16 §1 已有设备绑定：网页 human 账号、devices.owner_id、设备 origin 绑定的 deviceToken 及 /ws/device。已绑定设备不再新增确认、密码或第二份长期凭据。
 - 网页浏览器只使用既有云账号 HttpOnly 会话；deviceToken、Gateway token 不进入网页。云端逐次验证当前 web session、设备所有权及设备会话仍有效。
 - 设备端将已认证控制帧的 ownerId 与本实例已核实的主人关联再次核对。账号与任何相关 Agent 的配置 owner 冲突时拒绝，不因“某一个 Agent 匹配”获得整个实例控制权。
-- 工作控制只经专用控制帧进入现有 registry，固定 read/write/owner；admin 与 local:true 继续禁止。普通 DM、群消息及非主人账号不得进入此路径，客户端不得指定 principal 或 scope。
+- 工作控制只经专用控制帧进入现有 registry，固定 read/write/owner；admin 与 local:true 继续禁止。普通社交入站、群消息及非主人账号不得直接进入此路径；云端Bot只允许下述§8真实主人委派的工具子集，不把普通DM当控制帧。客户端不得指定principal或scope。
 - 此版本信任已部署的云端经 TLS 转交主人请求，云端技术上可读控制正文；不宣称端到端加密。沿用现有撤销和真实设备连接，不另建授权平台。
 
 ## 2. 网页接口与设备状态
@@ -78,9 +78,37 @@
 
 远程文件传输与读取有明确上限，超限明确报错。远程 readonly 的 grep/find 通过目录和文件读取实现，不授予 exec；本地 rg/fd 行为不变。远程搜索使用 glob 与受限正则，支持根目录及下级的基础 ignore/negation，不宣称完整 Git ignore 或 Rust regex 兼容；超过读取限额的文件报告跳过，遍历规模超限时提示收窄范围，正则运行有单文件截止与显式错误，取消停止搜索。产品须如实呈现这些限制。
 
-云端托管沿用同一 Harness，按账号隔离 home、凭据与执行环境；复用实际绑定的 deviceId 与工作桥，由可信安装管理登记 cloud 类型，浏览器不得自报设备为云端。用户可管理实际云端实例，未安装或失败明确显示，不以虚构设备占位。云端网关仅按授权使用用户密钥，密文与解密主密钥分开保管，日志和浏览器响应不得回传明文。自定义 provider 出站须限制云端内网/元数据访问。用户设备主动出站连接中继，支持多条明确源/目标路由，不广播命令；共享已有签名、grant、持久 commandId、取消和 unknown 结果语义。离线不等于取消，未知结果不重放副作用。
+云端 Bot 沿用共享 Bot 核心，由单个 worker 进程按消息激活，使用按租户与 Bot 隔离的 PostgreSQL 存储，不使用每账号 Docker/home/子进程托管。worker 经 channel-card 与既有 `/ws/device` 消息协议接入，云端 server 不依赖 @yonder 包；浏览器不得自报可信设备身份。旧 runtimes 与 supervisor 暂保留，本次不扩展、不作为云端 Bot 运行路径。平台模型与资源预算见 [22](22-shared-bot-core.md)。用户设备主动出站连接中继，复用工作桥与设备执行协议。工具发现与通用 tools.call 必须核对 owner、scope、能力和设备 grant；离线移除工具，在途断连如实报错，不广播、不重放未知副作用。凭据不进入日志、浏览器响应或模型上下文。
 
 验收覆盖：本机/云端运行；未指定/设备/多目录/多设备资源；宿主模型与云模型及支持 effort；bypass/readonly/自定义预设和跨账号拒绝；文件/图片/拖拽；断线与原命令查账；浏览器桌面/窄屏真实交互；Linux 完整内核与轻量执行器安装；Luna 实际模型调用；正式站点与发行版本分别记录。源码实现、组件测试、真实模型、多端及生产证据分开记录，未完成项不得宣称可用。
 
 主人后续明确允许云端验收改用现有 DeepSeek/GLM，或将本机 WorkBuddy 网关反向映射到云端。该连接标明依赖本机在线，不当作独立云端模型服务。可信运维配置可为已核实 owner 与固定 loopback upstream（可进一步绑定 connectionId）声明窄例外；普通用户模型连接 API 不得设置或扩大例外，不允许任意私网/HTTP/重定向目标，也不将本机网关公开无认证暴露。此例外不改变普通设备模型只供其运行宿主使用的产品默认。
 
+
+## 8. 云端Bot调用已授权设备工具（2026-11-03 BRIEF阶段11）
+
+### 身份、目录与权限
+
+沿已有一次设备绑定包含工作访问的授权，云端Bot仅在经真实owner DM或可追溯owner程序来源时代理该owner，访客/群无设备目录或调用。Worker以真实服务身份进入窄接口，server从enabled default/cloud且无device_id的Bot行读取owner，核验owner设备、有效device session、在线workProtocol1 peer及未退役device_agents映射，不信请求自报owner/actor。不得伪造web AuthSession，不能借全scope本机socket主体给模型授予权限。
+
+Worker新增设备发现/单次RPC入口复用原work-bridge的pending、work.request/response/cancel与真实peer，不开第二设备连接；只允许tools.catalog和tools.call两个固定方法，其余控制接口不交Worker。设备端两方法均为owner scope，admin/local控制方法仍禁。目标只能是server已核映射Agent key，使用本机已接纳的Agent.defaultProfile；不让调用方选profile/principal或读取磁盘未接纳候选充当运行权限。多Agent按device+mapping key独立namespace，模型实际获得各工具真实名称/描述/参数schema，不只给通用proxy。
+
+一次绑定是工作访问资格，不是全设备无限权限。有效上限为云端原生调用的实际capabilities/渠道/资源、映射本机Agent默认profile/所选插件/ToolPolicy及原实际设备grant的交集。wire ceiling只可额外收窄，不授予本机profile未具备的能力；不接受模型业务args中的owner/profile/caps作为授权。默认cloud定义保持现read/write/network/message/admin，不默默增加exec；目录据真实已授能力筛选，不能宣称默认全设备exec。调用本机devices_*时仍走18的配对、签名origin、grant/revision/资源检查，不因云账号相同自动创建executor grant；exec不因目录选择而成为沙箱。
+
+### 原生程序调用与持久身份
+
+程序入口在唯一runtime-adapter，沿本仓pi-durable ToolTask新增明确program输入，复用查找/schema/beforeTool/执行意图/checkpoint/afterTool/输出与原replay。它本身不提交用户输入、不生成assistant entry、不伪造nested父调用，不派generation来代调工具，不写主人活动会话转录。所调用插件本来明确提供的模型任务仍按该工具原规则处理，不能据程序入口声称所有插件内部都无模型。
+
+程序conversation按受信桥来源/实例、cloud Bot、真实调用会话、映射本机Agent与已接纳defaultProfile复用，以保存原handle的会话隔离；更换默认profile自动进入新的隔离程序会话，不复用旧profile的handle，也不要求用户手绑session；不是每RPC新会话，也不要求用户手绑session。每个稳定真实invocation持久关联一个原生ToolTask指针，与输入/目标同时原子保存；重复只查询原任务，同键不同参数/目标不能误复用。实际SDK ToolContext必须由真实ToolTask wrapper登记，per-task冻结权限快照，不能手造ctx或读取同conversation后来的currentConfig代替本task权限。Harness环境回调由真实scheduler invocation传递可选taskId，program须先按该task及真实nested父链的冻结快照构造env；不能取同conversation后来配置，也不靠空SessionDoc绕过缺口。普通conversation级环境接口兼容原行为。程序没有模型run时只跳run专属额度/重复提醒，ToolPolicy与schema/hooks不能绕过。已授callable的search工具可按实际程序调用语义执行，不能凭“无需模型搜索”绕过hidden/未选择工具。
+
+断线、撤销、超时和未知结果沿原工作桥/ToolTask反馈，不自动重放未知副作用，不伪装已执行或未执行。权限与owner在每次调用及执行时重核；重查已保存结果也不能借旧权限泄露当前未获准数据。
+
+### 程序来源与动态事实
+
+沿04的capture/inputs核验程序来源。cron/tasks创建和显式修改程序执行参数时保存真实引用及权限/资源上限；cron更新或启用也从当前调用重新捕获，避免改delivery/schedule后沿用旧owner资格，tasks的状态/备注仍不重授权。执行submit只由core写可信session.input；task_run同时继承实际resources。旧无证记录仍运行原网络/数据任务，设备资格不凭三字段ExecutionOwner推断。原程序owner归属与权限上限不因重捕获来源提升；外人/群修改不能继续沿用旧owner设备资格。
+
+Runtime.setHostTools直接接收实际工具值，复用原registry安装/卸载；它是宿主更新实际集合，不是SDK setup后注册新插件。resolveSession(id,inputs?)在新run解析时接收真实输入并复核来源；合格来源才取设备目录。RuntimeSessionConfig保存本run允许名称/目标/schema/cap上限与只读设备facts，调用/describe/applyConfiguration使用该快照和当前在线集合的交集，不因另一session刷新扩大在途名单或目标。registry只持稳定namespace代理定义，不持按Bot全局授权facts。Harness在beforeAgent完成后从当时registry快照解析Agent，使首次刷新可见；phase任务定义仍用原快照，不能因此绕过adapter的本run冻结名单。访客/群既不请求，也不注入owner目录或设备名；目录失败如实报告，不能假装没有设备。
+
+设备上线/离线与已接纳profile变更在新run/模型请求边界更新真实可用集合；Generation原beforeRequest可返回toolsRemoved，仅针对本次provider请求累积删除其原有工具，不得增加工具，也不改变已持久ToolTask的replay。离线工具不在当前目录，已有调用实时再查连接，断开就真实失败。动态facts仍经同systemPromptParts及既有sections/HostFacts/overrides装配，保共享base，不另造云prompt循环。客户端访问入口与供工具的授权设备不同；只描述当前真实设备/工具能力，不能由安装客户端、点击连接入口或设备种类推断执行能力。
+
+一个Worker继续只用原渠道连接与集中调度，无每Bot进程、timer、socket或第二model loop。验收用真实本机设备进程+PG/Redis/server/worker及官方插件结果，覆盖在线/离线目录、owner/private程序、访客/群/跨owner拒绝、映射key/profile/资源收窄、同session handle、实际unknown不重放；没有真实模型时不得以合成assistant/tool entry冒充。

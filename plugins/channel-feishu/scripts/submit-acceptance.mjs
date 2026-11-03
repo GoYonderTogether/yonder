@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 const [install, home, chat, assets, preset = "p1-channel"] = process.argv.slice(2);
 if (!assets) throw Error("Expected INSTALL HOME CHAT ARTIFACT_DIR [PRESET]");
 const { requestControl } = await import(
-	pathToFileURL(join(resolve(install), "packages/core/dist/control/index.js")).href
+	pathToFileURL(join(resolve(install), "packages/local-host/dist/control/index.js")).href
 );
 const call = (method, params) => requestControl(resolve(home), { method, params });
 const session = await call("sessions.open", { preset, close: "manual" });

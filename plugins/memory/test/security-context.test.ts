@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { registerContexts } from "../src/contexts.js";
 import { event } from "./harness.js";
@@ -28,6 +28,7 @@ it("fails closed on private/malformed metadata, symlinks and traversal; admits p
 		};
 		const full = {
 			...api,
+			storage: createFilePluginStorage(root),
 			identity: {
 				async account() {
 					return { person: "person:test" };

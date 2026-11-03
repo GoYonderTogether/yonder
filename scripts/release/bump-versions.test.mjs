@@ -25,7 +25,7 @@ test("只替换版本与内部 @yonder/* 依赖，保留排版", () => {
 
 test("pi-durable 不参与统一版本", () => {
 	assert.equal(
-		workspacePaths({ workspaces: ["packages/core", "packages/pi-durable"] }).includes("packages/pi-durable"),
+		workspacePaths({ workspaces: ["packages/local-host", "packages/pi-durable"] }).includes("packages/pi-durable"),
 		false,
 	);
 });

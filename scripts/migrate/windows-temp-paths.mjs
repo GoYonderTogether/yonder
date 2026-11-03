@@ -22,12 +22,12 @@ const KEEP_LINES = [/"path":"\/tmp\//, /ExecStart="/, /toContain\("\/tmp/, /"(fi
 
 // 整个文件的字面量都是纯数据（URL/路径字符串比较、断言文本），不参与文件系统操作。
 const KEEP_FILES = new Set([
-	"packages/core/src/config/config.test.ts",
-	"packages/core/src/release/release.test.ts",
-	"packages/core/src/release/verify.test.ts",
-	"packages/core/src/release/platform-service.test.ts",
-	"packages/core/src/runtime/tool-images.test.ts",
-	"packages/core/src/runtime/image-history.test.ts",
+	"packages/local-host/src/config/config.test.ts",
+	"packages/local-host/src/release/release.test.ts",
+	"packages/local-host/src/release/verify.test.ts",
+	"packages/local-host/src/release/platform-service.test.ts",
+	"packages/local-host/src/runtime/tool-images.test.ts",
+	"packages/local-host/src/runtime/image-history.test.ts",
 ]);
 
 const CALLS = [

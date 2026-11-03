@@ -6,14 +6,15 @@ import { access, chmod, mkdir, readFile, realpath, writeFile } from "node:fs/pro
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
-import { resolveProfile } from "../../packages/core/dist/config/index.js";
-import { openKernel } from "../../packages/core/dist/kernel/index.js";
-import { openDatabase } from "../../packages/core/dist/runtime/db.js";
-import { localEnvironment } from "../../packages/core/dist/runtime/env.js";
-import { createGrepTool } from "../../packages/core/dist/runtime/grep.js";
-import { hostedProcessSpawner } from "../../packages/core/dist/runtime/hosted-process.js";
-import { Runtime } from "../../packages/core/dist/runtime/index.js";
-import { processTool } from "../../packages/core/dist/runtime/process.js";
+import { resolveProfile } from "../../packages/local-host/dist/config/index.js";
+import { openKernel } from "../../packages/local-host/dist/kernel/index.js";
+import { openDatabase, openRuntimeStorage } from "../../packages/runtime-adapter/dist/node/runtime/db.js";
+import { localEnvironment } from "../../packages/runtime-adapter/dist/node/runtime/env.js";
+import { hostedProcessSpawner } from "../../packages/runtime-adapter/dist/node/runtime/hosted-process.js";
+import { Runtime } from "../../packages/runtime-adapter/dist/node/runtime/index.js";
+import { processTool } from "../../packages/runtime-adapter/dist/node/runtime/process.js";
+import { remoteGrep } from "../../packages/runtime-adapter/dist/node/runtime/remote-search.js";
+import { createGrepTool } from "../../packages/runtime-adapter/dist/runtime/grep.js";
 
 const [home, mode, sameGroup] = process.argv.slice(2);
 const env = localEnvironment(home); // consumes fd4 once; bash below must use its cache.
@@ -192,7 +193,7 @@ if (mode === "contract") {
 	assert.equal((await piped.result).code, 0);
 	assert.equal(pipedOutput, "stdin transport");
 	await writeFile(join(home, "grep-target.txt"), "real hosted rg needle\n");
-	const grep = await createGrepTool().execute(
+	const grep = await createGrepTool(remoteGrep).execute(
 		{ pattern: "needle", path: join(home, "grep-target.txt") },
 		{ env, signal: new AbortController().signal },
 	);
@@ -246,7 +247,12 @@ if (mode === "contract") {
 	});
 	const db = await openDatabase(join(home, "runtime.db"));
 	const config = { agent: null, profile: "default", cwd: home, resolved: resolveProfile({ level: "bypass" }) };
-	const runtime = await Runtime.open({ home, db, config: { schema: 1 }, resolveSession: async () => config });
+	const runtime = await Runtime.open({
+		home,
+		storage: await openRuntimeStorage(db),
+		config: { schema: 1 },
+		resolveSession: async () => config,
+	});
 	try {
 		assert.deepEqual(
 			await runtime.executeCommand(config, {

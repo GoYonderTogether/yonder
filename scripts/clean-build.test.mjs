@@ -10,8 +10,8 @@ const script = fileURLToPath(new URL("./clean-build.mjs", import.meta.url));
 test("clean-build removes only the existing build outputs, including paths with spaces", () => {
 	const root = mkdtempSync(join(tmpdir(), "yonder clean-build "));
 	try {
-		const outputs = ["packages/core/dist/a.js", "plugins/native-automation/dist/a.js", "apps/app/dist/a.js"];
-		const preserved = ["packages/core/src/a.ts", "plugins/native-automation/src/a.ts", "apps/other/dist/a.js"];
+		const outputs = ["packages/local-host/dist/a.js", "plugins/native-automation/dist/a.js", "apps/app/dist/a.js"];
+		const preserved = ["packages/local-host/src/a.ts", "plugins/native-automation/src/a.ts", "apps/other/dist/a.js"];
 		for (const path of [...outputs, ...preserved]) {
 			mkdirSync(dirname(join(root, path)), { recursive: true });
 			writeFileSync(join(root, path), "build-clean boundary");

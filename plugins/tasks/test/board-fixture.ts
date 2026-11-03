@@ -1,10 +1,10 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { openKernel } from "@yonder/local-host/kernel/index";
 import type { ChannelIO, Hook, OutMessage, PluginAPI, Tool, ToolContext, Trigger } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { stringify } from "yaml";
-import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import type { Config } from "../src/moments.js";
 import { Store } from "../src/store/index.js";
 
@@ -29,6 +29,7 @@ export const tools = [], sent = [], triggers = [], hooks = [];
 export default { configSchema: tasks.configSchema, setup(value) {
   api = value;
   tasks.setup({...api,
+    execution: {...api.execution, async capture(ctx) {return {session:ctx.session, agent:ctx.agent, profile:ctx.profile};}},
     hooks: {register(hook) {hooks.push(hook); api.hooks.register(hook);}},
     tools: {register(tool) {tools.push(tool); api.tools.register(tool);}},
     triggers: {register(trigger) {triggers.push(trigger); api.triggers.register(trigger);}}
@@ -102,7 +103,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		env: {} as never,
 		signal: new AbortController().signal,
 	};
-	const store = new Store(probe.api.paths.data);
+	const store = new Store(probe.api.storage.open());
 	const call = (name: string, args: object, caller = ctx) =>
 		probe.tools.find((tool) => tool.name === `tasks_${name}`)!.execute(args, caller);
 	return {
@@ -118,7 +119,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		},
 		async close() {
 			await kernel.close();
-			store.close();
+			await store.close();
 			await rm(home, { recursive: true, force: true });
 		},
 	};

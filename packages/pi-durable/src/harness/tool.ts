@@ -57,6 +57,7 @@ import { recordUsage } from "./usage.ts";
  */
 export type ToolTaskInput =
 	| { kind: "model"; assistant: EntryId; callId: string }
+	| { kind: "program"; call: ToolCall; allowedTools: string[] }
 	| {
 			kind: "nested";
 			parent: TaskId;
@@ -74,11 +75,14 @@ export type ToolTaskCheckpoint =
 
 /**
  * A model-issued call's result is its transcript entry; a nested call's result is in its caller's
- * `NestedCallDoc`, so the receipt stays small and the result retires with the caller. A version 1 task that was
+ * `NestedCallDoc`; a program call returns its checked result directly. A version 1 task that was
  * already holding its outcome as `completing` when the Harness upgraded finishes with a version 1 result,
  * `{ entryId, control? }` without `kind`; treat a result without `kind` as a model-issued call's.
  */
-export type ToolTaskResult = { kind: "model"; entryId: EntryId; control?: ToolControl } | { kind: "nested" };
+export type ToolTaskResult =
+	| { kind: "model"; entryId: EntryId; control?: ToolControl }
+	| { kind: "nested" }
+	| { kind: "program"; result: ToolExecutionResult };
 
 /**
  * Memo of a tool task that made a nested call, in any attempt, committed before the first admission of each attempt:
@@ -213,12 +217,15 @@ async function resolveTool(
 	context: Context,
 ): Promise<ToolRegistration | undefined> {
 	const agent = await runtime.agent(context);
-	return (input.kind === "model" ? agent.tools : agent.callable).find((tool) => tool.name === name);
+	return (input.kind === "model" ? agent.tools : agent.callable).find(
+		(tool) => tool.name === name && (input.kind !== "program" || input.allowedTools.includes(name)),
+	);
 }
 
 /** The call: from the input for a nested call, which hooks see with its parent, else from the assistant entry. */
 async function readCall(runtime: Runtime, input: ToolTaskInput, context: Context): Promise<ToolHookCall> {
 	if (input.kind === "nested") return { ...input.call, parent: { taskId: input.parent, callId: input.parentCallId } };
+	if (input.kind === "program") return input.call;
 	const entry = await runtime.entry(AssistantEntry, input.assistant, context);
 	const message = entry?.model?.[0];
 	const call =
@@ -280,7 +287,7 @@ async function run(
 		retain: tool.outputLimits?.retain ?? "head",
 	};
 	const reported: Reported = { output: new OutputBuffer(limits), limits, diagnostics: [], details: undefined };
-	const streams = input.kind === "model" || input.progress !== false;
+	const streams = input.kind === "model" || (input.kind === "nested" && input.progress !== false);
 	const progress = publishProgress(runtime, reported, streams, context);
 	/** Nested call admissions this invocation started; cleanup waits for them, so it sees every nested call. */
 	const admissions: Promise<unknown>[] = [];
@@ -525,7 +532,7 @@ async function finalResult(
 	const broken = structuredOutputError(tool, final);
 	if (broken !== undefined) {
 		const { structuredOutput: _dropped, ...rest } = final;
-		if (input.kind === "nested") {
+		if (input.kind !== "model") {
 			final = { ...rest, isError: true };
 			harness.push(toolDiagnostic("invalid_structured_output", broken));
 		} else {
@@ -536,13 +543,13 @@ async function finalResult(
 	}
 	// Programs get the tool's own value: without a schema, its output. The model reads only `output`, so model-issued
 	// calls skip both.
-	if (input.kind === "nested" && tool.structuredOutputSchema === undefined) {
+	if (input.kind !== "model" && tool.structuredOutputSchema === undefined) {
 		final = { ...final, structuredOutput: outputValue(bounded.content) as JsonValue };
 	}
 	// A schema tool's error result without structured output has its text only in the output, which programs never
 	// get: it becomes an error diagnostic, as a thrown error's message does, unless one says what went wrong already.
 	if (
-		input.kind === "nested" &&
+		input.kind !== "model" &&
 		tool.structuredOutputSchema !== undefined &&
 		final.isError === true &&
 		final.structuredOutput === undefined &&
@@ -623,6 +630,12 @@ async function settle(
 				slot.summary = summaryOf(nested, result.output ?? []);
 			}
 			settled = { kind: "nested" };
+		} else if (input.kind === "program") {
+			if (result.usage !== undefined) await recordUsage(tx, conversationId, "tools", call.name, result.usage);
+			settled = {
+				kind: "program",
+				result: copyJson(result as unknown as JsonValue, { omitUndefinedProperties: true }) as unknown as ToolExecutionResult,
+			};
 		} else {
 			const timing = { timestamp: runtime.now(), durationMs };
 			const entry = await appendToolResult(tx, conversationId, call, result, timing);

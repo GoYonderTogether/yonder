@@ -27,10 +27,15 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 | 层 | 负责 | 不负责 |
 |---|---|---|
 | **pi**（`pi-ai`、`pi-durable`、`pi-env`） | 模型调用与鉴权、会话转录持久化与恢复、模型循环、工具执行、压缩、子会话、按需工具、用量统计、执行环境 | 渠道、绑定、身份、agent 工作区、投递 |
-| **Yonder 内核** | 事件与事件存储、绑定解析、身份映射、agent 工作区与配置档、系统提示词组装、skill 发现与索引、安全级别执行、投递、插件加载、异步工具执行与运行软阈值、CLI、安装与更新 | 任何具体渠道、具体工具、记忆策略、skill 的自动整理策略 |
+| **共享 Bot 核心** | Bot 定义 schema 与解析、事件与绑定、身份与会话、提示词装配、工具暴露、插件接口、安全级别执行、运行循环与投递 | 宿主文件/进程访问、插件代码 import、CLI、安装与更新、具体渠道与策略 |
+| **宿主适配** | 本机目录与 SQLite、云端 PG 与 Redis、HostFacts、插件代码加载、可选本机/远程环境；本机另含 CLI、安装与更新 | 另写一套 Bot 解析、提示词或运行循环 |
 | **插件** | 通过插件槽提供：渠道、工具、上下文、触发器、执行环境、钩子、预设、skill | 绕过内核直接改会话或事件存储；import pi 的包 |
 
-内核只通过一个适配目录调用 pi（[07-runtime §1](spec/07-runtime.md#1-对接边界)）。
+共享实现的唯一入口为 `@yonder/bot-core.createBot`：本机 `@yonder/local-host.openKernel` 与云端宿主都调用它，不复制路由/会话/投递或运行循环。`@yonder/runtime-adapter` 是唯一 pi 适配包，默认入口只含运行算法和注入契约，`/node` 与 `/postgres` 是显式宿主子路径；本机存储入口不要求注册本机环境，环境由宿主另行组合。消费者直接依赖 `@yonder/bot-definition`、`@yonder/bot-core`、`@yonder/runtime-adapter` 或实际宿主包；删除旧 `@yonder/core` 兼容门面。SDK 的纯注册/collector 独立于 testing/Node 入口，避免共享入口传递加载 FS。保留原 SDK `executionContext(signal)`：index 仅使用 chord/context 的 `BACKGROUND_CONTEXT`、`withAbortSignal` 构造纯取消上下文；pi-ai/pi-durable 仍只能 import type，该精确例外由层级检查限定。
+
+共享 Bot 核心只依赖 Bot 定义来源、工作区与运行状态存储、插件私有存储、运行环境能力、调用方注入的 HostFacts 和模型调用。本机宿主组合目录 + SQLite 存储与可选本机环境；云端宿主组合 PostgreSQL + Redis 存储与无本机环境，按需接入远程设备。核心禁止 import `node:fs`、`node:child_process`、`node:os` 或直接读取 `process.*` 宿主事实，由 `scripts/check-layers.mjs` 强制。轻量组合不包含本机环境层，完整版追加该层；本次不改安装脚本。
+
+内核只通过一个运行时适配层调用 pi（[07-runtime §1](spec/07-runtime.md#1-对接边界)）。
 
 基础 TUI 属于 CLI 客户端，直接沿用 pi v1.3.0 的原生界面、主题与交互，以 pi-tui 和 coding-agent UI 模块承载 Yonder 内容，按 12 §6 精简角色标记与固定底部信息、适配常用键位，不运行第二个 agent 内核。管理命令主要面向 agent/脚本，同时保持人可读；TUI 面向人的输入、阅读与目标选择。channel-cli 仍是渠道插件，任务会话可直接经控制面驱动；具体方案与审核边界见 [12](spec/12-terminal-interaction.md)。
 
@@ -60,23 +65,25 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 5. **安全只有一层：能力 + 级别。** 判定点只有两个——工具是否提供给模型、工具调用前是否放行（[05](spec/05-security.md)）。不存在第二套审批或验收机制；以后要加审批，写成钩子插件。
 6. **完成的定义交给模型。** 一条消息结束只关闭气泡；一次运行在模型给出最终回复（或明确选择不回复）时结束，不代表它等待的后台工作完成。模型仍决定交办目标是否完成：阶段汇报后的后续工作必须已有原生后台等待或 task_continue 接纳的续办输入，不能只以自然语言承诺。内核不猜测承诺、不追加"你确定完成了吗"之类的轮次。
 7. **耗时可观察，取消归调用方。** 时间、轮数、tokens阈值只提醒，不截断正常任务；显式abort、真实协议限制和防重复空转仍生效。长工具由共享后台执行边界托管，见[14](spec/14-execution-capabilities.md)。
-8. **工作区经由执行环境访问。** agent 的文件可以在本机，也可以在远程环境里；内核读写工作区一律通过执行环境接口，不直接假设本地文件系统。
+8. **工作区经由存储能力访问。** agent 的文件可以在本机、远程设备或数据库虚拟工作区；内核通过 WorkspaceFiles 读写，目录实现使用执行环境，数据库实现按租户与 Bot 隔离，不假设本地文件系统。
 9. **配置可热重载，代码不热重载。** 重载先校验，失败保留旧配置并报告原因。
 10. **不写假数据。** 产品代码、模板、示例不含模拟模型或虚构内容；需要模型的测试用真实模型。
 
 ## 6. 内核分层与规模预算
 
-内核必须小到一个模型能完整读懂并安全修改。为此，`packages/core/src` 的模块按下列层级组织，只允许依赖本层或更低层（含 `import type`）：
+共享内核必须小到一个模型能完整读懂并安全修改。`packages/bot-core/src` 的业务模块按下列层级组织，只允许依赖本层或更低层（含 `import type`）；定义解析在 `packages/bot-definition`，唯一 pi 运行适配在 `packages/runtime-adapter`，本机资源装配在 `packages/local-host`。删除旧 `packages/core`；层级检查覆盖全部 workspace 包和真实宿主子路径。
 
 | 层 | 模块 | 职责 |
 |---|---|---|
 | L0 | store（含 db）、config、signals、status | 存储、配置解析与纯谓词；不含领域流程 |
-| L1 | runtime、permissions | 唯一的 pi 适配（[07 §1](spec/07-runtime.md#1-对接边界)）与叶子工具 |
+| L1 | permissions；独立 runtime-adapter 包 | 纯权限叶子能力与唯一 pi 对接（[07 §1](spec/07-runtime.md#1-对接边界)） |
 | L2 | sessions、tools、skills、prompt、retention | 会话接口、内核工具、提示词与保留 |
 | L3 | routing → delivery | 绑定求值与投递 |
-| L4 | kernel、plugins、views、control、release、imports | 组合根：装配上述各层，对外提供服务 |
+| L4 | kernel、plugins、views | 共享组合根、纯插件注册/服务接线；本机 control/release/imports/管理归 local-host |
 
-- 上层能力通过构造参数或回调注入下层，不反向 import。
+- 上层能力通过构造参数或回调注入下层，不反向 import。createBot 接收来源、已打开的 Store、runtime 工厂、已解析插件描述符、私有存储工厂、共享 scheduler、环境能力及 HostFacts；动态 import、磁盘清单/skills 校验与本机生命周期归宿主。
+- 运行时接收已构造的模型/凭据解析、health/quota/watch、环境/附件/缓存和图片能力，不从默认入口反向载入 Node 子路径。watch/poller 调度归宿主，不给每 Bot 留 interval。notifications/budget 的持久读取归 Store 两实现，共享层只保留策略算法。
+- check-layers 检查真实共享包和 workspace 传递导入：禁止共享入口触达 local-host、adapter/node/postgres、SDK testing/node-storage 等宿主路径；禁止 fs/child_process/os（裸名与 node:、子路径、动态导入）及直接 process 宿主事实。文本中的示例不作为运行访问；纯 crypto/path 可用。检查使用现有 TypeScript scanner 保留模板插值；共享源码将 `process`/`globalThis` 留作宿主全局标识，不以局部同名变量规避检查，对象自己的 `obj.process` 属性不误报。
 - 单个源文件不超过 500 行；超限文件登记在 `scripts/file-size-baseline.json`，只减不增。层级违规同样有基线检查，只减不增。
 - 具体策略（某个渠道、某种群聊参与方式、某个平台的规则）写成插件；内核只保留不变量要求的部分：绑定合成与复核、身份关系、能力级别判定、事件与投递。
 

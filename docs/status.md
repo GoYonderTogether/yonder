@@ -1,8 +1,20 @@
 # 项目状态
 
-更新：2026-11-02。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
+更新：2026-11-03。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
+
+## 共享 Bot 核心修复轮（2026-11-03）
+
+按独立review完成修复；两次merge保留main截至4e58ceb8的75条提交，主分支未写入。core兼容门面、九个短转发壳及两个单实现port已删除，调用方直连真实包；共享createBot/唯一Runtime/FS与PG两实现保持。PG按需记录/文档读取，不激活回放全历史；模型绑定复用现WeakMap、timeout按Bot隔离。真实idle释放、在线turn超时唯一error、提交后HTTP防重复与关闭时观察排空均有回归。
+
+最终完整build/typecheck/lint通过；全部Vitest（--maxWorkers=4，不删测试/放宽断言）**2764通过/0失败/113跳过**，518文件通过/67跳过，167.20秒；全部Node83/0。size656/layer107共享模块与761 workspace生产文件、基线0。Cloud根/server build/typecheck通过，真实PG/Redis后端208/0，deploy19/0、market13/0、SSR3/0；无lint脚本。真实gpt-6-luna仍缺本仓规约凭据未测，skip不当作通过。
+
+最终真实GLM证明两租户PG SOUL、两按钮卡片、独立临时设备官方memory经原work bridge/program ToolTask往返，离线下轮目录为空。A7的超时/503/空答/反射/提前send失败/reply:none/中断以真实服务+明确故障transport验证，不冒称真实上游制造错误。没有生产部署、截图或安装日常设备。
+
+A12最终100 Bot各500条至少4096B的durable归档历史（共50000条）及各10文档delta，101轮完成/pending0，active/highWater20。idle141.328MB、50ms采样peak300.548MB，PG2/TCP3/Timeout2；归档正文读取0，707次modelsFor只202个Models。cold worker查询473–477（mean474.62）、warm341，不含server/seed SQL。此前361.267MB/350.454MB失败完整保留；修真实重复分配，不调高预算或手动GC。真实idle74257ms释放后可再激活。
+
+证据与所有原始失败：[本轮总账](verification/fix-round/verification.md)、[75条main保留](verification/fix-round/main-content-audit.md)；最终实测摘录：`"peakBytes": 300548096`。逐审查项提交/kept理由、未测与部署/凭据轮换草案在根目录未提交REFACTOR-REPORT.md。源码验收完成，仍待维护者审阅集成；本机RSS不等于2核2GB生产长期共存验收。
 
 ## 多端工作台（2026-11-02）
 

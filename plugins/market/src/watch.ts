@@ -1,6 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import type { PluginAPI } from "@yonder/sdk";
+import type { PluginAPI, TriggerIO } from "@yonder/sdk";
 import type { MarketClient } from "./client.js";
 
 export type Frequency = "hourly" | "daily" | "manual";
@@ -42,32 +40,45 @@ export class WatchRunner {
 	private readonly notified = new Set<string>();
 	private loaded: Promise<void> | undefined;
 	private writing: Promise<void> = Promise.resolve();
-	private timer: ReturnType<typeof setInterval> | undefined;
+	private files: ReturnType<PluginAPI["storage"]["open"]>;
+	private io: TriggerIO | undefined;
+	private retryAt: number | undefined;
 	private warned = false;
 
 	constructor(
 		private readonly api: PluginAPI,
 		private readonly client: () => Promise<MarketClient | undefined>,
-	) {}
-
-	private get file(): string {
-		return join(this.api.paths.data, "watch.json");
+	) {
+		this.files = api.storage.open();
 	}
 
-	async start(): Promise<void> {
+	busy() {
+		return this.pending.size > 0;
+	}
+
+	async start(io: TriggerIO): Promise<void> {
+		this.io = io;
 		await this.load();
-		this.timer ??= setInterval(() => void this.tick(), TICK).unref();
+		await this.scheduleNext();
 	}
 
 	async stop(): Promise<void> {
-		if (this.timer) clearInterval(this.timer);
-		this.timer = undefined;
+		await this.io?.schedule(undefined);
+		this.io = undefined;
+	}
+
+	private async scheduleNext(): Promise<void> {
+		const due = [...this.entries.values()].filter((entry) => entry.active).map((entry) => entry.nextAt);
+		const next = due.length ? Math.min(...due) : undefined;
+		await this.io?.schedule(this.retryAt === undefined ? next : Math.max(this.retryAt, next ?? this.retryAt));
 	}
 
 	private load(): Promise<void> {
 		this.loaded ??= (async () => {
 			try {
-				const parsed = record(JSON.parse(await readFile(this.file, "utf8")));
+				const value = await this.files.read("watch.json");
+				if (value === undefined) return;
+				const parsed = record(JSON.parse(value));
 				const tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
 				for (const task of tasks) {
 					const entry = record(task);
@@ -92,8 +103,7 @@ export class WatchRunner {
 		const snapshot = { tasks: [...this.entries.values()] };
 		this.writing = this.writing
 			.then(async () => {
-				await mkdir(this.api.paths.data, { recursive: true });
-				await writeFile(this.file, `${JSON.stringify(snapshot, null, "\t")}\n`, "utf8");
+				await this.files.transaction((files) => files.write("watch.json", `${JSON.stringify(snapshot, null, "\t")}\n`));
 			})
 			.catch((error: unknown) => this.api.log.error("market watch state write failed", { error: String(error) }));
 		return this.writing;
@@ -120,6 +130,7 @@ export class WatchRunner {
 		});
 		if (!active || interval === 0) this.entries.delete(item.id);
 		await this.persist();
+		await this.scheduleNext();
 	}
 
 	/** 以云端列表为准重建缺失作业（D4：云端与本地不一致时以云端为准）。 */
@@ -147,12 +158,14 @@ export class WatchRunner {
 		}
 		for (const id of [...this.entries.keys()]) if (!seen.has(id)) this.entries.delete(id);
 		await this.persist();
+		await this.scheduleNext();
 	}
 
 	async remove(id: string): Promise<void> {
 		await this.load();
 		this.entries.delete(id);
 		await this.persist();
+		await this.scheduleNext();
 	}
 
 	/** 手动 check 后顺延下一个排程点，避免同一分钟内重复调用。 */
@@ -162,6 +175,7 @@ export class WatchRunner {
 		if (!entry) return;
 		entry.nextAt = Date.now() + INTERVAL[entry.frequency];
 		await this.persist();
+		await this.scheduleNext();
 	}
 
 	/** views 面板用：本地排程快照。 */
@@ -172,18 +186,29 @@ export class WatchRunner {
 
 	async tick(now = Date.now()): Promise<void> {
 		await this.load();
+		if (this.retryAt !== undefined && now < this.retryAt) {
+			await this.scheduleNext();
+			return;
+		}
+		this.retryAt = undefined;
 		const due = [...this.entries.values()].filter((entry) => entry.active && entry.nextAt <= now);
-		if (!due.length) return;
+		if (!due.length) {
+			await this.scheduleNext();
+			return;
+		}
 		const client = await this.client();
 		if (!client) {
 			if (!this.warned) {
 				this.warned = true;
 				this.api.log.warn("market watch tasks are due but no cloud credential is configured");
 			}
+			this.retryAt = now + TICK;
+			await this.scheduleNext();
 			return;
 		}
 		this.warned = false;
 		for (const entry of due) await this.run(entry, client);
+		await this.scheduleNext();
 	}
 
 	private async run(entry: WatchEntry, client: MarketClient): Promise<void> {
@@ -208,12 +233,12 @@ export class WatchRunner {
 		} catch (error) {
 			this.api.log.error("market watch check threw", { task: entry.id, error: String(error) });
 		} finally {
-			this.pending.delete(entry.id);
 			const next = this.entries.get(entry.id);
 			if (next) {
 				next.nextAt = Date.now() + INTERVAL[next.frequency];
 				await this.persist();
 			}
+			this.pending.delete(entry.id);
 		}
 	}
 

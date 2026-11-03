@@ -7,7 +7,7 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promise
 import { createConnection } from "node:net";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
-import { initHome, openKernel } from "@yonder/core";
+import { initHome, openKernel } from "@yonder/local-host";
 import { parse, stringify } from "yaml";
 
 const candidateCommit = "cf40886c8160f16a42698fb8bfd22327ad87aac6";

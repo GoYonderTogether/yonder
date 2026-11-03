@@ -102,7 +102,7 @@ fi
 - KILL 前：launcher `32991` 存活；Helper `32994` 存活；根 `32997` 为 `Z` 且父为 Helper；后代 `33004` 的 PPID 为 1、**PGID 为根 `32997`**。它始终留在根组，未进入任何 lease snapshot。
 - Helper 被 KILL 后，launcher 应急 cleanup 收到的 members 只有根 `32997` 的真实起始时间（seconds `1792918218` / micros `981743`）。根随父死被系统回收；它不再是 `same()` 身份锚点。后代仍为 `33004 1 32997 .../escape .../child.pid`。launcher 返回 1 后后代仍存活。
 - finally 仅对夹具自身记录的 child PID，在再次核对唯一可执行路径后 KILL。全部 4 个记录 PID 最终消失；没有全机扫描或按进程名杀进程。
-- 已保存非敏感实测证据：[result.json](evidence/service-host-managed-group-20261025.json)、[cleanup.json](evidence/service-host-managed-group-cleanup-20261025.json)。日志和原目录仍保留于本机 /tmp（非持久交付路径）。
+- 原实测输出摘录：`"observed": false`、`"survived": true`；清理后为 `"remaining": []`、`"reclaimed": true`。日志和原目录仍保留于本机 /tmp（非持久交付路径）。
 
 ### 准确的架构缺口与停止位置
 
@@ -223,7 +223,7 @@ node_modules/.bin/vitest run --maxWorkers=4 \
 
 ### 夹具回收与持久证据
 
-[最终锚点/ACK 实测摘要](evidence/service-host-anchor-ack-final-20261025.json) 保存实际源码 SHA-256、两组同组反例的 ps / snapshots / cleanup、12 项登记结果与 8 项启动结果、真实 CLI 父链/info，以及本轮所有 11 个已知证据根的定点 liveness 检查。**297 个唯一已记录 PID 全部已不存在，remaining 为空**，包含首次失败夹具、完整 app 负向夹具和最终回归；没有按进程名或全机扫描杀进程。这是夹具记录范围内的回收，不是全机无孤儿证明。
+当时完成两组同组反例、12 项登记、8 项启动及 11 个已知证据根的定点回收检查。原输出摘录：`"remaining": []`。**297 个唯一已记录 PID 全部已不存在，remaining 为空**，包含首次失败夹具、完整 app 负向夹具和最终回归；没有按进程名或全机扫描杀进程。这是夹具记录范围内的回收，不是全机无孤儿证明。
 
 ### 明确未闭合的产品边界 / 父级后续
 
@@ -309,7 +309,7 @@ node_modules/.bin/vitest run --maxWorkers=4 \
 
 该批 **10 文件，181 通过 / 0 失败 / 0 跳过**（18.12 秒，日志 `97936.log`）。真实 Runtime background 合同验证原 15 秒返回、background:true、process.write/eof、结果投递和取消归属；运行在明确无宿主模式，不能冒充 hosted Runtime+模型整链。permissions 的实测层级同前节：真实 adapter/registry/context 与 mock native transport 分开，不发 OS prompt。process 新测试修正可空值检查后另定点 **2/0/0**，目标 tsc 再通过（`97983.log`）。最终 Biome check 无 error（保留 process 原有/新增 non-null 及测试 optional-chain 风格 warnings），相关脚本 `node --check`、`git diff --check` 通过；Swift 保留既有 addchdir_np deprecation warning。
 
-[最终 command-anchor 实测摘要](evidence/service-host-command-final-20261025.json) 保存最终源码/完整 Helper SHA-256、13 项 command/gate 真实状态、shell 退出与日志 hash、两种 quick-owner-death 的实际 ps、CLI 父链/info，以及本轮全部 15 个已知证据根的定点回收结果。**384 个唯一已记录 PID 全部已不存在，remaining=[]**，包括早期失败夹具、31/2 回归和最终验证。只读取夹具记录中的 PID，不做全机扫描、不对未知存活 PID 发信号；这不是全机无孤儿证明。没有后台开发服务器/未关闭 watcher，heavy-test 锁已释放。
+当时完成13 项 command/gate、两种 quick-owner-death 与 15 个已知证据根的定点回收检查。原输出摘录：`"remaining": []`。**384 个唯一已记录 PID 全部已不存在，remaining=[]**，包括早期失败夹具、31/2 回归和最终验证。只读取夹具记录中的 PID，不做全机扫描、不对未知存活 PID 发信号；这不是全机无孤儿证明。没有后台开发服务器/未关闭 watcher，heavy-test 锁已释放。
 
 ### 交付边界
 
@@ -378,7 +378,7 @@ YONDER_HOST_TEST_RUNNER=scripts/fixtures/service-exec-runner.mjs \
 - 同批最后默认 bash 广合同 **0/1/0**（`99285.log`，`/tmp/yonder-command-QYQnJ5`）：共享模块把取消前无结果帧的 completion error 抢先当作 I/O fault，盖过原 abort reason。产品修复为分别保存 completionFault，仍先处理真实 I/O fault，再保留显式 abort reason，非取消时必须有 verified result。最终目标 `tsc -b packages/core packages/cli` 与默认 bash 广合同定点 **1/0/0**（24.31秒，`99336.log`，`/tmp/yonder-command-Lil5aR`）。只改 bash 结果结算优先级，已通过的 env/gate/Swift 未变化，不重复全部13项。
 - 最后变更的12个 JS/TS文件 Biome **0 error / 12 warnings**（原有 non-null 风格），脚本 node --check、diffcheck 通过。没有用末次通过覆盖上述失败，没有重跑 setsid 红门/旧时序夹具来凑绿色数字。
 
-[本轮持久证据](evidence/service-host-release-fixes-20261025.json) 保存最终关键源码/Helper SHA-256、fork provenance、原始失败、专项矩阵和6个实际证据根的 liveness。**149个已记录唯一PID均已不存在，remaining=[]**（含失败批次、被取消任务、cleanup及快速根后代），只查已记录PID、不做全机扫描/未知信号。heavy-test锁已释放，无本轮开发服务器/后台watcher。
+当时完成专项矩阵及 6 个实际证据根的定点回收检查。原输出摘录：`"remaining": []`。**149个已记录唯一PID均已不存在，remaining=[]**（含失败批次、被取消任务、cleanup及快速根后代），只查已记录PID、不做全机扫描/未知信号。heavy-test锁已释放，无本轮开发服务器/后台watcher。
 
 ### B4：首轮 .06 迁移与 legacy 回滚的真实执行步骤（本轮未执行）
 
@@ -423,7 +423,7 @@ B1/B2/B3代码及限定专项已交付，原“SDK exec未接线”历史描述�
 
 ### 正式签名候选与部署门
 
-本 checkout `packages/macos-helper/dist/Yonder Helper.app` 已以实际生产相同 `Apple Development: zoran zeng (Z4A92U2M2T)` 签名。候选和正式已装 Helper 的 identifier 均为 `dev.yonder.harness.helper`，Team 均为 `D4UZU32UN9`，DR 完全相同：`identifier "dev.yonder.harness.helper" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: zoran zeng (Z4A92U2M2T)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */`。三者（候选/正式稳定包/正式 .06 源包）均 `codesign --verify --strict` 通过。完整签名、CDHash、产物 SHA256、provenance、测试结果见 [本轮持久证据](evidence/service-host-integration-ready-20261025.json)。这是正式身份签名的 checkout 候选，不是新版本正式 artifact、安装或 grant retention 证明。
+本 checkout `packages/macos-helper/dist/Yonder Helper.app` 已以实际生产相同 `Apple Development: zoran zeng (Z4A92U2M2T)` 签名。候选和正式已装 Helper 的 identifier 均为 `dev.yonder.harness.helper`，Team 均为 `D4UZU32UN9`，DR 完全相同：`identifier "dev.yonder.harness.helper" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: zoran zeng (Z4A92U2M2T)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */`。三者（候选/正式稳定包/正式 .06 源包）均 `codesign --verify --strict` 通过。该次范围的原输出摘录：`"liveTCCVerified": false`、`"launchdDeploymentPerformed": false`；签名实测事实按本段保留。这是正式身份签名的 checkout 候选，不是新版本正式 artifact、安装或 grant retention 证明。
 
 只读生产清单 `/tmp/yonder-host-production-readonly-20261025.json` 保存 current/source metadata、去掉环境值的 plist、签名与四个文件 hash。生产仍为 .06、旧直接 Node plist；损坏的 .02 permissions wrapper 保持原样，未执行它。结束前复核 plist、已批准 Helper executable、wrapper、外置 permissions-state 的 hash 全部未变；未读权限状态正文或授权数据库。
 

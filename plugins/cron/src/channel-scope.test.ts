@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
-import type { PluginAPI, ToolContext } from "@yonder/sdk";
+import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
+import { createFilePluginStorage, createTriggerScheduler } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { Scheduler } from "./index.js";
 
@@ -20,13 +21,31 @@ async function setup() {
 	const send = vi.fn(async () => ({ ok: true }));
 	const api = {
 		paths: { data: home },
-		execution: { resolve, run },
+		storage: createFilePluginStorage(home),
+		execution: {
+			resolve,
+			run,
+			async capture(ctx: ToolContext) {
+				return { session: ctx.session, agent: ctx.agent, profile: ctx.profile };
+			},
+		},
 		messages: { send },
 		events: { emit: vi.fn(async () => ({ id: "event" })) },
 		log: { error: vi.fn() },
 	} as unknown as PluginAPI;
 	const scheduler = new Scheduler(api);
-	await scheduler.start();
+	const host = createTriggerScheduler(() => {});
+	const emit = async (event: EventInput) => ({ ...event, id: "event", ts: new Date().toISOString() }) as YEvent;
+	const dispose = await host.start(
+		"cron",
+		{
+			id: "cron",
+			start: (io) => scheduler.start(io),
+			tick: (now) => scheduler.tick(now),
+			stop: () => scheduler.stop(),
+		},
+		emit,
+	);
 	const job = (instance: string) => ({
 		name: "Scope regression",
 		enabled: false,
@@ -43,7 +62,8 @@ async function setup() {
 		send,
 		job,
 		close: async () => {
-			await scheduler.stop();
+			await dispose();
+			await host.stop();
 			await rm(home, { recursive: true, force: true });
 		},
 	};

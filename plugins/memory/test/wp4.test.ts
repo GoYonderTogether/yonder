@@ -98,7 +98,7 @@ it("watcher actually ingests a stable file and stop releases the watcher", async
 		errors: string[] = [],
 		ingest = new Ingest(h.api, h.config, errors),
 		trigger = ingest.trigger();
-	await trigger.start({ emit: (e) => h.api.events.emit(e) });
+	await trigger.start({ startedAt: Date.now(), schedule: () => {}, emit: (e) => h.api.events.emit(e) });
 	try {
 		await writeFile(join(h.root, "inbox/watched.txt"), "真实文件监听");
 		await expect.poll(() => h.events.length, { timeout: 6000 }).toBe(1);

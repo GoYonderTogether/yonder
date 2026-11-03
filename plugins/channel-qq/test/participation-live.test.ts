@@ -7,11 +7,11 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
+import { testModel } from "@yonder/local-host/config/test-support";
+import { initHome, openKernel } from "@yonder/local-host/kernel/index";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { testModel } from "../../../packages/core/src/config/test-support.js";
-import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
 import { groupInstructions } from "../src/participation.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
-import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { initialize } from "../src/files.js";
 import plugin from "../src/index.js";
 export const context = (event?: YEvent): ToolContext =>
@@ -36,6 +36,7 @@ export async function harness(extra = {}, overrides: Partial<PluginAPI> = {}) {
 	};
 	const full = {
 		...api,
+		storage: createFilePluginStorage(root),
 		config,
 		identity: {
 			async account(ref: string) {

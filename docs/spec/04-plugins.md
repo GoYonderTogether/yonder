@@ -48,8 +48,8 @@ interface ChannelProvider {
 interface Channel {
   id: string;
   kinds: string[];                     // 会产生的 message.in kind，如 ['dm','group']
-  output: { stream: boolean; attachments: boolean };
-  describeConversation?(conv: Ref, signal?: AbortSignal): Promise<{ displayName: string; kind?: 'dm' | 'group' | 'channel'; basis: 'platform-exact' } | undefined>; // 可选只读描述本实例精确会话的平台显示名，不证明成员资格或权限
+  output: { stream: boolean; attachments: boolean; singleResult?: boolean };
+  describeConversation?(conv: Ref, signal?: AbortSignal): Promise<{ displayName: string; kind?: 'dm' | 'group' | 'channel'; basis: 'platform-exact' } | undefined>; // 可选，只读精确会话标签，不是权限或成员资格证明
   start(io: ChannelIO): Promise<void>;
   stop(signal?: AbortSignal): Promise<void>;
   send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>; // conv: 发到会话；acct: 由渠道解析为该账号私聊
@@ -62,7 +62,17 @@ interface ChannelIO {
   ownerConnected(input: { account: Ref; conv: Ref; agent?: string }): Promise<YEvent>; // 已授权主人及可发送的真实私聊
 }
 interface AskResult { event: YEvent; results: RunResult[] }   // 每个被唤醒运行的 agent 一条；只旁观或未命中的 agent 没有
-interface OutMessage { text: string; attachments?: Attachment[]; replyTo?: string }   // replyTo：被回复的渠道原生消息 id
+interface OutMessage {
+  text: string;
+  deliveryId?: string;                 // 同一真实发送尝试的稳定标识，重试复用
+  sourceMessageId?: string;            // 自动回复的原用户消息，不强制引用
+  content?:
+    | { type: 'text' | 'markdown'; text: string; mentions?: string[]; mentionAll?: boolean }
+    | { type: 'error'; text: string }
+    | { type: 'interactive'; title: string; body: string; actions: Array<{id: string; label: string; link?: string}>; state: 'pending' | 'done'; link?: string };
+  attachments?: Attachment[];
+  replyTo?: string;                    // 被引用的渠道原生消息 id
+}
 interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boolean }           // id：渠道原生消息 id
 ```
 
@@ -71,6 +81,8 @@ interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boole
 - 渠道负责把外部消息变成message.in、把输出交到外部，并可提供精确会话的只读平台显示名。它不决定进哪个会话、要不要回复，也不以名称授予权限——这些仍由绑定、安全与投递负责（02、05、06）。
 - describeConversation仅接收本实例的精确conv，返回平台实际displayName及可确定的kind；不按名字搜索、不列成员、不接入群、不改配置或发送。宿主仅在已核验owner的私有main事实帧内，为当前Agent已配置精确绑定、摘要限量的已知群会话按需补标签；未知/失败/不支持保持label unknown并保留原operability。普通CLI/inspect、capabilities和群/访客事实读取不因此自动访问网络。标签只帮助自然名称对齐已有conv，既不是membership、权限、模型处理或完整入站的证明；不改变插件选择/账号/绑定范围，不建目录数据库或缓存。
 - 外部系统调用 agent 并要拿到返回值（例如 MCP 服务端）时，渠道用 `io.ask`。
+- `output.singleResult` 表示渠道每条用户输入只接收一个最终回复或error，云端worker启用；保留绑定对模型正常回复的决定和io.ask语义。原生运行失败仍优先给真实失败原因；正常结束但waiting=false且binding.reply=none时，该渠道须以系统error明确“本轮来源关闭自动回复，未投递模型回复”，以完成该输入唯一结果；不带模型正常文本，也不声称操作没有执行。普通本机reply:none与waiting=true的caller不发送此错误。同来源的即时模型工具发送明确返回失败并指导写入最终回复，不能先占结果槽后隐藏模型错误；跨会话主动消息仍沿原授权和deliveryId发送。中间模型回退提示不额外发送，本机普通渠道保持既有多段输出。官方卡片工具准备最终卡片时须如实说明仅已准备，最终投递仍由共享delivery完成。
+
 - 用户首次或重新授权完成后，渠道已确认主人的账号和可发送的真实私聊时，可调用 `ownerConnected`；内核固定插件来源并写入 `channel.connected`，按该渠道已有主人私聊绑定或 multiAgent 主人点名入口路由到对应 Bot 的 main，提醒其自主决定是否打招呼。只有 multiAgent 渠道可指定 agent。启动恢复、重连、查询及周期同步不调用；账号未确定或渠道不能发送时不调用。
 - `login(action, signal, verifyCode)` 的纯数字 verifyCode 由具体渠道解释；card 用它兑换网页主人发起的十位一次性邀请码（start/poll 均适用），见 16 §1；不增加公共登录参数。
 
@@ -89,10 +101,13 @@ interface ToolContext {
   agent: string | null;                // 预设会话为 null
   profile: string;
   session: string;
+  runId?: string;                      // 真实native run标识；后台快照保留发起时的同一runId
+  autoReplySource?: string;            // 当前仍有效的原run中可自动回复的真实YEvent.id，不是发送参数
   capabilities: Capability[];          // 本次运行生效的能力
   channelInstances?: string[];         // 真实运行实例范围；未配置无限制，[] 无实例
   env: ExecutionEnv;                   // 本次运行的执行环境（05 §4）
   event?: YEvent;                      // 触发本次运行的入站事件
+  events?: YEvent[];                   // 本次native run的真实输入，包含实际已接纳的插话
   signal: AbortSignal;                 // 运行被中止时触发；工具必须响应
   cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>; // 本地工具缓存文本并返回路径，见 07 §4
   cacheToolOutputStream?(chunks: AsyncIterable<Uint8Array>, options?: { extension?: string }): Promise<string>; // 本地工具流式缓存原文
@@ -104,6 +119,8 @@ interface ToolResult {
   attachments?: Attachment[];            // 明确交付的真实产物引用
 }
 ```
+
+autoReplySource由adapter只读实际route.binding ID与本轮冻结RuntimeSessionConfig的binding.reply事实；不另跑匹配/路由，也不信接纳时可能已过期的reply字段。取当前event.conv下最后一条真实message.in，需匹配当前session/agent、waiting=false、未dropped且冻结binding允许auto；已知console优先/等待caller则不给，无法确认也不给。该字段只报告当前自动回复候选，最终核心仍校验实际source/binding，不授予新权限或承诺送达。后台保留旧runId用于追踪，但原run已结束时不提供autoReplySource，不能借下一轮LiveDoc的来源或权限准备卡片。
 
 工具名只用下划线与连字符，不用点：OpenAI、Anthropic 只接受 `^[a-zA-Z0-9_-]+$`（已用 `gpt-6-luna` 验证，带点的名字返回 400）。内核内置工具同样如此：`message_send`、`task_run`、`session_*`、`identity_*`；pi 自带的 `read`、`write`、`edit`、`bash`、`tool_search` 保留原名。配置档里的 `tools` 通配（如 `qq_*`）按这个名字匹配。
 
@@ -137,7 +154,18 @@ interface RenderContext {
 ### 3.4 triggers — 定时、文件变化、Webhook 等事件源
 
 ```ts
-interface Trigger { id: string; start(io: { emit(e: EventInput): Promise<YEvent> }): Promise<void>; stop(): Promise<void> }
+interface TriggerIO {
+  emit(e: EventInput): Promise<YEvent>;
+  startedAt: number;                         // 宿主进程启动时点，不是每次 Bot 激活时点
+  schedule(at: number | undefined): Promise<void>; // 注册/移除下一次 tick；持久宿主落库后才完成
+}
+interface Trigger {
+  id: string;
+  start(io: TriggerIO): Promise<void>;
+  tick?(now: number): Promise<void>;
+  busy?(): boolean;                    // 实际在途执行/持久化/投递尚未完成，供宿主生命周期判断
+  stop(): Promise<void>;
+}
 ```
 
 触发器产生插件自定义类型的事件（如 `trigger-cron.fired`），`conv` 为 `conv:<triggerId>:<name>`。
@@ -154,7 +182,7 @@ interface EnvProvider { type: string; configSchema?: TSchema; create(id: string,
 
 ```ts
 interface Hook {
-  beforeSend?(message: OutMessage & { to: Ref }, owner?: ExecutionOwner): HookResult<{ message: OutMessage }>;
+  beforeSend?(message: OutMessage & { to: Ref }, owner?: ExecutionOwner, final?: { runId: string; status: RunEndData['status']; sourceEventId: string }): HookResult<{ message: OutMessage }>;
   id: string;
   beforeTool?(call: ToolCall, ctx: ToolContext): HookResult<{ block: string } | { args: object }>;
   afterTool?(call: ToolCall, result: ToolResult, ctx: ToolContext): HookResult<{ result: ToolResult }>;
@@ -165,6 +193,8 @@ type HookResult<T> = T | undefined | Promise<T | undefined>;
 ```
 
 `Message` 是 pi-ai 的消息类型，由 `@yonder/sdk` 以纯类型重新导出。映射到 pi-durable 的同名钩子。内核自带的安全与上限钩子总是最先执行，插件钩子不能放行内核已拦下的调用。审批、审计、沙箱策略这类功能都写成钩子插件。
+
+beforeSend第三参只由核心自动最终回复填入真实runId、终态与来源事件ID；显式发送、程序发送与中间流不给，模型/插件发送参数不能伪造最终来源。每次新send/prepare管线调用一遍hook，sendPrepared不再调用；既有attempt重试直接使用持久outgoing，不重跑hook。重复上层send即使被claimAttempt拒绝，也可能已执行hook，因此选择hook只能幂等读取/覆盖，不能承担清理。核心可先prepare最终候选，再判断有效内容与持久化run.end，最后沿原ledger发送已准备消息。准备不等于送达，不增加通用延迟队列。
 
 beforeSend 只对该会话选中的插件执行，在发送 attempt/事件账本前过滤完整消息；选中它的 profile 按单条 message_end 缓冲流式文本，避免跨片段泄漏。无会话的插件发送不借用其他 profile。具体使用见 [21 §4](21-clipboard-vault.md#4-防泄漏与边界)。
 
@@ -229,7 +259,7 @@ interface PluginAPI {
     on(type: string, handler: (e: YEvent) => void | Promise<void>): void;   // type 可为 'prefix.*'；见下
   };
   messages: { send(m: { to: Ref; via?: string; text: string; attachments?: Attachment[]; owner?: ExecutionOwner }, ctx?: ToolContext): Promise<Delivery> }; // ctx 为模型调用；owner 为代表真实执行者的程序发送，06 §5
-  execution: { resolve(owner: ExecutionOwner): Promise<ResolvedExecution>; /* run 见 SDK */ };
+  execution: { capture(ctx: ToolContext): Promise<ExecutionOwner>; resolve(owner: ExecutionOwner): Promise<ResolvedExecution>; /* run 见 SDK */ };
   credentials: { get(name: string): Promise<Credential | undefined> };   // 凭据文件里的一项，只读（07 §6.2）
   sessions: SessionsAPI;               // 02 §5
   subagents: { run(request: SubagentTaskRequest, ctx: ToolContext): Promise<ToolResult> }; // task_run 语义
@@ -240,7 +270,8 @@ interface PluginAPI {
     modelReady(agent: string): Promise<boolean>;
   };
   models: Models;                      // pi-ai 的模型集合，纯类型重新导出
-  paths: { data: string };             // <home>/.yonder/plugins/<id>/
+  storage: PluginStorage;              // open(root?)：宿主绑定的私有文本文件/文档与附件能力
+  paths: { data: string };             // 旧本机路径兼容；共享插件新写入使用 storage
 }
 interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSchema?: TSchema }
 ```
@@ -257,12 +288,24 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 
 `ExecutionOwner = { session: string; agent: string | null; profile: string }`，`ResolvedExecution = { capabilities: Capability[]; channelInstances?: string[] }`。核心按存储会话核对 owner 并取当前有效配置；不得伪造 ToolContext 或把全部无 ctx 调用视为模型授权。SDK 的 `allowsChannelInstance(scope, instance)` / `assertChannelInstance(scope, instance)` 接受携带可选 channelInstances 的作用域；插件在平台访问前使用，不能自己读 home 推导。飞书 status/history/message/card/task-card 共用检查，省略实例的 status 只枚举授权实例，保留原能力、来源与归属约束。
 
+### 宿主无关插件存储（共享核心重构，2026-11-02 授权）
+
+`PluginAPI.storage.open(root?)` 提供文本文件/文档的 read、write、append、list、stat、mkdir、remove 与同命名空间 transaction；省略 root 绑定原 api.paths.data。能力按插件与宿主租户/Bot 隔离，本机 FS 与 PG 使用同一插件算法，不将 SQL/进程能力交给插件存储接口。FS 保持原文件名、格式、原子替换和锁；PG 以私有 plugin_files 虚拟树承载，不解释为云端目录。read 对不存在文件返回 undefined；list 返回当前层级文件/目录条目；stat 返回类型、字节数与真实 mtimeMs。仅 FS 提供 localRoot，用于明确的旧数据只读导入和已有本机采集能力，PG 不提供它，不能据逻辑 root 打开宿主路径。`PluginStorage.writeAttachment(path, bytes, mime)` 在插件默认私有命名空间独立原子保存生成的二进制附件并返回渠道可用的 URI（不放入文本树 transaction 回调）；本机以原子写保存真实文件并返回 file URI，PG 保存编码内容并返回 data URI。插件不自行写 `api.paths.data` 或为云端构造 file URI；不支持附件的渠道沿现有文本呈现能力输出。
+
+memory 的已配置个人记忆 root 必须原样保留：本机 open(config.root) 绑定已有已校验用户库，PG 将该 root 作为当前插件/租户/Bot 内的虚拟树名。它不扩大模型的目录权限，原 capability/allowedRun 检查继续生效，不增加 core 的 memory 特判。
+
+tasks 旧 tasks.sqlite 只读导入完整事件账本，包含 seq/history/wake/audit/spend/digest/moment，经原 replay 校验后在新存储事务写入完成标记；失败不得标成功、删除或覆盖旧库。不按轮复制 SQLite blob。cron jobs/runs、market watch、channel-card 凭据/映射沿用旧文件名与语义。所有兼容/导入只作用于用户实际启动的宿主，本次验证仅临时数据，不触碰主人目录。
+
+创建、修改、取消计划以及start/tick/stop必须逐层await schedule；本机内存调度立即完成，PG调度在受租户/Bot限定的deadline写入或删除后完成。宿主调度器的忙状态包含未完成tick和trigger.busy；它是实际生命周期事实，不因模型已idle就把异步任务视为结束。LRU逐出仅解绑该实例的TriggerIO，随后stop不得删除持久deadline；用户真正取消计划仍在绑定状态删除，inactive Bot 到期由同一宿主扫描并激活。
+
+周期任务以插件的确定性 tick 注册到宿主唯一调度器，替代插件各自的常驻 interval；本机驱动已加载插件，云端唯一调度器扫描 PG 到期记录、按需激活 Bot 并调用相同 tick。保留真实 start/stop 的外部资源触发器；云端无环境时本机 inbox/微信采集明确不可用，不能偷偷开子进程或假称采集成功。无需另建调度平台；现有 cron/watch/moment 算法继续负责自身策略。
+
 ## 5. 生命周期
 
 1. **加载**：读清单 → 检查 `apiVersion` → 导入 entry → 按 `configSchema` 校验插件配置 → 调用 `setup(api)`。`setup` 只能注册，不能联网、不能开定时器、不能发事件。
 2. **检查**：比对声明与注册。
 3. **启动**：按 `yonder.yaml` 的 `channels`、`envs` 用提供者创建实例（先按 `configSchema` 校验实例配置），再调用渠道与触发器的 `start`。
-4. **停止**：反向调用 `stop`。
+4. **停止**：反向调用 `stop`，先停止渠道与 trigger 的新输入，再等待 Runtime 的原生终止与终态事件。原生终止事件已接纳后关闭新观察接纳，并在底层存储关闭与宿主 close 返回前完成所有已接纳的插件观察（包括 run.end 与卡片清理）；不能在 close 返回后继续写插件文件，也不能为避免写入竞态丢弃合法终态事件。本机与云端使用同一插件观察收尾边界，不靠删除目录重试掩盖未完成工作。
 
 插件代码不热重载。插件配置变更需要重启；`agent.yaml`、`presets/` 热重载（08 §3）。
 
@@ -362,6 +405,14 @@ interface PermissionProvider {
 `list` 仅返回已选择 provider 的静态描述，不执行权限探测。setup/检查不得调用 list/invoke 或触发申请。
 `status` 只查询，不可升级为 request；requested、unknown、denied 不可转换为 granted。
 门面平台无关，provider 自己保持平台、执行环境、OS 身份、外部服务及凭据边界，不另建授权数据库或审批队列。
+
+### 程序来源的可核引用
+
+ExecutionOwner保留session、agent、profile，新增可选inputs:string[]，只引用creator原生run的实际YEvent ID。execution.capture(ctx)先核验真实native ToolContext，再复核Store来源/route/session与identity；只有全部实际叶子是经核验的owner DM或已保存的同类可信委派时返回inputs。普通、访客、群或缺证仍返回原三字段，不因profile名、Agent身份、admin能力或后来identity变化追认旧来源。使用设备工具前还要从真实Store重新复核；inputs不是新权限，也不是模型参数。
+
+SDK程序submit可带executionOwner与resources元数据，由core验证后只写自己创建的session.input。插件不能伪造该事件；模型工具schema不能接受这些字段。cron/tasks分别保存独立executionOwner及真实资源上限，不替换旧owner归属三字段；创建/显式改程序执行参数/手动run从当前真实ctx捕获；cron更新（含payload、schedule、delivery）及启用均重新捕获，不能只改结果投递位置却继续借旧owner设备资格。tasks只对程序指令变更重新捕获，整体替换新来源对象。未合格时去掉旧inputs，不能JSON merge残留；内部spend/wake/digest不重写授权。旧无引用记录保持普通任务功能，不获得新增设备目录/调用资格。
+
+task_run保留原事件parent，并继承同一真实来源元数据与ctx.resources，不能只传capabilities/channelInstances而丢资源。程序运行capabilities、渠道范围与资源仍受原创建上限、当前配置及实际目标grant约束；来源资格不增加权限，没有共同授权资源则拒绝设备执行，不将空交集解释为“未指定”。细节见19 §8。
 
 ### 执行环境调用上下文
 

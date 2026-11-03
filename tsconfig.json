@@ -14,10 +14,22 @@
 			"path": "packages/device"
 		},
 		{
+			"path": "packages/bot-definition"
+		},
+		{
 			"path": "packages/sdk"
 		},
 		{
-			"path": "packages/core"
+			"path": "packages/runtime-adapter"
+		},
+		{
+			"path": "packages/bot-core"
+		},
+		{
+			"path": "packages/local-host"
+		},
+		{
+			"path": "packages/cloud-host"
 		},
 		{
 			"path": "packages/gateway"

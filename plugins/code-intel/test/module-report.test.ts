@@ -23,7 +23,7 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 		if (!tool) throw new Error("missing tool");
 		const dir = await tempHome("yonder-lens-");
 		try {
-			await copyFile(resolve("packages/core/src/runtime/grep.ts"), join(dir, "grep.ts"));
+			await copyFile(resolve("packages/runtime-adapter/src/runtime/grep.ts"), join(dir, "grep.ts"));
 			const ctx = {
 				agent: null,
 				profile: "test",
