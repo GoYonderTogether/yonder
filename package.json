@@ -50,7 +50,9 @@
 		"plugins/code-intel",
 		"plugins/codex-companion",
 		"plugins/advisor",
-		"plugins/market"
+		"plugins/market",
+		"connectors/dsh",
+		"packages/connect"
 	],
 	"scripts": {
 		"version:check": "node scripts/version-check.mjs --check",

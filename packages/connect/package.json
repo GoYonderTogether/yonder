@@ -1,0 +1,23 @@
+{
+	"name": "@yonder/connect",
+	"version": "0.3.26110302",
+	"description": "Install the Yonder connector into an agent harness (currently DeepSeek Harness) and pair this computer with a Yonder account.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"bin": {
+		"yonder-connect": "./dist/cli.js"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	]
+}

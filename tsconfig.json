@@ -129,6 +129,12 @@
 		},
 		{
 			"path": "plugins/market"
+		},
+		{
+			"path": "connectors/dsh"
+		},
+		{
+			"path": "packages/connect"
 		}
 	]
 }
