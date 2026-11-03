@@ -19,16 +19,41 @@ export interface InboxConnectionConfig {
 export type InboxHandler = {
 	/** A controller's signed request, with the cloud's attestation for this executor. */
 	introduce(envelope: unknown, attestation: unknown, signal: AbortSignal): Promise<SignedEnvelope>;
+	/** Any other request on the same connection, handled by the existing paired path. */
+	handle(envelope: unknown, signal: AbortSignal): Promise<SignedEnvelope>;
 	grants(): Grant[];
 	revoke(grantId: string): void;
 	allowance(botId: string, devices: string[] | null): void;
 	/** The cloud told this executor which account/cloud device its token belongs to. */
 	registered(identity: { ownerId: string; cloudDeviceId: string }): void;
+	/** Notified on every grant-set change so the summary report stays current. */
+	onGrantsChanged(listener: () => void): () => void;
 	state(state: "connected" | "disconnected"): void;
 	diagnostic(message: string): void;
 };
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+/** Reads only the claimed method so the executor can pick the right verification path. */
+const claimedMethod = (payloadBase64: string): string | undefined => {
+	try {
+		const value = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf8")) as { method?: unknown };
+		return typeof value.method === "string" ? value.method : undefined;
+	} catch {
+		return undefined;
+	}
+};
+/** Only the frozen protocol code, never arbitrary text from a peer. */
+const code = (error: unknown) => {
+	const message = error instanceof Error ? error.message : "";
+	const cause = error instanceof Error ? (error.cause as Record<string, unknown> | undefined) : undefined;
+	const detail = cause
+		? Object.entries(cause)
+				.filter(([, value]) => typeof value === "string" || typeof value === "number")
+				.map(([key, value]) => `${key}=${String(value).slice(0, 40)}`)
+				.join(" ")
+		: "";
+	return `${/^[A-Z_]{3,40}$/.test(message) ? message : "INVALID_REQUEST"}${detail ? ` ${detail}` : ""}`;
+};
 const granted = (value: unknown): string[] | null | undefined =>
 	value === null
 		? null
@@ -76,6 +101,8 @@ export class CardInboxConnection {
 		this.token = readFileSync(config.tokenFile, "utf8").trim();
 		if (!this.token || this.token.length > 128 || /\s/.test(this.token)) throw new Error("UNAUTHORIZED");
 		this.key = attestationKey(this.token);
+		// Report the current grant set whenever it changes, not only on connect or on demand.
+		this.handler.onGrantsChanged(() => this.send({ type: "grants", grants: this.handler.grants() }));
 	}
 	get running(): boolean {
 		return this.started && !this.stopped;
@@ -147,8 +174,9 @@ export class CardInboxConnection {
 			this.send({ type: "grants", grants: this.handler.grants() });
 		});
 		socket.on("message", (raw, binary) => {
-			void this.receive(socket, raw, binary, connection.signal).catch(() => {
-				/* Malformed frames are dropped; the socket stays up for the next one. */
+			void this.receive(socket, raw, binary, connection.signal).catch((error) => {
+				// Malformed frames are dropped, but a refused introduction is reported.
+				this.handler.diagnostic(`frame ${code(error)}`);
 			});
 		});
 	}
@@ -173,13 +201,26 @@ export class CardInboxConnection {
 		}
 		if (message.type === "relay") {
 			const attestation = this.attestation(message.attestation);
-			const envelope = await this.handler.introduce(
-				(message.frame as { envelope?: unknown } | undefined)?.envelope,
-				attestation,
-				signal,
-			);
+			const frame = message.frame as { envelope?: { payloadBase64?: unknown } } | undefined;
+			const base64 = frame?.envelope?.payloadBase64;
+			const method = typeof base64 === "string" ? claimedMethod(base64) : undefined;
+			let envelope: SignedEnvelope;
+			try {
+				// Only an introduction needs the cloud claim; every other request goes through the
+				// normal paired path, which checks the peer record and grant itself.
+				envelope =
+					method === "device.introduce"
+						? await this.handler.introduce(frame?.envelope, attestation, signal)
+						: await this.handler.handle(frame?.envelope, signal);
+			} catch (error) {
+				// The controller needs a real reason; the executor logs why it refused.
+				this.handler.diagnostic(`${method === "device.introduce" ? "introduce" : "request"} ${code(error)}`);
+				throw error;
+			}
+			// The cloud correlates the answer by the outer routeId it generated; the peer id is not used.
 			this.send({
 				type: "relay",
+				...(typeof message.routeId === "string" ? { routeId: message.routeId } : {}),
 				targetDeviceId: message.sourceDeviceId,
 				frame: { ...(message.frame as object), envelope },
 			});

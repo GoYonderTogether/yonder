@@ -107,10 +107,12 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 								connection,
 								{
 									introduce: (envelope, attestation, signal) => executor.introduce(envelope, attestation, signal),
+									handle: (envelope, signal) => executor.handle(envelope, signal),
 									grants: () => executor.summaries(),
 									revoke: (grantId) => executor.revokeGrant(grantId),
 									allowance: (botId, devices) => executor.applyAllowance(botId, devices),
 									registered: (identity) => executor.rememberCloud(identity, inboxKey(connection)),
+									onGrantsChanged: (listener) => executor.onGrantsChanged(listener),
 									state: (state) => process.stderr.write(`${JSON.stringify({ inbox: state })}\n`),
 									diagnostic: (message) => process.stderr.write(`${JSON.stringify({ inboxDiagnostic: message })}\n`),
 								},

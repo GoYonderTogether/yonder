@@ -85,10 +85,16 @@ export class ControllerStore {
 	private commandPath(deviceId: string, principalId: string, commandId: string): string {
 		return join(this.data, "commands", part(deviceId), part(principalId, true), `${part(commandId)}.json`);
 	}
-	async command(deviceId: string, principalId: string, commandId: string): Promise<PendingCommand | undefined> {
+	async command(
+		deviceId: string,
+		principalId: string,
+		commandId: string,
+		/** The executor's own id when the outward id is a cloud UUID (18 §5). */
+		wireDeviceId = deviceId,
+	): Promise<PendingCommand | undefined> {
 		const value = (await read(this.commandPath(deviceId, principalId, commandId))) as PendingCommand | undefined;
 		if (value === undefined) return undefined;
-		const decoded = decodeCommand(value.commandBase64, { deviceId, principalId });
+		const decoded = decodeCommand(value.commandBase64, { deviceId: wireDeviceId, principalId });
 		if (
 			decoded.commandId !== commandId ||
 			commandDigest(value.commandBase64) !== value.payloadSha256 ||

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { cp, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -505,5 +505,44 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 		expect(peer.state.dispatches).toBe(0);
 		const saved = await readFile(join(root, "plugins/devices/src/skills/devices/SKILL.md"), "utf8");
 		expect(saved).toContain("Checkpoint restore is unsupported");
+	});
+});
+
+describe("cloud-discovered device identity (18 §5)", () => {
+	it("maps the cloud UUID to the executor's own id on the wire and back in results", async () => {
+		const { normalizeResult } = await import("../src/transport.js");
+		const device = {
+			deviceId: randomUUID(),
+			executorDeviceId: randomUUID(),
+			name: "cloud",
+			controllerKey: generateKeyPairSync("ed25519").privateKey,
+			deviceKey: generateKeyPairSync("ed25519").publicKey,
+			grants: [],
+			routes: [],
+		};
+		const grant = {
+			grantId: randomUUID(),
+			deviceId: device.executorDeviceId,
+			principalId: "0".repeat(64),
+			capabilities: ["read"],
+			targetIds: ["host:filesystem"],
+			actions: ["fs.read"],
+			readRoots: [],
+			writeRoots: [],
+			revision: 1,
+			issuedAt: new Date().toISOString(),
+			expiresAt: new Date(Date.now() + 60_000).toISOString(),
+			revokedAt: null,
+		};
+		const normalized = normalizeResult({ deviceId: device.executorDeviceId, grants: [grant] }, device) as {
+			deviceId: string;
+			grants: Array<{ deviceId: string }>;
+		};
+		expect(normalized.deviceId).toBe(device.deviceId);
+		expect(normalized.grants[0]!.deviceId).toBe(device.deviceId);
+		// Without a mapped executor id nothing is renamed.
+		expect(normalizeResult({ deviceId: device.deviceId }, { ...device, executorDeviceId: undefined })).toEqual({
+			deviceId: device.deviceId,
+		});
 	});
 });

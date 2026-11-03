@@ -15,6 +15,7 @@ import {
 	mkdirSync,
 	openSync,
 	readFileSync,
+	realpathSync,
 	renameSync,
 	rmSync,
 	writeFileSync,
@@ -92,6 +93,11 @@ export interface StoreData {
 	/** Absent means the default: cloud-introduced pairing is allowed. */
 	pairingPolicy?: PairingPolicy;
 	cloud?: CloudIdentity;
+	/**
+	 * Bots the owner explicitly revoked on this device. A repeated introduction must not undo an
+	 * owner's withdrawal; only an explicit allow-table change or a manual grant lifts it.
+	 */
+	revokedBots?: Record<string, string>;
 	/**
 	 * Per-Bot allow table mirrored from the cloud: a list of cloud device UUIDs, `null` for
 	 * "all devices", or absent for "no statement yet" (treated as all).
@@ -292,8 +298,11 @@ export class ExecutorStore {
 	}): Grant | undefined {
 		const capabilities = [...new Set(input.capabilities)];
 		const targetIds = [...new Set(input.targetIds)];
-		const readRoots = [...new Set(input.readRoots)];
-		const writeRoots = [...new Set(input.writeRoots)];
+		// No roots requested means "this executor's own home"; it never grants a wider default.
+		// Canonicalized so a reported path and the grant root compare equal on macOS (/private prefix).
+		const fallback = [realpathSync(this.home)];
+		const readRoots = [...new Set(input.readRoots.length ? input.readRoots : fallback)];
+		const writeRoots = [...new Set(input.writeRoots.length ? input.writeRoots : fallback)];
 		if (!capabilities.length || !targetIds.length) return undefined;
 		const existing = Object.values(this.data.grants).find(
 			(g) =>
@@ -341,10 +350,21 @@ export class ExecutorStore {
 		return value === undefined || value === null || value.includes(cloudDeviceId);
 	}
 	/** Mirrors the cloud's allow table and revokes grants that just became disallowed. */
+	/** Clears an owner revocation so a later introduction may issue again (allow-table change). */
+	clearRevoked(botId: string | null): void {
+		if (!botId || !this.data.revokedBots?.[botId]) return;
+		delete this.data.revokedBots[botId];
+		this.save();
+	}
+	wasRevoked(botId: string | null): boolean {
+		return !!botId && this.data.revokedBots?.[botId] !== undefined;
+	}
 	applyAllowance(botId: string, devices: string[] | null): string[] {
 		if (!/^[a-f0-9-]{36}$/.test(botId) || (devices !== null && !devices.every((d) => /^[a-f0-9-]{36}$/.test(d))))
 			throw new Error("INVALID_REQUEST");
 		this.data.allowance = { ...this.data.allowance, [botId]: devices === null ? null : [...new Set(devices)] };
+		// The cloud re-stated this Bot's authority, so an older local revocation no longer applies.
+		this.clearRevoked(botId);
 		const revoked: string[] = [];
 		if (!this.allows(botId, this.data.cloud?.cloudDeviceId ?? ""))
 			for (const grant of Object.values(this.data.grants))

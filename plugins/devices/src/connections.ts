@@ -13,7 +13,7 @@ import {
 } from "@yonder/sdk";
 import { Check } from "typebox/value";
 import { CardRoute, CloudRoute, directRoute } from "./routes.js";
-import type { DeviceRegistry, RegisteredDevice } from "./transport.js";
+import { type DeviceRegistry, normalizeResult, type RegisteredDevice, RemoteError } from "./transport.js";
 
 export interface CloudConfig {
 	/** Cloud origin, e.g. https://yonderbot.net. */
@@ -128,7 +128,8 @@ async function cloudDevices(
 		!(allowLoopback && base.protocol === "http:" && ["127.0.0.1", "[::1]"].includes(base.hostname))
 	)
 		throw new Error("Cloud routes require HTTPS; explicit HTTP is loopback-test only");
-	const listing = await fetch(new URL("/api/devices", base), {
+	// The device credential lists only this account's devices plus each executor's reported key.
+	const listing = await fetch(new URL("/api/device/devices", base), {
 		headers: { authorization: `Bearer ${await token()}` },
 		redirect: "error",
 	});
@@ -154,6 +155,7 @@ async function cloudDevices(
 			name: device.name,
 			controllerKey: controller,
 			deviceKey,
+			executorDeviceId: executor.deviceId as string,
 			grants: [],
 			routes: [new CloudRoute({ baseUrl: config.baseUrl, deviceId: device.id }, token, allowLoopback)],
 			introduce: { label: config.label ?? device.name, botId: config.botId ?? null },
@@ -234,44 +236,54 @@ export function configuredRegistry(
 	}
 	const pins = new KeyPins(dataDirectory);
 	const refresh = async (device: RegisteredDevice): Promise<Grant[]> => {
+		// Introduce first: until the executor has a peer record it answers every request `UNPAIRED`.
+		// It is idempotent and returns the existing grant when the same authority was already issued.
+		if (device.introduce) {
+			try {
+				await rpcOn(device, "device.introduce", {
+					controllerPublicKey: der(device.controllerKey),
+					label: device.introduce.label,
+					botId: device.introduce.botId,
+					capabilities: ["read", "write", "exec", "network", "message"],
+					targetIds: ["host:filesystem"],
+					actions: [
+						"fs.stat",
+						"fs.canonical",
+						"fs.list",
+						"fs.read",
+						"fs.write",
+						"fs.mkdir",
+						"fs.remove",
+						"fs.rename",
+						"fs.truncate",
+						"fs.flush",
+						"process.exec",
+					],
+					// Empty means "the executor applies its own default roots"; it is the final judge.
+					readRoots: [],
+					writeRoots: [],
+				});
+			} catch (error) {
+				// The executor refused: the owner narrowed or revoked this Bot, so it has no grants.
+				// That is a real answer, not a discovery failure.
+				if (error instanceof RemoteError && ["UNAUTHORIZED", "UNPAIRED", "GRANT_REVOKED"].includes(error.code))
+					return [];
+				throw error;
+			}
+		}
 		const listed = (await rpcOn(device, "grants.list", {})) as unknown;
-		if (Array.isArray(listed) && listed.length) return listed.filter((grant) => Check(GrantSchema, grant)) as Grant[];
-		// Nothing on the executor yet: ask it to issue the grant the cloud just introduced us for.
-		if (!device.introduce) return [];
-		await rpcOn(device, "device.introduce", {
-			controllerPublicKey: der(device.controllerKey),
-			label: device.introduce.label,
-			botId: device.introduce.botId,
-			capabilities: ["read", "write", "exec", "network", "message"],
-			targetIds: ["host:filesystem"],
-			actions: [
-				"fs.stat",
-				"fs.canonical",
-				"fs.list",
-				"fs.read",
-				"fs.write",
-				"fs.mkdir",
-				"fs.remove",
-				"fs.rename",
-				"fs.truncate",
-				"fs.flush",
-				"process.exec",
-			],
-			readRoots: [],
-			writeRoots: [],
-		});
-		const after = (await rpcOn(device, "grants.list", {})) as unknown;
-		return Array.isArray(after) ? (after.filter((grant) => Check(GrantSchema, grant)) as Grant[]) : [];
+		return Array.isArray(listed) ? (listed.filter((grant) => Check(GrantSchema, grant)) as Grant[]) : [];
 	};
 	/** One signed RPC outside a tool call; the controller's own key signs it. */
 	async function rpcOn(device: RegisteredDevice, method: "grants.list" | "device.introduce", params: unknown) {
+		const wireDeviceId = device.executorDeviceId ?? device.deviceId;
 		const request = {
 			protocol: "yonder.execution" as const,
 			version: 1 as const,
 			kind: "request" as const,
 			requestId: randomUUID(),
 			principalId: publicKeyId(device.controllerKey),
-			deviceId: device.deviceId,
+			deviceId: wireDeviceId,
 			issuedAt: Date.now(),
 			expiresAt: Date.now() + 60_000,
 			method,
@@ -282,18 +294,22 @@ export function configuredRegistry(
 		const response = verifyMessage(answer, device.deviceKey, {
 			kind: "response",
 			principalId: request.principalId,
-			deviceId: device.deviceId,
+			deviceId: wireDeviceId,
 			requestId: request.requestId,
 			now: Date.now(),
 		});
-		if (response.kind !== "response" || !response.ok) throw new Error("Executor refused the introduction");
-		return response.result;
+		if (response.kind !== "response") throw new Error("Executor refused the introduction");
+		if (!response.ok) throw new RemoteError(response.error.code, response.error.message);
+		return normalizeResult(response.result, device);
 	}
 	let cloudRecords: RegisteredDevice[] | undefined;
 	let cloudAt = 0;
+	/** Reported through the trigger scheduler so a discovery failure is never a silent empty list. */
 	async function cloudList(): Promise<RegisteredDevice[]> {
 		if (!cloud) return [];
-		if (!cloudRecords || Date.now() - cloudAt > 10_000) {
+		// Refresh on every registry read: grants change as the owner narrows or revokes, and the
+		// executor is the authority for them, so a cached snapshot would go stale unnoticed.
+		if (!cloudRecords || Date.now() - cloudAt >= 0) {
 			cloudRecords = await cloudDevices(
 				{ ...cloud, allowInsecureLoopback: cloud.allowInsecureLoopback ?? allowInsecureLoopback },
 				() => cardToken(cloud.credential),
@@ -324,7 +340,8 @@ export function configuredRegistry(
 
 	async function pairedRecords(): Promise<RegisteredDevice[]> {
 		if (!pairingHome) return [];
-		const files = (await readdir(pairingHome)).filter((name) =>
+		// The directory may not exist yet on a host that has only cloud-discovered devices.
+		const files = (await readdir(pairingHome).catch(() => [] as string[])).filter((name) =>
 			/^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.json$/.test(name),
 		);
 		if (devices.some((d) => !files.includes(`device-${d.deviceId}.json`)))

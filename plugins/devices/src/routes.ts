@@ -275,12 +275,14 @@ export class CloudRoute {
 		signal.throwIfAborted();
 		const token = await this.token();
 		if (!token || /[\r\n]/.test(token)) throw new Error("Invalid Card device credential");
+		// The cloud relays an outer frame unchanged; only the inner signed bytes are the request.
+		const frame: RelayFrame = { protocol: "yonder.execution.relay", version: 1, routeId: randomUUID(), envelope };
 		const response = await fetch(new URL(`/api/devices/${this.config.deviceId}/relay`, this.base), {
 			method: "POST",
 			signal,
 			redirect: "error",
 			headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-			body: JSON.stringify({ envelope }),
+			body: JSON.stringify({ frame }),
 		});
 		if (response.status !== 200) {
 			// Status only: error bodies and tokens never reach logs or model context.

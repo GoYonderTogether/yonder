@@ -39,12 +39,21 @@ export function createDevicesPlugin(registry?: DeviceRegistry) {
 				id: "devices-connections",
 				async start(io) {
 					schedule = io.schedule;
-					await connections.prepare();
+					// A failed first read is reported, not hidden behind an empty device list.
+					await connections.prepare().catch((error: unknown) => {
+						api.log.warn("Device discovery failed at start", {
+							reason: error instanceof Error ? error.message.slice(0, 200) : "unknown",
+						});
+					});
 					await io.schedule(Date.now() + REFRESH_MS);
 				},
 				async tick() {
 					try {
 						await connections.prepare();
+					} catch (error) {
+						api.log.warn("Device discovery refresh failed", {
+							reason: error instanceof Error ? error.message.slice(0, 200) : "unknown",
+						});
 					} finally {
 						await schedule?.(Date.now() + REFRESH_MS);
 					}

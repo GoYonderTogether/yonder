@@ -7,6 +7,7 @@ import {
 	type DeviceSession,
 	decodeCommand,
 	type ExecutionCapability,
+	type ExecutionError,
 	type Grant,
 	publicKeyId,
 	type RpcRequest,
@@ -280,7 +281,6 @@ export class DeviceExecutor {
 		const budget = AbortSignal.any([this.verifying.signal, AbortSignal.timeout(15_000), ...(signal ? [signal] : [])]);
 		budget.throwIfAborted();
 		this.assertHealthy();
-		if (this.store.pairingPolicy === "manual-only") throw new Error("UNPAIRED");
 		const claimed = structuredClone(envelope);
 		if (!Check(SignedEnvelopeSchema, claimed)) throw new Error("INVALID_REQUEST");
 		const untrusted = JSON.parse(
@@ -289,7 +289,7 @@ export class DeviceExecutor {
 		if (untrusted.method !== "device.introduce" || untrusted.kind !== "request" || untrusted.deviceId !== this.deviceId)
 			throw new Error("WRONG_TARGET");
 		const encodedKey = untrusted.params?.controllerPublicKey;
-		if (typeof encodedKey !== "string") throw new Error("INVALID_REQUEST");
+		if (typeof encodedKey !== "string" || typeof untrusted.requestId !== "string") throw new Error("INVALID_REQUEST");
 		const key = createPublicKey({ key: Buffer.from(encodedKey, "base64"), format: "der", type: "spki" });
 		const principalId = publicKeyId(key);
 		if (principalId !== untrusted.principalId)
@@ -303,9 +303,36 @@ export class DeviceExecutor {
 		);
 		budget.throwIfAborted();
 		if (verified.kind !== "request" || verified.method !== "device.introduce") throw new Error("INVALID_REQUEST");
+		// Every refusal after this point is a signed answer, so the controller learns the real reason
+		// instead of waiting for a timeout it cannot interpret.
+		const refuse = (code: ExecutionError["code"]): SignedEnvelope => {
+			const issuedAt = Date.now();
+			return signMessage(
+				{
+					protocol: "yonder.execution",
+					version: 1,
+					kind: "response",
+					requestId: untrusted.requestId as string,
+					principalId,
+					deviceId: this.deviceId,
+					issuedAt,
+					expiresAt: issuedAt + 60_000,
+					ok: false,
+					error: { code, message: code },
+				},
+				this.store.key,
+			);
+		};
+		if (this.store.pairingPolicy === "manual-only") return refuse("UNPAIRED");
 		const cloud = this.store.data.cloud;
-		if (!cloud || !this.cloudKey) throw new Error("UNPAIRED");
-		const claim = verifyAttestation(attestation, this.cloudKey, Date.now());
+		if (!cloud || !this.cloudKey) return refuse("UNPAIRED");
+		let claim: ReturnType<typeof verifyAttestation>;
+		try {
+			claim = verifyAttestation(attestation, this.cloudKey, Date.now());
+		} catch {
+			// A forged, expired or malformed claim is answered, not left to time out.
+			return refuse("UNAUTHORIZED");
+		}
 		if (
 			claim.ownerId !== cloud.ownerId ||
 			claim.cloudDeviceId !== cloud.cloudDeviceId ||
@@ -313,15 +340,17 @@ export class DeviceExecutor {
 			claim.action !== "introduce" ||
 			claim.subject !== principalId
 		)
-			throw new Error("UNAUTHORIZED");
+			return refuse("UNAUTHORIZED");
 		const { params } = verified as RpcRequest & { method: "device.introduce" };
-		if (params.botId !== null && !this.store.allows(params.botId, cloud.cloudDeviceId)) throw new Error("UNAUTHORIZED");
+		if (params.botId !== null && !this.store.allows(params.botId, cloud.cloudDeviceId)) return refuse("UNAUTHORIZED");
+		// An owner's explicit revocation wins over a repeated introduction.
+		if (this.store.wasRevoked(params.botId)) return refuse("GRANT_REVOKED");
 		const descriptor = await this.backend.describe();
-		if (descriptor.deviceId !== this.deviceId) throw new Error("INVALID_REQUEST");
-		// Naming something this executor does not run is refused, not silently narrowed.
-		if (!params.actions.every((name) => this.backend.actions[name] !== undefined)) fail("UNSUPPORTED_OPERATION");
+		if (descriptor.deviceId !== this.deviceId) return refuse("WRONG_TARGET");
+		if (!params.actions.every((name) => this.backend.actions[name] !== undefined))
+			return refuse("UNSUPPORTED_OPERATION");
 		if (!params.targetIds.every((id) => descriptor.targets.some((target) => target.id === id)))
-			fail("UNSUPPORTED_OPERATION");
+			return refuse("UNSUPPORTED_OPERATION");
 		const granted = this.store.introduce({
 			principalId,
 			publicKey: encodedKey,
@@ -333,7 +362,7 @@ export class DeviceExecutor {
 			readRoots: params.readRoots,
 			writeRoots: params.writeRoots,
 		});
-		if (!granted) fail("UNAUTHORIZED");
+		if (!granted) return refuse("UNAUTHORIZED");
 		this.grantListeners.notify();
 		const issuedAt = Date.now();
 		return signMessage(
@@ -341,7 +370,7 @@ export class DeviceExecutor {
 				protocol: "yonder.execution",
 				version: 1,
 				kind: "response",
-				requestId: (verified as RpcRequest).requestId,
+				requestId: untrusted.requestId as string,
 				principalId,
 				deviceId: this.deviceId,
 				issuedAt,
@@ -354,7 +383,13 @@ export class DeviceExecutor {
 	}
 	/** Owner-side revocation arriving from the relay or the management CLI. */
 	revokeGrant(grantId: string): void {
+		const grant = this.store.data.grants[grantId];
 		this.store.revokeAny(grantId);
+		// Remember the Bot withdrawal so the next refresh cannot silently re-introduce it.
+		if (grant?.botId) {
+			this.store.data.revokedBots = { ...this.store.data.revokedBots, [grant.botId]: new Date().toISOString() };
+			this.store.save();
+		}
 		this.grantListeners.notify();
 	}
 	applyAllowance(botId: string, devices: string[] | null): void {
