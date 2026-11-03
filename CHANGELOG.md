@@ -2,10 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26110301] - 2026-11-03
+
 ### Fixed
 
 - channel：主人私有 main 摘要为已绑定群会话补充精确平台名称；未知标签不证明成员资格或权限。
 - kernel：`parent_ask`主会话输入以已核验的主人原文为目标，分身转述仅作辅助说明。
+- ground owner goals in verified originals and channel identity
 
 ## [0.3.26110215] - 2026-11-02
 
