@@ -30,6 +30,29 @@ export function windowsServiceLauncher(
 export function launcher(install: string, node = process.execPath, path = runtimePath(install)): string {
 	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, "current/packages/cli/dist/index.js"))} "$@"\n`;
 }
+/** Workspace binaries the install must expose; each is a real package `bin` entry. */
+export const workspaceBins = [
+	{ name: "yonder-executor", entry: "current/packages/device/dist/cli.js" },
+	{ name: "yonder-clipboard", entry: "current/plugins/clipboard/dist/capture.js" },
+	{ name: "yonder-qq", entry: "current/plugins/channel-qq/dist/setup.js" },
+] as const;
+/** A thin wrapper around the versioned entry, like `bin/yonder`; never a copy of the code. */
+export function workspaceLauncher(
+	install: string,
+	entry: string,
+	node = process.execPath,
+	path = runtimePath(install),
+): string {
+	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, entry))} "$@"\n`;
+}
+export function windowsWorkspaceLauncher(
+	install: string,
+	entry: string,
+	node = process.execPath,
+	path = runtimePath(install),
+): string {
+	return `@echo off\r\nsetlocal DisableDelayedExpansion\r\nset "PATH=${windowsBatchValue(path)}"\r\nset "YONDER_INSTALL=${windowsBatchValue(install)}"\r\n"${windowsBatchValue(node)}" "${windowsBatchValue(win32.join(install, entry))}" %*\r\n`;
+}
 export function serviceLauncher(install: string, node = process.execPath, path = runtimePath(install)): string {
 	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, "current/scripts/yonder-service-host.mjs"))} "$@"\n`;
 }

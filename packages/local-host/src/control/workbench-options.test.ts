@@ -76,3 +76,46 @@ test("owner options persist, child cannot expand resources/permissions, uploaded
 		await rm(home, { recursive: true, force: true });
 	}
 });
+
+test("a remote resource without a loaded devices plugin reports a real reason instead of silently hiding tools", async () => {
+	const home = await tempHome("ya-workbench-remote-");
+	const configured = {
+		schema: 1 as const,
+		agents: [],
+		plugins: [
+			{ use: "@yonder/plugin-devices", config: { cloud: { baseUrl: "https://example.test", credential: "card" } } },
+		],
+	};
+	const { createWorkbenchOptions } = await import("@yonder/local-host/kernel/workbench-options");
+	const runtime = () => ({ hasPendingWork: async () => false });
+	const sessions = { get: async () => ({ id: "session", closed: false }) } as never;
+	try {
+		// Not loaded: the plugin is configured but its module never registered tools.
+		const missing = createWorkbenchOptions(home, configured as never, runtime as never, sessions, () => [], new Map());
+		await expect(
+			missing.set(
+				"session",
+				{ resources: [{ deviceId: "00000000-0000-4000-8000-000000000001", paths: [] }] },
+				new AbortController().signal,
+			),
+		).rejects.toThrow(/devices plugin/);
+		// Loaded: the check passes and the caller continues with the real resource validation.
+		const loaded = createWorkbenchOptions(
+			home,
+			configured as never,
+			runtime as never,
+			sessions,
+			() => [],
+			new Map([["devices", []]]),
+		);
+		await expect(
+			loaded.set(
+				"session",
+				{ resources: [{ deviceId: "00000000-0000-4000-8000-000000000001", paths: [] }] },
+				new AbortController().signal,
+			),
+		).rejects.not.toThrow(/devices plugin/);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});

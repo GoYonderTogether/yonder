@@ -20,7 +20,13 @@ import { basename, join, relative, resolve } from "node:path";
 import { controlEndpoint } from "@yonder/local-host/control/index";
 import { command } from "@yonder/local-host/release/exec";
 import { installedService } from "@yonder/local-host/release/installation";
-import { launcher, windowsLauncher } from "@yonder/local-host/release/launchers";
+import {
+	launcher,
+	windowsLauncher,
+	windowsWorkspaceLauncher,
+	workspaceBins,
+	workspaceLauncher,
+} from "@yonder/local-host/release/launchers";
 import { installPath, manifest, runtimePath } from "@yonder/local-host/release/paths";
 import { manageService } from "@yonder/local-host/release/service";
 import { latestRelease, normalizeVersion, versionPattern } from "@yonder/local-host/release/versions";
@@ -194,6 +200,20 @@ export async function installRelease(options: UpdateOptions = {}) {
 		if (movedPrevious) {
 			movedPrevious = false;
 			await unlinkManagedVersionLink(install, previousLink);
+		}
+		// The install must expose the real workspace binaries, not only `yonder` itself.
+		for (const binary of workspaceBins) {
+			const file = join(install, "bin", process.platform === "win32" ? `${binary.name}.cmd` : binary.name);
+			const temp = `${file}.${randomUUID()}.tmp`;
+			await writeFile(
+				temp,
+				process.platform === "win32"
+					? windowsWorkspaceLauncher(install, binary.entry)
+					: workspaceLauncher(install, binary.entry),
+				{ mode: 0o755 },
+			);
+			if (process.platform !== "win32") await chmod(temp, 0o755);
+			await rename(temp, file);
 		}
 	} catch (error) {
 		if (movedPrevious) {

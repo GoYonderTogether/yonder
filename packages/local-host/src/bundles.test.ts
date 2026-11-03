@@ -23,6 +23,7 @@ test("default plugins, shipped disabled channels, and optional plugins stay sepa
 	expect(bundles.default.plugins.map(({ use }) => use)).not.toContain("@yonder/plugin-browser-skill");
 	expect(bundles.full.plugins.map(({ use }) => use)).toContain("@yonder/plugin-browser-skill");
 	expect(bundles.default.plugins.map(({ use }) => use)).not.toContain("@yonder/plugin-market");
+	expect(bundles.default.plugins.map(({ use }) => use)).toContain("@yonder/plugin-devices");
 });
 
 test("full contains every plugin of default, and core carries no channel plugin", () => {

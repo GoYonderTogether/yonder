@@ -53,6 +53,11 @@ export function createWorkbenchOptions(
 			if (slash < 1 || !runtime().models.getModel(options.model.slice(0, slash), options.model.slice(slash + 1)))
 				throw new Error("Unknown model");
 		}
+		const remote = options.resources?.some((resource) => resource.deviceId !== "local") === true;
+		if (remote) {
+			const issue = deviceIssue();
+			if (issue) throw new Error(issue);
+		}
 		let permission =
 			options.permission === undefined ? undefined : permissions().find((entry) => entry.id === options.permission);
 		if (options.permission !== undefined && !permission) throw new Error("Unknown permission preset");
@@ -114,6 +119,19 @@ export function createWorkbenchOptions(
 		await runtime().setSessionState(id, state);
 		await runtime().configureModels(id, models);
 		return get(id);
+	}
+	/**
+	 * A remote resource needs the devices plugin to be *loaded*, not merely added to the resolved
+	 * plugin list (19 §7: no auto-install, no silent expansion of the device set). Report the real
+	 * reason instead of letting `devices_*` tools quietly disappear.
+	 */
+	function deviceIssue(): string | undefined {
+		if (!config.plugins?.some((plugin) => plugin.use === "@yonder/plugin-devices")) {
+			return "Remote resources need the devices plugin; add it with `yonder plugins add @yonder/plugin-devices`";
+		}
+		// A loaded plugin contributes its tool set to this map; an empty set still means it loaded.
+		if (tools.has("devices")) return undefined;
+		return "The devices plugin is configured but did not load; check the harness log for the plugin error";
 	}
 	return {
 		get,

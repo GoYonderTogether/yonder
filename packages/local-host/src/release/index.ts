@@ -10,6 +10,9 @@ export {
 	statusPlist,
 	windowsLauncher,
 	windowsServiceLauncher,
+	windowsWorkspaceLauncher,
+	workspaceBins,
+	workspaceLauncher,
 } from "@yonder/local-host/release/launchers";
 export * from "@yonder/local-host/release/names";
 export { manageService, type ServiceAction } from "@yonder/local-host/release/service";

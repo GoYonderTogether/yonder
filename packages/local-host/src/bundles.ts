@@ -57,6 +57,8 @@ const defaults: Bundle = {
 		{ use: "@yonder/plugin-tasks" },
 		{ use: "@yonder/plugin-onboarding" },
 		{ use: "@yonder/plugin-mcp-client" },
+		// 设备插件的安装与配置仍由主人显式选择；默认发行包含它，远程资源会话才不会静默缺工具。
+		{ use: "@yonder/plugin-devices" },
 		// 记忆根目录放在 home 下、所有 agent 工作区之外；触发器与采集默认关闭，白名单为空。
 		{
 			use: "@yonder/plugin-memory",
@@ -81,7 +83,6 @@ const full: Bundle = {
 		{ use: "@yonder/plugin-wechat-archive" },
 		{ use: "@yonder/plugin-codex-tools" },
 		{ use: "@yonder/plugin-media-tools" },
-		{ use: "@yonder/plugin-devices" },
 		{ use: "@yonder/plugin-market" },
 	],
 	channels: defaults.channels,

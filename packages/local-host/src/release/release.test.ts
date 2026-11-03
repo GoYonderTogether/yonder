@@ -19,6 +19,9 @@ import {
 	unloadService,
 	windowsLauncher,
 	windowsServiceLauncher,
+	windowsWorkspaceLauncher,
+	workspaceBins,
+	workspaceLauncher,
 } from "@yonder/local-host/release/index";
 import { canonicalRepository } from "@yonder/local-host/release/repository";
 import { expect, test, vi } from "vitest";
@@ -56,6 +59,14 @@ test("Linux user unit and Windows wrappers keep installed code separate from hom
 	expect(special).not.toContain('Environment="YONDER_HOME=/tmp/Agent $$h');
 	const wrapper = windowsLauncher("C:\\Yonder App", "C:\\Node\\node.exe", "C:\\Node");
 	expect(wrapper).toContain('"C:\\Node\\node.exe" "C:\\Yonder App\\current\\packages\\cli\\dist\\index.js" %*');
+	// Install-time workspace binaries are wrappers over the versioned entry, like `yonder` itself.
+	expect(workspaceLauncher("/opt/yonder", "current/packages/device/dist/cli.js", "/usr/bin/node", "/usr/bin")).toBe(
+		"#!/bin/sh\nPATH='/usr/bin'\nYONDER_INSTALL='/opt/yonder'\nexport PATH YONDER_INSTALL\nexec '/usr/bin/node' '/opt/yonder/current/packages/device/dist/cli.js' \"$@\"\n",
+	);
+	expect(
+		windowsWorkspaceLauncher("C:\\Yonder App", "current/packages/device/dist/cli.js", "C:\\Node\\node.exe", "C:\\Node"),
+	).toContain('"C:\\Yonder App\\current\\packages\\device\\dist\\cli.js" %*');
+	expect(workspaceBins.map(({ name }) => name)).toEqual(["yonder-executor", "yonder-clipboard", "yonder-qq"]);
 	expect(windowsServiceLauncher("C:\\Yonder App", "C:\\Agent Home", "C:\\Node\\node.exe", "C:\\Node")).toContain(
 		'start --home "C:\\Agent Home" --json',
 	);
