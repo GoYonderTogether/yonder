@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26110401] - 2026-11-04
+
+### Added
+
+- one-command iPhone install of the production shell
+- move the main site to the filed domain yonder.zethai.cn
+
 ## [0.3.26110303] - 2026-11-03
 
 ### Fixed
