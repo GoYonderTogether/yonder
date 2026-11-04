@@ -75,10 +75,10 @@ export function Login() {
 					<h1 className="display">{mode === "register" ? "注册" : "登录"}</h1>
 					<p className="mt-2 text-small leading-relaxed text-muted">
 						{mode === "register"
-							? "验证手机号或邮箱，并设置登录密码。已有账号请直接登录。"
+							? "验证手机号，并设置登录密码。已有账号请直接登录。"
 							: mode === "password"
-								? "使用手机号、邮箱或账号 ID 登录。"
-								: "使用手机号或邮箱接收验证码，首次验证可创建账号。"}
+								? "使用手机号或账号 ID 登录。"
+								: "使用手机号接收验证码，首次验证可创建账号。"}
 					</p>
 				</div>
 				{shareError && (
@@ -89,7 +89,7 @@ export function Login() {
 				{mode === "password" ? (
 					<form onSubmit={submit} className="flex flex-col gap-4">
 						<Field
-							label="手机号 / 邮箱 / 账号 ID"
+							label="手机号 / 账号 ID"
 							autoComplete="username"
 							type="text"
 							value={identifier}
