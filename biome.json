@@ -10,6 +10,7 @@
 			"!.pi/tasks",
 			"!.vitest/json",
 			"!apps/desktop/src-tauri/gen",
+			"!apps/desktop/src-tauri/plugins/*/permissions/schemas",
 			"!apps/desktop/src-tauri/runtime",
 			"!apps/desktop/src-tauri/target",
 			"!**/node_modules",

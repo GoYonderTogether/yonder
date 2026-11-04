@@ -141,13 +141,16 @@ function applyHealthKit() {
 	let changed = false;
 	const healthEntries = yml.split("\n").filter((line) => line.trim() === "- sdk: HealthKit.framework").length;
 	if (!yml.includes("com.apple.HealthKit")) {
-		if (!/^    entitlements:\n      path: \S+$/m.test(yml)) {
+		if (!/^ {4}entitlements:\n {6}path: \S+$/m.test(yml)) {
 			console.error("prepare-ios: unexpected project.yml layout (no entitlements path line)");
 			process.exit(1);
 		}
 		// project.yml 的 entitlements 段是 xcodegen 的 `entitlements: path:`，属性写在
 		// entitlements.properties；xcodegen 会据此生成 .entitlements 文件并接进签名。
-		yml = yml.replace(/^(    entitlements:\n      path: \S+)$/m, "$1\n      properties:\n        com.apple.HealthKit: true\n");
+		yml = yml.replace(
+			/^( {4}entitlements:\n {6}path: \S+)$/m,
+			"$1\n      properties:\n        com.apple.HealthKit: true\n",
+		);
 		changed = true;
 	}
 	if (healthEntries === 0) {

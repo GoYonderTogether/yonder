@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-	hasNativeShell,
-	nativePermissionStatus,
-	requestNativePermission,
-} from "../src/lib/nativePermissions";
+import { hasNativeShell, nativePermissionStatus, requestNativePermission } from "../src/lib/nativePermissions";
 
 describe("nativePermissions", () => {
 	it("没有壳注入时一律返回 unsupported，不触任何调用", async () => {
