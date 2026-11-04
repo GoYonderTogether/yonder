@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import socket
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
@@ -312,6 +313,7 @@ class YonderAdapter:  # noqa: D101 - duck-typed BasePlatformAdapter (see module 
             device_token=stored.device_token,
             on_frame=self._on_frame,
             on_close=self._on_disconnect,
+            on_open=self._send_hello,
         )
         self._work = WorkBridge(self._harness, self._connection, host, host)
         self._bots = BotBridge(
@@ -407,6 +409,15 @@ class YonderAdapter:  # noqa: D101 - duck-typed BasePlatformAdapter (see module 
         self._hello_sent = False
         logger.warning("[Yonder] 连接断开（%s），正在重连。", reason)
 
+    def _send_hello(self) -> None:
+        """hello announces work capability only after the session methods exist
+        (spec 23 §2.1) — they are wired in connect(), so every reconnect says so."""
+        if self._hello_sent:
+            return
+        self._hello_sent = True
+        if self._connection is not None:
+            self._connection.send({"type": "hello", "workProtocol": 1})
+
     def _on_ack(self, agent_id: str, conv_id: str, seq: int) -> None:
         key = f"{agent_id}:{conv_id}"
         if seq <= self._state["cursors"].get(key, 0):
@@ -442,22 +453,18 @@ class YonderAdapter:  # noqa: D101 - duck-typed BasePlatformAdapter (see module 
     async def put_agents(self, agents: list) -> list:
         """`PUT /api/device/agents`: the harness's complete agent list, reconciled
         by the cloud (spec 23 §2.2)."""
-        endpoint = self.endpoint
         stored = read_config(self.state_path)
         if stored is None:
             raise RuntimeError("Yonder connector is not paired")
+        # The paired endpoint (config.json) is authoritative; a plugin-config
+        # endpoint only matters before a pairing exists.
+        endpoint = stored.endpoint
         import urllib.request
 
-        request = urllib.request.Request(
-            f"{cloud_url(endpoint).scheme}://{cloud_url(endpoint).netloc}/api/device/agents",
-            data=json.dumps(agents).encode(),
-            headers={
-                "authorization": f"Bearer {stored.device_token}",
-                "content-type": "application/json",
-            },
-            method="PUT",
-        )
-        with urllib.request.urlopen(request, timeout=15) as response:
+        logger.info("[Yonder] PUT /api/device/agents state=%s token_prefix=%s agents=%d",
+                    self.state_path, stored.device_token[:6], len(agents))
+        with _cloud_opener().open(_cloud_request(endpoint, "/api/device/agents", stored.device_token,
+                                                 json.dumps(agents).encode(), "PUT"), timeout=15) as response:
             body = json.loads(response.read() or b"[]")
         if not isinstance(body, list):
             raise RuntimeError("Bot registration returned an invalid body")
@@ -495,6 +502,21 @@ def _send_result(ok: bool, error: Optional[str] = None):
         return SendResult(success=ok, message_id=None, error=error)
     except Exception:
         return {"success": ok, "error": error}
+
+
+def _cloud_opener() -> urllib.request.OpenerDirector:
+    """An opener that ignores macOS/system proxies: the cloud endpoint may be
+    loopback, and a system proxy must not stand between the connector and its
+    account. HTTPS_PROXY stays honored for real remote endpoints only when the
+    address is not loopback (urllib's own rules already skip loopback... they
+    do not — hence this explicit no-proxy handler)."""
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _cloud_request(endpoint: str, path: str, token: str, data: Optional[bytes], method: str) -> urllib.request.Request:
+    url = cloud_url(endpoint)
+    headers = {"authorization": f"Bearer {token}", "content-type": "application/json"}
+    return urllib.request.Request(f"{url.scheme}://{url.netloc}{path}", data=data, headers=headers, method=method)
 
 
 def _hermes_profiles() -> list:

@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, ProxyHandler
 
 API_TIMEOUT_S = 20.0
 
@@ -176,7 +176,9 @@ class HarnessService:
             data = json.dumps(body).encode()
             headers["content-type"] = "application/json"
         request = Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
-        with urlopen(request, timeout=API_TIMEOUT_S) as response:
+        # The api_server is loopback; a system proxy must not intercept it.
+        opener = build_opener(ProxyHandler({}))
+        with opener.open(request, timeout=API_TIMEOUT_S) as response:
             payload = response.read()
         return json.loads(payload) if payload else None
 

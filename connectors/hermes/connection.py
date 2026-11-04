@@ -52,11 +52,13 @@ class CloudConnection:
         device_token: str,
         on_frame: Callable[[InboundFrame], None],
         on_close: Optional[Callable[[str], None]] = None,
+        on_open: Optional[Callable[[], None]] = None,
     ) -> None:
         self.endpoint = endpoint
         self.device_token = device_token
         self._on_frame = on_frame
         self._on_close = on_close
+        self._on_open = on_open
         self._socket: Any = None
         self._open = False
         self._stopped = False
@@ -117,7 +119,12 @@ class CloudConnection:
     _last_reason: str = ""
 
     async def _pump(self, socket: Any) -> None:
-        self._flush_hello()
+        # The owner announces work capability on every (re)connect (spec 23 §2.1).
+        if self._on_open is not None:
+            try:
+                self._on_open()
+            except Exception:
+                pass
         async for raw in socket:
             if self._stopped:
                 return
@@ -127,11 +134,6 @@ class CloudConnection:
                     self._on_frame(frame)
                 except Exception:
                     pass  # one bad handler must not drop the connection
-
-    def _flush_hello(self) -> None:
-        # hello is sent by the owner (WorkBridge/BotBridge) via send() after onOpen;
-        # the Python side keeps the same ordering: nothing before the socket opens.
-        pass
 
     async def _sleep_backoff(self) -> None:
         delay = self._delay

@@ -52,7 +52,10 @@ class BotBridge:
         try:
             await self.sync_agents()
         except Exception:
-            pass
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "[Yonder] Bot 登记失败（连接保持，稍后重试）", exc_info=True)
         self.connection.start()
         self._sync_task = asyncio.get_running_loop().create_task(self._sync_loop())
 
@@ -73,9 +76,11 @@ class BotBridge:
         # An empty list means the harness could not enumerate agents; reporting
         # it would retire every Bot.
         if not rows:
+            self._log("未能枚举 harness 的 agent 列表；本轮不登记（避免云端退役全部 Bot）。")
             return
         payload = [{"key": row["key"], "name": row["name"], "avatarUrl": None} for row in rows]
         self.bot_agents = await self.api.put_agents(payload)
+        self._log(f"已登记 Bot {len(self.bot_agents)} 个：{'、'.join(row['key'] for row in self.bot_agents)}。")
 
     def handle(self, frame: InboundFrame) -> bool:
         if frame.type == "sent":
