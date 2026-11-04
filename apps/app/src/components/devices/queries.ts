@@ -1,16 +1,23 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { api } from "../../api";
 import type { BotDevices } from "../../api/types";
+import { setWorkDevices } from "../../work/lib/workOnline";
 
 /** 账号全部已绑定设备（spec 19 §2）。与工作列表共用 ["account-devices"]，一处刷新两处更新。 */
 export function useAccountDevices(accountId: string | undefined) {
-	return useQuery({
+	const query = useQuery({
 		queryKey: ["account-devices", accountId],
 		enabled: !!accountId,
 		queryFn: api.devices,
 		retry: false,
 		refetchInterval: 5000,
 	});
+	// 设备页也要把这批事实交给工作桥的在线判断：设备详情里的会话列表走远程 rpc，缺了它就一律报「设备暂未连接」。
+	useEffect(() => {
+		if (query.data) setWorkDevices(query.data);
+	}, [query.data]);
+	return query;
 }
 
 /** 设备主人可见的 grant 摘要（19 §10）；observed:false 表示设备从未上报。 */
