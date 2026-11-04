@@ -169,6 +169,9 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 								<Link to="/me/devices" className="mt-3 inline-block text-small text-accent-ink">
 									管理设备
 								</Link>
+								<Link to="/me/connect-apps" className="mt-2 inline-block text-small text-accent-ink">
+									连接应用
+								</Link>
 							</section>
 						)}
 						<DeviceQueries key={`${session?.actor.id ?? "local"}:${node.id}`}>

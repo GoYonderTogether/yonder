@@ -28,6 +28,7 @@ const Tasks = lazy(() => import("./pages/Tasks").then((m) => ({ default: m.Tasks
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const ProfileEdit = lazy(() => import("./pages/ProfileEdit").then((m) => ({ default: m.ProfileEdit })));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
+const ConnectApps = lazy(() => import("./pages/ConnectApps").then((m) => ({ default: m.ConnectApps })));
 
 function Private({ children }: { children: ReactNode }) {
 	const s = useStore($session);
@@ -118,6 +119,7 @@ export function App() {
 						<Route path="/me" element={<MeRoute />} />
 						<Route path="/me/devices" element={<MeDevicesRoute />} />
 						<Route path="/me/devices/:id" element={<MeDeviceRoute />} />
+						<Route path="/me/connect-apps" element={<ConnectApps />} />
 						<Route path="/me/edit" element={<ProfileEdit />} />
 						<Route path="/me/settings/:section?" element={<SettingsPage />} />
 						<Route path="/work/devices" element={<WorkDevicesRoute />} />

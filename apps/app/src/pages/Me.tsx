@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Monitor, Settings } from "lucide-react";
+import { ChevronRight, Monitor, Puzzle, Settings } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api";
@@ -152,6 +152,7 @@ export function Me() {
 							}}
 						/>
 						<div className="overflow-hidden rounded-card bg-raised">
+							<Item to="/me/connect-apps" icon={Puzzle} label="连接应用" />
 							<Item to="/me/devices" icon={Monitor} label="设备" />
 						</div>
 						{!agents.length && !failure && (
