@@ -32,7 +32,7 @@ export interface CodeFormValue {
  * 登录、访客额度弹窗和账号绑定共用；发码与校验的具体接口由调用方传入，表单只管流程与校验。
  */
 export function CodeForm<Result>({
-	kinds = ["phone", "email"],
+	kinds = ["phone"],
 	children,
 	fixedTarget,
 	onBusyChange,
