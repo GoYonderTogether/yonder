@@ -133,6 +133,17 @@ PASS 卸载后 DSH 与安装前一致（逐文件对比 + 正常启动） — �
 - **收窄后那一步的拒绝形态**：执行端确实不再持有该 Bot 的生效 grant、磁盘上没有新文件、模型没有声称成功；
   但模型这一轮看到的是"工具不在本轮名单里"，而不是一条 `UNAUTHORIZED` 回执。两者都是真实原因，本轮记录前者。
 
+## 环境隔离
+
+任务全程的 DSH 调用都带了显式 `DSH_HOME`（`${TMPDIR}p6-e2e-*/p6-dsh`）。**一处例外如实记录**：开工早期有两条探索命令
+（`dsh web --from-default-profile web --help` 与 `dsh --profile p6 --from-default-profile web --dump-config`，19:07–19:10）
+忘了带 `DSH_HOME`，其中第二条在 `~/.dsh/profiles/` 下按默认 home 建了一个 `web` profile。已删除该目录；`~/.dsh/profiles/`
+现在只剩任务开始前就有的 `desktop` 与 `headless`。
+
+`~/.dsh/profiles/desktop` 四个文件 md5 与 P4 记下的一致（`cordis.patch.yml` 仍是用户自己改后的 `036fc2094b51eccf9530cce96673af39`）。
+`~/.dsh/profiles/desktop/package.json` 的 mtime 是 11:21，来自用户正在运行的 DSH Desktop（该进程 11-03 23:19 启动、至今在跑），
+不是本任务：本任务在该时刻之后才开始调用 dsh，且所有调用都指向隔离 home。`~/.dsh/sessions`、`~/.dsh/storages` 的 mtime 仍是 11-03。
+
 ## 清理
 
 脚本 `finally` 关闭它启动的每个进程（Chrome、DSH、agent host、执行端、worker、云端 server、Redis、PG），并删除临时目录。
