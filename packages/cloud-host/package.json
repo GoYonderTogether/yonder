@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/cloud-host",
-	"version": "0.3.26110401",
+	"version": "0.3.26110402",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -25,24 +25,24 @@
 		"prompts"
 	],
 	"dependencies": {
-		"@yonder/bot-definition": "0.3.26110401",
+		"@yonder/bot-definition": "0.3.26110402",
 		"pg": "8.23.1",
-		"@yonder/bot-core": "0.3.26110401",
-		"@yonder/runtime-adapter": "0.3.26110401",
-		"@yonder/sdk": "0.3.26110401",
-		"@yonder/plugin-agent-presets": "0.3.26110401",
-		"@yonder/plugin-memory": "0.3.26110401",
-		"@yonder/plugin-tasks": "0.3.26110401",
-		"@yonder/plugin-cron": "0.3.26110401",
-		"@yonder/plugin-market": "0.3.26110401",
-		"@yonder/plugin-web-tools": "0.3.26110401",
-		"@yonder/plugin-channel-card": "0.3.26110401",
-		"@yonder/local-host": "0.3.26110401"
+		"@yonder/bot-core": "0.3.26110402",
+		"@yonder/runtime-adapter": "0.3.26110402",
+		"@yonder/sdk": "0.3.26110402",
+		"@yonder/plugin-agent-presets": "0.3.26110402",
+		"@yonder/plugin-memory": "0.3.26110402",
+		"@yonder/plugin-tasks": "0.3.26110402",
+		"@yonder/plugin-cron": "0.3.26110402",
+		"@yonder/plugin-market": "0.3.26110402",
+		"@yonder/plugin-web-tools": "0.3.26110402",
+		"@yonder/plugin-channel-card": "0.3.26110402",
+		"@yonder/local-host": "0.3.26110402"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",
-		"@yonder/sdk": "0.3.26110401",
-		"@yonder/plugin-memory": "0.3.26110401",
-		"@yonder/local-host": "0.3.26110401"
+		"@yonder/sdk": "0.3.26110402",
+		"@yonder/plugin-memory": "0.3.26110402",
+		"@yonder/local-host": "0.3.26110402"
 	}
 }

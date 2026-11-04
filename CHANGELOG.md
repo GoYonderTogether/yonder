@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.26110402] - 2026-11-04
+
 ### Added
 
 - cloud-host：平台模型改为官方 DeepSeek（`https://api.deepseek.com`、`deepseek-flash`），base URL 与模型 id 由 `CLOUD_BOT_MODEL_BASE_URL` / `CLOUD_BOT_MODEL` 配置；仍是唯一平台模型，用户不能自选。
@@ -12,6 +14,67 @@
 - hermes-connector：新增 Hermes 平台插件（drop-in），出站 `/ws/device` 连接把本机 Hermes 及其 profile 登记为 Bot，会话经 api_server REST 与网关事件流驱动（spec 23；状态仅 `<HERMES_HOME>/yonder/`）。
 - openclaw-connector：新增 OpenClaw feature 插件，经本地 Gateway WebSocket（与 CLI/Control UI 同一 RPC 面）驱动会话，并登记 OpenClaw agent 为 Bot（spec 23；状态仅 `<OPENCLAW_STATE_DIR>/yonder/`）。
 - bot-network：新增 `scripts/bot-network/e2e.mjs`，一条命令跑完真机端到端环路（临时 PG/Redis、真实云端与 worker、构建好的网页 + headless Chrome、真实 `yonder-connect dsh`、DSH 与真实模型、执行端、收窄与卸载）。
+- app：a short 主 Bot 运行位置 section in settings
+- cloud-host：let a new Bot announce itself once, on the real connected event
+- app：MVP frontend — tabs, tasks, prototype card, paper style, onboarding
+- cloud-host：ask the read-only quota check before every model call
+- runtime：check and charge model tokens at every request
+- cloud-host：run the shared worker on the official DeepSeek API
+- add the OpenClaw connector feature plugin
+- add hermes and openclaw subcommands to @yonder/connect
+- add the Hermes connector platform plugin
+- app：remote sessions show the real host name and online state in the header
+- app：bot device scope, connect-an-existing-Bot entry and device links
+- app：device list and detail pages under Me and Work
+- app：expose the bot-network device APIs to the web client
+- add the DSH connector bundle and the connect installer
+- local-host：ship the devices plugin by default, expose workspace bins, report a missing plugin
+- device,devices：cloud-introduced pairing, inbox relay and cloud discovery
+- protocol：add introduce RPC, grants.list and cloud attestation
+- execute authorized owner device tools through the shared bot runtime
+- prepare final interactive card replies from trusted run sources
+- show cloud bot errors and independent card action links
+- run shared multi-tenant cloud bots with postgres storage
+
+### Fixed
+
+- ci：make PostgreSQL tests configurable and Windows-safe
+- channel-card：keep the worker Bot's greeting field when parsing the map
+- cloud-host：only mark a Bot announced after the notice woke it
+- cloud-host：a failed usage report never fails a finished model call
+- connect,app：finish what the P6 loop found
+- use the bundled ws client, read the handshake reply off the socket, and match real CLI flags
+- app：the device pages feed the work bridge's online map
+- send the device hello, register against the paired endpoint, and skip system proxies
+- cloud-host：one harness device no longer empties the Bot's device tools
+- local-host：keep device grants when the run selected no resources
+- app：DeviceSheet unbind calls onRemoved so the detail page returns to the list
+- read the DSH log cut, stream assistant text, and degrade safely
+- device,devices：make the cloud-introduced path work end to end
+- restore prompt semantics and correct CLI forms in tool errors
+- reuse bot model bindings without retaining cross-tenant runtime state
+- drain terminal plugin observations before host storage closes
+- preserve bounded descending event queries in postgres
+- release idle bots without serializing tenant activation
+- store task artifacts through the plugin host storage capability
+- omit unavailable cloud runtime features and unused source options
+- load postgres runtime records on demand and exercise long bot histories
+- share confirmed bot speech filtering across delivery and social history
+
+### Changed
+
+- build operability configuration facts in one place
+- share wake and policy-drop rules between routing and operability
+- drop unread fields from operability prediction
+- remove redundant local host kernel forwarding files
+- share host permission and execution-owner wiring
+- remove core compatibility package and enforce real workspace boundaries
+- share bot composition and isolate runtime host capabilities
+- share plugin storage and host trigger scheduling
+- inject runtime storage and persist bot state in postgres
+- share filesystem and postgres bot definition sources
+- extract shared bot definition package
+- inject host facts and isolate pure prompt assembly
 
 ## [0.3.26110401] - 2026-11-04
 
