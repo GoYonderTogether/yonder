@@ -12,6 +12,7 @@ import {
 } from "@earendil-works/pi-durable";
 import type { Models } from "@yonder/sdk";
 import { cid, RunDoc, type RunState } from "./docs.js";
+import { type ModelQuotaResolver, ModelUse } from "./model-use.js";
 import type { RuntimeOptions, RuntimeRun, RuntimeSessionConfig } from "./types.js";
 
 export interface LimitsDeps {
@@ -22,6 +23,8 @@ export interface LimitsDeps {
 	onTick?(state: RunState): Promise<number | undefined>;
 	tickIntervalMs?: number | undefined;
 	usage(session: string): Promise<RuntimeRun["usage"]>;
+	/** Platform token quota resolver; absent for hosts that do not bill model calls. */
+	modelQuota: ModelQuotaResolver | undefined;
 	programConfig(
 		taskId: TaskId,
 		context: Context,
@@ -38,7 +41,11 @@ export interface LimitsDeps {
 /** Soft run thresholds, repeat protection and model-input limits for active runs. */
 export class RunLimits {
 	readonly states = new Map<string, RunState>();
-	constructor(private deps: LimitsDeps) {}
+	/** Token quota for the platform model; the host's own ledger, asked once per call (docs/spec/16 §6). */
+	readonly modelUse: ModelUse;
+	constructor(private deps: LimitsDeps) {
+		this.modelUse = new ModelUse(deps.modelQuota);
+	}
 	arm(state: RunState, next = this.deps.tickIntervalMs ?? 300000): void {
 		state.timer = setTimeout(
 			() => {
@@ -121,6 +128,10 @@ export class RunLimits {
 				beforeRequest: async (request, api, context) => {
 					const state = await this.runState(api, context);
 					if (state.reason) await this.stop(context, state, state.reason);
+					// The quota is checked at the one place every request passes, so a run that crosses a limit stops
+					// at that request instead of after the whole turn (docs/spec/16 §6).
+					const refused = await this.modelUse.check(state.session, state.id);
+					if (refused !== undefined) await this.stop(context, state, refused, true);
 					if (state.turns >= state.config.resolved.limits.maxTurns)
 						await this.warn(state, "maxTurns", this.limitText("maxTurns", state, `已用 ${state.turns} 轮`));
 					const conversation = await this.deps.harness().conversation(api.conversationId, context);
@@ -163,6 +174,7 @@ export class RunLimits {
 				},
 				afterResponse: async (message, api, context) => {
 					const state = await this.runState(api, context);
+					await this.modelUse.charge(state.session, state.id, message.usage);
 					const usage = await this.deps.usage(state.session);
 					const tokens = (["input", "output"] as const).reduce(
 						(sum, key) => sum + usage[key] + message.usage[key] - state.usageBefore[key],

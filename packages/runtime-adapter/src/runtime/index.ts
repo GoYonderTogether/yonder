@@ -180,6 +180,7 @@ export class Runtime {
 		});
 		this.limits = new RunLimits({
 			harness: () => this.harness,
+			modelQuota: options.modelQuota,
 			models: this.models,
 			onReport: options.onReport,
 			onWarning: options.onWarning,

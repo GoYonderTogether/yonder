@@ -103,6 +103,13 @@ export interface RuntimeOptions {
 	admitRun?(admission: { session: string; run: string; inputs: YEvent[] }): Promise<void>;
 	onRun?(session: string, run: RuntimeRun): Promise<void>;
 	/**
+	 * Token quota gate for the platform model (docs/spec/16 §6, 2026-11-05). `check` runs before every actual
+	 * provider request and returns the message that refuses it; `record` runs once per finished attempt with the
+	 * tokens it really consumed. Cache hits are never counted. The host owns the ledger; the runtime only calls
+	 * it, so a local Bot without a quota passes nothing.
+	 */
+	modelQuota?(session: string): import("./runtime/model-use.js").ModelQuotaPort | undefined;
+	/**
 	 * A finished run's usage, settled before `onRun` records it. The kernel checks session budgets here; the
 	 * runtime itself stays below sessions (architecture §6, L1 < L2).
 	 */

@@ -148,6 +148,11 @@ export interface RuntimeLiveOutput {
 
 export interface RuntimeLimits {
 	states: Map<string, import("./runtime/docs.js").RunState>;
+	/**
+	 * Platform token quota ledger for this run's model calls (docs/spec/16 §6). Absent only on a host's
+	 * stand-in limits object in tests; a real RunLimits always creates one.
+	 */
+	modelUse?: import("./runtime/model-use.js").ModelUse;
 	hooks(): import("@earendil-works/pi-durable").HookRegistration[];
 	arm(state: import("./runtime/docs.js").RunState): void;
 }

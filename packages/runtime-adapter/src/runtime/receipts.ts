@@ -112,6 +112,7 @@ export async function receiptRun(
 				usage,
 			};
 			if (!(await rt.options.settled?.(session, key))) {
+				await rt.limits.modelUse?.settle(session, key, usage);
 				await rt.options.onUsageSettled?.(session, usage);
 				try {
 					const attempts = await runAttempts(rt.storage, session, placed, answer?.id);
@@ -133,6 +134,9 @@ export async function receiptRun(
 			}
 			for (const input of receipt.inputs) rt.submissions.delete(String(input));
 			if (rt.configured.get(session) === state?.config) rt.configured.delete(session);
+			// A receipt that was already settled never reconciles; its per-attempt charges stay in the ledger and
+			// only this bookkeeping entry is dropped.
+			rt.limits.modelUse?.forget(key);
 		}
 	})();
 	rt.finishing.set(finishKey, promise);
