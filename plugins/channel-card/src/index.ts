@@ -125,6 +125,8 @@ export function createCardWorkerPlugin(host: import("./channel.js").CardWorkerHo
 	channels: Map<string, Channel>;
 	start(): Promise<void>;
 	stop(): Promise<void>;
+	/** worker 确认「已连接」事件唤醒了这些 Bot；平台据此消费待提醒事实。 */
+	acknowledgeGreetings(botIds: string[]): void;
 } {
 	const channel = new CardChannel("card", host);
 	const channels = new Map<string, Channel>([[channel.id, channel]]);
@@ -133,5 +135,6 @@ export function createCardWorkerPlugin(host: import("./channel.js").CardWorkerHo
 		channels,
 		start: () => channel.start(),
 		stop: () => channel.stop(),
+		acknowledgeGreetings: (botIds) => channel.acknowledgeGreetings(botIds),
 	};
 }

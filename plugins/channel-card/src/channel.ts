@@ -482,6 +482,7 @@ export class CardChannel implements Channel {
 		if (!agentId) throw new Error("Card Agent not registered");
 		return this.request("/api/device/cards", "POST", { ...data, agentId }, signal);
 	}
+	acknowledgeGreetings = (botIds: string[]): void => this.worker?.greeted?.(botIds);
 	async stop(): Promise<void> {
 		this.stopped = true;
 		notifyWorkerDisconnected(this.worker, "worker stopped", this.workerDisconnectNotified, this.warn.bind(this));

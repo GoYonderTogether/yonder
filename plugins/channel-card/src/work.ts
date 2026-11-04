@@ -12,6 +12,8 @@ export interface CardWorkerHost {
 	receive(input: { agentId: string; convId: string; sourceMessageId: string; event: EventInput }): Promise<void>;
 	onResult?(sourceMessageId: string, delivery: Delivery): void | Promise<void>;
 	disconnected?(reason: string): void | Promise<void>;
+	/** 这些 Bot 的「已连接」事件真的唤醒了它们，平台可以消费掉那条待提醒事实。 */
+	greeted?(botIds: string[]): void;
 	log?(message: string): void;
 }
 
