@@ -76,8 +76,6 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 	type Bot = Awaited<ReturnType<typeof openCloudBot>>;
 	type Entry = { ready: Promise<Bot>; busy: boolean; used: number; closing?: Promise<void> };
 	const identities = new Map<string, CloudBotIdentity>();
-	/** Admission is idempotent per run, so later checks repeat the source the server already accepted. */
-	const admittedSources = new Map<string, string>();
 	const active = new Map<string, Entry>();
 	const queues = new Map<string, Promise<unknown>>();
 	const sources = new Map<
@@ -257,7 +255,6 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 						(event) => event.type === "message.in" && (event.data as { msgId?: string }).msgId,
 					);
 					const sourceMessageId = source && (source.data as { msgId: string }).msgId;
-					if (sourceMessageId) admittedSources.set(run, sourceMessageId);
 					const response = await fetch(
 						`${options.endpoint}/api/worker/bots/${encodeURIComponent(id)}/model-admission`,
 						{
@@ -282,22 +279,20 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 				},
 				// Token 额度按每一次模型调用检查与入账：准入只管运行开始，长运行可能在半途撞上额度。
 				async checkQuota(run) {
-					// 同一次运行的重复检查必须带原来的来源消息，服务端才认得出这是同一个来源而不是新运行。
-					const sourceMessageId = admittedSources.get(run);
-					const response = await fetch(
-						`${options.endpoint}/api/worker/bots/${encodeURIComponent(id)}/model-admission`,
-						{
+					// 每次模型调用前重判额度；只读服务端账本，不再占用每小时回复名额。
+					try {
+						const response = await fetch(`${options.endpoint}/api/worker/bots/${encodeURIComponent(id)}/quota-check`, {
 							method: "POST",
 							headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-							body: JSON.stringify({ runId: run, ...(sourceMessageId ? { sourceMessageId } : {}) }),
-						},
-					);
-					// 已经准入过的 run 直接放行：每小时回复上限只扣一次。
-					if (response.ok) return undefined;
-					const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
-					if (body.error === "run_conflict" || body.error === "source_not_admitted") return undefined;
-					if (body.error === "quota_exceeded") return body.message ?? "模型额度已用完";
-					return `云端额度服务暂不可用（HTTP ${response.status}）`;
+							body: JSON.stringify({ runId: run }),
+						});
+						if (response.ok || response.status === 204) return undefined;
+						const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
+						if (body.error === "quota_exceeded") return body.message ?? "模型额度已用完";
+						return `云端额度服务暂不可用（HTTP ${response.status}）`;
+					} catch {
+						return "云端额度服务暂不可用";
+					}
 				},
 				async recordQuota(run, usage) {
 					// 入账失败只报告，不让一次已经完成的模型调用变成失败：下一次检查仍会按服务端账本判定。
