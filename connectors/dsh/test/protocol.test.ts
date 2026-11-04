@@ -219,6 +219,8 @@ describe("device connection", () => {
 		cleanups.push(() => socket.stop());
 		socket.start();
 		await waitFor(() => cloud.sockets === 1, "socket");
+		// The server sees the upgrade before the client's `open` event fires.
+		await waitFor(() => socket.connected, "open");
 		expect(cloud.paths[0]).toBe("/ws/device");
 		expect(cloud.auth[0]).toBe("Bearer token-abc");
 		expect(socket.send({ type: "hello", workProtocol: 1 })).toBe(true);
