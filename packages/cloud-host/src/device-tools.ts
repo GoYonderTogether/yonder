@@ -34,9 +34,12 @@ export function createDeviceTools(options: {
 			body: JSON.stringify(body),
 			...(signal ? { signal } : {}),
 		});
-		const data = (await response.json()) as { ok: boolean; result?: T; error?: { message?: string } };
+		const data = (await response.json()) as { ok: boolean; result?: T; error?: { code?: string; message?: string } };
 		if (!response.ok || !data.ok || data.result === undefined)
-			throw new Error(data.error?.message ?? `Device RPC HTTP ${response.status}`);
+			// Keep the protocol code: `unsupported` is an answer about the device, not a failure of the call.
+			throw Object.assign(new Error(data.error?.message ?? `Device RPC HTTP ${response.status}`), {
+				code: data.error?.code,
+			});
 		return data.result;
 	}
 	const base = `/api/worker/bots/${encodeURIComponent(options.botId)}`;
@@ -73,17 +76,25 @@ export function createDeviceTools(options: {
 			for (const agent of device.agents) {
 				if (config.resources?.length && !config.resources.some((resource) => resource.deviceId === device.deviceId))
 					continue;
-				const { tools } = await request<{ tools: Descriptor[] }>(
-					`${base}/devices/${encodeURIComponent(device.deviceId)}/work/rpc/tools.catalog`,
-					{
-						platformAgentId: agent.platformAgentId,
-						sourceMessageIds,
-						callerSession: config.sessionId,
-						invocationId: `catalog:${config.sessionId}`,
-						ceiling: ceiling(config),
-					},
-					signal,
-				);
+				let tools: Descriptor[];
+				try {
+					({ tools } = await request<{ tools: Descriptor[] }>(
+						`${base}/devices/${encodeURIComponent(device.deviceId)}/work/rpc/tools.catalog`,
+						{
+							platformAgentId: agent.platformAgentId,
+							sourceMessageIds,
+							callerSession: config.sessionId,
+							invocationId: `catalog:${config.sessionId}`,
+							ceiling: ceiling(config),
+						},
+						signal,
+					));
+				} catch (error) {
+					// A harness device provides sessions, not device tools (23 §1). One such device must not
+					// remove every other device's tools from this run; a real failure still surfaces.
+					if ((error as { code?: unknown }).code === "unsupported") continue;
+					throw error;
+				}
 				for (const descriptor of tools) {
 					if (descriptor.capabilities.some((capability) => !config.resolved.capabilities.includes(capability)))
 						continue;
