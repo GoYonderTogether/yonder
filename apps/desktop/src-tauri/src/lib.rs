@@ -102,6 +102,10 @@ fn setup_mobile(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> 
         .title("Yonder")
         .build()?;
     let _ = window;
+    // iOS 原生设备能力（日历/提醒/通讯录/照片/位置/健康）；命令面只对远程站点放开
+    // （capabilities/mobile.json）。Android 没有对应实现，插件本身不参与 Android 构建。
+    #[cfg(target_os = "ios")]
+    app.handle().plugin(tauri_plugin_yonder_device::init())?;
     // 安卓应用内更新（docs/spec/09 §6.3）：启动时检查一次，回到前台再检查。
     // 系统安装确认框由用户点击；装完由系统重启应用。
     mobile_update::start(app);

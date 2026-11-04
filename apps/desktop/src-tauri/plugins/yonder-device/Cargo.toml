@@ -1,0 +1,15 @@
+[package]
+name = "tauri-plugin-yonder-device"
+version = "0.1.0"
+edition = "2021"
+links = "tauri-plugin-yonder-device"
+description = "Yonder iOS shell device capabilities: calendar, reminders, contacts, photos, location, health"
+
+[dependencies]
+tauri = { version = "=2.12.5" }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.145"
+thiserror = "=1.0.69"
+
+[build-dependencies]
+tauri-plugin = { version = "=2.7.2", features = ["build"] }

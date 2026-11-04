@@ -3,5 +3,15 @@
 	"windows": ["main"],
 	"platforms": ["android", "iOS"],
 	"remote": { "urls": ["https://yonder.zethai.cn/*", "https://yonderbot.net/*"] },
-	"permissions": ["core:default"]
+	"permissions": [
+		"core:default",
+		"yonder-device:allow-status",
+		"yonder-device:allow-request",
+		"yonder-device:allow-calendar-events",
+		"yonder-device:allow-reminders",
+		"yonder-device:allow-contacts",
+		"yonder-device:allow-photos-status",
+		"yonder-device:allow-location",
+		"yonder-device:allow-health"
+	]
 }

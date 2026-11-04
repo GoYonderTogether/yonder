@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reminders"
+description = "Enables the reminders command without any pre-configured scope."
+commands.allow = ["reminders"]
+
+[[permission]]
+identifier = "deny-reminders"
+description = "Denies the reminders command without any pre-configured scope."
+commands.deny = ["reminders"]

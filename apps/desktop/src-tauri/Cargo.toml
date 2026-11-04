@@ -17,6 +17,7 @@ tauri = { version = "=2.12.5", features = [] }
 serde_json = "=1.0.145"
 # mobile_update.rs 的清单解析与 sha256 校验是纯函数，宿主的 cargo test 也要编译。
 sha2 = "=0.10.9"
+serde = { version = "=1.0.229", features = ["derive"] }
 
 # Android 专用：JNI 与下载。精确锁版本，且只作用于 Android 目标，不影响桌面构建。
 [target.'cfg(target_os = "android")'.dependencies]
@@ -25,3 +26,8 @@ ndk-context = "=0.1.1"
 # ureq 3 的 rustls 后端用 Mozilla 根证书 + ring，不需要额外的 Java 组件或系统证书库接入。
 # 只开 rustls 与 json，不引入代理、cookie 等无关依赖。
 ureq = { version = "=3.5.0", default-features = false, features = ["rustls", "json"] }
+
+# iOS 原生设备能力（日历 / 提醒 / 通讯录 / 照片 / 位置 / 健康）。
+# 桌面目标也编译（命令返回 unsupported），注册插件只在 mobile setup 里。
+[target.'cfg(target_os = "ios")'.dependencies]
+tauri-plugin-yonder-device = { path = "plugins/yonder-device" }
