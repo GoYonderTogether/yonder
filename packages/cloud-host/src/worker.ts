@@ -300,11 +300,17 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 					return `云端额度服务暂不可用（HTTP ${response.status}）`;
 				},
 				async recordQuota(run, usage) {
-					await fetch(`${options.endpoint}/api/worker/bots/${encodeURIComponent(id)}/model-usage`, {
-						method: "POST",
-						headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-						body: JSON.stringify({ runId: run, input: usage.input, output: usage.output }),
-					});
+					// 入账失败只报告，不让一次已经完成的模型调用变成失败：下一次检查仍会按服务端账本判定。
+					try {
+						const response = await fetch(`${options.endpoint}/api/worker/bots/${encodeURIComponent(id)}/model-usage`, {
+							method: "POST",
+							headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+							body: JSON.stringify({ runId: run, input: usage.input, output: usage.output }),
+						});
+						if (!response.ok) report(new Error(`Cloud model usage report failed (HTTP ${response.status})`));
+					} catch {
+						report(new Error("Cloud model usage report failed"));
+					}
 				},
 			}),
 		};
