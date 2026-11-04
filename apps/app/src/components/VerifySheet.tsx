@@ -225,7 +225,7 @@ export function CodeForm<Result>({
 }
 
 /**
- * 登录用的验证码表单：手机 / 邮箱两个 tab，发码 → 填 6 位码 → 登录。
+ * 登录用的验证码表单：手机号发码 → 填 6 位码 → 登录（首次即注册）。
  * 首次验证即注册，没有密码框。登录页和访客额度弹窗共用。
  */
 export function VerifyCodeForm({
