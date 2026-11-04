@@ -1,5 +1,14 @@
 import { execFile } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	rmdirSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 /**

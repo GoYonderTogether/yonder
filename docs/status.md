@@ -4,13 +4,29 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## Bot 网络 P6 端到端环路（2026-11-04）
+
+一个真机环路，一条命令跑完（`scripts/bot-network/e2e.mjs`）：临时 PG/Redis → 真实云端 server → 构建好的网页（headless Chrome）
+→ 真实 `yonder-connect dsh` 与真实 `/connect` 确认页 → DSH 用自己的 DeepSeek → 真实执行端作为第二台设备 → 云端 Bot（真实
+`glm-5.3-flash`）经 `devices_list`/`devices_operation` 在执行端上读写文件 → 网页收窄后下一次调用被执行端拒绝 → `--remove` 卸载。
+最终一轮 27 通过 / 0 失败 / 0 未测，连跑两轮一致；证据见[本轮验收](verification/bot-network-p6-e2e-20261104.md)、[P6 报告](../proposals/bot-network/reports/P6.md)。
+
+本轮修掉四个真实缺陷：程序入口为"未选择资源"合成只有本机的资源表（每台远端设备都报无授权）；允许表里有 harness
+设备时 `tools.catalog` 的 `unsupported` 清空其它设备的工具；设备页不填充工作桥在线表使详情会话恒报「设备暂未连接」；
+`--remove` 留下连接器状态目录。另修了收窄复选框可访问名缺设备类型。
+
+- **未测**：V11（spec 23 §1 规定连接器不提供设备执行能力，没有实现路径，未发明）；V9 沿用 P4 的"不成立"结论；
+  真实 `npx -y @yonder/connect dsh`（包未发布）；生产云、Windows/Linux、多会话并发与卡片附件入站。
+
+计数：yonder `npm test` 2896 通过 / 0 失败 / 113 跳过（535 文件通过 / 67 跳过），build、typecheck、lint（size 654、layer 109/769，基线 0）全部通过；云端 server 真实 PG/Redis 213 通过 / 0 失败 / 0 跳过。
+
 ## Bot 网络 P2 实现（2026-11-04）
 
 按主人对 P0–P1 六项问题的裁决实现（D5–D10，见 [decisions](decisions.md)）。两个 worktree 本地提交，未 push、未部署。
 
 - **已实现**：执行端 `/ws/execution` 收件箱与 `executor.hello` 自报身份、云端 UUID↔执行端 UUID 映射；`device.introduce` 与云端 HMAC 声明，执行端本地决定 grant；`grants.list`；执行端 grant 摘要上报、主人网页撤销（含离线排队）与 `grant.revoke`/`allow.policy` 下发；Bot×设备允许表与 `GET|PUT /api/bots/:id/devices`；设备凭据接口 `GET /api/device/devices`、`/api/device/agents`；`kind='harness'` 前向迁移（022）；默认发行包含 `devices` 插件；安装器写 `yonder-executor`/`yonder-clipboard`/`yonder-qq` 启动器；远程资源缺插件时报真实错误。
 - **已用真实进程验证**：两台设备同账号免手工配对互相列出与远程读写（V2）、按 Bot 收窄被执行端拒绝（V3 后端）、跨账号拒绝（V4）、在线与离线主人撤销（V5）、manual-only 拒绝云端介绍而手工配对仍可用（V6）。证据见[本轮验收](verification/bot-network-p2-20261104.md)。
-- **尚未实现**：网页设备详情/Bot 可操作设备/撤销界面（P3）、`@yonder/connect` 与三个连接器（P4–P5）、真实模型下的云端 Bot 跨设备调用回合、安装版实际执行一次更新。
+- **尚未实现**：安装版 `yonder-executor` 实际执行一次更新；V11 的"harness Bot 直接操作另一台设备"（spec 23 §1 无此能力）。网页设备页与三个连接器已在 P3–P5 完成，真实模型下的云端 Bot 跨设备调用回合已在 P6 跑通。
 - **未测**：真实 `openai/gpt-6-luna`（本机无凭据）；Windows 启动器；生产 2 核 2 GB 共存。
 
 计数：yonder `npm test` 2788 通过 / 0 失败 / 113 跳过（521 文件通过 / 67 跳过），`test:node` 83/0；build、typecheck、lint（含 size 645 与 layer 109/750、基线 0）全部通过。云端 server 真实 PG/Redis 211 通过 / 0 失败 / 0 跳过（22 suites），deploy 19/0、market 13/0、SSR 3/0，build/typecheck/version 通过；云端仍无 lint 脚本。

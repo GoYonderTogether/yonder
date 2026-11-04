@@ -10,8 +10,16 @@
 - hermes-connector：新增 Hermes 平台插件（drop-in），出站 `/ws/device` 连接把本机 Hermes 及其 profile 登记为 Bot，会话经 api_server REST 与网关事件流驱动（spec 23；状态仅 `<HERMES_HOME>/yonder/`）。
 - openclaw-connector：新增 OpenClaw feature 插件，经本地 Gateway WebSocket（与 CLI/Control UI 同一 RPC 面）驱动会话，并登记 OpenClaw agent 为 Bot（spec 23；状态仅 `<OPENCLAW_STATE_DIR>/yonder/`）。
 
+### Added
+
+- bot-network：新增 `scripts/bot-network/e2e.mjs`，一条命令跑完真机端到端环路（临时 PG/Redis、真实云端与 worker、构建好的网页 + headless Chrome、真实 `yonder-connect dsh`、DSH 与真实模型、执行端、收窄与卸载）。
+
 ### Fixed
 
+- local-host：云端 Bot 的程序入口不再为"未选择资源"合成只有本机的资源表，否则每台远端设备都被判成"没有当前授权"。
+- cloud-host：允许表里存在 harness 设备时，`tools.catalog` 的 `unsupported` 只跳过该设备，不再清空整轮其它设备的工具。
+- app：设备页把真实在线事实交给工作桥，设备详情里的会话列表不再恒报「设备暂未连接」；Bot 可操作设备的复选框可访问名带上设备类型，同主机名的两台设备可以分辨。
+- connect：`--remove` 清除连接器自己的（空）状态目录，23 §6 的显式断开不再留下目录。
 - channel-feishu：背景不再复制本轮待处理正文；已送达助手发言附原来源和时间，明确回执不证明其中的配置或完成结论。
 - core：后台结果与续办输入标明程序角色及已核验的原请求范围；未知来源明确保留，历史回执不代替新请求完成。
 
