@@ -34,9 +34,6 @@ beforeEach(async () => {
 		),
 	);
 });
-beforeEach(async () => {
-	await act(async () => button("验证码登录 / 忘记密码")?.dispatchEvent(new window.Event("click", { bubbles: true })));
-});
 afterEach(async () => {
 	await act(() => root.unmount());
 	vi.unstubAllGlobals();
@@ -69,12 +66,11 @@ async function submit() {
 }
 
 describe("Login 验证码登录", () => {
-	it("renders phone and email tabs and no password field", () => {
+	it("renders phone code form and no password field", () => {
 		expect(container.textContent).toContain("手机号");
-		expect(container.textContent).toContain("邮箱");
-		expect(container.textContent).toContain("首次验证可创建账号");
+		expect(container.textContent).toContain("首次验证会直接创建账号");
 		expect(container.querySelector('input[type="password"]')).toBeNull();
-		// 验证码模式只包含联系方式与验证码；密码登录另有入口。
+		// 登录页只有一个手机号验证码入口；没有邮箱、密码或其他输入。
 		expect(container.querySelectorAll("input")).toHaveLength(2);
 		expect([...container.querySelectorAll("label")].some((el) => el.textContent === "密码")).toBe(false);
 	});
@@ -94,18 +90,6 @@ describe("Login 验证码登录", () => {
 		await act(async () => button("发送验证码")?.dispatchEvent(new window.Event("click", { bubbles: true })));
 		expect(api.sendCode).not.toHaveBeenCalled();
 		expect(container.textContent).toContain("请输入 11 位手机号");
-	});
-
-	it("switches to email and normalizes the address", async () => {
-		api.sendCode.mockResolvedValue({ sent: true, retryAfter: 60 });
-		await act(async () =>
-			[...container.querySelectorAll('[role="tab"]')]
-				.find((el) => el.textContent === "邮箱")
-				?.dispatchEvent(new window.Event("click", { bubbles: true })),
-		);
-		await type(field("邮箱"), "  Alice@Example.COM ");
-		await act(async () => button("发送验证码")?.dispatchEvent(new window.Event("click", { bubbles: true })));
-		expect(api.sendCode).toHaveBeenCalledWith({ kind: "email", target: "alice@example.com" });
 	});
 
 	it("logs in with the code, stores the session and navigates", async () => {

@@ -6,7 +6,6 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Actor } from "../src/api/types";
 import { PasswordReset } from "../src/components/PasswordReset";
-import { Login } from "../src/pages/Login";
 import { $session } from "../src/store";
 
 const api = vi.hoisted(() => ({ sendCode: vi.fn(), verifyCode: vi.fn(), shareLinkStatus: vi.fn() }));
@@ -69,43 +68,6 @@ const actor = {
 	email: "self@example.com",
 	code: "AB12CD",
 } as Actor;
-it("offers password login by a public account ID and a distinct verified registration form", async () => {
-	await render(<Login />);
-	expect(container.textContent).toContain("手机号 / 邮箱 / 账号 ID");
-	expect(container.querySelector('input[type="password"]')).not.toBeNull();
-	await click("注册新账号");
-	expect(container.querySelectorAll('[type="password"]')).toHaveLength(2);
-	expect([...container.querySelectorAll("label")].some((el) => el.textContent === "验证码")).toBe(true);
-	expect(container.textContent).not.toContain("不设密码");
-	expect(api.sendCode).not.toHaveBeenCalled();
-});
-it("checks registration support before sending any code on an old server", async () => {
-	password.ensureRegistrationSupported.mockRejectedValue(Object.assign(new Error("not_found"), { status: 404 }));
-	await render(<Login />, "/login?mode=register");
-	await type('input[type="tel"]', "13800138000");
-	await click("发送验证码");
-	expect(password.ensureRegistrationSupported).toHaveBeenCalledOnce();
-	expect(api.sendCode).not.toHaveBeenCalled();
-	expect(container.textContent).toContain("尚未启用密码");
-});
-it("keeps registration fields and mode controls locked while its send is pending", async () => {
-	password.ensureRegistrationSupported.mockResolvedValue(undefined);
-	let finish!: (v: unknown) => void;
-	api.sendCode.mockImplementation(
-		() =>
-			new Promise((resolve) => {
-				finish = resolve;
-			}),
-	);
-	await render(<Login />, "/login?mode=register");
-	await type('input[type="tel"]', "13800138000");
-	await click("发送验证码");
-	expect(container.querySelector("form fieldset")?.hasAttribute("disabled")).toBe(true);
-	expect(button("已有账号？登录").disabled).toBe(true);
-	expect(button("密码登录").disabled).toBe(true);
-	await act(async () => finish({ sent: true, retryAfter: 60 }));
-	expect(button("已有账号？登录").disabled).toBe(false);
-});
 it("does not offer password reset without a verified bound contact", async () => {
 	await render(<PasswordReset actor={{ id: "no-contact", name: "本人", kind: "human" } as Actor} />);
 	expect(button("重置密码").disabled).toBe(true);
@@ -164,25 +126,4 @@ it("unlocks reset after a successful reset so another attempt can be opened", as
 	await click("重置密码");
 	expect(button("取消").disabled).toBe(false);
 	expect(container.querySelector("form")).not.toBeNull();
-});
-
-it("shows existing-account registration guidance instead of claiming its password was set", async () => {
-	password.ensureRegistrationSupported.mockResolvedValue(undefined);
-	api.sendCode.mockResolvedValue({ sent: true, retryAfter: 60 });
-	password.passwordApi.register.mockRejectedValue(new Error("account_exists"));
-	await render(<Login />, "/login?mode=register");
-	await type('input[type="tel"]', "13800138000");
-	await click("发送验证码");
-	await type('input[type="text"]', "123456");
-	for (const input of container.querySelectorAll('input[type="password"]')) {
-		const key = Object.keys(input).find((k) => k.startsWith("__reactProps$"));
-		const props = (input as unknown as Record<string, { onChange(e: unknown): void }>)[key ?? ""];
-		await act(() => props.onChange({ target: { value: "newpassword" } }));
-	}
-	const form = container.querySelector("form") as HTMLFormElement;
-	await act(async () => {
-		form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
-	});
-	expect(container.querySelector('[role="alert"]')?.textContent).toContain("账号已存在，请登录");
-	expect($session.get()).toBeNull();
 });
