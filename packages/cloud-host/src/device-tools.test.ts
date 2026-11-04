@@ -16,7 +16,7 @@ const source = {
 	type: "message.in",
 	ts: new Date(0).toISOString(),
 	from: "acct:card:owner",
-	routes: [{ agent: "local-agent", session: "program-session" }],
+	routes: [{ agent: "local-agent", session: "program-session", binding: "owner" }],
 	data: { msgId: "message-1", kind: "dm" },
 };
 

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
@@ -183,8 +183,20 @@ describe("connector state", () => {
 		writeConfig(dir, { endpoint: "https://x.test", deviceToken: "secret" });
 		writeFileSync(join(dir, "state.json"), "{}");
 		writeFileSync(join(home, "unrelated.txt"), "keep");
-		expect(clearConfig(dir).sort()).toEqual([join(dir, "config.json"), join(dir, "state.json")].sort());
+		expect(clearConfig(dir).sort()).toEqual([`${dir}/`, join(dir, "config.json"), join(dir, "state.json")].sort());
 		expect(readConfig(dir)).toBeUndefined();
+		// 23 §6：显式"断开"之后连接器不留自己的状态目录。
+		expect(existsSync(dir)).toBe(false);
 		expect(readFileSync(join(home, "unrelated.txt"), "utf8")).toBe("keep");
+	});
+
+	test("keeps a state directory that still holds the user's own files", () => {
+		const home = temp();
+		const dir = dshStateDir(home);
+		writeConfig(dir, { endpoint: "https://x.test", deviceToken: "secret" });
+		writeFileSync(join(dir, "notes.txt"), "mine");
+		clearConfig(dir);
+		expect(existsSync(dir)).toBe(true);
+		expect(readFileSync(join(dir, "notes.txt"), "utf8")).toBe("mine");
 	});
 });

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 /**
@@ -51,7 +51,10 @@ export function writeConfig(dir: string, config: StoredConfig): string {
 	return path;
 }
 
-/** Remove this connector's files; returns what was removed. */
+/**
+ * Remove this connector's files; returns what was removed. The directory is the connector's own
+ * (`$HARNESS_HOME/yonder`, 23 §3), so an explicit disconnect leaves nothing behind either.
+ */
 export function clearConfig(dir: string): string[] {
 	const removed: string[] = [];
 	for (const name of ["config.json", "state.json"]) {
@@ -63,6 +66,13 @@ export function clearConfig(dir: string): string[] {
 		} catch {
 			/* Already gone. */
 		}
+	}
+	// Only an empty directory is ours to remove; anything else there belongs to the user.
+	try {
+		rmdirSync(dir);
+		removed.push(`${dir}/`);
+	} catch {
+		/* Not empty or already gone. */
 	}
 	return removed;
 }

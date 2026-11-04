@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
@@ -38,7 +38,8 @@ const botModelKey = join(process.env.HOME ?? "", ".config/yonder/cloud-bot-model
 
 const stepRows = [];
 const untested = [];
-const children = new Set();
+/** Every process this run starts, with its recent output, so `finally` can stop all of them. */
+const children = new Map();
 let folder;
 let cloud;
 let dshHome;
@@ -46,12 +47,19 @@ let execHome;
 let agentHome;
 let browserHome;
 
-const tokenHash = (token) => createHash("sha256").update(token).digest("hex");
 const clean = (error) => redactError(error instanceof Error ? error.message : String(error)).slice(0, 300);
 
 function record(name, result, detail) {
-	stepRows.push({ name, result, detail: String(detail ?? "").replace(/\s+/g, " ").slice(0, 200) });
-	console.log(`${result === "通过" ? "PASS" : result === "未测" ? "SKIP" : "FAIL"} ${name} — ${String(detail ?? "").slice(0, 300)}`);
+	stepRows.push({
+		name,
+		result,
+		detail: String(detail ?? "")
+			.replace(/\s+/g, " ")
+			.slice(0, 200),
+	});
+	console.log(
+		`${result === "通过" ? "PASS" : result === "未测" ? "SKIP" : "FAIL"} ${name} — ${String(detail ?? "").slice(0, 300)}`,
+	);
 	if (result === "未测") untested.push(`${name}：${detail}`);
 }
 
@@ -81,9 +89,16 @@ async function waitFor(work, timeout, label) {
 
 const freePort = () =>
 	new Promise((ok, ko) => {
-		const server = spawn(process.execPath, ["-e", 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})'], {
-			stdio: ["ignore", "pipe", "ignore"],
-		});
+		const server = spawn(
+			process.execPath,
+			[
+				"-e",
+				'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})',
+			],
+			{
+				stdio: ["ignore", "pipe", "ignore"],
+			},
+		);
 		let out = "";
 		server.stdout.on("data", (chunk) => (out += chunk));
 		server.once("exit", () => ok(Number(out.trim())));
@@ -137,12 +152,25 @@ async function startPostgresRedis(dir) {
 	const env = { ...process.env, LC_ALL: "C", LANG: "C", TZ: "UTC" };
 	const run = (name, args) => execFileSync(name, args, { stdio: "pipe", timeout: 120_000, env });
 	run(pgBin("initdb"), ["-D", join(dir, "pg"), "-U", "test", "-A", "trust", "--no-locale", "-E", "UTF8"]);
-	run(pgBin("pg_ctl"), ["-D", join(dir, "pg"), "-l", join(dir, "postgres.log"), "-o", `-h 127.0.0.1 -p ${pgPort} -k ''`, "-w", "start"]);
+	run(pgBin("pg_ctl"), [
+		"-D",
+		join(dir, "pg"),
+		"-l",
+		join(dir, "postgres.log"),
+		"-o",
+		`-h 127.0.0.1 -p ${pgPort} -k ''`,
+		"-w",
+		"start",
+	]);
 	const redis = track(
-		spawn(redisBin, ["--bind", "127.0.0.1", "--port", String(redisPort), "--save", "", "--appendonly", "no", "--dir", dir], {
-			stdio: ["ignore", "pipe", "pipe"],
-			env,
-		}),
+		spawn(
+			redisBin,
+			["--bind", "127.0.0.1", "--port", String(redisPort), "--save", "", "--appendonly", "no", "--dir", dir],
+			{
+				stdio: ["ignore", "pipe", "pipe"],
+				env,
+			},
+		),
 		"redis",
 	);
 	const databaseUrl = `postgres://test@127.0.0.1:${pgPort}/postgres`;
@@ -159,6 +187,13 @@ async function startPostgresRedis(dir) {
 
 /** The real cloud server from its worktree, on a loopback origin with the dev fixed-code login. */
 async function startCloud({ databaseUrl, redisUrl, port, workerKeyFile }) {
+	// `index.js` only serves: the schema comes from the repo's own migration entry (as the deploy does).
+	execFileSync(process.execPath, ["--import", "tsx", "src/migrate.ts"], {
+		cwd: join(cloudCheckout, "server"),
+		env: { ...process.env, DATABASE_URL: databaseUrl },
+		stdio: "pipe",
+		timeout: 180_000,
+	});
 	const child = track(
 		spawn(process.execPath, [join(cloudCheckout, "server/dist/server/src/index.js")], {
 			cwd: cloudCheckout,
@@ -178,38 +213,59 @@ async function startCloud({ databaseUrl, redisUrl, port, workerKeyFile }) {
 		"cloud",
 	);
 	const origin = `http://127.0.0.1:${port}`;
-	await waitFor(async () => {
-		try {
-			return (await fetch(`${origin}/api/version`)).ok;
-		} catch {
-			return false;
-		}
-	}, 60_000, "cloud server ready");
+	await waitFor(
+		async () => {
+			try {
+				return (await fetch(`${origin}/api/version`)).ok;
+			} catch {
+				return false;
+			}
+		},
+		60_000,
+		"cloud server ready",
+	);
 	return { origin, child };
 }
 
 /** The built web app served by vite preview, whose /api and /ws proxy to the local cloud. */
 async function startWebApp(port, cloudOrigin) {
 	const app = join(root, "apps/app");
-	if (!existsSync(join(app, "dist/index.html"))) throw new Error("apps/app/dist is missing; run: VITE_API=http YONDER_APP_BASE=/ npm run build -w @yonder/app");
+	if (!existsSync(join(app, "dist/index.html")))
+		throw new Error("apps/app/dist is missing; run: VITE_API=http YONDER_APP_BASE=/ npm run build -w @yonder/app");
 	const viteConfig = JSON.parse(readFileSync(join(root, "node_modules/vite/package.json"), "utf8"));
 	assert.ok(viteConfig.version, "vite package is present");
 	const child = track(
-		spawn(process.execPath, [join(root, "node_modules/vite/bin/vite.js"), "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
-			cwd: app,
-			stdio: ["ignore", "pipe", "pipe"],
-			env: { ...process.env, YONDER_SOCIAL: cloudOrigin },
-		}),
+		spawn(
+			process.execPath,
+			[
+				join(root, "node_modules/vite/bin/vite.js"),
+				"preview",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				String(port),
+				"--strictPort",
+			],
+			{
+				cwd: app,
+				stdio: ["ignore", "pipe", "pipe"],
+				env: { ...process.env, YONDER_SOCIAL: cloudOrigin },
+			},
+		),
 		"web",
 	);
 	const origin = `http://127.0.0.1:${port}`;
-	await waitFor(async () => {
-		try {
-			return (await fetch(origin)).ok;
-		} catch {
-			return false;
-		}
-	}, 60_000, "web app ready");
+	await waitFor(
+		async () => {
+			try {
+				return (await fetch(origin)).ok;
+			} catch {
+				return false;
+			}
+		},
+		60_000,
+		"web app ready",
+	);
 	return { origin, child };
 }
 
@@ -237,9 +293,24 @@ async function startWorker({ databaseUrl, cloudOrigin, workerKeyFile, modelKeyFi
 
 function startExecutor(home, cardConfig) {
 	const child = track(
-		spawn(process.execPath, [join(root, "packages/device/dist/cli.js"), "serve", "--home", home, "--host", "127.0.0.1", "--port", "0", "--card-config", cardConfig], {
-			stdio: ["ignore", "pipe", "pipe"],
-		}),
+		spawn(
+			process.execPath,
+			[
+				join(root, "packages/device/dist/cli.js"),
+				"serve",
+				"--home",
+				home,
+				"--host",
+				"127.0.0.1",
+				"--port",
+				"0",
+				"--card-config",
+				cardConfig,
+			],
+			{
+				stdio: ["ignore", "pipe", "pipe"],
+			},
+		),
 		"executor",
 	);
 	return child;
@@ -294,30 +365,39 @@ async function openBrowser() {
 	const port = await freePort();
 	const profile = join(folder, "chrome-profile");
 	const child = track(
-		spawn(chromeCandidates[0], [
-			"--headless=new",
-			`--remote-debugging-port=${port}`,
-			`--user-data-dir=${profile}`,
-			"--no-first-run",
-			"--no-default-browser-check",
-			"--disable-gpu",
-			"--hide-scrollbars",
-			"about:blank",
-		], { stdio: "ignore" }),
+		spawn(
+			chromeCandidates[0],
+			[
+				"--headless=new",
+				`--remote-debugging-port=${port}`,
+				`--user-data-dir=${profile}`,
+				"--no-first-run",
+				"--no-default-browser-check",
+				"--disable-gpu",
+				"--hide-scrollbars",
+				"about:blank",
+			],
+			{ stdio: "ignore" },
+		),
 		"chrome",
 	);
-	const target = await waitFor(async () => {
-		try {
-			const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-			return targets.find((entry) => entry.type === "page");
-		} catch {
-			return undefined;
-		}
-	}, 30_000, "Chrome devtools");
+	const target = await waitFor(
+		async () => {
+			try {
+				const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+				return targets.find((entry) => entry.type === "page");
+			} catch {
+				return undefined;
+			}
+		},
+		30_000,
+		"Chrome devtools",
+	);
 	const page = createCdp(target.webSocketDebuggerUrl);
 	await page.ready;
 	await page.send("Page.enable");
 	await page.send("Runtime.enable");
+	await page.send("Network.enable");
 	return { child, page };
 }
 
@@ -386,7 +466,12 @@ function createCdp(url) {
 			return result.result.value;
 		},
 		async waitForText(text, ms = 30_000) {
-			await waitFor(async () => (await page.eval(`document.body ? document.body.innerText.includes(${JSON.stringify(text)}) : false`)), ms, `text "${text}"`);
+			await waitFor(
+				async () =>
+					await page.eval(`document.body ? document.body.innerText.includes(${JSON.stringify(text)}) : false`),
+				ms,
+				`text "${text}"`,
+			);
 		},
 		async waitFor(expression, ms = 30_000, label = expression) {
 			await waitFor(() => page.eval(expression), ms, label);
@@ -404,13 +489,13 @@ function createCdp(url) {
  */
 const clickByText = (text, tag = "button") => `(() => {
   const el = [...document.querySelectorAll(${JSON.stringify(tag)})].find((node) => node.innerText && node.innerText.trim() === ${JSON.stringify(text)});
-  if (!el) throw new Error("no ${tag} labelled ${text}");
+  if (!el) throw new Error("no element labelled " + ${JSON.stringify(text)});
   el.click(); return true;
 })()`;
 const fillByLabel = (label, value) => `(() => {
   const field = [...document.querySelectorAll("label")].find((node) => node.innerText && node.innerText.trim() === ${JSON.stringify(label)});
   const input = field && field.parentElement && field.parentElement.querySelector("input,textarea");
-  if (!input) throw new Error("no field labelled ${label}");
+  if (!input) throw new Error("no field labelled " + ${JSON.stringify(label)});
   const proto = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   Object.getOwnPropertyDescriptor(proto, "value").set.call(input, ${JSON.stringify(value)});
   input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -424,8 +509,15 @@ async function signIn(page, webOrigin) {
 	await page.eval(clickByText("验证码登录 / 忘记密码"));
 	await page.eval(clickByText("邮箱", '[role="tab"]'));
 	await page.eval(fillByLabel("邮箱", "e2e@yonder.test"));
+	await pause(200);
 	await page.eval(clickByText("发送验证码"));
-	await page.waitForText("验证码已发送", 30_000);
+	try {
+		await page.waitForText("验证码已发送", 30_000);
+	} catch (error) {
+		throw new Error(
+			`${clean(error)}; page: ${(await page.eval("document.body.innerText")).replace(/\s+/g, " ").slice(0, 300)}`,
+		);
+	}
 	await page.eval(fillByLabel("验证码", "135790"));
 	await page.eval(clickByText("登录 / 注册"));
 	await page.waitFor(`!location.pathname.startsWith("/login")`, 30_000, "signed in");
@@ -450,7 +542,10 @@ try {
 		mkdirSync(execHome, { recursive: true, mode: 0o700 });
 		mkdirSync(browserHome, { recursive: true });
 		const workerKey = join(folder, "worker.key");
-		execFileSync(process.execPath, ["-e", `require("fs").writeFileSync(${JSON.stringify(workerKey)}, require("crypto").randomBytes(32), { mode: 0o600 })`]);
+		execFileSync(process.execPath, [
+			"-e",
+			`require("fs").writeFileSync(${JSON.stringify(workerKey)}, require("crypto").randomBytes(32), { mode: 0o600 })`,
+		]);
 		state.workerKey = workerKey;
 		state.hasDeepSeek = existsSync(deepseekAuth);
 		state.hasCloudModel = existsSync(botModelKey);
@@ -482,7 +577,10 @@ try {
 
 	await run("账号 A 经真实登录页登录", async () => {
 		await signIn(page, state.web.origin);
-		state.cookie = (await page.eval("document.cookie")).split(";").map((v) => v.trim()).find((v) => v.startsWith("yonder_session="));
+		// The session cookie is HttpOnly by design, so read it from the browser's cookie jar rather than JS.
+		const jar = await page.send("Network.getAllCookies");
+		const cookie = jar.cookies.find((entry) => entry.name === "yonder_session");
+		state.cookie = cookie ? `yonder_session=${cookie.value}` : undefined;
 		assert.ok(state.cookie, "no web session cookie after login");
 		state.account = client(state.cloud.origin, state.cookie);
 		const session = await state.account("/api/session");
@@ -522,22 +620,43 @@ try {
 
 	await run("真实安装器 yonder-connect dsh（built packages/connect）", async () => {
 		const child = track(
-			spawn(process.execPath, [join(root, "packages/connect/dist/cli.js"), "dsh", "--spec", state.tarball, "--no-open", "--interval-ms", "500"], {
-				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env, DSH_HOME: dshHome, YONDER_ENDPOINT: state.cloud.origin },
-			}),
+			spawn(
+				process.execPath,
+				[
+					join(root, "packages/connect/dist/cli.js"),
+					"dsh",
+					"--spec",
+					state.tarball,
+					"--no-open",
+					"--interval-ms",
+					"500",
+				],
+				{
+					stdio: ["ignore", "pipe", "pipe"],
+					env: { ...process.env, DSH_HOME: dshHome, YONDER_ENDPOINT: state.cloud.origin },
+				},
+			),
 			"connect",
 		);
 		state.connect = child;
-		const url = await waitFor(() => /\/connect\?code=([A-Za-z0-9_-]+)/.exec(children.get(child)?.log?.join("\n") ?? "")?.[0], 180_000, "installer pairing url");
+		const url = await waitFor(
+			() => /\/connect\?code=([A-Za-z0-9_-]+)/.exec(children.get(child)?.log?.join("\n") ?? "")?.[0],
+			180_000,
+			"installer pairing url",
+		);
 		state.pairingUrl = new URL(url, state.cloud.origin).href;
 		return `配对链接 ${state.pairingUrl.replace(/code=.*/, "code=…")}`;
 	});
 
 	await run("在真实网页里确认 /connect?code=…（人类那一步）", async () => {
-		await page.goto(state.pairingUrl);
+		// The device code page is the web app's /connect route; in dev the app is served from its own
+		// origin (vite preview) while the cloud only issues the code, so keep the path and swap the origin.
+		const confirmation = new URL(state.pairingUrl);
+		await page.goto(`${state.web.origin}${confirmation.pathname}${confirmation.search}`);
 		await page.waitForText("连接设备", 30_000);
-		const deviceName = await page.eval(`document.body.innerText.split("\\n").find((line) => line && line !== "连接设备" && line !== "允许连接" && line !== "P") ?? ""`);
+		const deviceName = await page.eval(
+			`document.body.innerText.split("\\n").find((line) => line && line !== "连接设备" && line !== "允许连接" && line !== "P") ?? ""`,
+		);
 		await page.eval(clickByText("允许连接"));
 		await page.waitForText("已连接", 30_000);
 		state.harnessName = deviceName;
@@ -545,8 +664,20 @@ try {
 	});
 
 	await run("安装器完成：设备令牌写入隔离 home（0600）", async () => {
-		const code = await waitFor(() => state.connect.exitCode, 120_000, "installer exit");
-		assert.equal(code, 0, `installer exit ${code}: ${tail(state.connect)}`);
+		// `exitCode` stays null while running *and* after a signal kill; wait on a real settled value.
+		const settled = () =>
+			state.connect.exitCode !== null
+				? state.connect.exitCode
+				: state.connect.signalCode !== null
+					? state.connect.signalCode
+					: undefined;
+		await waitFor(() => (settled() === undefined ? undefined : true), 240_000, "installer exit");
+		const code = settled();
+		assert.equal(
+			code,
+			0,
+			`installer exit ${code}: ${(children.get(state.connect)?.log ?? []).join(" | ").slice(-600)}`,
+		);
 		const configPath = join(dshHome, "yonder/config.json");
 		assert.ok(existsSync(configPath), "installer wrote no config");
 		const mode = statSync(configPath).mode & 0o777;
@@ -572,7 +703,10 @@ try {
 			state.dshProcess = child;
 			await waitFor(() => children.get(child)?.log?.some((line) => line.includes("dsh web:")), 180_000, "DSH web url");
 			const device = await waitFor(
-				async () => (await state.account("/api/devices")).json?.find((row) => row.kind === "harness" && row.online && row.workProtocol === 1),
+				async () =>
+					(await state.account("/api/devices")).json?.find(
+						(row) => row.kind === "harness" && row.online && row.workProtocol === 1,
+					),
 				120_000,
 				"harness device online with workProtocol",
 			);
@@ -604,12 +738,18 @@ try {
 		const { writeFileSync } = await import("node:fs");
 		writeFileSync(tokenFile, redeem.json.deviceToken, { mode: 0o600 });
 		const cardConfig = join(execHome, "card.json");
-		writeFileSync(cardConfig, JSON.stringify({ baseUrl: state.cloud.origin, tokenFile, allowInsecureLoopback: true }), { mode: 0o600 });
+		writeFileSync(cardConfig, JSON.stringify({ baseUrl: state.cloud.origin, tokenFile, allowInsecureLoopback: true }), {
+			mode: 0o600,
+		});
 		state.executor = startExecutor(execHome, cardConfig);
-		state.executorDevice = await waitFor(async () => {
-			const list = (await state.account("/api/devices")).json ?? [];
-			return list.find((row) => row.name === "P6 Executor" && row.executor);
-		}, 60_000, "executor device registered");
+		state.executorDevice = await waitFor(
+			async () => {
+				const list = (await state.account("/api/devices")).json ?? [];
+				return list.find((row) => row.name === "P6 Executor" && row.executor);
+			},
+			60_000,
+			"executor device registered",
+		);
 		return `${state.executorDevice.id}（执行端 ${state.executorDevice.executor.deviceId}）`;
 	});
 
@@ -662,27 +802,68 @@ try {
 					},
 				},
 				bindings: [
-					{ id: "owner", match: { channel: "card", kind: "dm", from: "owner" }, session: "main", profile: "default", wake: "run", reply: "auto" },
+					{
+						id: "owner",
+						match: { channel: "card", kind: "dm", from: "owner" },
+						session: "main",
+						profile: "default",
+						wake: "run",
+						reply: "auto",
+					},
 				],
 			}),
 		);
 		state.agentHost = startAgentHost(agentDir.home);
-		await waitFor(() => children.get(state.agentHost)?.log?.some((line) => line.includes("Yonder Harness started")), 120_000, "agent host started");
+		await waitFor(
+			() => children.get(state.agentHost)?.log?.some((line) => line.includes("Yonder Harness started")),
+			120_000,
+			"agent host started",
+		);
 		const login = await new Promise((ok, ko) => {
 			const child = track(
-				spawn(process.execPath, [join(root, "packages/cli/dist/index.js"), "channels", "login", "card", "--home", agentDir.home, "--verify-code", invite.json.code, "--json"], {
-					stdio: ["ignore", "pipe", "pipe"],
-				}),
+				spawn(
+					process.execPath,
+					[
+						join(root, "packages/cli/dist/index.js"),
+						"channels",
+						"login",
+						"card",
+						"--home",
+						agentDir.home,
+						"--verify-code",
+						invite.json.code,
+						"--json",
+					],
+					{
+						stdio: ["ignore", "pipe", "pipe"],
+					},
+				),
 				"channels-login",
 			);
 			child.once("exit", (code) => ok({ code, out: children.get(child)?.log?.join("\n") ?? "" }));
 			child.once("error", ko);
 		});
-		assert.match(login.out, /"status"\s*:\s*"connected"/, `card login failed: ${login.out}`);
-		state.agentDevice = await waitFor(async () => {
-			const list = (await state.account("/api/devices")).json ?? [];
-			return list.find((row) => row.name === "P6 Agent Host" && row.online && row.workProtocol === 1);
-		}, 120_000, "agent host device online");
+		assert.match(login.out, /"status"\s*:\s*"connected"/, `card login failed: ${login.out.slice(-500)}`);
+		// The card channel registers the device under the host name; the Bot is the named entity.
+		state.agentDevice = await waitFor(
+			async () => {
+				const list = (await state.account("/api/devices")).json ?? [];
+				const fresh = list.filter(
+					(row) =>
+						row.id !== state.harnessDevice.id &&
+						row.id !== state.executorDevice.id &&
+						row.online &&
+						row.workProtocol === 1,
+				);
+				for (const row of fresh) {
+					const agents = (await state.account(`/api/devices/${row.id}/agents`)).json ?? [];
+					if (agents.some((entry) => entry.actor?.name === "P6 Agent Host")) return row;
+				}
+				return undefined;
+			},
+			120_000,
+			"agent host device online",
+		);
 		// The devices plugin reads the card credential by name from the home's private auth file.
 		const cardState = join(agentDir.home, ".yonder/plugins/channel-card/card.json");
 		writeFileSync(
@@ -692,12 +873,22 @@ try {
 		);
 		await stop(state.agentHost);
 		state.agentHost = startAgentHost(agentDir.home);
-		await waitFor(() => children.get(state.agentHost)?.log?.some((line) => line.includes("Yonder Harness started")), 120_000, "agent host restarted");
-		await waitFor(async () => {
-			const devices = (await state.account(`/api/devices/${state.executorDevice.id}/grants`)).json;
-			return devices?.observed && devices.grants?.some((grant) => !grant.revokedAt && grant.botLabel === "P6 Agent Host");
-		}, 120_000, "agent host introduced to the executor");
-		return `${state.agentDevice.id}（card 渠道登录 ${state.agentDevice.name}）`;
+		await waitFor(
+			() => children.get(state.agentHost)?.log?.some((line) => line.includes("Yonder Harness started")),
+			120_000,
+			"agent host restarted",
+		);
+		await waitFor(
+			async () => {
+				const devices = (await state.account(`/api/devices/${state.executorDevice.id}/grants`)).json;
+				return (
+					devices?.observed && devices.grants?.some((grant) => !grant.revokedAt && grant.botLabel === "P6 Agent Host")
+				);
+			},
+			120_000,
+			"agent host introduced to the executor",
+		);
+		return `${state.agentDevice.name}（${state.agentDevice.id}），Bot「P6 Agent Host」已登记`;
 	});
 
 	// --- the loop in the web app ----------------------------------------------------------------------
@@ -708,21 +899,63 @@ try {
 		const text = await page.eval("document.body.innerText");
 		assert.ok(text.includes("在线"), "no online state word");
 		assert.ok(text.includes("工作台 v1"), "no work protocol word");
-		const rows = await page.eval(`[...document.querySelectorAll("a[href*='/me/devices/']")].map((a) => a.getAttribute("href"))`);
+		const rows = await page.eval(
+			`[...document.querySelectorAll("a[href*='/me/devices/']")].map((a) => a.getAttribute("href"))`,
+		);
 		assert.ok(rows.includes(`/me/devices/${state.harnessDevice.id}`), "harness device missing from the list");
 		assert.ok(rows.includes(`/me/devices/${state.executorDevice.id}`), "executor device missing from the list");
 		return `${rows.length} 台设备，harness 行显示「在线 · 工作台 v1」`;
 	});
 
+	// A brand-new harness home has no sessions; the work bridge's `sessions.open` is how one appears
+	// (spec 23 §2.4), and it must show up on the device page afterwards.
+	if (state.hasDeepSeek) {
+		await run("打开一个 DSH 会话（真实 work bridge）", async () => {
+			const created = await state.account(`/api/devices/${state.harnessDevice.id}/work/rpc/sessions.open`, "POST", {
+				preset: "standard",
+			});
+			assert.equal(created.status, 200, `sessions.open failed: ${JSON.stringify(created.json).slice(0, 200)}`);
+			state.dshSession = created.json?.result?.id;
+			assert.match(String(state.dshSession), /^session-/, "no harness session id");
+			return state.dshSession;
+		});
+	}
+
 	await run("设备详情列出 DSH 的 Bot 与会话", async () => {
 		await page.goto(`${state.web.origin}/me/devices`);
-		await page.waitFor(`document.querySelector("a[href*='/me/devices/']")`, 30_000, "device rows");
+		// `returnByValue` cannot serialize a DOM node; ask for a plain boolean.
+		await page.waitFor(`!!document.querySelector("a[href*='/me/devices/']")`, 30_000, "device rows");
+		// Click through the SPA router: a full page load would remount the shell and lose the work
+		// bridge's online facts, which is a browser fresh-visit path the app also has to survive.
 		await page.eval(`document.querySelector("a[href='/me/devices/${state.harnessDevice.id}']").click()`);
-		await page.waitForText("外部 harness", 30_000);
-		await page.waitForText("这台设备的会话", 30_000);
-		await waitFor(async () => (await page.eval(`document.querySelectorAll("a[href*='/work/device/']").length`)) > 0, 60_000, "session links");
+		try {
+			await page.waitForText("外部 harness", 60_000);
+		} catch (error) {
+			throw new Error(
+				`${clean(error)}; url=${await page.eval("location.href")}; page=${(await page.eval("document.body.innerText")).replace(/\s+/g, " ").slice(0, 400)}`,
+			);
+		}
+		// The section's visible heading is 「会话」; 「这台设备的会话」 is only its aria-label.
+		try {
+			await page.waitFor(
+				`!!document.querySelector("section[aria-label='这台设备的会话']")`,
+				60_000,
+				"sessions section",
+			);
+		} catch (error) {
+			throw new Error(
+				`${clean(error)}; url=${await page.eval("location.href")}; page=${(await page.eval("document.body.innerText")).replace(/\s+/g, " ").slice(0, 500)}`,
+			);
+		}
+		await pause(1_000);
+		await waitFor(
+			async () => (await page.eval(`document.querySelectorAll("a[href*='/work/device/']").length > 0`)) === true,
+			60_000,
+			"session links",
+		);
 		const text = await page.eval("document.body.innerText");
-		for (const bot of state.harnessBots) assert.ok(text.includes(bot.actor.name), `bot ${bot.actor.name} missing from the detail page`);
+		for (const bot of state.harnessBots)
+			assert.ok(text.includes(bot.actor.name), `bot ${bot.actor.name} missing from the detail page`);
 		assert.ok(!text.includes("执行端未登记"), "a harness device must not be reported as missing an executor");
 		return `${state.harnessBots.length} 个 Bot，会话链接可用`;
 	});
@@ -733,8 +966,19 @@ try {
 	} else {
 		await run("在网页里打开 DSH 会话、提交输入、看流式输出", async () => {
 			await page.eval(`document.querySelector("a[href*='/work/device/']").click()`);
-			await page.waitForText("消息输入框", 60_000);
-			await waitFor(async () => (await page.eval(`!!document.querySelector("textarea[aria-label='消息输入框']")`)), 30_000, "composer");
+			// The composer's accessible name is its aria-label; 「消息输入框」 is never visible text.
+			try {
+				await page.waitFor(`!!document.querySelector("textarea[aria-label='消息输入框']")`, 90_000, "work composer");
+			} catch (error) {
+				throw new Error(
+					`${clean(error)}; url=${await page.eval("location.href")}; page=${(await page.eval("document.body.innerText")).replace(/\s+/g, " ").slice(0, 500)}`,
+				);
+			}
+			await waitFor(
+				async () => await page.eval(`!!document.querySelector("textarea[aria-label='消息输入框']")`),
+				30_000,
+				"composer",
+			);
 			const marker = `p6-ui-${randomBytes(4).toString("hex")}`;
 			await page.eval(`(() => {
         const box = document.querySelector("textarea[aria-label='消息输入框']");
@@ -744,21 +988,66 @@ try {
       })()`);
 			await page.eval(`document.querySelector("button[aria-label='发送']").click()`);
 			await waitFor(
-				async () => (await page.eval(`document.body.innerText.includes(${JSON.stringify(marker)})`)),
+				async () => await page.eval(`document.body.innerText.includes(${JSON.stringify(marker)})`),
 				240_000,
 				"streamed assistant reply in the web transcript",
 			);
-			const bubbles = await page.eval(`[...document.querySelectorAll("[data-testid='bubble-bot']")].map((node) => node.innerText)`);
-			assert.ok(bubbles.some((text) => text.includes(marker)), "the reply must arrive as a bot bubble");
+			// Wait for the finished bubble: the marker can appear in streaming text before it settles.
+			const bubbles = await waitFor(
+				async () => {
+					const texts = await page.eval(
+						`[...document.querySelectorAll("[data-testid='bubble-bot']")].map((node) => node.innerText)`,
+					);
+					const done = await page.eval(`!document.querySelector("[role='img'][aria-label='正在回复']")`);
+					return Array.isArray(texts) && done && texts.some((text) => text.includes(marker)) ? texts : undefined;
+				},
+				120_000,
+				"settled assistant bubble",
+			);
+			assert.ok(
+				bubbles.some((text) => text.includes(marker)),
+				"the reply must arrive as a bot bubble",
+			);
 			state.uiSessionUrl = await page.eval("location.href");
 			return `流式输出里出现「${marker}」（${bubbles.length} 个 bot 气泡）`;
 		});
 
-		await run("中止该 DSH 会话", async () => {
-			const abort = await page.eval(`(() => { const button = document.querySelector("[data-testid='abort']"); if (!button) return "absent"; button.click(); return "clicked"; })()`);
-			assert.equal(abort, "clicked", "中止按钮不在会话页上");
-			await pause(2_000);
-			return "点击「中止」";
+		await run("提交一个长任务并在网页里中止该 DSH 会话", async () => {
+			// The 中止 button only exists while the turn is running, so start a turn that takes a while.
+			const marker = `p6-abort-${randomBytes(4).toString("hex")}`;
+			await page.eval(`(() => {
+        const box = document.querySelector("textarea[aria-label='消息输入框']");
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, ${JSON.stringify(`Count from 1 to 400, one number per line, then end with ${marker}.`)});
+        box.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()`);
+			await page.eval(`document.querySelector("button[aria-label='发送']").click()`);
+			const abort = await waitFor(
+				async () => {
+					const state = await page.eval(
+						`(() => { const button = document.querySelector("[data-testid='abort']"); if (!button || button.disabled) return "absent"; button.click(); return "clicked"; })()`,
+					);
+					return state === "clicked" ? state : undefined;
+				},
+				120_000,
+				"abort button while running",
+			);
+			assert.equal(abort, "clicked");
+			// A real sessions.abort must stop the turn: the running indicator has to go away.
+			await waitFor(
+				async () => (await page.eval(`!document.querySelector("[data-testid='busy-bar']")`)) === true,
+				120_000,
+				"turn stopped",
+			);
+			// The marker text itself is in the *user* message, so look only at finished bot bubbles.
+			const finalBubbles = await page.eval(
+				`[...document.querySelectorAll("[data-testid='bubble-bot']")].map((node) => node.innerText)`,
+			);
+			assert.ok(
+				!finalBubbles.some((text) => text.includes(marker)),
+				"the aborted turn still produced its final answer",
+			);
+			return "运行中点了「中止」，忙碌条消失且最终答案未出现";
 		});
 
 		await run("网页 DM DSH Bot 并收到真实 DeepSeek 回复", async () => {
@@ -767,7 +1056,7 @@ try {
 			assert.equal(dm.status, 200);
 			const marker = `p6-chat-${randomBytes(4).toString("hex")}`;
 			await page.goto(`${state.web.origin}/c/${dm.json.id}`);
-			await page.waitFor(`document.querySelector("textarea[aria-label='输入消息']")`, 60_000, "chat composer");
+			await page.waitFor(`!!document.querySelector("textarea[aria-label='输入消息']")`, 60_000, "chat composer");
 			await page.eval(`(() => {
         const box = document.querySelector("textarea[aria-label='输入消息']");
         Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, ${JSON.stringify(`Reply with exactly: ${marker}`)});
@@ -776,7 +1065,7 @@ try {
       })()`);
 			await page.eval(`document.querySelector("button[aria-label='发送']").click()`);
 			await waitFor(
-				async () => (await page.eval(`document.body.innerText.includes(${JSON.stringify(marker)})`)),
+				async () => await page.eval(`document.body.innerText.includes(${JSON.stringify(marker)})`),
 				240_000,
 				"DSH bot reply in the web conversation",
 			);
@@ -806,15 +1095,21 @@ try {
 		});
 
 		const askBot = async (text, timeout = 300_000) => {
-			const sent = await state.botClient(`/api/conversations/${state.botConv}/messages`, "POST", { content: { type: "text", text } });
+			const sent = await state.botClient(`/api/conversations/${state.botConv}/messages`, "POST", {
+				content: { type: "text", text },
+			});
 			assert.equal(sent.status, 200);
 			const started = Date.now();
-			const reply = await waitFor(async () => {
-				const history = await state.botClient(`/api/conversations/${state.botConv}/messages`);
-				const items = Array.isArray(history.json) ? history.json : (history.json?.messages ?? []);
-				const index = items.findIndex((item) => item.id === sent.json.id);
-				return index < 0 ? undefined : items.slice(index + 1).find((item) => item.senderId === state.cloudBot.id);
-			}, timeout, "cloud bot reply");
+			const reply = await waitFor(
+				async () => {
+					const history = await state.botClient(`/api/conversations/${state.botConv}/messages`);
+					const items = Array.isArray(history.json) ? history.json : (history.json?.messages ?? []);
+					const index = items.findIndex((item) => item.id === sent.json.id);
+					return index < 0 ? undefined : items.slice(index + 1).find((item) => item.senderId === state.cloudBot.id);
+				},
+				timeout,
+				"cloud bot reply",
+			);
 			return { reply, seconds: Math.round((Date.now() - started) / 1000) };
 		};
 
@@ -824,7 +1119,10 @@ try {
 			);
 			const text = reply.content?.text ?? "";
 			assert.equal(reply.content?.type, "markdown", `bot replied with ${reply.content?.type}: ${text.slice(0, 200)}`);
-			assert.ok(text.includes(state.executorDevice.id) || text.includes("P6 Executor"), `devices_list result missing from reply: ${text.slice(0, 300)}`);
+			assert.ok(
+				text.includes(state.executorDevice.id) || text.includes("P6 Executor"),
+				`devices_list result missing from reply: ${text.slice(0, 300)}`,
+			);
 			return `${seconds}s，回复里出现 P6 Executor 与 ${state.executorDevice.id}`;
 		});
 
@@ -834,14 +1132,25 @@ try {
 			const write = await askBot(
 				`请用 devices_operation 在设备 ${state.executorDevice.id} 上写文件：action "fs.write"，arguments {"path":"${join(execHome, "p6-cloud.txt")}","dataBase64":"${dataBase64}"}，commandId 用新 UUID ${randomUUID()}。原样报告工具返回值。`,
 			);
-			assert.equal(write.reply.content?.type, "markdown", `write failed: ${JSON.stringify(write.reply.content).slice(0, 300)}`);
+			assert.equal(
+				write.reply.content?.type,
+				"markdown",
+				`write failed: ${JSON.stringify(write.reply.content).slice(0, 300)}`,
+			);
 			assert.ok(existsSync(join(execHome, "p6-cloud.txt")), "the executor never wrote the file");
 			assert.equal(readFileSync(join(execHome, "p6-cloud.txt"), "utf8"), marker);
 			const read = await askBot(
 				`请用 devices_operation 读回设备 ${state.executorDevice.id} 上的 ${join(execHome, "p6-cloud.txt")}（action "fs.read"，commandId 用新 UUID ${randomUUID()}），原样报告内容。`,
 			);
-			assert.equal(read.reply.content?.type, "markdown", `read failed: ${JSON.stringify(read.reply.content).slice(0, 300)}`);
-			assert.ok((read.reply.content.text ?? "").includes(dataBase64) || (read.reply.content.text ?? "").includes(marker), "the read-back value is missing from the reply");
+			assert.equal(
+				read.reply.content?.type,
+				"markdown",
+				`read failed: ${JSON.stringify(read.reply.content).slice(0, 300)}`,
+			);
+			assert.ok(
+				(read.reply.content.text ?? "").includes(dataBase64) || (read.reply.content.text ?? "").includes(marker),
+				"the read-back value is missing from the reply",
+			);
 			return `执行端文件内容为 ${marker}（写 ${write.seconds}s，读回 ${read.seconds}s）`;
 		});
 
@@ -849,12 +1158,20 @@ try {
 			await page.goto(`${state.web.origin}/contacts/${state.cloudBot.code ?? state.cloudBot.id}`);
 			await page.waitForText("可操作的设备", 60_000);
 			await page.eval(clickByText("收窄"));
-			await page.waitFor(`[...document.querySelectorAll("input[type=checkbox]")].length > 0`, 30_000, "device checkboxes");
-			const boxes = await page.eval(`[...document.querySelectorAll("input[type=checkbox]")].map((box) => box.getAttribute("aria-label"))`);
-			// Keep only the harness device: the executor must drop out of this Bot's scope.
+			await page.waitFor(
+				`[...document.querySelectorAll("input[type=checkbox]")].length > 0`,
+				30_000,
+				"device checkboxes",
+			);
+			const boxes = await page.eval(
+				`[...document.querySelectorAll("input[type=checkbox]")].map((box) => box.getAttribute("aria-label"))`,
+			);
+			// Keep only the harness device (its accessible name carries the kind, so the executor with
+			// the same host name stays distinguishable): the executor must drop out of this Bot's scope.
 			await page.eval(`(() => {
+        const keep = ${JSON.stringify(`允许 ${state.harnessName} · 外部 harness`)};
         for (const box of document.querySelectorAll("input[type=checkbox]")) {
-          if (box.getAttribute("aria-label") !== ${JSON.stringify(`允许 ${state.harnessName}`)} && box.checked) box.click();
+          if (box.getAttribute("aria-label") !== keep && box.checked) box.click();
         }
         return true;
       })()`);
@@ -867,16 +1184,25 @@ try {
 		});
 
 		await run("下一次调用：执行端不再有该 Bot 的授权，网页显示真实原因", async () => {
+			// The server's own 5-minute deadline writes a real error into the same result slot; wait past it
+			// so the step records what the user actually sees instead of a client-side timeout.
 			const { reply } = await askBot(
 				`请再试一次用 devices_operation 在设备 ${state.executorDevice.id} 上写 ${join(execHome, "p6-denied.txt")}。如果找不到工具或被拒绝，原样说明你看到的原因，不要编造成功。`,
+				420_000,
 			);
 			const text = reply.content?.text ?? "";
 			assert.ok(!existsSync(join(execHome, "p6-denied.txt")), "the narrowed Bot still wrote on the executor");
-			assert.ok(!/成功|已写入|written/i.test(text) || /不能|无法|没有|拒绝/.test(text), `the bot claimed success: ${text.slice(0, 200)}`);
+			assert.ok(
+				!/成功|已写入|written/i.test(text) || /不能|无法|没有|拒绝/.test(text),
+				`the bot claimed success: ${text.slice(0, 200)}`,
+			);
 			// The executor side, read back through the owner's own grant view.
 			const grants = await state.account(`/api/devices/${state.executorDevice.id}/grants`);
 			const live = (grants.json?.grants ?? []).filter((grant) => !grant.revokedAt);
-			assert.ok(!live.some((grant) => grant.botId === state.cloudBot.id), "the executor still holds a live grant for the narrowed Bot");
+			assert.ok(
+				!live.some((grant) => grant.botId === state.cloudBot.id),
+				"the executor still holds a live grant for the narrowed Bot",
+			);
 			return `回复「${text.replace(/\s+/g, " ").slice(0, 120)}」；执行端对该 Bot 的生效 grant 已撤`;
 		});
 	}
@@ -889,8 +1215,12 @@ try {
 			[join(root, "packages/connect/dist/cli.js"), "dsh", "--remove", "--profile", "p6"],
 			{ encoding: "utf8", env: { ...process.env, DSH_HOME: dshHome } },
 		);
-		assert.ok(!existsSync(join(dshHome, "yonder/config.json")), `connection state was not cleared: ${result.slice(0, 300)}`);
-		const bundles = JSON.parse(readFileSync(join(dshHome, "profiles/p6/package.json"), "utf8"))?.dsh?.profile?.bundles ?? [];
+		assert.ok(
+			!existsSync(join(dshHome, "yonder")),
+			`the connector state directory survived --remove: ${result.slice(0, 300)}`,
+		);
+		const bundles =
+			JSON.parse(readFileSync(join(dshHome, "profiles/p6/package.json"), "utf8"))?.dsh?.profile?.bundles ?? [];
 		assert.ok(!bundles.includes("@yonder/dsh-connector"), "the bundle is still listed in the profile");
 		return "bundle 从 profile 移除，$DSH_HOME/yonder/ 已清除";
 	});
@@ -898,12 +1228,24 @@ try {
 	await run("卸载后 DSH 与安装前一致（逐文件对比 + 正常启动）", async () => {
 		const after = snapshotTree(dshHome);
 		const residue = diffTrees(state.dshSnapshot, after);
-		state.residue = residue;
-		// Documented residue (23 §5): the plugin manager's log, the profile lockfile, dangling node_modules entries.
-		const unexpected = residue.filter(
-			(path) => !/(\.plugin-manager\/logs\/|pnpm-lock\.yaml|node_modules\/)/.test(path) && !path.endsWith("profiles/p6/package.json"),
-		);
+		// Classify every difference instead of asserting "nothing changed": DSH writes its own runtime
+		// state on any boot (sessions, credentials, the composed profile), and 23 §5 lists the plugin
+		// manager's leftovers. Anything else would be connector residue.
+		const documented = (path) => /(\.plugin-manager\/|pnpm-lock\.yaml|node_modules\/)/.test(path);
+		const dshOwned = (path) =>
+			path === "sessions/" ||
+			path.startsWith("sessions/") ||
+			path.startsWith("storages/") ||
+			path === ".credentials.yaml" ||
+			path === ".anonymous-user-id" ||
+			path === "profiles/p6/cordis.yml" ||
+			path === "profiles/p6/package.json";
+		const unexpected = residue.filter((path) => !documented(path) && !dshOwned(path));
 		assert.deepEqual(unexpected, [], `unexpected residue: ${unexpected.join(", ")}`);
+		state.residue = {
+			documented: residue.filter(documented),
+			dshOwned: residue.filter((path) => !documented(path) && dshOwned(path)),
+		};
 		const boot = track(
 			spawn(state.dsh, ["--profile", "p6", "--no-open", "--port", String(portBase + 11)], {
 				stdio: ["ignore", "pipe", "pipe"],
@@ -911,12 +1253,16 @@ try {
 			}),
 			"dsh-after-remove",
 		);
-		await waitFor(() => children.get(boot)?.log?.some((line) => line.includes("dsh web:")), 180_000, "DSH boots after uninstall");
+		await waitFor(
+			() => children.get(boot)?.log?.some((line) => line.includes("dsh web:")),
+			180_000,
+			"DSH boots after uninstall",
+		);
 		await stop(boot);
 		await pause(1_500);
 		const device = (await state.account("/api/devices")).json?.find((row) => row.id === state.harnessDevice.id);
 		assert.ok(!device?.online, "the connector device is still online after removal");
-		return `残留 ${residue.length} 项（均在 23 §5 列举内），DSH 照常启动`;
+		return `残留 ${residue.length} 项：连接器/插件管理器 ${state.residue.documented.length} 项（23 §5 列举内），DSH 自身运行状态 ${state.residue.dshOwned.length} 项；DSH 照常启动`;
 	});
 } catch (error) {
 	console.error(`\np6 e2e failed: ${clean(error)}`);
@@ -965,5 +1311,3 @@ function diffTrees(before, after) {
 	for (const path of before.keys()) if (!after.has(path)) changed.push(`${path} (removed)`);
 	return changed;
 }
-
-void cpSync;

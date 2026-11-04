@@ -97,7 +97,7 @@ describe("Bot 的可操作设备", () => {
 		const narrow = [...container.querySelectorAll("button")].find((b) => b.textContent === "收窄");
 		await act(() => narrow!.dispatchEvent(new window.Event("click", { bubbles: true })));
 		// Uncheck the second device, then save the narrowed selection.
-		const box = container.querySelector('input[aria-label="允许 家里的 Mac"]') as HTMLInputElement;
+		const box = container.querySelector('input[aria-label="允许 家里的 Mac · 台式机"]') as HTMLInputElement;
 		// React 的 onChange 挂在 fiber props 上；linkedom 的 click 不产生受控 change，直接调用。
 		const key = Object.keys(box).find((k) => k.startsWith("__reactProps$")) ?? "";
 		const onChange = (box as unknown as Record<string, { onChange(e: unknown): void }>)[key].onChange;
@@ -124,6 +124,23 @@ describe("Bot 的可操作设备", () => {
 		expect(text.match(/无 grant/g)?.length).toBe(1);
 	});
 
+	it("names each device's kind so same-named devices stay distinguishable", async () => {
+		// 两台同主机名的设备（本机 harness 与同一台电脑的执行端）除了名字只有类型不同；
+		// 复选框的可访问名若不带类型，键盘与读屏用户无法知道自己在放开哪一台。
+		const same = [
+			{ id: "h1", name: "zorandeMacBook-Air.local", kind: "harness" as const, online: true },
+			{ id: "e1", name: "zorandeMacBook-Air.local", kind: "laptop" as const, online: true },
+		];
+		api.botDevices.mockResolvedValue({ botId: "bot", mode: "selected", devices: same, allowed: ["h1"] });
+		api.deviceGrants.mockResolvedValue({ observed: true, grants: [] });
+		await render();
+		const edit = [...container.querySelectorAll("button")].find((b) => b.textContent === "修改");
+		if (!edit) throw new Error("missing 修改 button");
+		await act(() => edit.dispatchEvent(new window.Event("click", { bubbles: true })));
+		const labels = [...container.querySelectorAll("input[type=checkbox]")].map((box) => box.getAttribute("aria-label"));
+		expect(labels).toEqual(["允许 zorandeMacBook-Air.local · 外部 harness", "允许 zorandeMacBook-Air.local · 笔记本"]);
+	});
+
 	it("says so when no device is bound", async () => {
 		api.botDevices.mockResolvedValue({ botId: "bot", mode: "all", devices: [], allowed: [] });
 		await render();
@@ -146,7 +163,7 @@ describe("Bot 的可操作设备", () => {
 		const edit_text = container.textContent ?? "";
 		expect(edit_text).toContain("家里的 Mac");
 		// 未允许的设备在编辑视图里就是未勾选的复选框，不显示「可执行」。
-		const excluded = container.querySelector('input[aria-label="允许 家里的 Mac"]') as HTMLInputElement;
+		const excluded = container.querySelector('input[aria-label="允许 家里的 Mac · 台式机"]') as HTMLInputElement;
 		expect(excluded.checked).toBe(false);
 		expect(edit_text).not.toContain("可执行");
 	});

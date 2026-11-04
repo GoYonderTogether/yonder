@@ -68,7 +68,9 @@ export function BotDevices({ botId }: { botId: string }) {
 								<input
 									type="checkbox"
 									className="size-4 shrink-0"
-									aria-label={`允许 ${device.name}`}
+									// The visible row carries the kind; the accessible name must too, or two devices
+									// with the same host name are indistinguishable by keyboard or screen reader.
+									aria-label={`允许 ${device.name} · ${DEVICE_KIND_WORD[device.kind]}`}
 									checked={picked.has(device.id)}
 									onChange={(event) => {
 										const next = new Set(picked);
