@@ -5,9 +5,9 @@
  * special case. Identical wire subset to the DSH and Hermes connectors.
  */
 
-import type { SessionGateway, HarnessUpdate } from "./sessions.js";
 import type { OutboundConnection } from "./connector.js";
 import type { InboundFrame } from "./frames.js";
+import type { HarnessUpdate, SessionGateway } from "./sessions.js";
 
 const MAX_SUBS = 64;
 
@@ -254,9 +254,10 @@ export class WorkBridge {
 		entry?.stop?.();
 		const payload: Record<string, unknown> = { t: "end", sub, reason };
 		if (reason === "error") {
-			const code = error !== undefined && typeof (error as unknown as { code?: unknown })?.code === "string"
-				? String((error as unknown as { code: unknown }).code)
-				: "error";
+			const code =
+				error !== undefined && typeof (error as unknown as { code?: unknown })?.code === "string"
+					? String((error as unknown as { code: unknown }).code)
+					: "error";
 			payload.error = {
 				code,
 				message: error?.message ?? "error",

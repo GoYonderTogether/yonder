@@ -7,20 +7,20 @@
  */
 
 import { hostname } from "node:os";
+import { BotBridge, type BotRegistration, type CloudApi } from "./bots.js";
+import { GatewayClient } from "./gateway.js";
+import { cloudUrl, deviceSocketUrl } from "./net.js";
+import { GatewayRpc, type SessionGateway } from "./sessions.js";
 import {
+	type ConnectorState,
 	clearStateDir,
+	type InboundFrame,
+	parseFrame,
 	readConfig,
 	readState,
 	writeState,
-	type ConnectorState,
-	type InboundFrame,
-	parseFrame,
 } from "./state.js";
-import { cloudUrl, deviceSocketUrl } from "./net.js";
-import { GatewayClient } from "./gateway.js";
-import { GatewayRpc, type SessionGateway } from "./sessions.js";
 import { WorkBridge } from "./work.js";
-import { BotBridge, type BotRegistration, type CloudApi } from "./bots.js";
 
 export const DEFAULT_ENDPOINT = "https://yonderbot.net";
 
@@ -45,7 +45,13 @@ export type OutboundFrame =
 	| { type: "hello"; workProtocol?: 1 }
 	| { type: "ack"; agentId: string; convId: string; seq: number }
 	| { type: "send"; ref: string; agentId: string; convId: string; content: Record<string, unknown> }
-	| { type: "work.response"; requestId: string; ok: boolean; result?: unknown; error?: { code: string; message: string } }
+	| {
+			type: "work.response";
+			requestId: string;
+			ok: boolean;
+			result?: unknown;
+			error?: { code: string; message: string };
+	  }
 	| { type: "work.event"; channelId: string; frame: unknown };
 
 export interface OutboundConnection {
@@ -75,7 +81,15 @@ export function composeCloudInput(frame: Extract<InboundFrame, { type: "message"
 class DeviceConnection implements OutboundConnection {
 	// The OpenClaw runtime bundles `ws`; its type is richer than the root
 	// project's @types, so the constructor is typed loosely here.
-	private socket: { send(data: string): void; close(): void; readyState: number; on(ev: string, cb: (...a: unknown[]) => void): void; off(ev: string, cb: (...a: unknown[]) => void): void } | undefined;
+	private socket:
+		| {
+				send(data: string): void;
+				close(): void;
+				readyState: number;
+				on(ev: string, cb: (...a: unknown[]) => void): void;
+				off(ev: string, cb: (...a: unknown[]) => void): void;
+		  }
+		| undefined;
 	private retry: ReturnType<typeof setTimeout> | undefined;
 	private delay = 1_000;
 	private stopped = false;
@@ -125,9 +139,20 @@ class DeviceConnection implements OutboundConnection {
 		this.socket = socket;
 		await new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(() => reject(new Error("cloud connect timeout")), 10_000);
-			const onOpen = () => { clearTimeout(timer); cleanup(); resolve(); };
-			const onError = () => { clearTimeout(timer); cleanup(); reject(new Error("cloud connect failed")); };
-			const cleanup = () => { socket.off("open", onOpen); socket.off("error", onError); };
+			const onOpen = () => {
+				clearTimeout(timer);
+				cleanup();
+				resolve();
+			};
+			const onError = () => {
+				clearTimeout(timer);
+				cleanup();
+				reject(new Error("cloud connect failed"));
+			};
+			const cleanup = () => {
+				socket.off("open", onOpen);
+				socket.off("error", onError);
+			};
 			socket.on("open", onOpen);
 			socket.on("error", onError);
 		});
@@ -207,17 +232,19 @@ async function* frames(socket: WsSocket): AsyncGenerator<string> {
 
 // ---- live state ----
 
-let active: {
-	connection: DeviceConnection;
-	gateway: GatewayClient;
-	gatewayRpc: GatewayRpc;
-	work: WorkBridge;
-	bots: BotBridge;
-	endpoint: string;
-	persist: (next: ConnectorState) => void;
-	state: ConnectorState;
-	unsyncHello: boolean;
-} | undefined;
+let active:
+	| {
+			connection: DeviceConnection;
+			gateway: GatewayClient;
+			gatewayRpc: GatewayRpc;
+			work: WorkBridge;
+			bots: BotBridge;
+			endpoint: string;
+			persist: (next: ConnectorState) => void;
+			state: ConnectorState;
+			unsyncHello: boolean;
+	  }
+	| undefined;
 
 let lastStatus = "未连接 Yonder。";
 
@@ -373,4 +400,3 @@ async function putAgents(
 export function disconnectState(dir: string): string[] {
 	return clearStateDir(dir);
 }
-

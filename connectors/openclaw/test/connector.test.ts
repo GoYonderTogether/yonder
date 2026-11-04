@@ -8,11 +8,11 @@ import { once } from "node:events";
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, test } from "vitest";
 import { type WebSocket as ServerSocket, WebSocketServer } from "ws";
-import { parseFrame } from "../src/frames.js";
-import { composeCloudInput } from "../src/connector.js";
-import { WorkBridge, infoOf } from "../src/work.js";
 import { BotBridge } from "../src/bots.js";
-import type { SessionGateway, GatewaySession, HarnessUpdate } from "../src/sessions.js";
+import { composeCloudInput } from "../src/connector.js";
+import { parseFrame } from "../src/frames.js";
+import type { GatewaySession, HarnessUpdate, SessionGateway } from "../src/sessions.js";
+import { infoOf, WorkBridge } from "../src/work.js";
 
 /** Loopback protocol double for the connector's side of `/ws/device`. */
 class FakeCloud {
@@ -149,7 +149,9 @@ interface Rig {
 async function rig(options: {
 	gateway?: ReturnType<typeof fakeGateway>;
 	agents?: Array<{ key: string; name: string }>;
-	put?: (list: Array<{ key: string; name: string; avatarUrl: string | null }>) => Promise<Array<{ key: string; id: string }>>;
+	put?: (
+		list: Array<{ key: string; name: string; avatarUrl: string | null }>,
+	) => Promise<Array<{ key: string; id: string }>>;
 	startBots?: boolean;
 }): Promise<Rig> {
 	const cloud = new FakeCloud();
@@ -159,8 +161,7 @@ async function rig(options: {
 	const state: Rig["state"] = { cursors: {}, botSessions: {} };
 	const put =
 		options.put ??
-		(async (list: Array<{ key: string; name: string }>) =>
-			list.map((row) => ({ key: row.key, id: AGENT_ID })));
+		(async (list: Array<{ key: string; name: string }>) => list.map((row) => ({ key: row.key, id: AGENT_ID })));
 	const sent: unknown[] = [];
 	const connection = {
 		send: (frame: unknown) => {
@@ -231,10 +232,7 @@ describe("composeCloudInput", () => {
 	});
 
 	test("a replayed message keeps the 补收 marker", () => {
-		const frame = parseFrame(message(3, "run it", true)) as Extract<
-			ReturnType<typeof parseFrame>,
-			{ type: "message" }
-		>;
+		const frame = parseFrame(message(3, "run it", true)) as Extract<ReturnType<typeof parseFrame>, { type: "message" }>;
 		const input = composeCloudInput(frame) ?? "";
 		expect(input).toContain("[补收：这条消息发于 2023-11-14T22:13:20");
 		expect(input).toContain("run it");
@@ -364,17 +362,15 @@ describe("work bridge", () => {
 		const sent: unknown[] = [];
 		const probe = { send: (frame: unknown) => (sent.push(frame), true), start: () => {} };
 		const bridge = new WorkBridge(
-			(
-				{
-					list: async () => [],
-					show: async () => undefined,
-					transcript: async () => ({ items: [], hasMore: false }),
-					create: async () => ({ sessionKey: "agent:main:x" }),
-					submit: async () => {},
-					abort: async () => {},
-					follow: () => () => {},
-				} as unknown as SessionGateway
-			),
+			{
+				list: async () => [],
+				show: async () => undefined,
+				transcript: async () => ({ items: [], hasMore: false }),
+				create: async () => ({ sessionKey: "agent:main:x" }),
+				submit: async () => {},
+				abort: async () => {},
+				follow: () => () => {},
+			} as unknown as SessionGateway,
 			probe,
 		);
 		bridge.handle({

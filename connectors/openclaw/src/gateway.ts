@@ -26,7 +26,13 @@ interface Pending {
 }
 
 /** The loose socket shape the OpenClaw-bundled `ws` provides. */
-type WsSocket = { send(data: string): void; close(): void; readyState: number; on(ev: string, cb: (...a: unknown[]) => void): void; off(ev: string, cb: (...a: unknown[]) => void): void };
+type WsSocket = {
+	send(data: string): void;
+	close(): void;
+	readyState: number;
+	on(ev: string, cb: (...a: unknown[]) => void): void;
+	off(ev: string, cb: (...a: unknown[]) => void): void;
+};
 
 export interface GatewayOptions {
 	/** `ws://127.0.0.1:<port>` resolved by the caller from the OpenClaw config. */
@@ -49,7 +55,6 @@ export class GatewayClient {
 	private readonly tasks = new Set<Promise<unknown>>();
 
 	constructor(private readonly options: GatewayOptions) {}
-
 
 	get connected(): boolean {
 		return this.open;
@@ -195,7 +200,7 @@ export class GatewayClient {
 		if (!socket || !this.open || socket.readyState !== 1) return false;
 		try {
 			socket.send(JSON.stringify(frame));
-			return true
+			return true;
 		} catch {
 			return false;
 		}

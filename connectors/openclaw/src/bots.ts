@@ -42,10 +42,7 @@ export interface BotBridgeOptions {
 }
 
 export class BotBridge {
-	private readonly pendingSends = new Map<
-		string,
-		{ timer: NodeJS.Timeout; resolve(ok: boolean): void }
-	>();
+	private readonly pendingSends = new Map<string, { timer: NodeJS.Timeout; resolve(ok: boolean): void }>();
 	private readonly replies = new Map<string, { agentId: string; convId: string; parts: string[] }>();
 	private agents: Array<{ key: string; id: string }> = [];
 	private syncTimer: NodeJS.Timeout | undefined;
@@ -70,9 +67,7 @@ export class BotBridge {
 		// An empty list means the gateway could not enumerate agents; reporting it
 		// would retire every Bot.
 		if (!list.length) return;
-		this.agents = await this.options.api.putAgents(
-			list.map(({ key, name }) => ({ key, name, avatarUrl: null })),
-		);
+		this.agents = await this.options.api.putAgents(list.map(({ key, name }) => ({ key, name, avatarUrl: null })));
 	}
 
 	/** Handle a `message`, `sent` or `error` frame; returns true when the frame belongs here. */

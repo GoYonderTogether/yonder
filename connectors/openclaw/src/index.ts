@@ -15,7 +15,7 @@
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
-import { connectYonder, disconnectYonder, statusText, type ConnectorRuntime } from "./connector.js";
+import { type ConnectorRuntime, connectYonder, disconnectYonder, statusText } from "./connector.js";
 import { stateDir as defaultStateDir } from "./frames.js";
 
 /** Resolve the local Gateway connection facts from the OpenClaw runtime. */
@@ -58,8 +58,7 @@ function resolveRuntime(api: unknown): ConnectorRuntime {
 export default definePluginEntry({
 	id: "yonder-connector",
 	name: "Yonder Connector",
-	description:
-		"Registers this OpenClaw gateway with a Yonder account (Bots + remote session driving, spec 23).",
+	description: "Registers this OpenClaw gateway with a Yonder account (Bots + remote session driving, spec 23).",
 	register(api) {
 		const config = (api.pluginConfig ?? {}) as {
 			endpoint?: unknown;
@@ -74,7 +73,8 @@ export default definePluginEntry({
 		api.registerTool({
 			name: "yonder_status",
 			label: "Yonder status",
-			description: "Report whether this OpenClaw gateway is connected to a Yonder account and how many Bots it registered.",
+			description:
+				"Report whether this OpenClaw gateway is connected to a Yonder account and how many Bots it registered.",
 			parameters: Type.Object({}),
 			async execute() {
 				const status = statusText();

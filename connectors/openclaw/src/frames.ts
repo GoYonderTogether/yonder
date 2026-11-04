@@ -75,9 +75,19 @@ function cloudMessage(value: unknown): CloudMessage | undefined {
 	)
 		return undefined;
 	const content = row.content as Record<string, unknown>;
-	if (content.type !== "text" && content.type !== "markdown" && content.type !== "error" && content.type !== "interactive" && content.type !== "image" && content.type !== "file")
+	if (
+		content.type !== "text" &&
+		content.type !== "markdown" &&
+		content.type !== "error" &&
+		content.type !== "interactive" &&
+		content.type !== "image" &&
+		content.type !== "file"
+	)
 		return undefined;
-	if ((content.type === "text" || content.type === "markdown" || content.type === "error") && typeof content.text !== "string")
+	if (
+		(content.type === "text" || content.type === "markdown" || content.type === "error") &&
+		typeof content.text !== "string"
+	)
 		return undefined;
 	const message: CloudMessage = {
 		id: row.id,
@@ -135,11 +145,7 @@ export function parseFrame(raw: unknown): InboundFrame | undefined {
 			return { type: "error", error: typeof data.error === "string" ? data.error : "error" };
 		case "work.request":
 		case "work.cancel": {
-			if (
-				typeof data.requestId !== "string" ||
-				typeof data.ownerId !== "string" ||
-				typeof data.deviceId !== "string"
-			)
+			if (typeof data.requestId !== "string" || typeof data.ownerId !== "string" || typeof data.deviceId !== "string")
 				return undefined;
 			if (data.type === "work.request" && typeof data.method !== "string") return undefined;
 			if (data.type === "work.request") {

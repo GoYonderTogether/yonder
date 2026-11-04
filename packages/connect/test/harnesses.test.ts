@@ -2,16 +2,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import {
-	copyPlugin,
-	detectHermes,
-	enablePlugin,
-	pluginsDir,
-	removePlugin,
-	removePluginDir,
-} from "../src/hermes.js";
+import { copyPlugin, detectHermes, enablePlugin, pluginsDir, removePlugin, removePluginDir } from "../src/hermes.js";
 import { detectOpenclaw, installPlugin, pluginEntry, uninstallPlugin } from "../src/openclaw.js";
-import { hermesStateDir, clearConfig, writeConfig, readConfig } from "../src/state.js";
+import { clearConfig, hermesStateDir, readConfig, writeConfig } from "../src/state.js";
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {

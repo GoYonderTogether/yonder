@@ -55,7 +55,16 @@ export class GatewayRpc implements SessionGateway {
 	handleEvent(event: string, payload: unknown): void {
 		if (event !== "agent" && event !== "chat") return;
 		const data = payload as
-			| { runId?: string; sessionKey?: string; agentId?: string; seq?: number; state?: string; data?: { delta?: string; text?: string }; deltaText?: string; errorMessage?: string }
+			| {
+					runId?: string;
+					sessionKey?: string;
+					agentId?: string;
+					seq?: number;
+					state?: string;
+					data?: { delta?: string; text?: string };
+					deltaText?: string;
+					errorMessage?: string;
+			  }
 			| undefined;
 		if (!data?.sessionKey) return;
 		if (event === "chat") {
@@ -138,7 +147,9 @@ export class GatewayRpc implements SessionGateway {
 				if (role === "assistant") return { id, kind: "pi.assistant", text };
 				return null;
 			})
-			.filter((item): item is { id: number; kind: string; text: string } => item !== null && item.text.trim().length > 0);
+			.filter(
+				(item): item is { id: number; kind: string; text: string } => item !== null && item.text.trim().length > 0,
+			);
 		return { items, hasMore: result?.hasMore === true };
 	}
 
@@ -173,7 +184,6 @@ export class GatewayRpc implements SessionGateway {
 			if (this.followings.get(sessionKey) === onUpdate) this.followings.delete(sessionKey);
 		};
 	}
-
 
 	get defaultAgent(): string {
 		return this.defaultAgentId;
