@@ -6,6 +6,9 @@
 
 ### Added
 
+- desktop/iOS：新增 yonder-device 原生插件（Tauri v2 mobile plugin），iOS 壳内网页可申请日历、提醒事项、通讯录、照片、位置、健康授权并读取对应数据；Info.plist 用途说明与 HealthKit entitlement 由 prepare-ios.mjs 在每次 tauri ios init 后重放。
+- app：新增「连接应用」页（/me/connect-apps，从「我」与设置进入），当前 iOS 段触发真实系统授权弹窗，Mac / Windows / Linux 段列出已配对设备；nativePermissions.ts 接通插件真实命令，壳外仍如实返回 unsupported。
+
 - cloud-host：平台模型改为官方 DeepSeek（`https://api.deepseek.com`、`deepseek-flash`），base URL 与模型 id 由 `CLOUD_BOT_MODEL_BASE_URL` / `CLOUD_BOT_MODEL` 配置；仍是唯一平台模型，用户不能自选。
 - runtime：每次模型调用前按 token 额度判定、调用后按实际用量入账，只计输入 + 输出、排除 cache-hit；额度主体由宿主给出，本机不带额度时行为不变。
 - connect：新增 `@yonder/connect dsh` 安装器，装好连接器包、用既有设备码流程配对并把设备令牌写入 `$DSH_HOME/yonder/`（0600）。
