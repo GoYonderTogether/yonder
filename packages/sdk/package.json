@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/sdk",
-	"version": "0.3.26110402",
+	"version": "0.3.26110403",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -37,7 +37,7 @@
 		"@earendil-works/pi-durable": "1.3.0",
 		"typebox": "1.3.27",
 		"yaml": "2.9.1",
-		"@yonder/protocol": "0.3.26110402",
+		"@yonder/protocol": "0.3.26110403",
 		"@earendil-works/chord": "1.3.0",
 		"proper-lockfile": "4.1.2"
 	},

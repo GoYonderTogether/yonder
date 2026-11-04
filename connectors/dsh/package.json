@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/dsh-connector",
-	"version": "0.3.26110402",
+	"version": "0.3.26110403",
 	"description": "Yonder connector bundle for DeepSeek Harness: registers this harness and its sessions with a Yonder account.",
 	"type": "module",
 	"license": "Apache-2.0",

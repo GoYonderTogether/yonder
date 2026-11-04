@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [0.3.26110403] - 2026-11-04
+
+### Changed
+
+- app：route the yonder-device read commands through shellInvoke
+
+### Fixed
+
+- mobile：default the local device build to skip the HealthKit entitlement
+- desktop：let local device builds skip the HealthKit entitlement
+- desktop：run prepare-ios signing after xcodegen regen
+- desktop：match the generated project.yml entitlements layout in prepare-ios
+
+### Added
+
+- app：add the /me/connect-apps page
+- app：wire native permissions to the iOS yonder-device plugin
+- desktop：replay permission usage descriptions and HealthKit in prepare-ios
+- desktop：add the iOS yonder-device native plugin
+
 ## [0.3.26110402] - 2026-11-04
 
 ### Added
