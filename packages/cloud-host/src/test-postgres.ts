@@ -1,11 +1,22 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Pool } from "pg";
 
-const binary = (name: string) => join(process.env.TEST_PG_BIN ?? "/opt/homebrew/opt/postgresql@17/bin", name);
+const binDir = () => process.env.TEST_PG_BIN ?? "/opt/homebrew/opt/postgresql@17/bin";
+const binary = (name: string) => join(binDir(), name);
+
+/**
+ * Why the real-PostgreSQL tests cannot run on this machine; undefined when `initdb`/`pg_ctl` are found.
+ * Tests needing a real server skip with this reason, the same way tests needing model credentials
+ * skip without `YONDER_TEST_AUTH`; point `TEST_PG_BIN` at a PostgreSQL bin directory to enable them.
+ */
+export const testPostgresUnavailable = [binary("initdb"), binary("pg_ctl")].some((path) => !existsSync(path))
+	? `PostgreSQL initdb/pg_ctl not found under ${binDir()} (set TEST_PG_BIN)`
+	: undefined;
+
 const run = (name: string, args: string[]) =>
 	execFileSync(binary(name), args, {
 		stdio: "pipe",

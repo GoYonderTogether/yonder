@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { HASH_SEP } from "@earendil-works/pi-durable/tools";
 import { sourceBlock } from "@yonder/bot-core/tools/sources";
@@ -53,6 +53,9 @@ test("peer read/grep canonical boundary rejects traversal, absolute and symlink 
 			]),
 			environment: () => env,
 			context: async () => ctx(),
+			// The production runtime always supplies this (runtime/index.ts); without it the URL fallback
+			// keeps the `/C:/...` leading slash and no attachment ever matches on Windows.
+			fileURLToPath: (uri) => fileURLToPath(uri),
 		});
 		const config = {
 			agent: "main",

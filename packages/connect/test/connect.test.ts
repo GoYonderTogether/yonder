@@ -172,8 +172,11 @@ describe("connector state", () => {
 		const dir = dshStateDir(home);
 		const path = writeConfig(dir, { endpoint: "https://x.test", deviceToken: "secret" });
 		expect(readConfig(dir)).toEqual({ endpoint: "https://x.test", deviceToken: "secret" });
-		expect(statSync(path).mode & 0o777).toBe(0o600);
-		expect(statSync(dir).mode & 0o777).toBe(0o700);
+		// Windows exposes ACLs rather than POSIX file modes.
+		if (process.platform !== "win32") {
+			expect(statSync(path).mode & 0o777).toBe(0o600);
+			expect(statSync(dir).mode & 0o777).toBe(0o700);
+		}
 		expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({ endpoint: "https://x.test" });
 	});
 

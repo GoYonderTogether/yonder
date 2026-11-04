@@ -5,10 +5,11 @@ import { createStore } from "@yonder/local-host/store/index";
 import { openDatabase } from "@yonder/runtime-adapter/node";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPostgresStore, migratePostgresStore } from "./store/postgres.js";
-import { testPostgres } from "./test-postgres.js";
+import { testPostgres, testPostgresUnavailable } from "./test-postgres.js";
 
 let database: Awaited<ReturnType<typeof testPostgres>>;
 beforeAll(async () => {
+	if (testPostgresUnavailable) return;
 	database = await testPostgres();
 	await migratePostgresStore(database.pool);
 }, 60000);
@@ -48,19 +49,22 @@ test("SQLite and PG execute the same notification and session-budget policies", 
 	const db = await openDatabase(":memory:");
 	try {
 		await check(await createStore(db));
-		await check(createPostgresStore(database.pool, "policy-owner", "policy-bot"));
+		if (!testPostgresUnavailable) await check(createPostgresStore(database.pool, "policy-owner", "policy-bot"));
 	} finally {
 		await db.close();
 	}
 });
 
-test("PG notification preferences and budget facts remain tenant/Bot isolated", async () => {
-	for (const [tenant, bot] of [
-		["other-owner", "policy-bot"],
-		["policy-owner", "other-bot"],
-	]) {
-		const store = createPostgresStore(database.pool, tenant!, bot!);
-		expect(await store.notifications.list()).toEqual([]);
-		expect(await store.budget.read("7")).toEqual({ tokens: 0, runs: 0, seen: [] });
-	}
-});
+test.skipIf(testPostgresUnavailable)(
+	"PG notification preferences and budget facts remain tenant/Bot isolated",
+	async () => {
+		for (const [tenant, bot] of [
+			["other-owner", "policy-bot"],
+			["policy-owner", "other-bot"],
+		]) {
+			const store = createPostgresStore(database.pool, tenant!, bot!);
+			expect(await store.notifications.list()).toEqual([]);
+			expect(await store.budget.read("7")).toEqual({ tokens: 0, runs: 0, seen: [] });
+		}
+	},
+);

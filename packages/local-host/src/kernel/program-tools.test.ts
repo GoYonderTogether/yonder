@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import type { Store } from "@yonder/bot-core/store/contracts";
 import type { AgentConfig, YonderConfig } from "@yonder/bot-definition";
 import type { ProgramToolsRuntime } from "@yonder/local-host/kernel/program-tools";
@@ -117,10 +118,11 @@ test("program tools use accepted default profile, physical resource ceiling, and
 		resolved: { capabilities: string[]; channelInstances?: string[] };
 		resources: { deviceId: string; paths: string[] }[];
 	};
+	// `cwd` is home + workspace joined with the host path module, so compare against the same resolution.
+	expect(resolved.cwd).toBe(resolve("/device/home", "agents/a"));
 	expect(resolved).toMatchObject({
 		agent: "local-agent",
 		profile: "default",
-		cwd: "/device/home/agents/a",
 		resolved: { capabilities: ["read"], channelInstances: ["card"] },
 		resources: [{ deviceId: "local", paths: ["/device/home/agents/a/notes"] }],
 	});

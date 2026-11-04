@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { posix } from "node:path";
 import type { PluginAPI, ToolContext, Trigger, TriggerIO } from "@yonder/sdk";
 import { Type } from "typebox";
 import type { Config } from "./config.js";
@@ -83,7 +83,7 @@ export class Bootstrap {
 				for (const entry of entries) {
 					signal.throwIfAborted();
 					if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-					const child = join(path, entry.name);
+					const child = posix.join(path, entry.name);
 					if (entry.type === "directory") {
 						await walk(child);
 						continue;

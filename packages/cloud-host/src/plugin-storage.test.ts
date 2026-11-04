@@ -9,14 +9,15 @@ import { initialize } from "../../../plugins/memory/src/files.js";
 import memory from "../../../plugins/memory/src/index.js";
 import tasks from "../../../plugins/tasks/src/index.js";
 import { createPostgresPluginStorage, migratePluginStorage } from "./plugin-storage.js";
-import { testPostgres } from "./test-postgres.js";
+import { testPostgres, testPostgresUnavailable } from "./test-postgres.js";
 
 let database: Awaited<ReturnType<typeof testPostgres>>;
 let directory: string;
 beforeAll(async () => {
+	directory = await mkdtemp(join(tmpdir(), "yonder-plugin-files-"));
+	if (testPostgresUnavailable) return;
 	database = await testPostgres();
 	await migratePluginStorage(database.pool);
-	directory = await mkdtemp(join(tmpdir(), "yonder-plugin-files-"));
 }, 60000);
 afterAll(async () => {
 	await database?.close();
@@ -76,25 +77,28 @@ test("filesystem storage binds without side effects and retains existing files, 
 	expect(await readFile(join(root, "watch.json"), "utf8")).toBe('{"tasks":[]}\r\n');
 });
 
-test("PG private storage shares the file contract and isolates plugin, tenant, Bot and configured root", async () => {
-	const storage = createPostgresPluginStorage(database.pool, "owner-a", "bot-a", "memory");
-	const files = storage.open("/library");
-	expect(files.localRoot).toBeUndefined();
-	await artifact(storage);
-	await contract(files);
-	for (const other of [
-		createPostgresPluginStorage(database.pool, "owner-b", "bot-a", "memory"),
-		createPostgresPluginStorage(database.pool, "owner-a", "bot-b", "memory"),
-		createPostgresPluginStorage(database.pool, "owner-a", "bot-a", "tasks"),
-	])
-		expect(await other.open("/library").read("counter.json")).toBeUndefined();
-	expect(await storage.open("/other-library").read("counter.json")).toBeUndefined();
-	expect(
-		await createPostgresPluginStorage(database.pool, "owner-a", "bot-a", "memory")
-			.open("/library")
-			.read("counter.json"),
-	).toBe("12");
-});
+test.skipIf(testPostgresUnavailable)(
+	"PG private storage shares the file contract and isolates plugin, tenant, Bot and configured root",
+	async () => {
+		const storage = createPostgresPluginStorage(database.pool, "owner-a", "bot-a", "memory");
+		const files = storage.open("/library");
+		expect(files.localRoot).toBeUndefined();
+		await artifact(storage);
+		await contract(files);
+		for (const other of [
+			createPostgresPluginStorage(database.pool, "owner-b", "bot-a", "memory"),
+			createPostgresPluginStorage(database.pool, "owner-a", "bot-b", "memory"),
+			createPostgresPluginStorage(database.pool, "owner-a", "bot-a", "tasks"),
+		])
+			expect(await other.open("/library").read("counter.json")).toBeUndefined();
+		expect(await storage.open("/other-library").read("counter.json")).toBeUndefined();
+		expect(
+			await createPostgresPluginStorage(database.pool, "owner-a", "bot-a", "memory")
+				.open("/library")
+				.read("counter.json"),
+		).toBe("12");
+	},
+);
 
 test("filesystem journal recovery rolls back an interrupted batch and preserves later user edits", async () => {
 	const root = join(directory, "recovery");
@@ -214,81 +218,87 @@ test("disposing a trigger stops its active work before waiting for the tick to s
 	}
 });
 
-test("official memory reads and writes a PG virtual library without touching a cloud directory or local rg", async () => {
-	const storage = createPostgresPluginStorage(database.pool, "owner-a", "memory-bot", "memory");
-	const root = `/virtual-library-${Date.now()}`;
-	const { api, registrations } = createRegistrationCollector();
-	await memory.setup({
-		...api,
-		storage,
-		config: { root, owner: "person:owner", timezone: "UTC", allowedAgents: ["main"] },
-	} as PluginAPI);
-	expect(
-		(
-			await database.pool.query("SELECT 1 FROM plugin_files WHERE tenant_id=$1 AND bot_id=$2", [
-				"owner-a",
-				"memory-bot",
-			])
-		).rows,
-	).toEqual([]);
-	await initialize(storage.open(root));
-	const ctx = {
-		agent: "main",
-		profile: "default",
-		session: "2",
-		capabilities: ["read", "write", "admin"],
-		signal: new AbortController().signal,
-	} as ToolContext;
-	const run = async (name: string, args: unknown) => {
-		const result = await registrations.tools.find((tool) => tool.name === name)!.execute(args, ctx);
-		if (result.isError) throw new Error(result.text);
-		return JSON.parse(result.text);
-	};
-	const captured = await run("memory_capture", { text: "数据库记忆原文", when: "2026-11-02" });
-	expect((await run("memory_search", { terms: ["数据库记忆"] })).files[0].path).toBe(captured.path);
-	expect((await run("memory_read", { path: captured.path })).text).toContain("数据库记忆原文");
-	await storage.open(root).write("private/hidden.md", "私密内容");
-	await expect(run("memory_read", { path: "private/hidden.md" })).rejects.toThrow("includePrivate");
-	expect((await run("memory_search", { terms: ["私密内容"] })).files).toEqual([]);
-	await expect(access(root)).rejects.toMatchObject({ code: "ENOENT" });
-});
+test.skipIf(testPostgresUnavailable)(
+	"official memory reads and writes a PG virtual library without touching a cloud directory or local rg",
+	async () => {
+		const storage = createPostgresPluginStorage(database.pool, "owner-a", "memory-bot", "memory");
+		const root = `/virtual-library-${Date.now()}`;
+		const { api, registrations } = createRegistrationCollector();
+		await memory.setup({
+			...api,
+			storage,
+			config: { root, owner: "person:owner", timezone: "UTC", allowedAgents: ["main"] },
+		} as PluginAPI);
+		expect(
+			(
+				await database.pool.query("SELECT 1 FROM plugin_files WHERE tenant_id=$1 AND bot_id=$2", [
+					"owner-a",
+					"memory-bot",
+				])
+			).rows,
+		).toEqual([]);
+		await initialize(storage.open(root));
+		const ctx = {
+			agent: "main",
+			profile: "default",
+			session: "2",
+			capabilities: ["read", "write", "admin"],
+			signal: new AbortController().signal,
+		} as ToolContext;
+		const run = async (name: string, args: unknown) => {
+			const result = await registrations.tools.find((tool) => tool.name === name)!.execute(args, ctx);
+			if (result.isError) throw new Error(result.text);
+			return JSON.parse(result.text);
+		};
+		const captured = await run("memory_capture", { text: "数据库记忆原文", when: "2026-11-02" });
+		expect((await run("memory_search", { terms: ["数据库记忆"] })).files[0].path).toBe(captured.path);
+		expect((await run("memory_read", { path: captured.path })).text).toContain("数据库记忆原文");
+		await storage.open(root).write("private/hidden.md", "私密内容");
+		await expect(run("memory_read", { path: "private/hidden.md" })).rejects.toThrow("includePrivate");
+		expect((await run("memory_search", { terms: ["私密内容"] })).files).toEqual([]);
+		await expect(access(root)).rejects.toMatchObject({ code: "ENOENT" });
+	},
+);
 
-test("official tasks_show uses the PG ledger and a text board without creating cloud file attachments", async () => {
-	const storage = createPostgresPluginStorage(database.pool, "owner-a", "tasks-bot", "tasks");
-	const { api, registrations } = createRegistrationCollector();
-	const sent: Array<{ text: string; attachments?: unknown[] }> = [];
-	const data = `/unavailable-cloud-task-files-${Date.now()}`;
-	await tasks.setup({
-		...api,
-		storage,
-		paths: { data },
-		config: { audit: { enabled: false } },
-		messages: {
-			send: async (message) => {
-				sent.push(message);
-				return { ok: true };
+test.skipIf(testPostgresUnavailable)(
+	"official tasks_show uses the PG ledger and a text board without creating cloud file attachments",
+	async () => {
+		const storage = createPostgresPluginStorage(database.pool, "owner-a", "tasks-bot", "tasks");
+		const { api, registrations } = createRegistrationCollector();
+		const sent: Array<{ text: string; attachments?: unknown[] }> = [];
+		const data = `/unavailable-cloud-task-files-${Date.now()}`;
+		await tasks.setup({
+			...api,
+			storage,
+			paths: { data },
+			config: { audit: { enabled: false } },
+			messages: {
+				send: async (message) => {
+					sent.push(message);
+					return { ok: true };
+				},
 			},
-		},
-	} as PluginAPI);
-	const show = registrations.tools.find((tool) => tool.name === "tasks_show")!;
-	const result = await show.execute({}, {
-		agent: "main",
-		profile: "default",
-		session: "2",
-		capabilities: ["read"],
-		event: {
-			id: "show",
-			ts: new Date().toISOString(),
-			type: "message.in",
-			conv: "conv:card:room",
-			data: { text: "Show the board" },
-		},
-		signal: new AbortController().signal,
-	} as ToolContext);
-	expect(result.isError).not.toBe(true);
-	expect(sent).toHaveLength(1);
-	expect(sent[0]!.text.length).toBeGreaterThan(0);
-	expect(sent[0]!.attachments).toBeUndefined();
-	expect((await storage.open().list()).some((file) => file.name.endsWith(".png"))).toBe(false);
-	await expect(access(data)).rejects.toMatchObject({ code: "ENOENT" });
-});
+		} as PluginAPI);
+		const show = registrations.tools.find((tool) => tool.name === "tasks_show")!;
+		const result = await show.execute({}, {
+			agent: "main",
+			profile: "default",
+			session: "2",
+			capabilities: ["read"],
+			event: {
+				id: "show",
+				ts: new Date().toISOString(),
+				type: "message.in",
+				conv: "conv:card:room",
+				data: { text: "Show the board" },
+			},
+			signal: new AbortController().signal,
+		} as ToolContext);
+		expect(result.isError).not.toBe(true);
+		expect(sent).toHaveLength(1);
+		expect(sent[0]!.text.length).toBeGreaterThan(0);
+		expect(sent[0]!.attachments).toBeUndefined();
+		expect((await storage.open().list()).some((file) => file.name.endsWith(".png"))).toBe(false);
+		await expect(access(data)).rejects.toMatchObject({ code: "ENOENT" });
+	},
+);

@@ -28,7 +28,7 @@ export function windowsServiceLauncher(
 	return `@echo off\r\nsetlocal DisableDelayedExpansion\r\nset "PATH=${windowsBatchValue(path)}"\r\nset "YONDER_INSTALL=${windowsBatchValue(install)}"\r\n"${windowsBatchValue(node)}" "${windowsBatchValue(win32.join(install, "current/packages/cli/dist/index.js"))}" start --home "${windowsBatchValue(home)}" --json >> "${windowsBatchValue(win32.join(home, ".yonder/logs/harness.log"))}" 2>&1\r\n`;
 }
 export function launcher(install: string, node = process.execPath, path = runtimePath(install)): string {
-	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, "current/packages/cli/dist/index.js"))} "$@"\n`;
+	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(posix.join(install, "current/packages/cli/dist/index.js"))} "$@"\n`;
 }
 /** Workspace binaries the install must expose; each is a real package `bin` entry. */
 export const workspaceBins = [
@@ -43,7 +43,7 @@ export function workspaceLauncher(
 	node = process.execPath,
 	path = runtimePath(install),
 ): string {
-	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, entry))} "$@"\n`;
+	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(posix.join(install, entry))} "$@"\n`;
 }
 export function windowsWorkspaceLauncher(
 	install: string,

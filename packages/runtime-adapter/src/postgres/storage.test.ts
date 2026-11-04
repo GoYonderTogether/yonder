@@ -4,13 +4,16 @@ import { executionContext } from "@yonder/sdk";
 import type { Pool } from "pg";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-const { testPostgres } = await import(new URL("../../../cloud-host/src/test-postgres.ts", import.meta.url).href);
+const { testPostgres, testPostgresUnavailable } = await import(
+	new URL("../../../cloud-host/src/test-postgres.ts", import.meta.url).href
+);
 
 import { migratePostgresRuntime, PostgresStorage } from "./storage.js";
 
 let database: { pool: Pool; close(): Promise<void> };
 const context = executionContext(new AbortController().signal);
 beforeAll(async () => {
+	if (testPostgresUnavailable) return;
 	database = await testPostgres();
 	await migratePostgresRuntime(database.pool);
 }, 60000);
@@ -37,4 +40,4 @@ for (const entry of createStorageConformance({
 		}
 	},
 }))
-	test(entry.name, entry.run);
+	test.skipIf(testPostgresUnavailable)(entry.name, entry.run);
