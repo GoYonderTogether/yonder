@@ -74,19 +74,25 @@ export async function nativePermissionStatus(kind: DeviceCapabilityKind): Promis
 	}
 }
 
+function shellInvoke(command: string, args?: unknown): Promise<unknown> {
+	const tauri = internals(win());
+	if (!tauri) return Promise.reject(new Error("native_shell_missing"));
+	return tauri.invoke(command, args);
+}
+
 /** 日历事件（Unix 秒闭区间）；未授权或不在 iOS 壳里时抛错，由调用方如实展示。 */
-export async function readCalendarEvents(from: number, to: number): Promise<unknown> {
-	return internals(win())!.invoke("plugin:yonder-device|calendar_events", { from, to });
+export function readCalendarEvents(from: number, to: number): Promise<unknown> {
+	return shellInvoke("plugin:yonder-device|calendar_events", { from, to });
 }
 
 /** 提醒事项列表。 */
-export async function readReminders(): Promise<unknown> {
-	return internals(win())!.invoke("plugin:yonder-device|reminders");
+export function readReminders(): Promise<unknown> {
+	return shellInvoke("plugin:yonder-device|reminders");
 }
 
 /** 通讯录（姓名 + 电话 / 邮箱）。 */
-export async function readContacts(): Promise<unknown> {
-	return internals(win())!.invoke("plugin:yonder-device|contacts");
+export function readContacts(): Promise<unknown> {
+	return shellInvoke("plugin:yonder-device|contacts");
 }
 
 /** 照片授权状态（不读相册内容）。 */
@@ -101,11 +107,11 @@ export async function photosStatus(): Promise<NativePermissionResult> {
 }
 
 /** 当前位置（when-in-use）。 */
-export async function readLocation(): Promise<unknown> {
-	return internals(win())!.invoke("plugin:yonder-device|location");
+export function readLocation(): Promise<unknown> {
+	return shellInvoke("plugin:yonder-device|location");
 }
 
 /** 健康：最近 7 天步数 / 睡眠 / 心率。 */
-export async function readHealth(): Promise<unknown> {
-	return internals(win())!.invoke("plugin:yonder-device|health");
+export function readHealth(): Promise<unknown> {
+	return shellInvoke("plugin:yonder-device|health");
 }
