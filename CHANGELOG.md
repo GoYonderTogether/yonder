@@ -5,7 +5,10 @@
 ### Added
 
 - connect：新增 `@yonder/connect dsh` 安装器，装好连接器包、用既有设备码流程配对并把设备令牌写入 `$DSH_HOME/yonder/`（0600）。
+- connect：新增 `hermes` 与 `openclaw` 子命令——Hermes 以 drop-in 目录装入 `~/.hermes/plugins/`，OpenClaw 经 `openclaw plugins install --force --accept-capabilities` 安装；共用设备码配对与 0600 令牌落盘，`--remove` 卸载并清除连接器自身状态。
 - dsh-connector：新增 DSH bundle 插件 `@yonder/dsh-connector`，把本机 DSH 及其 agent 登记为 Yonder Bot，并提供 `sessions.list/open/submit/transcript/abort` 与 `sessions.watch`（spec 23）。
+- hermes-connector：新增 Hermes 平台插件（drop-in），出站 `/ws/device` 连接把本机 Hermes 及其 profile 登记为 Bot，会话经 api_server REST 与网关事件流驱动（spec 23；状态仅 `<HERMES_HOME>/yonder/`）。
+- openclaw-connector：新增 OpenClaw feature 插件，经本地 Gateway WebSocket（与 CLI/Control UI 同一 RPC 面）驱动会话，并登记 OpenClaw agent 为 Bot（spec 23；状态仅 `<OPENCLAW_STATE_DIR>/yonder/`）。
 
 ### Fixed
 

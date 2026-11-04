@@ -29,8 +29,16 @@
 
 - **已验证**（隔离 `DSH_HOME` + 本地云 + 真实 DeepSeek 模型）：安装器装包、设备码配对、令牌 0600 落盘；云端出现 `kind:'harness'` 设备并宣告 `workProtocol:1`；DSH 全部 agent preset 登记为 Bot；`sessions.list/open/submit/transcript/abort` 与 `sessions.watch` 事件流跑通；网页主人 DM → DSH 会话 → 真实模型回复回到网页；卸载残留与调研一致；`engines.dsh` 不匹配时安装被拒、启动被跳过而 DSH 正常服务。
 - **未实现**：DSH 默认 `standard` preset 下"让 DSH 自己装"不成立——agent 能执行那条命令，但 `dsh plugin add` 写 `$DSH_HOME/profiles/<p>` 被 DSH 沙箱以 `EPERM` 直接拒绝，审批流程不介入；按计划退回"用户自己在终端粘贴同一条命令"。
-- **待 P2/云端**：`server/src/devices.ts` 的 `deviceKinds` 仍不含 `'harness'`，生产环境会在设备码阶段拒绝连接器；两边设备身份与允许表就绪后需再跑一次端到端。
+- **待 P2/云端**：~~`server/src/devices.ts` 的 `deviceKinds` 仍不含 `'harness'`~~（yonder-cloud `7d6c6ce` 已加入并实测）；两边设备身份与允许表就绪后需再跑一次端到端。
 - **未测**：真实 `npx -y @yonder/connect dsh`（未发布 npm）、`desktop` profile 内安装、生产云、Windows/Linux、多会话并发、卡片/图片/文件入站。
+
+## Hermes 与 OpenClaw 连接器（2026-11-04，P5）
+
+新包 `connectors/hermes`（Hermes 平台插件）与 `connectors/openclaw`（OpenClaw feature 插件）已实现并单独验收，见 [23](spec/23-harness-connector.md) 与 [P5 报告](../proposals/bot-network/reports/P5.md)。`@yonder/connect` 现有 `dsh`、`hermes`、`openclaw` 三个真实子命令。
+
+- **已验证**（隔离 `HERMES_HOME`/`OPENCLAW_STATE_DIR` + 本地云 `7d6c6ce`）：两框架安装、设备码配对、令牌 0600 落盘；云端 `kind:'harness'` 设备 `online:true, workProtocol:1`，Bot 登记（Hermes profile、OpenClaw agent）；五个会话方法与 watch 流跑通；网页 DM 投递进真实 harness 会话（`[Yonder 私聊 · …]` 前缀入转录）；卸载残留与调研一致（OpenClaw 仅一条 `enabled:false`）；版本不满足时各自跳过/降级，网关正常启动。
+- **未测**：真实模型回复往返（隔离 harness home 无 provider 凭据；CONTRIBUTING 的 OAuth 禁止跨程序复制）——已实测真实提交进 harness 且 provider 错误如实回传；真实 `npx -y`（未发布 npm）；Desktop 内安装；Windows/Linux；多会话并发与富媒体入站转换。
+- **注意**：Hermes `hermes plugins enable` 在有运行中网关时等待宿主锁；安装器直接写 `plugins.enabled`（文档化路径）。
 
 ## 共享 Bot 核心修复轮（2026-11-03）
 

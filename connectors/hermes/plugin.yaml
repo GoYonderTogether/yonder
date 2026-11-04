@@ -1,0 +1,17 @@
+# Yonder 连接器（Hermes Agent 平台插件）：把本机 Hermes 以 kind='harness'
+# 设备接入 Yonder 云账号。契约与降级规则见 docs/spec/23-harness-connector.md；
+# 适配落点见该规范 §5（platform 插件 + 会话驱动集中在 adapter.py 一个文件）。
+name: yonder-connector
+label: Yonder
+kind: platform
+version: 0.3.26110400
+description: >
+  Registers this Hermes gateway as a Yonder "harness" device: an outbound
+  /ws/device connection to a Yonder account, its agents as Bots, and the five
+  session work methods over the cloud's existing work bridge. No inbound port,
+  no transcript copy, no device-execution methods (spec 23).
+manifest_version: 2
+requires_hermes: ">=0.22.0"
+# 会话驱动只经 Hermes 官方 gateway/api_server 接口（HTTP + WS），依赖随发行环境提供。
+python_dependencies: []
+requires_env: []

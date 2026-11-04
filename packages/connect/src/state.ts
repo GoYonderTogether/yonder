@@ -18,6 +18,11 @@ export function dshStateDir(dshHome: string): string {
 	return join(resolve(dshHome), "yonder");
 }
 
+/** `<HERMES_HOME>/yonder`, with the same defaulting Hermes itself uses. */
+export function hermesStateDir(hermesHome: string): string {
+	return join(resolve(hermesHome), "yonder");
+}
+
 export function configPath(dir: string): string {
 	return join(dir, "config.json");
 }
