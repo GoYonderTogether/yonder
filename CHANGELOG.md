@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- connect：新增 `@yonder/connect dsh` 安装器，装好连接器包、用既有设备码流程配对并把设备令牌写入 `$DSH_HOME/yonder/`（0600）。
+- dsh-connector：新增 DSH bundle 插件 `@yonder/dsh-connector`，把本机 DSH 及其 agent 登记为 Yonder Bot，并提供 `sessions.list/open/submit/transcript/abort` 与 `sessions.watch`（spec 23）。
+
 ### Fixed
 
 - channel-feishu：背景不再复制本轮待处理正文；已送达助手发言附原来源和时间，明确回执不证明其中的配置或完成结论。

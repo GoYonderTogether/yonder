@@ -1,0 +1,28 @@
+{
+	"name": "@yonder/dsh-connector",
+	"version": "0.3.26110302",
+	"description": "Yonder connector bundle for DeepSeek Harness: registers this harness and its sessions with a Yonder account.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19",
+		"dsh": ">=0.2.1-rc.5 <0.3.0"
+	},
+	"main": "./dist/index.js",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"README.md",
+		"cordis.patch.yml",
+		"dist"
+	],
+	"dsh": {
+		"bundle": {
+			"patch": "./cordis.patch.yml"
+		}
+	}
+}
