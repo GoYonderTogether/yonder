@@ -15,6 +15,7 @@ import { setCloudDevice, useActiveNode } from "../work/api/nodes";
 import { mux } from "../work/api/stream";
 import { AboutSection } from "../work/features/settings/AboutSection";
 import { ChannelsSection } from "../work/features/settings/ChannelsSection";
+import { MainBotSection } from "../work/features/settings/MainBotSection";
 import { ModelConnections } from "../work/features/settings/ModelConnections";
 import { NodesSection } from "../work/features/settings/NodesSection";
 import { NotifySection } from "../work/features/settings/NotifySection";
@@ -27,6 +28,7 @@ const sections = [
 	["privacy", "隐私"],
 	["notifications", "通知"],
 	["devices", "设备"],
+	["bot", "主 Bot"],
 	["runtimes", "运行位置"],
 	["models", "云端模型"],
 	["channels", "渠道"],
@@ -97,6 +99,7 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 					</nav>
 				)}
 				{section === "privacy" && !local && <PrivacySection />}
+				{section === "bot" && !local && <MainBotSection />}
 				{local && (section === "models" || section === "runtimes") ? (
 					<section className="mx-4 rounded-card bg-raised p-4">
 						<a

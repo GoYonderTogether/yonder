@@ -11,6 +11,7 @@ import type {
 	DeviceGrants,
 	DeviceKind,
 	GroupPreview,
+	MainBot,
 	Message,
 	MessageContent,
 	Profile,
@@ -120,6 +121,9 @@ export interface ApiClient {
 	botDevices(botId: string): Promise<BotDevices>;
 	/** all 或 selected（空数组＝不允许任何设备） */
 	setBotDevices(botId: string, input: { mode: "all" } | { mode: "selected"; devices: string[] }): Promise<BotDevices>;
+	/** 主 Bot 的运行位置：默认云端，可指到设备上的既有 Bot；设备离线时由云端接手。 */
+	mainBot(): Promise<MainBot>;
+	setMainBot(input: { location: "cloud" } | { location: "device"; botId: string }): Promise<MainBot>;
 
 	// 联系人：Yonder 接入的全部 Agent 自动出现，不需要手动连接
 	contacts(): Promise<Actor[]>;

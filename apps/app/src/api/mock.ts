@@ -523,6 +523,12 @@ export const mockApi: ApiClient = {
 	async revokeDeviceGrant() {
 		throw new Error("原型没有可撤销的授权");
 	},
+	async mainBot() {
+		return { location: "cloud" as const, botId: null, botName: null, device: null };
+	},
+	async setMainBot() {
+		return { location: "cloud" as const, botId: null, botName: null, device: null };
+	},
 	async botDevices(botId) {
 		const owners = [...actors.values()].filter((a) => a.kind === "agent" && a.ownerId === me.id);
 		if (!owners.some((a) => a.id === botId)) throw new Error("没有这个 Bot");

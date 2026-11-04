@@ -7,6 +7,7 @@ import type {
 	Conversation,
 	Device,
 	DeviceGrants,
+	MainBot,
 	Message,
 	Session,
 	ShareLink,
@@ -195,6 +196,8 @@ export const httpApi: ApiClient = {
 	revokeDeviceGrant: (deviceId, grantId) =>
 		request(`/devices/${encodeURIComponent(deviceId)}/grants/${encodeURIComponent(grantId)}`, json("DELETE")),
 	botDevices: (botId) => request<BotDevices>(`/bots/${encodeURIComponent(botId)}/devices`),
+	mainBot: () => request<MainBot>("/me/main-bot"),
+	setMainBot: (input) => request<MainBot>("/me/main-bot", json("PUT", input)),
 	setBotDevices: (botId, input) =>
 		request<BotDevices>(`/bots/${encodeURIComponent(botId)}/devices`, json("PUT", input)),
 	contacts: () => request<Actor[]>("/contacts"),

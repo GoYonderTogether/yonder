@@ -220,6 +220,16 @@ export interface DeviceGrants {
 }
 
 /** A Bot's effective device set (spec 19 §9). Not an authorization source. */
+/** 主 Bot 的运行位置（GET/PUT /api/me/main-bot）。`device.online` 是真实的设备连接事实。 */
+export interface MainBot {
+	location: "cloud" | "device";
+	botId: string | null;
+	botName: string | null;
+	device: { id: string; name: string; kind: DeviceKind; online: boolean } | null;
+	/** 设备离线时接手的云端 Bot；没有云端 Bot 时为 null。 */
+	fallback?: { botId: string; botName: string } | null;
+}
+
 export interface BotDevices {
 	botId: string;
 	mode: "all" | "selected";
