@@ -115,9 +115,29 @@ function applyUsageDescriptions() {
 	console.log("prepare-ios: permission usage descriptions added to Info.plist properties");
 }
 
-/** 5. HealthKit capability：entitlements 加 com.apple.HealthKit，target 加 HealthKit framework。 */
+/**
+ * 5. HealthKit capability：entitlements 加 com.apple.HealthKit，target 加 HealthKit framework。
+ * App ID 还没在开发者门户启用 HealthKit 时，自动生成的开发 profile 不含这个 entitlement，
+ * 本地真机构建会报 "Entitlement com.apple.HealthKit not found"；设 YONDER_SKIP_HEALTHKIT=1
+ * 先不带 HealthKit 跑（位置 / 日历等其余能力不受影响）。正式 TestFlight 构建默认带上，
+ * 由维护者在开发者门户启用 capability 后生效。
+ */
+const skipHealthKit = process.env.YONDER_SKIP_HEALTHKIT === "1";
+
 function applyHealthKit() {
 	let yml = readFileSync(projectYml, "utf8");
+	if (skipHealthKit) {
+		const stripped = yml
+			.split("\n")
+			.filter((line) => !line.includes("com.apple.HealthKit") && line.trim() !== "- sdk: HealthKit.framework")
+			.join("\n");
+		if (stripped !== yml) {
+			writeFileSync(projectYml, stripped);
+			projectYmlChanged = true;
+			console.log("prepare-ios: YONDER_SKIP_HEALTHKIT=1, HealthKit capability removed from this build");
+		}
+		return;
+	}
 	let changed = false;
 	const healthEntries = yml.split("\n").filter((line) => line.trim() === "- sdk: HealthKit.framework").length;
 	if (!yml.includes("com.apple.HealthKit")) {
