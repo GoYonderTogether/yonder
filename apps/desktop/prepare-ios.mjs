@@ -111,6 +111,7 @@ function applyUsageDescriptions() {
 	const additions = USAGE_KEYS.map((key) => `        ${key}: ${USAGE_SENTENCE}`).join("\n");
 	yml = yml.replace(anchor, `${additions}\n${anchor}`);
 	writeFileSync(projectYml, yml);
+	projectYmlChanged = true;
 	console.log("prepare-ios: permission usage descriptions added to Info.plist properties");
 }
 
@@ -118,6 +119,7 @@ function applyUsageDescriptions() {
 function applyHealthKit() {
 	let yml = readFileSync(projectYml, "utf8");
 	let changed = false;
+	const healthEntries = yml.split("\n").filter((line) => line.trim() === "- sdk: HealthKit.framework").length;
 	if (!yml.includes("com.apple.HealthKit")) {
 		if (!/^    entitlements:\n      path: \S+$/m.test(yml)) {
 			console.error("prepare-ios: unexpected project.yml layout (no entitlements path line)");
@@ -128,7 +130,7 @@ function applyHealthKit() {
 		yml = yml.replace(/^(    entitlements:\n      path: \S+)$/m, "$1\n      properties:\n        com.apple.HealthKit: true\n");
 		changed = true;
 	}
-	if (!yml.includes("- HealthKit.framework")) {
+	if (healthEntries === 0) {
 		const sdkAnchor = "      - sdk: WebKit.framework";
 		if (!yml.includes(sdkAnchor)) {
 			console.error("prepare-ios: unexpected project.yml layout (no WebKit.framework sdk line)");
@@ -142,20 +144,23 @@ function applyHealthKit() {
 		return;
 	}
 	writeFileSync(projectYml, yml);
+	projectYmlChanged = true;
 	console.log("prepare-ios: HealthKit entitlement + framework added to project.yml");
 }
 
-/** xcodegen 重生成工程：前四步只改 project.yml 的必须收尾。 */
+/** 是否有步骤改了 project.yml；改了才需要 xcodegen 重生成工程。 */
+let projectYmlChanged = false;
+
+/** xcodegen 重生成工程：前面的步骤只改 project.yml，pbxproj 必须重生成才带上。 */
 function regenerate() {
-	if (!existsSync(projectYml)) return;
-	const needsRegen = readFileSync(projectYml, "utf8").includes("NSCalendarsUsageDescription");
-	if (!needsRegen) return;
+	if (!projectYmlChanged) return;
 	execFileSync("xcodegen", ["generate"], { cwd: apple, stdio: "inherit" });
 	console.log("prepare-ios: Xcode project regenerated with usage descriptions + HealthKit");
 }
 
 applyIcons();
-applySigning();
 applyUsageDescriptions();
 applyHealthKit();
+// xcodegen regenerate 会重写整个 .pbxproj，签名设置必须写在它之后。
 regenerate();
+applySigning();
