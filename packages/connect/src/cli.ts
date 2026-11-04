@@ -1,15 +1,21 @@
 #!/usr/bin/env node
+import { connectHermes, removeHermes } from "./hermes-connect.js";
 import { connectDsh, DEFAULT_ENDPOINT, removeDsh } from "./index.js";
+import { connectOpenclaw, removeOpenclaw } from "./openclaw-connect.js";
 
 const USAGE = `用法：yonder-connect <harness> [选项]
 
   dsh                       把 DeepSeek Harness 接入 Yonder 账号
   dsh --remove              卸载连接器并清除本机连接状态
+  hermes                    把 Hermes Agent 接入 Yonder 账号
+  hermes --remove           卸载连接器并清除本机连接状态
+  openclaw                  把 OpenClaw 接入 Yonder 账号
+  openclaw --remove         卸载连接器并清除本机连接状态
 
 选项：
   --endpoint <url>          Yonder 服务地址（默认 ${DEFAULT_ENDPOINT}；也可用 YONDER_ENDPOINT）
   --profile <name>          安装到哪个 DSH profile（默认：唯一的非 desktop profile）
-  --spec <spec>             安装来源（默认 @yonder/dsh-connector@latest；可给本地 tarball 路径）
+  --spec <spec>             安装来源（dsh：默认 @yonder/dsh-connector@latest；hermes/openclaw：本地插件目录）
   --no-open                 不自动打开浏览器，只打印确认链接
   --interval-ms <ms>        等待确认时的轮询间隔（默认 2000）
   -h, --help                显示本帮助`;
@@ -83,12 +89,40 @@ async function main(): Promise<number> {
 		process.stdout.write(`${USAGE}\n`);
 		return args.help ? 0 : 2;
 	}
-	if (args.command !== "dsh") {
-		process.stderr.write(`暂不支持的 harness「${args.command}」。当前可用：dsh\n`);
+	if (args.command !== "dsh" && args.command !== "hermes" && args.command !== "openclaw") {
+		process.stderr.write(`暂不支持的 harness「${args.command}」。当前可用：dsh、hermes、openclaw\n`);
 		return 2;
 	}
 	const log = (message: string) => process.stdout.write(`${message}\n`);
 	try {
+		if (args.command === "hermes") {
+			if (args.remove) {
+				const result = removeHermes({ log });
+				return result.removed.length || result.pluginDir ? 0 : 1;
+			}
+			await connectHermes({
+				...(args.endpoint ? { endpoint: args.endpoint } : {}),
+				...(args.spec ? { spec: args.spec } : {}),
+				...(args.intervalMs === undefined ? {} : { intervalMs: args.intervalMs }),
+				noOpen: args.noOpen,
+				log,
+			});
+			return 0;
+		}
+		if (args.command === "openclaw") {
+			if (args.remove) {
+				const result = removeOpenclaw({ log });
+				return result.removed.length || result.pluginDir ? 0 : 1;
+			}
+			await connectOpenclaw({
+				...(args.endpoint ? { endpoint: args.endpoint } : {}),
+				...(args.spec ? { spec: args.spec } : {}),
+				...(args.intervalMs === undefined ? {} : { intervalMs: args.intervalMs }),
+				noOpen: args.noOpen,
+				log,
+			});
+			return 0;
+		}
 		if (args.remove) {
 			const result = removeDsh({ ...(args.profile ? { profile: args.profile } : {}), log });
 			return result.removed.length || result.profile ? 0 : 1;
