@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, tempHome } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerContexts } from "../src/contexts.js";
 
@@ -25,6 +25,7 @@ describe("memory contexts identity boundary", () => {
 		await writeFile(join(root, "private/2026-10.md"), "SECRET");
 		const contexts: any[] = [];
 		const api: any = {
+			storage: createFilePluginStorage(root),
 			contexts: { register: (c: any) => contexts.push(c) },
 			identity: {
 				account: async (ref: string) =>

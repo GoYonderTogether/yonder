@@ -33,7 +33,7 @@
 - acct 目标先 `POST /api/device/dm` `{agentId,accountId}` → `{convId}`（幂等）；Agent 须属于设备且 enabled，目标须与 Agent 同在一个会话或是其主人的好友，否则 403 forbidden。
 - 连接后发送 `{type:'hello'}`，服务端 agent_cursor 补收；仅在 io.emit 接纳后发送 `{type:'ack',agentId,convId,seq}`。失败不 ack。重连指数退避；同步 Agent 后重连刷新服务端 hello 订阅。
 - hello 补收的帧带 `replayed: true`（实时帧不带）。补收消息发出已超过 5 分钟时，插件在正文前加一行「[补收：这条消息发于 <ISO 时间>，设备离线期间未送达…先向对方确认。]」，Bot 据此判断旧指令是否已被后来的消息取代，不照做覆盖新结果（JV2-J03-10）。
-- 首版出站仅文本/Markdown，不支持上传附件或流式；入站 image/file 映射附件，interactive 保留其标题和正文。
+- 出站支持文本/Markdown 与 SDK OutMessage 的结构化 interactive 内容，channel-card 原样透传；不支持上传附件或流式。入站 image/file 映射附件，interactive 保留其标题和正文。按钮级 link、卡片工具与仅服务端可写的 error 消息见 [22](22-shared-bot-core.md)。
 
 ## 4 名片草稿工具
 
@@ -43,9 +43,21 @@
 
 工具失败时说明具体原因，不用笼统提示：没有 Agent 身份（任务/预设会话）时说明该会话没有 Agent、要在 Agent 会话（`yonder chat` 或名片渠道）里调用；`ToolContext.agent` 未在实例注册时点名 Agent 与实例并要求先 `yonder channels login card`；其余失败带上真实错误（JV2-J03-02）。
 
+### 4.1 当前来源的最终交互卡片
+
+官方工具 `channel-card_reply_card` 接受title、body、actions（id、label及可选link）与可选整卡link，按钮必须使用应用内路径；拒绝外站、协议相对路径及非应用导航。需要message能力，只允许真实Agent工具调用中当前已入站且可自动回复的card会话及实际渠道范围，以ctx.autoReplySource定位ctx.events中的真实message.in，再核对session/agent route、conv/msgId与范围；缺少可信候选就拒绝，不能把waiting=false等同auto，reply:none不能准备；不接受to、owner、profile或自报runId，不处理无Agent/无来源/等待调用方的程序任务。卡片state为pending，不能借格式工具发往任意会话。
+
+工具只按真实session/runId保存本插件的一张意图，关联本轮该来源最后一条真实message.in事件、conv和msgId；同run最后成功保存的一张生效。FS与PG都用既有PluginFiles，不保存第二条发送队列、不扫描历史。回执明确“已准备，尚未发送”，要求正常完成本轮，不能声称已经投递或返回假消息ID。原card_push人工名片草稿语义不变。
+
+仅成功最终回复且session/runId/source/conv全部吻合时，选中插件的beforeSend把同一条消息替换为interactive，并以title/body提供文本回退。有效卡片加空final或NO_REPLY仍有最终内容；失败保留真实错误并清除意图，不提前发卡片掩盖失败。本机与worker card都不流式，不在message_end先投递。
+
+准备时不删除意图；原message.attempt已持久化完整outgoing.content后可按同session/runId删除，此后原attempt重试携带同一完整卡片及原幂等信息。非done的run.end清除该run意图。每次新send/prepare管线只运行一遍hook，既有attempt重试直接使用持久outgoing、不重跑hook；不宣称跨重试全局exactly-once。未进入首attempt的回复沿原普通文本恢复语义，不为卡片新造outbox或自动重投协议。实际送达以原delivery/渠道确认判断。
+
 ## 5 配置与验收
 
 渠道配置 `{endpoint?:string, device?:{kind?:'laptop'|'desktop'|'server'}}`；endpoint 默认 https://yonder.zethai.cn，不含凭据。setup 只注册，不联网。
+
+**外部 harness 设备（`kind: 'harness'`，2026-11-03 主人批准）。** 除真实的 Yonder 设备外，一类由连接器注册的"设备"也走同一套 `/ws/device`、`PUT /api/device/agents`、消息帧与工作桥：连接器把外部 agent 框架（DSH、Hermes、OpenClaw 等）伪装成一台设备接入。云端不按框架分支；契约、连接器须实现的协议子集、安装/卸载与版本降级规则见 [23-harness-connector](23-harness-connector.md)。与真实设备的差别只有三点：设备行标 `kind='harness'`，便于网页如实显示来源；连接器不上报执行端 deviceId 与公钥，因而不参与 18 的配对与 grant，工作桥只提供该框架自己的会话方法，不提供设备执行能力；卸载连接器后设备与 Bot 按既有退役语义下线，不删除历史。`kind` 的允许集由新增前向迁移放宽（`devices` 与 `device_codes` 两处 CHECK 都加 `harness`），与 006 迁移放宽 `cloud` 的做法一致；旧值保持有效。除这三点外，设备归属、`PUT /api/device/agents` 的全量对齐语义、消息补收、主人 DM 与解绑规则与真实设备相同。此类别与本节其余内容同属未实现规范。
 
 名片接口返回真实 Card（id、ownerId、respondentId、title、markdown、display?、status、rev、updatedAt 等），工具只返回非秘密结果。Agent 同步接口是 upsert，不删除未提交的远端 Agent；本地映射仅保留当前启用 Agent，不接纳已移除目标。
 
@@ -56,7 +68,7 @@
 本节描述名片网页（与后端同源的前端）的访客与登录行为，属于 card 服务端与 `apps/app` 的范围，不改变 §1 的设备登录协议；插件渠道侧不参与验证与配额判定。设计来源见 [decisions](../decisions.md) 的 2026-10-29「访客额度登录升级与分享链接配额」条。
 
 - 访客不设登录墙：`#/u/:id`（名片页）、`#/p/:accountId`（个人页）、`#/g/:token`（群邀请）、`#/get`（安装）、`#/connect`（连接）继续免登录可看；匿名访客无需验证即可直接聊天。
-- 访客消息额度按匿名身份计消息条数，默认取较小的值并可由服务端配置（具体条数实现时定）。达到上限后前端弹窗提示访客登录并绑定真实账号，不静默拦截、不直接断开。
+- 访客消息额度**由 2026-11-05 起的 token 额度取代**：访客能否继续问，由下方「平台模型 token 额度」和「一张名片 50 位访客」决定。原按匿名身份计消息条数的上限默认改为 0（不限），仍可由 `VISITOR_MESSAGE_LIMIT` / `GUEST_MAX_ROUNDS` 显式设回一个数用于限流；两套上限同时存在时取先到的那个，达到上限后前端提示访客登录并绑定真实账号，不静默拦截、不直接断开。
 - 登录只有验证码一种方式：手机号短信验证码或邮箱验证码，不设密码，首次验证即注册。验证成功即把当前匿名身份及其历史（会话、好友、名片收藏等）绑定到真实账号并继续聊天，一次验证完成，不设计多步流程。老邮箱+密码账号首次走验证码后绑回原账号并合并历史，复用现有匿名合并语义。
 - 真实账号在「账号与安全」设置里可绑定单个邮箱或单个手机号；已有的绑定方式显示为已绑定，可换绑。
 - 验证码位数、冷却与重发间隔、错误次数上限等细节实现时按旧主体契约（腾讯云短信模板与 SMTP）确定，本规范不预先发明。
@@ -65,9 +77,22 @@
 - 实现必须遵守 decisions 同条列出的 8 条安全基线（用户 id 用随机 UUID、不提供免码登录、验证码存 PostgreSQL `auth_codes` 表并带过期语义与尝试计数、不放 Redis 与进程内 Map、比较恒定时间、发码失败不报 `sent`、换绑/重置类 confirm 限次、换绑后撤销既有会话、任何环境不返回 devCode、发码不透露目标是否已注册），不得照抄旧主体系统。
 - 短信沿用旧 zethai 主体的腾讯云 SdkAppId、签名与模板（模板文案「注册验证码」暂用于登录场景，正式模板需在腾讯云侧另行报备，属主人外部事项）；邮箱验证码走 SMTP。新增的短信/邮件环境键必须同步加入 `deploy/env.mjs` 白名单与 `server/src/config.ts` 校验（目前只允许 DATABASE_URL/REDIS_URL/PUBLIC_ORIGIN/PORT）。
 
+### 平台模型 token 额度（2026-11-05 主人要求）
+
+云端 Bot 只有一个平台模型（官方 DeepSeek，见 22 与 decisions 同日条目），额度按 token 计，不按消息条数。计入的是 provider 计费的输入 + 输出，排除 cache-hit token：DeepSeek 的 `prompt_cache_miss_tokens` + `completion_tokens` 正好对应 pi-ai 的 `usage.input` + `usage.output`；`cacheRead`/`cacheWrite` 一律不计。
+
+- 手机验证账号：每个自然周 1 亿 token（Asia/Shanghai，周一 00:00 重置）。
+- 匿名访客在单张名片上：20 万 token（终身，不按周重置）；跨名片合计 50 万 token，耗尽后必须手机验证才能继续。
+- 一张名片最多接纳 50 位不同匿名访客；已接纳的老访客永远还能回来，名片总量不设上限。
+- 访客用量不占名片主人的额度。
+- 访客验证手机时，其本周已用 token 并进该账号的自然周用量（与匿名→账号合并同一事务）。
+- 每次模型调用前强制判定，拒绝时返回 `quota_exceeded`，带上是哪项上限、已用/上限与重置时刻（访客合计耗尽另带要求验证的标记），网页把这句话如实显示给用户；调用后按实际用量入账。
+- 登录账号可读 `GET /api/usage`：`{ weekUsed, weekLimit, resetsAt, model }`。
+- 分享链接的「50 次成功验证」按链接计新访客人数，与本节的 token 额度、名片访客人数是三套独立计数，互不抵扣。
+
 ## 默认 Bot 与云端创建（增补，主人 10-29）
 网页端（apps/app）依赖社交服务的两个增补接口，仅限已登录的 human 会话：
-- `POST /api/me/default-bot`，正文 `{name, englishName}`（网页固定发 `小未` / `Yonder Bot`）。**幂等**：在账号行锁内判断，账号名下已有任意 `kind=agent` 且 `owner_id=本账号` 的账号（含设备接入的）时原样返回其中一个，不创建；否则创建一个云端 Bot（使用云端默认模型与预设，学习功能默认开启）并建立与本人的 DM 会话，返回 Actor。重复登录和并发请求不得产生多个。
+- `GET /api/me/default-bot` 返回当前账号的 default Bot，没有时返回404。`POST /api/me/default-bot` 接受网页现有 `{name, englishName}`（固定发 `小未` / `Yonder Bot`），服务端沿原 name 字段保存名字。**幂等**：在 owner 锁内按 `bot_kind=default` 查询，已有默认 Bot 时原样返回、不改名；否则创建独立云端 Bot，返回 Actor。设备 Bot 不占默认 Bot 的身份。首次激活使用共享核心、平台模型与 agent-presets 默认模板，不启动独立容器；DM 沿现有会话接口创建。重复登录和并发请求不得产生多个默认 Bot。
 - `POST /api/bots`，正文仅 `{name}`，创建云端 Bot，其余参数全部取服务端默认值，返回 Actor。不接受用途、模型、预设等字段。
 网页行为：联系人加载后若没有任何自己的 Bot 就调用前者一次；聊天列表不再有选择/创建引导页，旧 `/pa` 重定向到 `/`。服务端实现不在本仓库（yonder-cloud）。
 

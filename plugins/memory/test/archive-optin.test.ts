@@ -1,7 +1,7 @@
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { PluginAPI } from "@yonder/sdk";
-import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it } from "vitest";
 import { initialize } from "../src/files.js";
 import plugin from "../src/index.js";
@@ -18,6 +18,7 @@ async function setup(capture?: { enabled?: boolean }) {
 	const { api, registrations } = createRegistrationCollector();
 	await plugin.setup({
 		...api,
+		storage: createFilePluginStorage(root),
 		config: {
 			root,
 			owner: "person:test",

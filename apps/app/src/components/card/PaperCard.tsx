@@ -102,30 +102,30 @@ export function PaperCard({
 								{brand.trim()}
 							</span>
 						)}
-						<span className="mt-[2%] truncate text-[clamp(22px,9cqw,42px)] leading-[1.1] tracking-[0.04em] font-semibold" style={serif}>
+						<span
+							className="mt-[2%] truncate text-[clamp(22px,9cqw,42px)] leading-[1.1] tracking-[0.04em] font-semibold"
+							style={serif}
+						>
 							{name}
 							{alias && (
-								<small className="ml-[0.6em] text-[0.36em] font-normal tracking-[0.08em] text-faint" style={{ fontFamily: "inherit" }}>
+								<small
+									className="ml-[0.6em] text-[0.36em] font-normal tracking-[0.08em] text-faint"
+									style={{ fontFamily: "inherit" }}
+								>
 									{alias}
 								</small>
 							)}
 						</span>
 						{title && <span className="mt-1.5 text-[clamp(11px,3.6cqw,14px)] text-muted">{title}</span>}
 						{line && (
-							<span
-								className="mt-auto line-clamp-2 text-[clamp(12px,4.4cqw,18px)] leading-[1.55]"
-								style={serif}
-							>
+							<span className="mt-auto line-clamp-2 text-[clamp(12px,4.4cqw,18px)] leading-[1.55]" style={serif}>
 								{line}
 							</span>
 						)}
 						<span className="mt-[6%] flex items-end justify-between gap-3">
 							<span className="flex flex-wrap gap-1.5">
 								{visibleTags.map((tag) => (
-									<span
-										key={tag}
-										className="rounded-full border border-ink/16 px-2 py-0.5 text-[11px] text-muted"
-									>
+									<span key={tag} className="rounded-full border border-ink/16 px-2 py-0.5 text-[11px] text-muted">
 										{tag}
 									</span>
 								))}

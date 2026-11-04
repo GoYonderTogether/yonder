@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { type KernelServices, loadPlugins } from "@yonder/local-host/plugins/index";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
-import { type KernelServices, loadPlugins } from "../../../packages/core/src/plugins/index.js";
 
 const unused = async (): Promise<never> => {
 	throw new Error("unexpected service call");

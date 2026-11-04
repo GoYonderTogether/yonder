@@ -7,8 +7,8 @@ import { api } from "../api";
 import { selectAccount } from "../cache";
 import { AppBar } from "../components/AppBar";
 import { PaperCard, PaperIntro } from "../components/card/PaperCard";
-import { useStartChat } from "../lib/cardActions";
 import { appPath } from "../lib/base";
+import { useStartChat } from "../lib/cardActions";
 import { entityRef } from "../lib/entityRef";
 import { wantCardLogin } from "../lib/myCard";
 import { useAppBack } from "../lib/navigation";
@@ -167,7 +167,8 @@ export function PublicIdentity({
 				headline={card?.tagline ?? profile.card?.tagline ?? actor.summary ?? undefined}
 				tags={face?.tags ?? []}
 				url={shareUrl}
-			/>			{!self && (
+			/>{" "}
+			{!self && (
 				<Button variant="primary" className="h-12" disabled={busyProfile || starting} onClick={hi}>
 					<span className="inline-block size-[7px] rounded-full bg-online" aria-hidden />
 					{chatLabel}

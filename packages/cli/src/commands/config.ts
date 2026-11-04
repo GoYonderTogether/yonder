@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { env, stderr } from "node:process";
-import { inspectSkills, summarizeAgentOperability } from "@yonder/core";
+import { inspectSkills, summarizeAgentOperability } from "@yonder/local-host";
 import { homeFor, managed, namedOptions, type Options, output, print, skillsUsage, UsageError } from "./context.js";
 
 function currentInspectContext(home: string) {

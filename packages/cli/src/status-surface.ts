@@ -1,4 +1,4 @@
-import { createStatusSurface, type Kernel, releaseInfo, type StatusSurface } from "@yonder/core";
+import { createStatusSurface, type Kernel, releaseInfo, type StatusSurface } from "@yonder/local-host";
 
 /**
  * 启动状态面。

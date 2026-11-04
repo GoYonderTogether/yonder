@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { appendFileSync, existsSync, writeFileSync } from "node:fs";
 import { setTimeout } from "node:timers/promises";
 import { createModels } from "@earendil-works/pi-ai";
-import { CredentialSlotStore } from "../../packages/core/dist/runtime/credential-slots.js";
+import { CredentialSlotStore } from "../../packages/runtime-adapter/dist/node/runtime/credential-slots.js";
 
 const [path, slot, gate, marker, cancelled] = process.argv.slice(2);
 const slots = new CredentialSlotStore(path);

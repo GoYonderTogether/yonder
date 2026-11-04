@@ -2,7 +2,7 @@ import { lstat, readdir, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { stdout } from "node:process";
-import { installedService, manageService, releaseInfo } from "@yonder/core";
+import { installedService, manageService, releaseInfo } from "@yonder/local-host";
 
 const usage = "Usage: yonder uninstall [--purge] [--keep-home] [--json] [--dry-run]";
 const packageCommands: Record<string, string> = {

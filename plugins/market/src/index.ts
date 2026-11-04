@@ -28,6 +28,12 @@ export default definePlugin({
 		const watch = new WatchRunner(api, client);
 		registerMarketTools(api, { client, watch });
 		registerMarketView(api, { client, watch });
-		api.triggers.register({ id: "market", start: () => watch.start(), stop: () => watch.stop() });
+		api.triggers.register({
+			id: "market",
+			start: (io) => watch.start(io),
+			tick: (now) => watch.tick(now),
+			busy: () => watch.busy(),
+			stop: () => watch.stop(),
+		});
 	},
 });

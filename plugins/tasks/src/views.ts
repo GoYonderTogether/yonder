@@ -56,9 +56,9 @@ export function registerTaskViews(api: PluginAPI, store: Store): void {
 	api.views.register(
 		{ id: "tasks.board", plugin: "tasks", title: "Task board", placement: "rail", scope: "session" },
 		{
-			data(session) {
+			async data(session) {
 				if (!session) throw new Error("Session required");
-				const tasks = store.forSession(session);
+				const tasks = await store.forSession(session);
 				return {
 					viewId: "tasks.board",
 					rev: Math.max(0, ...tasks.map(({ revision }) => revision)),

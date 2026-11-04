@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
-import { tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { CardChannel } from "../src/channel.js";
 
@@ -81,6 +81,7 @@ test("real backend: device authorization → agents → hello → human DM → m
 		const inputs: EventInput[] = [];
 		const api = {
 			paths: { data },
+			storage: createFilePluginStorage(data),
 			agents: {
 				list: async () => [
 					{ id: "main", name: "Main" },

@@ -22,7 +22,13 @@ export default definePlugin({
 		if (!Number.isSafeInteger(concurrency) || concurrency < 1 || concurrency > 64)
 			throw new Error("cron concurrency must be integer 1..64");
 		const scheduler = new Scheduler(api, concurrency);
-		api.triggers.register({ id: "cron", start: () => scheduler.start(), stop: () => scheduler.stop() });
+		api.triggers.register({
+			id: "cron",
+			start: (io) => scheduler.start(io),
+			tick: (now) => scheduler.tick(now),
+			busy: () => scheduler.busy(),
+			stop: () => scheduler.stop(),
+		});
 		api.views.register(
 			{
 				id: "cron.manage",

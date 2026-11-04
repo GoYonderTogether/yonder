@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { Principal } from "@yonder/core";
+import type { Principal } from "@yonder/local-host";
 
 export const COOKIE = "yonder_session";
 export const COOKIE_TTL_MS = 24 * 3600_000;

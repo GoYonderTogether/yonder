@@ -38,6 +38,11 @@ export const GrantSchema = object({
 	issuedAt: time,
 	expiresAt: time,
 	revokedAt: Type.Union([time, Type.Null()]),
+	/** Cloud account id of the controller's Bot; absent for manual offline pairing. */
+	botId: Type.Optional(Type.Union([id, Type.Null()])),
+	/** Controller-supplied readable label, display only. */
+	label: Type.Optional(text),
+	source: Type.Optional(Type.Union([Type.Literal("cloud"), Type.Literal("manual")])),
 });
 export const DeviceSessionSchema = object({
 	deviceSessionId: id,
@@ -181,7 +186,21 @@ export const RpcRequestSchema = Type.Union([
 	request("commands.submit", object({ commandBase64: base64 })),
 	request("commands.status", CommandLookupSchema),
 	request("commands.cancel", CommandLookupSchema),
+	request("grants.list", object({})),
 	request("grants.revoke", object({ grantId: id })),
+	request(
+		"device.introduce",
+		object({
+			controllerPublicKey: base64,
+			label: text,
+			botId: Type.Union([id, Type.Null()]),
+			capabilities,
+			targetIds: Type.Array(text),
+			actions: Type.Array(text),
+			readRoots: Type.Array(text),
+			writeRoots: Type.Array(text),
+		}),
+	),
 ]);
 const responseHeader = { ...requestHeader, kind: Type.Literal("response") };
 export const RpcResponseSchema = Type.Union([
@@ -200,6 +219,17 @@ export const RelayFrameSchema = object({
 	version: Type.Literal(1),
 	routeId: text,
 	envelope: SignedEnvelopeSchema,
+});
+/** Added by the cloud outside the signed envelope; never part of the relay frame contract. */
+export const CloudAttestationSchema = object({
+	ownerId: id,
+	cloudDeviceId: id,
+	executorDeviceId: id,
+	action: Type.Union([Type.Literal("introduce"), Type.Literal("revoke"), Type.Literal("policy")]),
+	subject: text,
+	issuedAt: integer,
+	expiresAt: integer,
+	mac: Type.String({ minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]{43}$" }),
 });
 
 export type ExecutionCapability = Static<typeof GrantSchema>["capabilities"][number];
@@ -220,3 +250,4 @@ export type RpcResponse = Static<typeof RpcResponseSchema>;
 export type RpcMessage = Static<typeof RpcMessageSchema>;
 export type SignedEnvelope = Static<typeof SignedEnvelopeSchema>;
 export type RelayFrame = Static<typeof RelayFrameSchema>;
+export type CloudAttestation = Static<typeof CloudAttestationSchema>;

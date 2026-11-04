@@ -120,8 +120,7 @@ allowed/unbound socket files are absent; no acceptance processes or heavy-test
 lock remain. No dev server/watcher/service/helper was installed or left running.
 The independent clone/node_modules/build outputs, packed artifact and the two
 isolated `/tmp/yonder-official-refine-*` homes remain as evidence, not active resources.
-Machine-readable checkpoints and original-evidence hashes are in the adjacent
-`hermes-official-integration-20261025.json`.
+The original checkpoint excerpt is `"heavyTestLockAbsent": true`; the human-readable results above remain after removal of the machine dump.
 
 All requested bounded checks passed after the documented harness assertion fix.
 Suggested next release is 0.2.26102502, subject to main's independent review and

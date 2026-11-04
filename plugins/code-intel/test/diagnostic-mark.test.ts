@@ -1,7 +1,7 @@
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { inspectToolCatalog } from "@yonder/runtime-adapter/runtime/catalog";
 import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
-import { inspectToolCatalog } from "../../../packages/core/src/runtime/catalog.js";
 import plugin from "../src/index.js";
 
 test("diagnostic mark registration is additive and absent when the plugin is not selected", async () => {

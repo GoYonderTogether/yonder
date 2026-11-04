@@ -2,57 +2,15 @@ import { readdir, readFile, realpath } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parse } from "yaml";
-import type {
-	ChannelProvider,
-	ContextContribution,
-	EnvProvider,
-	Hook,
-	PermissionProvider,
-	PluginAPI,
-	PluginModule,
-	Preset,
-	Tool,
-	Trigger,
-	ViewDecl,
-	ViewProvider,
-	YEvent,
-} from "./types.js";
+import type { PluginManifest, Registrations } from "./registrations.js";
+import { createRegistrationCollector, registrationSlots, validateRegistrations } from "./registrations.js";
+import type { PluginAPI, PluginModule } from "./types.js";
 import { API_VERSION } from "./version.js";
 
-export { tempHome, tempHomeSync, tempRoot } from "./testing-temp.js";
+export type { PluginManifest, Registrations } from "./registrations.js";
+export { createRegistrationCollector } from "./registrations.js";
 
-const slots = [
-	"views",
-	"channels",
-	"tools",
-	"contexts",
-	"triggers",
-	"envs",
-	"hooks",
-	"presets",
-	"skills",
-	"permissions",
-] as const;
-type Slot = (typeof slots)[number];
-export interface PluginManifest {
-	apiVersion: number;
-	id: string;
-	entry: string;
-	contributes: Partial<Record<Slot, string[]>>;
-}
-export interface Registrations {
-	views: Array<{ decl: ViewDecl; provider: ViewProvider }>;
-	permissions: PermissionProvider[];
-	channels: ChannelProvider[];
-	tools: Tool[];
-	contexts: ContextContribution[];
-	triggers: Trigger[];
-	envs: EnvProvider[];
-	hooks: Hook[];
-	presets: Preset[];
-	skills: string[];
-	listeners: Array<{ type: string; handler: (event: YEvent) => void | Promise<void> }>;
-}
+export { tempHome, tempHomeSync, tempRoot } from "./testing-temp.js";
 
 export async function readPluginManifest(dir: string): Promise<PluginManifest> {
 	const { yonder: manifest } = JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as {
@@ -75,7 +33,7 @@ export async function readPluginManifest(dir: string): Promise<PluginManifest> {
 		throw new Error(`${id}: invalid contributes`);
 	for (const [slot, names] of Object.entries(manifest.contributes)) {
 		if (
-			!slots.includes(slot as Slot) ||
+			!registrationSlots.includes(slot as (typeof registrationSlots)[number]) ||
 			!Array.isArray(names) ||
 			names.some((name) => typeof name !== "string" || !name)
 		)
@@ -83,109 +41,14 @@ export async function readPluginManifest(dir: string): Promise<PluginManifest> {
 	}
 	return manifest;
 }
-
-export function createRegistrationCollector() {
-	const registrations: Registrations = {
-		views: [],
-		permissions: [],
-		channels: [],
-		tools: [],
-		contexts: [],
-		triggers: [],
-		envs: [],
-		hooks: [],
-		presets: [],
-		skills: [],
-		listeners: [],
-	};
-	const collect = <T>(items: T[]) => ({
-		register: (item: T): void => {
-			items.push(item);
-		},
-	});
-	const api = {
-		invalidate: (_ids?: string[], _badge?: number): void => {},
-		views: {
-			register: (decl: ViewDecl, provider: ViewProvider): void => {
-				registrations.views.push({ decl, provider });
-			},
-		},
-		permissions: collect(registrations.permissions),
-		channels: collect(registrations.channels),
-		tools: collect(registrations.tools),
-		contexts: collect(registrations.contexts),
-		triggers: collect(registrations.triggers),
-		envs: collect(registrations.envs),
-		hooks: collect(registrations.hooks),
-		presets: collect(registrations.presets),
-		skills: collect(registrations.skills),
-		events: {
-			on: (type: string, handler: (event: YEvent) => void | Promise<void>): void => {
-				registrations.listeners.push({ type, handler });
-			},
-		},
-	};
-	return { registrations, api };
-}
-
 export async function checkRegistrations(
 	manifest: PluginManifest,
 	registrations: Registrations,
 	dir: string,
 ): Promise<string[]> {
-	const errors: string[] = [];
-	const report = (message: string) => errors.push(`${manifest.id}: ${message}`);
-	const names: Record<Slot, string[]> = {
-		views: registrations.views.map((value) => value.decl.id),
-		permissions: registrations.permissions.map((value) => value.id),
-		channels: registrations.channels.map((value) => value.type),
-		envs: registrations.envs.map((value) => value.type),
-		tools: registrations.tools.map((value) => value.name),
-		contexts: registrations.contexts.map((value) => value.id),
-		triggers: registrations.triggers.map((value) => value.id),
-		hooks: registrations.hooks.map((value) => value.id),
-		presets: registrations.presets.map((value) => value.id),
-		skills: [],
-	};
-	for (const { decl, provider } of registrations.views) {
-		if (
-			decl.plugin !== manifest.id ||
-			!decl.id.startsWith(`${manifest.id}.`) ||
-			decl.id.length <= manifest.id.length + 1
-		)
-			report(`view ${decl.id}: expected own plugin namespace`);
-		if (
-			!["rail", "floating", "page"].includes(decl.placement) ||
-			!["session", "node"].includes(decl.scope) ||
-			typeof provider.data !== "function"
-		)
-			report(`view ${decl.id}: invalid provider contract`);
-	}
-	for (const provider of registrations.permissions) {
-		if (typeof provider.id !== "string" || (provider.id !== manifest.id && !provider.id.startsWith(`${manifest.id}.`)))
-			report(`permission ${provider.id}: expected own plugin namespace`);
-		if (
-			typeof provider.id !== "string" ||
-			!/^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)?$/.test(provider.id) ||
-			typeof provider.scope !== "string" ||
-			!provider.scope.trim() ||
-			!Array.isArray(provider.kinds) ||
-			!provider.kinds.length ||
-			provider.kinds.some((kind) => typeof kind !== "string" || !kind.trim()) ||
-			new Set(provider.kinds).size !== provider.kinds.length ||
-			typeof provider.invoke !== "function"
-		)
-			report(`permission ${provider.id}: invalid provider contract`);
-	}
-	for (const tool of registrations.tools) {
-		if (!Array.isArray(tool.capabilities)) report(`tool ${tool.name}: capabilities must be declared`);
-		if (
-			typeof tool.name !== "string" ||
-			!tool.name.startsWith(`${manifest.id}_`) ||
-			!/^[a-z][a-z0-9_-]{0,63}$/.test(tool.name)
-		)
-			report(`tool ${tool.name}: invalid name; expected ${manifest.id}_ prefix`);
-	}
+	const skillNames: string[] = [];
+	const skillErrors: string[] = [];
+	const report = (message: string) => skillErrors.push(`${manifest.id}: ${message}`);
 	for (const registeredDir of registrations.skills) {
 		try {
 			const root = await realpath(dir);
@@ -209,31 +72,13 @@ export async function checkRegistrations(
 					data.description.length > 1024
 				)
 					report(`skill ${filename}: invalid name or description`);
-				else names.skills.push(data.name);
+				else skillNames.push(data.name);
 			}
 		} catch (error) {
 			report(`skills ${registeredDir}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
-	for (const slot of slots) {
-		const declared = manifest.contributes[slot] ?? [];
-		for (const [label, entries] of [
-			["declared", declared],
-			["registered", names[slot]],
-		] as const) {
-			const seen = new Set<string>();
-			for (const name of entries) {
-				if (typeof name !== "string" || !name) report(`${slot}: invalid ${label} name`);
-				else if (seen.has(name)) report(`${slot}.${name}: duplicate ${label} contribution`);
-				seen.add(name);
-			}
-		}
-		for (const name of names[slot])
-			if (!declared.includes(name)) report(`${slot}.${name}: registered but not declared`);
-		for (const name of declared)
-			if (!names[slot].includes(name)) report(`${slot}.${name}: declared but not registered`);
-	}
-	return errors;
+	return validateRegistrations(manifest, registrations, skillNames, skillErrors);
 }
 
 export async function checkPlugin(dir: string): Promise<string[]> {
@@ -264,7 +109,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			messages: { send: unavailable },
 			agents: { list: unavailable, configureBinding: unavailable, inspectBinding: unavailable },
 			credentials: { get: unavailable },
-			execution: { resolve: unavailable, run: unavailable },
+			execution: { capture: unavailable, resolve: unavailable, run: unavailable },
 			services: { resolve: unavailable },
 			host: { status: unavailable, modelReady: unavailable },
 			sessions: {
@@ -290,9 +135,17 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			},
 			models: new Proxy({} as PluginAPI["models"], { get: unavailable }),
 			paths: { data: resolve(dir, ".yonder-contract-data") },
+			storage: {
+				open: () => new Proxy({} as import("./plugin-storage.js").PluginFiles, { get: unavailable }),
+				writeAttachment: unavailable,
+			},
 		});
 		return await checkRegistrations(manifest, registrations, dir);
 	} catch (error) {
 		return [`${id}: ${error instanceof Error ? error.message : String(error)}`];
 	}
 }
+
+export { createFilePluginStorage } from "./node-storage.js";
+
+export { createTriggerScheduler } from "./trigger-scheduler.js";

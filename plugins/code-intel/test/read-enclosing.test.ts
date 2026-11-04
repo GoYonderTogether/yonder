@@ -22,7 +22,7 @@ test.skipIf(!executable("pi-lens-mcp"))(
 			env: new NodeExecutionEnv({ cwd: process.cwd() }),
 			signal: new AbortController().signal,
 		} as ToolContext;
-		const args = { path: "packages/core/src/runtime/grep.ts", line: 5 };
+		const args = { path: "packages/runtime-adapter/src/runtime/grep.ts", line: 5 };
 		const full = await tool.execute(args, ctx);
 		expect(full.isError).not.toBe(true);
 		expect(full.text).toContain("createGrepTool");

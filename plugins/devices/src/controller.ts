@@ -63,6 +63,10 @@ export class DeviceController {
 	) {
 		this.store = new ControllerStore(data);
 	}
+	/** The executor only knows its own deviceId; the model and store use the cloud UUID (18 §5). */
+	private wireId(device: RegisteredDevice): string {
+		return device.executorDeviceId ?? device.deviceId;
+	}
 	private async device(deviceId: string): Promise<RegisteredDevice> {
 		const matches = (await this.registry()).filter((d) => d.deviceId === deviceId);
 		if (matches.length !== 1)
@@ -99,7 +103,13 @@ export class DeviceController {
 	}
 	async list(ctx: ToolContext): Promise<unknown> {
 		requireCaps(ctx, ["read"]);
-		const devices = await this.registry();
+		let devices: readonly RegisteredDevice[];
+		try {
+			devices = await this.registry();
+		} catch (error) {
+			// A discovery failure must be visible, never an empty list that looks like "no devices".
+			throw new Error(`Device discovery failed: ${error instanceof Error ? error.message : "unknown"}`);
+		}
 		const entries = await Promise.all(
 			devices.map(async (device) => {
 				const grants = this.grants(device, ctx);
@@ -139,6 +149,7 @@ export class DeviceController {
 			executionEnv: { id: ctx.env.id, cwd: ctx.env.cwd },
 			devices: entries,
 			...(entries.length ? {} : { reason: "No trusted device registrations supplied by pairing management" }),
+
 			checkpointRestore: "unsupported",
 		};
 	}
@@ -263,7 +274,12 @@ export class DeviceController {
 	}
 	async status(deviceId: string, commandId: string, ctx: ToolContext): Promise<CommandReceipt> {
 		const device = await this.readable(deviceId, ctx);
-		const pending = await this.store.command(deviceId, publicKeyId(device.controllerKey), commandId);
+		const pending = await this.store.command(
+			deviceId,
+			publicKeyId(device.controllerKey),
+			commandId,
+			this.wireId(device),
+		);
 		return this.receipt(
 			await rpc(device, "commands.status", { commandId }, ctx.signal),
 			device,
@@ -272,7 +288,7 @@ export class DeviceController {
 				? {
 						payloadSha256: pending.payloadSha256,
 						deviceSessionId: decodeCommand(pending.commandBase64, {
-							deviceId,
+							deviceId: this.wireId(device),
 							principalId: publicKeyId(device.controllerKey),
 						}).deviceSessionId,
 					}
@@ -295,9 +311,9 @@ export class DeviceController {
 		}
 		const device = await this.readable(deviceId, ctx);
 		const principalId = publicKeyId(device.controllerKey);
-		const pending = await this.store.command(deviceId, principalId, commandId);
+		const pending = await this.store.command(deviceId, principalId, commandId, this.wireId(device));
 		if (pending) {
-			const saved = decodeCommand(pending.commandBase64, { deviceId, principalId });
+			const saved = decodeCommand(pending.commandBase64, { deviceId: this.wireId(device), principalId });
 			const requested = encodeCommand({ ...saved, deviceSessionId: id, action, arguments: args });
 			if (commandDigest(requested) !== pending.payloadSha256)
 				throw new RemoteError("COMMAND_CONFLICT", "Command ID already has different bytes");
@@ -311,7 +327,7 @@ export class DeviceController {
 		)
 			throw new RemoteError("UNAUTHORIZED", "Action or session authority outside current grant");
 		const commandBase64 = encodeCommand({
-			deviceId,
+			deviceId: this.wireId(device),
 			principalId,
 			commandId,
 			deviceSessionId: id,
@@ -372,7 +388,12 @@ export class DeviceController {
 	async cancel(deviceId: string, commandId: string, ctx: ToolContext): Promise<CommandReceipt> {
 		requireCaps(ctx, ["exec", "network"]);
 		const device = await this.device(deviceId);
-		const pending = await this.store.command(deviceId, publicKeyId(device.controllerKey), commandId);
+		const pending = await this.store.command(
+			deviceId,
+			publicKeyId(device.controllerKey),
+			commandId,
+			this.wireId(device),
+		);
 		if (!this.grants(device, ctx, "exec").some((g) => !pending || g.targetIds.includes(pending.targetId)))
 			throw new RemoteError("UNAUTHORIZED", "No current device cancellation grant");
 		return this.receipt(
@@ -383,7 +404,7 @@ export class DeviceController {
 				? {
 						payloadSha256: pending.payloadSha256,
 						deviceSessionId: decodeCommand(pending.commandBase64, {
-							deviceId,
+							deviceId: this.wireId(device),
 							principalId: publicKeyId(device.controllerKey),
 						}).deviceSessionId,
 					}

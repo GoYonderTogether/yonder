@@ -576,6 +576,8 @@ export type Settings = {
 /** What `HarnessOptions.env` builds an environment for. */
 export type EnvTarget = {
 	readonly conversationId: ConversationId;
+	/** Native task invocation whose environment is being built; absent for conversation-level environment reads. */
+	readonly taskId?: TaskId;
 	/** The conversation's agent `cwd`. */
 	readonly cwd?: string;
 	readonly read: DocumentReader;
@@ -780,7 +782,7 @@ export interface GenerationHooks {
 		request: { readonly messages: readonly Message[] },
 		api: HookApi,
 		context: Context,
-	): HookResult<{ readonly messages: readonly Message[] }>;
+	 ): HookResult<{ readonly messages?: readonly Message[]; readonly toolsRemoved?: readonly string[] }>;
 	/** Every terminal provider message, before classification. */
 	afterResponse(message: AssistantMessage, api: HookApi, context: Context): void | Promise<void>;
 	/** Yonder fork: override error classification; native budget, overflow and abort rules still apply. Last defined decision wins. */

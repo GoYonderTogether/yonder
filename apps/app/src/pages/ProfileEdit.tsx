@@ -4,7 +4,15 @@ import { ArrowLeft, Camera, Plus, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Navigate } from "react-router";
 import { api } from "../api";
-import type { Actor, Card, CardProfile, CardVisibility, Profile, ProfileUpdateInput, ProfileUpdateResult } from "../api/types";
+import type {
+	Actor,
+	Card,
+	CardProfile,
+	CardVisibility,
+	Profile,
+	ProfileUpdateInput,
+	ProfileUpdateResult,
+} from "../api/types";
 import { AppBar } from "../components/AppBar";
 import { CardCover } from "../components/card/CardCover";
 import { PhotoPicker, type PhotoPickerHandle } from "../components/PhotoPicker";
@@ -284,7 +292,10 @@ function ProfileForm({
 					api,
 					actor,
 					card,
-					{ ...form, face: { profile: formProfile(form.profile), tags: form.tags.map((t) => t.trim()).filter(Boolean) } },
+					{
+						...form,
+						face: { profile: formProfile(form.profile), tags: form.tags.map((t) => t.trim()).filter(Boolean) },
+					},
 					{
 						active: () => alive.current && $session.get()?.actor.id === actor.id,
 						onActor: acknowledgeActor,
@@ -439,7 +450,7 @@ function ProfileForm({
 									/>
 									{!avatarPreview && !form.avatarUrl && (
 										<span className="flex h-full w-full items-center justify-center bg-tone-2 text-title text-muted">
-											{[...form.name.trim() || actor.name][0]}
+											{[...(form.name.trim() || actor.name)][0]}
 										</span>
 									)}
 								</span>
@@ -497,6 +508,7 @@ function ProfileForm({
 					<fieldset disabled={busy} className="flex flex-col gap-3">
 						<legend className="mb-2 text-small font-medium text-muted">标签（最多 3 个）</legend>
 						{form.tags.map((tag, index) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: 标签行按序号编辑/删除，行本身就是位置，索引即身份
 							<div key={index} className="flex gap-2">
 								<Field
 									label={`标签 ${index + 1}`}
@@ -535,6 +547,7 @@ function ProfileForm({
 					<fieldset disabled={busy} className="flex flex-col gap-3">
 						<legend className="mb-2 text-small font-medium text-muted">背面信息（最多 6 行）</legend>
 						{form.profile.facts.map((fact, index) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: 背面行按序号编辑/删除，行本身就是位置，索引即身份
 							<div key={index} className="flex gap-2">
 								<Field
 									label={`名目 ${index + 1}`}

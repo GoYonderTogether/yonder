@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
-import type { PluginAPI, ToolContext } from "@yonder/sdk";
+import { intersectResources, type PluginAPI, type ToolContext, type TriggerIO } from "@yonder/sdk";
 import { Check } from "typebox/value";
 import { executeRun } from "./execute.js";
 import {
@@ -22,8 +20,13 @@ export type { Job, RecordRun } from "./job.js";
 export class Scheduler {
 	private jobs: Job[] = [];
 	private queue: Promise<unknown> = Promise.resolve();
-	private timer: ReturnType<typeof setTimeout> | undefined;
 	private stopped = true;
+	private io?: TriggerIO;
+	private startedAt = 0;
+	private finishing = 0;
+	busy() {
+		return this.running.size > 0 || this.finishing > 0;
+	}
 	private running = new Map<
 		string,
 		{ controller: AbortController; promise: Promise<RecordRun>; session?: string | undefined }
@@ -43,25 +46,27 @@ export class Scheduler {
 		this.queue = result.catch(() => {});
 		return result;
 	}
-	async start() {
-		await mkdir(join(this.api.paths.data, "runs"), { recursive: true, mode: 0o700 });
+	async start(io: TriggerIO) {
+		this.io = io;
+		this.startedAt = io.startedAt;
+		await this.api.storage.open().mkdir("runs");
 		this.jobs = await loadJobs(this.api);
 		for (const job of this.jobs) this.validate(job);
 		for (const run of await loadRuns(this.api)) {
-			if (run.status === "running") {
+			if (run.status === "running" && Date.parse(run.started) < this.startedAt) {
 				run.status = "interrupted";
 				run.ended = new Date().toISOString();
 				run.error = "Service restarted; unknown side effects are not retried";
 				await this.record(run);
-				await this.api.events.emit({ type: "cron.interrupted", from: "plugin:cron", data: run });
+				await io.emit({ type: "cron.interrupted", from: "plugin:cron", data: run });
 			}
 		}
 		this.stopped = false;
-		await this.tick(true);
+		await this.tick(Date.now());
 	}
 	async stop() {
 		this.stopped = true;
-		clearTimeout(this.timer);
+		await this.io?.schedule(undefined);
 		await this.queue;
 		for (const active of this.running.values()) {
 			active.controller.abort();
@@ -73,36 +78,41 @@ export class Scheduler {
 	private validate(job: Job) {
 		validateJob(job);
 	}
-	private arm() {
-		clearTimeout(this.timer);
-		if (this.stopped) return;
+	private async refreshExecutionSource(job: Job, ctx: ToolContext | undefined) {
+		if (!ctx) {
+			return { executionOwner: { ...job.owner } };
+		}
+		const executionOwner = await this.api.execution.capture(ctx);
+		const resources = intersectResources(
+			job.resources,
+			ctx.resources === undefined ? undefined : structuredClone(ctx.resources),
+		);
+		return { executionOwner, resources };
+	}
+	private async scheduleNext() {
+		if (this.stopped || this.running.size >= this.concurrency) {
+			await this.io?.schedule(undefined);
+			return;
+		}
 		const due = this.jobs
 			.filter((j) => j.enabled && j.next !== null && !this.running.has(j.id))
 			.map((j) => j.next as number);
-		// Capacity is reconsidered when an active run completes; no hot loop for queued jobs.
-		if (!due.length || this.running.size >= this.concurrency) return;
-		const delay = Math.max(1, Math.min(2147483647, Math.min(...due) - Date.now()));
-		this.timer = setTimeout(() => {
-			void this.tick(false).catch((e) => {
-				this.api.log.error("cron scheduling failed", { error: errorText(e) });
-			});
-		}, delay);
+		await this.io?.schedule(due.length ? Math.min(...due) : undefined);
 	}
-	async tick(restart = false) {
+	async tick(now = Date.now()) {
 		await this.exclusive(async () => {
 			if (this.stopped) return;
-			const now = Date.now();
 			for (const job of this.jobs) {
 				if (!job.enabled || job.next === null || job.next > now || this.running.has(job.id)) continue;
 				const scheduled = job.next;
-				if ((restart && job.missed === "skip") || (job.end && now > instant(job.end))) {
+				if ((scheduled < this.startedAt && job.missed === "skip") || (job.end && now > instant(job.end))) {
 					job.next = next(job.schedule, now, job.start, job.end);
 					const run: RecordRun = {
 						id: randomUUID(),
 						job: job.id,
 						scheduled,
-						started: new Date().toISOString(),
-						ended: new Date().toISOString(),
+						started: new Date(now).toISOString(),
+						ended: new Date(now).toISOString(),
 						status: "skipped",
 						text: "Missed while service was stopped",
 					};
@@ -112,32 +122,37 @@ export class Scheduler {
 				}
 				if (this.running.size >= this.concurrency) continue;
 				try {
-					await this.launch(job, scheduled);
+					await this.launch(job, scheduled, now);
 				} catch (error) {
 					job.enabled = false;
 					const run: RecordRun = {
 						id: randomUUID(),
 						job: job.id,
 						scheduled,
-						started: new Date().toISOString(),
-						ended: new Date().toISOString(),
+						started: new Date(now).toISOString(),
+						ended: new Date(now).toISOString(),
 						status: "schedule-failed",
 						error: errorText(error),
 					};
 					await this.record(run);
 					await this.save();
-					await this.api.events.emit({ type: "cron.schedule-failed", from: "plugin:cron", data: run });
+					await (this.io?.emit ?? this.api.events.emit)({
+						type: "cron.schedule-failed",
+						from: "plugin:cron",
+						data: run,
+					});
 				}
 			}
-			this.arm();
+			await this.scheduleNext();
 		});
 	}
-	private async launch(job: Job, scheduled: number | null): Promise<{ completion: Promise<RecordRun> }> {
+	private async launch(
+		job: Job,
+		scheduled: number | null,
+		now = Date.now(),
+	): Promise<{ completion: Promise<RecordRun> }> {
 		if (this.stopped) throw new Error("Cron service stopped");
-		if (
-			scheduled === null &&
-			((job.start && Date.now() < instant(job.start)) || (job.end && Date.now() > instant(job.end)))
-		)
+		if (scheduled === null && ((job.start && now < instant(job.start)) || (job.end && now > instant(job.end))))
 			throw new Error("Outside job execution window");
 		if (this.running.has(job.id)) throw new Error("Job already running");
 		if (this.running.size >= this.concurrency) throw new Error("Cron concurrency limit reached");
@@ -146,12 +161,12 @@ export class Scheduler {
 			id: randomUUID(),
 			job: job.id,
 			scheduled,
-			started: new Date().toISOString(),
+			started: new Date(now).toISOString(),
 			status: "running",
 		};
 		const controller = new AbortController();
 		job.runs++;
-		if (scheduled !== null) job.next = next(job.schedule, Date.now(), job.start, job.end);
+		if (scheduled !== null) job.next = next(job.schedule, now, job.start, job.end);
 		if (job.maxRuns !== undefined && job.runs >= job.maxRuns) {
 			job.enabled = false;
 			job.next = null;
@@ -160,9 +175,14 @@ export class Scheduler {
 		await this.save();
 		const active = { controller, promise: Promise.resolve(run), session: undefined as string | undefined };
 		this.running.set(job.id, active);
-		active.promise = executeRun(this.api, job, run, active).finally(() => {
+		active.promise = executeRun(this.api, job, run, active, this.io?.emit).finally(async () => {
+			this.finishing++;
 			this.running.delete(job.id);
-			this.arm();
+			try {
+				await this.scheduleNext();
+			} finally {
+				this.finishing--;
+			}
 		});
 		void active.promise.catch((error) =>
 			this.api.log.error("cron result persistence failed", { job: job.id, error: errorText(error) }),
@@ -196,8 +216,13 @@ export class Scheduler {
 			)
 				throw new Error("Use cron_exec with exec capability for command/script jobs");
 			let result: Promise<RecordRun> | undefined;
+			const source = await this.refreshExecutionSource(job as Job, ctx);
 			await this.exclusive(async () => {
 				if (!this.jobs.includes(job as Job)) throw new Error("Job changed; read current job before running");
+				if (ctx || source.executionOwner) {
+					Object.assign(job as Job, source, { updated: new Date().toISOString() });
+					await this.save();
+				}
 				result = (await this.launch(job as Job, null)).completion;
 			});
 			return result;
@@ -209,14 +234,15 @@ export class Scheduler {
 			if (a.action === "delete") {
 				this.jobs = this.jobs.filter((j) => j !== job);
 				await this.save();
-				this.arm();
+				await this.scheduleNext();
 				return { deleted: a.id };
 			}
 			if (a.action === "disable" || a.action === "enable") {
+				if (a.action === "enable") Object.assign(job as Job, await this.refreshExecutionSource(job as Job, ctx));
 				(job as Job).enabled = a.action === "enable";
 				if (a.action === "enable") (job as Job).next = next((job as Job).schedule, Date.now(), job?.start, job?.end);
 				await this.save();
-				this.arm();
+				await this.scheduleNext();
 				return job;
 			}
 			if (!a.job) throw new Error("job required");
@@ -224,11 +250,33 @@ export class Scheduler {
 			if (a.action === "create" && (!a.job.name || !a.job.schedule || !a.job.payload))
 				throw new Error("name, schedule, payload required");
 			const now = new Date().toISOString();
+			let sourceFields: Pick<Job, "executionOwner" | "resources"> = {};
+			if (job && ctx) {
+				const executionOwner = await this.api.execution.capture(ctx);
+				const resources = intersectResources(
+					job.resources,
+					ctx.resources === undefined ? undefined : structuredClone(ctx.resources),
+				);
+				sourceFields = { executionOwner, ...(resources === undefined ? {} : { resources }) };
+			} else if (job) {
+				sourceFields = { executionOwner: job.owner };
+			} else if (ctx) {
+				const executionOwner = await this.api.execution.capture(ctx);
+				const resources = intersectResources(
+					undefined,
+					ctx.resources === undefined ? undefined : structuredClone(ctx.resources),
+				);
+				sourceFields = { executionOwner, ...(resources === undefined ? {} : { resources }) };
+			}
 			const authority = !job && !ctx && hostOwner ? await this.api.execution.resolve(hostOwner) : undefined;
+			const owner =
+				job?.owner ?? hostOwner ?? (ctx ? { session: ctx.session, agent: ctx.agent, profile: ctx.profile } : undefined);
+			const capabilities = job?.capabilities ?? authority?.capabilities ?? (ctx ? [...ctx.capabilities] : undefined);
+			if (!owner || !capabilities) throw new Error("Creating a job requires an execution owner");
 			const updated: Job = {
 				id: randomUUID(),
-				owner: job?.owner ?? hostOwner ?? { session: ctx!.session, agent: ctx!.agent, profile: ctx!.profile },
-				capabilities: job?.capabilities ?? authority?.capabilities ?? [...ctx!.capabilities],
+				owner,
+				capabilities,
 				name: "",
 				schedule: a.job.schedule as Schedule,
 				payload: a.job.payload as Payload,
@@ -240,6 +288,7 @@ export class Scheduler {
 				next: null,
 				...job,
 				...a.job,
+				...sourceFields,
 			};
 			for (const key of ["delivery", "start", "end", "maxRuns"] as const)
 				if (updated[key] === null) delete updated[key];
@@ -265,7 +314,7 @@ export class Scheduler {
 			if (updated.maxRuns !== undefined && updated.runs >= updated.maxRuns) updated.enabled = false;
 			this.jobs = [...this.jobs.filter((j) => j.id !== updated.id), updated];
 			await this.save();
-			this.arm();
+			await this.scheduleNext();
 			return updated;
 		});
 	}

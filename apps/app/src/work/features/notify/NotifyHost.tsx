@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { mux } from "../../api/stream";
 import { effectiveLevel, usePrefs } from "../../lib/prefs";
+// __TAURI_INTERNALS__ 的全局声明唯一来源是 lib/nativePermissions.ts，这里不再重复声明。
 
 export function NotifyHost() {
 	const prefs = usePrefs();
@@ -29,10 +30,4 @@ export function NotifyHost() {
 		);
 	}, [prefs]);
 	return null;
-}
-
-declare global {
-	interface Window {
-		__TAURI_INTERNALS__?: { invoke(command: string, args: unknown): Promise<unknown> };
-	}
 }

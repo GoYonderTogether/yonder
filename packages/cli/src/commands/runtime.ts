@@ -1,6 +1,7 @@
 import { createConnection } from "node:net";
 import { env, stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
+import { startGateway, workControl } from "@yonder/gateway";
 import {
 	cliChannelEndpoint,
 	controlHandler,
@@ -10,8 +11,7 @@ import {
 	releaseInfo,
 	requestControl,
 	serveControl,
-} from "@yonder/core";
-import { startGateway, workControl } from "@yonder/gateway";
+} from "@yonder/local-host";
 import type { OutputPart } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "../awake.js";
 import { startStatusSurface } from "../status-surface.js";

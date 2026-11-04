@@ -1,5 +1,7 @@
-import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
+import type { PluginFiles } from "@yonder/sdk";
+import { createFilePluginStorage } from "@yonder/sdk/node-storage";
 import { parse } from "yaml";
 import { within } from "./config.js";
 
@@ -47,19 +49,20 @@ export async function safePath(root: string, path: string): Promise<string> {
 	}
 	return target;
 }
-export async function createFile(root: string, path: string, text: string): Promise<boolean> {
-	const file = await safePath(root, path);
-	try {
-		await writeFile(file, text, { flag: "wx" });
+export type MemoryRoot = string | PluginFiles;
+export const memoryFiles = (root: MemoryRoot): PluginFiles =>
+	typeof root === "string" ? createFilePluginStorage(root).open(root) : root;
+
+export async function createFile(root: MemoryRoot, path: string, text: string): Promise<boolean> {
+	return memoryFiles(root).transaction(async (files) => {
+		if ((await files.read(path)) !== undefined) return false;
+		await files.write(path, text);
 		return true;
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
-		throw error;
-	}
+	});
 }
-export async function initialize(root: string): Promise<void> {
-	await mkdir(root, { recursive: true });
-	for (const dir of directories) await mkdir(await safePath(root, dir), { recursive: true });
+export async function initialize(root: MemoryRoot): Promise<void> {
+	const files = memoryFiles(root);
+	for (const dir of directories) await files.mkdir(dir);
 	for (const [path, text] of Object.entries({
 		"SCHEMA.md": schemaText,
 		"log.md": "",
@@ -69,28 +72,24 @@ export async function initialize(root: string): Promise<void> {
 		"life/vision.md": "## 愿景\n## 提议\n## 历史\n",
 		".memory/manifest.json": "{}\n",
 	}))
-		await createFile(root, path, text);
+		await createFile(files, path, text);
 }
-export async function textFiles(root: string): Promise<string[]> {
+export async function textFiles(root: MemoryRoot): Promise<string[]> {
+	const files = memoryFiles(root);
 	const found: string[] = [];
 	async function walk(path: string) {
-		let entries: import("node:fs").Dirent[];
-		try {
-			entries = await readdir(await safePath(root, path), { withFileTypes: true });
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
-			throw error;
-		}
-		for (const e of entries) {
-			if (e.name.startsWith(".") || e.name === "node_modules" || e.isSymbolicLink()) continue;
-			const child = path ? `${path}/${e.name}` : e.name;
-			if (e.isDirectory()) await walk(child);
-			else if (e.isFile() && /\.(md|markdown|txt)$/i.test(e.name)) found.push(child);
+		for (const entry of await files.list(path)) {
+			if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+			const child = path ? `${path}/${entry.name}` : entry.name;
+			if (entry.type === "directory") await walk(child);
+			else if (/\.(md|markdown|txt)$/i.test(entry.name)) found.push(child);
 		}
 	}
 	await walk("");
 	return found;
 }
-export async function readText(root: string, path: string): Promise<string> {
-	return readFile(await safePath(root, path), "utf8");
+export async function readText(root: MemoryRoot, path: string): Promise<string> {
+	const text = await memoryFiles(root).read(path);
+	if (text === undefined) throw Object.assign(new Error(`No such memory file: ${path}`), { code: "ENOENT" });
+	return text;
 }

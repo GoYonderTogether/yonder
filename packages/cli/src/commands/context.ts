@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { cwd, env, stderr, stdout } from "node:process";
-import { offlineQuery, requestControl } from "@yonder/core";
+import { offlineQuery, requestControl } from "@yonder/local-host";
 
 export const usage = `Usage: yonder <command> [options]
 

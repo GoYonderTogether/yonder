@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { processTool } from "../../packages/core/dist/runtime/process.js";
+import { processTool } from "../../packages/runtime-adapter/dist/node/runtime/process.js";
 
 const [home, mode, sameGroup] = process.argv.slice(2);
 const jobs = new Map();

@@ -1,0 +1,43 @@
+{
+	"name": "@yonder/openclaw-connector",
+	"version": "0.3.26110400",
+	"description": "Yonder connector plugin for OpenClaw: registers this gateway with a Yonder account.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"main": "./dist/index.js",
+	"exports": {
+		".": "./dist/index.js"
+	},
+	"files": [
+		"README.md",
+		"openclaw.plugin.json",
+		"dist"
+	],
+	"openclaw": {
+		"extensions": [
+			"./dist/index.js"
+		],
+		"compat": {
+			"pluginApi": ">=2026.9.1",
+			"minHostVersion": ">=2026.9.1"
+		}
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json"
+	},
+	"dependencies": {
+		"typebox": "1.3.35",
+		"ws": "8.18.3"
+	},
+	"peerDependencies": {
+		"openclaw": ">=2026.9.1"
+	},
+	"peerDependenciesMeta": {
+		"openclaw": {
+			"optional": true
+		}
+	}
+}

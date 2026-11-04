@@ -108,7 +108,7 @@ async function withGateway(check) {
 	let core;
 	let gatewayModule;
 	try {
-		core = await import("../packages/core/dist/index.js");
+		core = await import("../packages/local-host/dist/index.js");
 		gatewayModule = await import("../packages/gateway/dist/index.js");
 	} catch (error) {
 		throw new Error(`缺少构建产物（先运行 npm run build）：${error.message}`);

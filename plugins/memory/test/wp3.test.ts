@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, utimes, writeFile
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
+import { checkPlugin, createFilePluginStorage, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it } from "vitest";
 import { capture } from "../src/capture.js";
 import { initialize } from "../src/files.js";
@@ -40,6 +40,7 @@ async function setup(extra = {}) {
 	const { api, registrations } = createRegistrationCollector();
 	await plugin.setup({
 		...api,
+		storage: createFilePluginStorage(root),
 		config,
 		identity: {
 			...api.identity,

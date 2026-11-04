@@ -1,4 +1,5 @@
-import { tempHome } from "@yonder/sdk/testing";
+import type { EventInput, Trigger, YEvent } from "@yonder/sdk";
+import { createTriggerScheduler, tempHome } from "@yonder/sdk/testing";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { MarketClient } from "../src/client.js";
 import plugin from "../src/index.js";
@@ -301,7 +302,15 @@ it("manages watch tasks against the cloud", async () => {
 
 it("announces each watch match once, in the owner's main session", async () => {
 	const runner = new WatchRunner(harness.api, async () => new MarketClient(cloud.base, "device-token"));
-	await runner.start();
+	const host = createTriggerScheduler(() => {});
+	const emit = async (event: EventInput) => ({ ...event, id: "event", ts: new Date().toISOString() }) as YEvent;
+	const trigger: Trigger = {
+		id: "market",
+		start: (io) => runner.start(io),
+		tick: (now) => runner.tick(now),
+		stop: () => runner.stop(),
+	};
+	const dispose = await host.start("market", trigger, emit);
 	try {
 		await runner.apply(
 			{ id: "w1", title: "找相机", frequency: "hourly", active: true, checkedAt: Date.now() - 2 * HOUR },
@@ -322,7 +331,8 @@ it("announces each watch match once, in the owner's main session", async () => {
 		expect(harness.notifications).toHaveLength(2);
 		expect(harness.notifications[1]?.text).toContain("l10");
 	} finally {
-		await runner.stop();
+		await dispose();
+		await host.stop();
 	}
 });
 

@@ -10,7 +10,11 @@
 packages/
   pi-durable/            MIT fork 的 durable 源码（构建先于 SDK/core）
   sdk/      @yonder/sdk    插件 API 类型、define* 辅助函数、testing/checkPlugin
-  core/     @yonder/core   内核；src/runtime/ 是唯一 import pi 运行时的目录
+  bot-definition/ @yonder/bot-definition  宿主无关的 Bot schema、解析与配置求值
+  bot-core/ @yonder/bot-core  共享 createBot、路由/会话/投递/提示词/插件注册
+  runtime-adapter/ @yonder/runtime-adapter  唯一 pi 运行实现，默认纯入口与 node/postgres 子路径
+  local-host/ @yonder/local-host  本机启动、存储/环境、插件解析、控制与管理
+  cloud-host/ @yonder/cloud-host  PG 来源/插件存储、统一调度与单进程云端 worker
   cli/      @yonder/cli    yonder 命令与终端界面
   macos/                   macOS 状态栏
 plugins/                   官方插件，每个是独立 npm workspace 包，只依赖 @yonder/sdk
@@ -28,8 +32,8 @@ skills/                    随发行内置的 skill
 ## 边界（违反即为缺陷）
 
 - 架构不变量见 [docs/architecture.md](docs/architecture.md) 第 5 节，任何时候都不能违反。
-- pi 的模型/会话运行包只能在 `packages/core/src/runtime/` 里 import；`@yonder/sdk` 只能 `import type`。插件只依赖 `@yonder/sdk`，不 import core、pi 或兄弟插件的内部代码。
-- `packages/core/src` 按 [architecture §6](docs/architecture.md#6-内核分层与规模预算) 分层，只能依赖本层或更低层（含 `import type`），由 `scripts/check-layers.mjs` 检查；单文件不超过 500 行，由 `scripts/check-file-size.mjs` 检查。两者都在 `npm run lint` 里，基线只减不增。
+- pi 的模型/会话运行包只能在唯一 `packages/runtime-adapter/` 包里 import（默认纯入口与显式 node/postgres 宿主子路径由层级检查单源限定）；`@yonder/sdk` 只能 `import type`（现有 `executionContext(signal)` 的纯取消上下文辅助例外：仅 SDK index 可从 `@earendil-works/chord/context` 导入 `BACKGROUND_CONTEXT`、`withAbortSignal`，不涉及模型/会话运行）。插件只依赖 `@yonder/sdk`，不 import core、pi 或兄弟插件的内部代码。
+- `packages/bot-core/src` 按 [architecture §6](docs/architecture.md#6-内核分层与规模预算) 分层，只能依赖本层或更低层（含 `import type`），由 `scripts/check-layers.mjs` 检查；单文件不超过 500 行，由 `scripts/check-file-size.mjs` 检查。两者都在 `npm run lint` 里，基线只减不增。
 - `packages/cli/` 可以使用 pi-tui 及 coding-agent 的 UI/主题/键位导出，或按许可提取的界面模块；不得接入 coding-agent 的第二套运行或存储系统，不得自行重设计布局和交互（见 [spec/12](docs/spec/12-terminal-interaction.md)）。
 - 不写模拟模型、假数据、示例人设、占位功能。
 - 修改 `docs/spec/`、`docs/architecture.md`、`docs/decisions.md` 与 `AGENTS.md` 属于设计变更，需要维护者审核。
@@ -49,9 +53,15 @@ npm ci && npm run build && npm test
 
 本地未 push 的 fork 提交可用 `YONDER_PI_SOURCE=/absolute/fork-checkout node scripts/sync-pi-durable.mjs <完整40位commit>`；脚本核对 checkout 的 origin 是上述 fork 并 fetch 精确已提交对象，仍生成相同 repository/commit provenance，不读取未提交文件。这不代表该 SHA 已在远端发布。
 
-同步前先取当前 `FORK_SOURCE.json` 记录的 commit，逐文件核对现有 `src`；内容、文件集合不同或无法核对时，脚本在删除任何目标文件之前拒绝同步，不提供强制覆盖。核对通过才替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、codemode 等未改依赖继续取 npm，导出路径不变。pi-ai 必须接同一 fork 提交的完整编译 tarball，按下节收进源码发行；不允许新 durable 配旧 npm ai。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
+同步前先取当前 `FORK_SOURCE.json` 记录的 commit，逐文件核对现有 `src`；内容、文件集合不同或无法核对时，脚本在删除任何目标文件之前拒绝同步，不提供强制覆盖。核对通过才替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。除下述明确任务例外外，不直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、codemode 等未改依赖继续取 npm，导出路径不变。pi-ai 必须接同一 fork 提交的完整编译 tarball，按下节收进源码发行；不允许新 durable 配旧 npm ai。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
 
 当前来源已完成overlay归源：旧基础5414b87上的14个anchor工具改动先迁回fork提交 `4e37df84c2929fb46e86b58d7b18a189bf8825d9`，Harness现存93个src文件逐字节核对为0差异后推进基准；随后沿原保护脚本同步来源分组D2，再同步保留显式interrupt兼容语义的D3 `91e8c7a958ad15a7f5a4be9e6a76c0162ee77c1c`。durable源码与pi-ai artifact均记录D3完整commit，原anchor功能与断言已迁回fork；对应core消费者测试保留在Harness。今后仍先比较当前记录commit与现存src，禁止强制覆盖、删除保护或直接改vendor。`check-pi-ai-bundle.mjs`核对两个包的commit、唯一resolution和artifact integrity；源逐字节核对仍由同步guard负责。
+
+### 本次共享Bot任务的受控program ToolTask例外
+
+维护者2026-11-02 BRIEF §2.3明确允许修改本仓自有pi-durable，且本轮只允许两个指定worktree，禁止push/访问原checkout。阶段11可直接在packages/pi-durable/src为现ToolTask增加受控program根调用：复用原schema、hooks、durable intent、输出和replay，不合成assistant/user entry或nested parent，不另起运行循环。另允许Harness的Agent解析回调在await beforeAgent完成后读取当时registry.snapshot，供本轮真实动态工具进入首次Agent目录；phase任务定义/执行调度仍保原快照，adapter继续按本run冻结名单/目标/权限求交。环境回调另可接收可选的真实invocation taskId，由scheduler经buildEnv传递，供program在beforeTool前选择该task权限/环境快照；普通conversation级调用不带taskId仍兼容。Generation现有beforeRequest返回值可另带toolsRemoved:string[]，仅为本次provider请求累积删除既有Agent工具，不可增加工具/权限；未提供时原行为不变。只改上述入口、Agent解析、task身份传递与请求工具删除所必需的源码/导出/版本迁移；不改pi-ai artifact、来源base commit、同步/安装/发布脚本或降低保护。
+
+实际文件与验证写入packages/pi-durable/FORK.md及本次verification，明确它是本仓新增overlay而非上游已提交快照。main 已将原 anchor overlay 归入所记录的 D3 fork；本分支的 program overlay 仍保留，未来同步保护须因该未合入 fork 的差异拒绝覆盖；之后由维护者另行迁回fork，不在本任务访问第三仓或push。
 
 ## 打包匹配的 pi-ai fork
 
@@ -70,7 +80,7 @@ node scripts/bundle-pi-ai.mjs /absolute/artifacts/manifest.json
 npm install --package-lock-only --ignore-scripts
 npm ci --ignore-scripts
 node scripts/check-pi-ai-bundle.mjs
-node node_modules/typescript/bin/tsc -b packages/pi-durable packages/sdk packages/core packages/cli --force
+node node_modules/typescript/bin/tsc -b packages/pi-durable packages/sdk packages/runtime-adapter packages/bot-core packages/local-host packages/cli --force
 ```
 
 打包脚本要求 clean、精确同源的 artifact manifest。根 direct dependency 用仓库内相对 tarball 路径，并以 npm `$` override 统一直接/传递依赖；不要把 `/tmp` 或外部 checkout 写入依赖。构建前 guard 检查唯一 ai resolution 与同源 hash。新 tarball、provenance、MIT LICENSE、根 package.json 与 package-lock 必须一起提交。正式 tag 的干净 clone 无需 pi checkout 或本地 artifact 目录；重建 tarball 才需要 fork 构建输入。

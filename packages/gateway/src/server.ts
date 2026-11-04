@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { Socket } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type GatewayHost, gatewaySettings, type HostCtx, MethodError, registry } from "@yonder/core";
+import { type GatewayHost, gatewaySettings, type HostCtx, MethodError, registry } from "@yonder/local-host";
 import { type WebSocket, WebSocketServer } from "ws";
 import {
 	COOKIE,

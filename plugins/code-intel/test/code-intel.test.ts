@@ -58,9 +58,9 @@ test.skipIf(!codegraphAvailable)(
 	async () => {
 		const dir = await tempHome("yonder-codegraph-");
 		try {
-			await cp(resolve("packages/core/src/runtime/grep.ts"), join(dir, "grep.ts"));
+			await cp(resolve("packages/runtime-adapter/src/runtime/grep.ts"), join(dir, "grep.ts"));
 			// The runtime facade delegates tool assembly; the greps live in the extension installer.
-			await cp(resolve("packages/core/src/runtime/tool-activation.ts"), join(dir, "tool-activation.ts"));
+			await cp(resolve("packages/runtime-adapter/src/runtime/tool-activation.ts"), join(dir, "tool-activation.ts"));
 			const tool = await loadTool();
 			const ctx = {
 				agent: null,
@@ -82,7 +82,7 @@ test.skipIf(!codegraphAvailable)(
 			expect(callers).toContain("grep.ts:");
 			const source = await readFile(join(dir, "tool-activation.ts"), "utf8");
 			expect(source).toContain("function installExtensions(");
-			expect(source).toContain("[createGrepTool(),");
+			expect(source).toContain("[createGrepTool(host.remoteGrep),");
 			await appendFile(join(dir, "grep.ts"), "\n// changed\n");
 			await expect(tool.execute({ query: "createGrepTool" }, ctx)).rejects.toThrow("codegraph sync");
 			const controller = new AbortController();

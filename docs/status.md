@@ -1,8 +1,78 @@
 # 项目状态
 
-更新：2026-11-02。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
+更新：2026-11-05。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
+
+## bot-network 合入 main 与平台额度（2026-11-05，integrate/bot-network）
+
+`feat/bot-network` 已合入两仓新起的 `integrate/bot-network`（未 push、未部署）：冲突都按 main 的更新行为取舍，站点源保持 `https://yonder.zethai.cn`，版本号保持 `0.3.26110401`，包布局取分支的 `@yonder/bot-core` / `local-host` / `cloud-host` / `connect`。合并后 yonder `npm run build`/`typecheck`/`lint` 全通过，Vitest **2902 通过 / 0 失败 / 112 跳过**（536 文件通过 / 67 跳过），`test:node` 83/0/0/0/0；云端根与 server build、`version:check`、`deploy:test` 19/0、server 真实 PG/Redis **220 通过 / 0 失败 / 0 跳过**、SSR 3/0。真实平台模型复测：`scripts/cloud-worker/verify.mjs --live` 用官方 DeepSeek `deepseek-flash` 跑通两租户首轮与暖轮，密钥未进日志/转录。**未测**：生产部署、iPhone/Windows 设备、`openai/gpt-6-luna`（本机无凭据）、2 核 2 GB 生产共存。
+
+平台模型改为唯一官方 DeepSeek（`deepseek-flash`，用户不能自选），额度改按 token 计，规则见 [16 §6](spec/16-card-plugin.md)。额度只在云端 server 与迁移里实现，worker 每次调用前查账本、调用后上报用量；本机 Bot 不带额度，行为不变。旧的访客 10 条消息上限默认改为不限。
+
+## Bot 网络 P6 端到端环路（2026-11-04）
+
+一个真机环路，一条命令跑完（`scripts/bot-network/e2e.mjs`）：临时 PG/Redis → 真实云端 server → 构建好的网页（headless Chrome）
+→ 真实 `yonder-connect dsh` 与真实 `/connect` 确认页 → DSH 用自己的 DeepSeek → 真实执行端作为第二台设备 → 云端 Bot（真实
+`glm-5.3-flash`）经 `devices_list`/`devices_operation` 在执行端上读写文件 → 网页收窄后下一次调用被执行端拒绝 → `--remove` 卸载。
+最终一轮 27 通过 / 0 失败 / 0 未测，连跑两轮一致；证据见[本轮验收](verification/bot-network-p6-e2e-20261104.md)、[P6 报告](../proposals/bot-network/reports/P6.md)。
+
+本轮修掉四个真实缺陷：程序入口为"未选择资源"合成只有本机的资源表（每台远端设备都报无授权）；允许表里有 harness
+设备时 `tools.catalog` 的 `unsupported` 清空其它设备的工具；设备页不填充工作桥在线表使详情会话恒报「设备暂未连接」；
+`--remove` 留下连接器状态目录。另修了收窄复选框可访问名缺设备类型。
+
+- **未测**：V11（spec 23 §1 规定连接器不提供设备执行能力，没有实现路径，未发明）；V9 沿用 P4 的"不成立"结论；
+  真实 `npx -y @yonder/connect dsh`（包未发布）；生产云、Windows/Linux、多会话并发与卡片附件入站。
+
+计数：yonder `npm test` 2896 通过 / 0 失败 / 113 跳过（535 文件通过 / 67 跳过），build、typecheck、lint（size 654、layer 109/769，基线 0）全部通过；云端 server 真实 PG/Redis 213 通过 / 0 失败 / 0 跳过。
+
+## Bot 网络 P2 实现（2026-11-04）
+
+按主人对 P0–P1 六项问题的裁决实现（D5–D10，见 [decisions](decisions.md)）。两个 worktree 本地提交，未 push、未部署。
+
+- **已实现**：执行端 `/ws/execution` 收件箱与 `executor.hello` 自报身份、云端 UUID↔执行端 UUID 映射；`device.introduce` 与云端 HMAC 声明，执行端本地决定 grant；`grants.list`；执行端 grant 摘要上报、主人网页撤销（含离线排队）与 `grant.revoke`/`allow.policy` 下发；Bot×设备允许表与 `GET|PUT /api/bots/:id/devices`；设备凭据接口 `GET /api/device/devices`、`/api/device/agents`；`kind='harness'` 前向迁移（022）；默认发行包含 `devices` 插件；安装器写 `yonder-executor`/`yonder-clipboard`/`yonder-qq` 启动器；远程资源缺插件时报真实错误。
+- **已用真实进程验证**：两台设备同账号免手工配对互相列出与远程读写（V2）、按 Bot 收窄被执行端拒绝（V3 后端）、跨账号拒绝（V4）、在线与离线主人撤销（V5）、manual-only 拒绝云端介绍而手工配对仍可用（V6）。证据见[本轮验收](verification/bot-network-p2-20261104.md)。
+- **尚未实现**：安装版 `yonder-executor` 实际执行一次更新；V11 的"harness Bot 直接操作另一台设备"（spec 23 §1 无此能力）。网页设备页与三个连接器已在 P3–P5 完成，真实模型下的云端 Bot 跨设备调用回合已在 P6 跑通。
+- **未测**：真实 `openai/gpt-6-luna`（本机无凭据）；Windows 启动器；生产 2 核 2 GB 共存。
+
+计数：yonder `npm test` 2788 通过 / 0 失败 / 113 跳过（521 文件通过 / 67 跳过），`test:node` 83/0；build、typecheck、lint（含 size 645 与 layer 109/750、基线 0）全部通过。云端 server 真实 PG/Redis 211 通过 / 0 失败 / 0 跳过（22 suites），deploy 19/0、market 13/0、SSR 3/0，build/typecheck/version 通过；云端仍无 lint 脚本。
+
+## Bot 网络规范落地（2026-11-03，仅设计）
+
+主人批准 D1–D4 与 V1–V16（见 [decisions](decisions.md)）。本轮只做 P0 合并与 P1 文档：
+
+- **P0 已完成**：`refactor/shared-bot-core` 已合入两个仓库的 `feat/bot-network` 分支（未 push、未部署）。合并解决提示词装配、路由唤醒 helper、operability 适配与 decision 日志的冲突，两侧意图都保留；合并后 `npm ci`、build、typecheck、lint 通过；全部 Vitest **2775 通过 / 0 失败 / 113 跳过**（520 文件通过 / 67 跳过，85.58 秒），Node 测试 83/0/0/0/0。云端 server build/typecheck 通过，真实 PG/Redis 后端 **208 通过 / 0 失败 / 0 跳过**（22 suites，59.42 秒），deploy 19/0、market 13/0、MessageBubble SSR 3/0；根与 server 仍无 lint 脚本。A6 与 A9 在合并后的树上以真实 glm-5.3-flash 复测通过；本机无 `openai/gpt-6-luna` 凭据，真实 Luna 用例仍是未测。
+- **P1 已完成**：spec 18 §2（配对来源）、19 §7 与新增 §9（Bot×设备允许表）、05 §3（跨设备能力上限）、16 §5（外部 harness 设备）、新增 [23](spec/23-harness-connector.md)（连接器契约）；`devices_operation` 与 21 个 channel-mcp 工具已同步到 18 与 [plugins.md](plugins.md)。
+- **尚未实现**：云端介绍配对、`grants.list` RPC、执行端 hello 身份上报、Bot×设备允许表与其 HTTP 接口、设备详情页；Hermes 与 OpenClaw 连接器。规范是目标；本页不把规范写成已完成。
+
+## DSH 连接器与 `@yonder/connect`（2026-11-04，P4）
+
+新包 `@yonder/dsh-connector`（`connectors/dsh`，DSH bundle 插件）与 `@yonder/connect`（`packages/connect`，安装器）已实现并单独验收，见 [23](spec/23-harness-connector.md) 与 [P4 报告](../proposals/bot-network/reports/P4-dsh.md)。
+
+- **已验证**（隔离 `DSH_HOME` + 本地云 + 真实 DeepSeek 模型）：安装器装包、设备码配对、令牌 0600 落盘；云端出现 `kind:'harness'` 设备并宣告 `workProtocol:1`；DSH 全部 agent preset 登记为 Bot；`sessions.list/open/submit/transcript/abort` 与 `sessions.watch` 事件流跑通；网页主人 DM → DSH 会话 → 真实模型回复回到网页；卸载残留与调研一致；`engines.dsh` 不匹配时安装被拒、启动被跳过而 DSH 正常服务。
+- **未实现**：DSH 默认 `standard` preset 下"让 DSH 自己装"不成立——agent 能执行那条命令，但 `dsh plugin add` 写 `$DSH_HOME/profiles/<p>` 被 DSH 沙箱以 `EPERM` 直接拒绝，审批流程不介入；按计划退回"用户自己在终端粘贴同一条命令"。
+- **待 P2/云端**：~~`server/src/devices.ts` 的 `deviceKinds` 仍不含 `'harness'`~~（yonder-cloud `7d6c6ce` 已加入并实测）；两边设备身份与允许表就绪后需再跑一次端到端。
+- **未测**：真实 `npx -y @yonder/connect dsh`（未发布 npm）、`desktop` profile 内安装、生产云、Windows/Linux、多会话并发、卡片/图片/文件入站。
+
+## Hermes 与 OpenClaw 连接器（2026-11-04，P5）
+
+新包 `connectors/hermes`（Hermes 平台插件）与 `connectors/openclaw`（OpenClaw feature 插件）已实现并单独验收，见 [23](spec/23-harness-connector.md) 与 [P5 报告](../proposals/bot-network/reports/P5.md)。`@yonder/connect` 现有 `dsh`、`hermes`、`openclaw` 三个真实子命令。
+
+- **已验证**（隔离 `HERMES_HOME`/`OPENCLAW_STATE_DIR` + 本地云 `7d6c6ce`）：两框架安装、设备码配对、令牌 0600 落盘；云端 `kind:'harness'` 设备 `online:true, workProtocol:1`，Bot 登记（Hermes profile、OpenClaw agent）；五个会话方法与 watch 流跑通；网页 DM 投递进真实 harness 会话（`[Yonder 私聊 · …]` 前缀入转录）；卸载残留与调研一致（OpenClaw 仅一条 `enabled:false`）；版本不满足时各自跳过/降级，网关正常启动。
+- **未测**：真实模型回复往返（隔离 harness home 无 provider 凭据；CONTRIBUTING 的 OAuth 禁止跨程序复制）——已实测真实提交进 harness 且 provider 错误如实回传；真实 `npx -y`（未发布 npm）；Desktop 内安装；Windows/Linux；多会话并发与富媒体入站转换。
+- **注意**：Hermes `hermes plugins enable` 在有运行中网关时等待宿主锁；安装器直接写 `plugins.enabled`（文档化路径）。
+
+## 共享 Bot 核心修复轮（2026-11-03）
+
+按独立review完成修复；两次merge保留main截至4e58ceb8的75条提交，主分支未写入。core兼容门面、九个短转发壳及两个单实现port已删除，调用方直连真实包；共享createBot/唯一Runtime/FS与PG两实现保持。PG按需记录/文档读取，不激活回放全历史；模型绑定复用现WeakMap、timeout按Bot隔离。真实idle释放、在线turn超时唯一error、提交后HTTP防重复与关闭时观察排空均有回归。
+
+最终完整build/typecheck/lint通过；全部Vitest（--maxWorkers=4，不删测试/放宽断言）**2764通过/0失败/113跳过**，518文件通过/67跳过，167.20秒；全部Node83/0。size656/layer107共享模块与761 workspace生产文件、基线0。Cloud根/server build/typecheck通过，真实PG/Redis后端208/0，deploy19/0、market13/0、SSR3/0；无lint脚本。真实gpt-6-luna仍缺本仓规约凭据未测，skip不当作通过。
+
+最终真实GLM证明两租户PG SOUL、两按钮卡片、独立临时设备官方memory经原work bridge/program ToolTask往返，离线下轮目录为空。A7的超时/503/空答/反射/提前send失败/reply:none/中断以真实服务+明确故障transport验证，不冒称真实上游制造错误。没有生产部署、截图或安装日常设备。
+
+A12最终100 Bot各500条至少4096B的durable归档历史（共50000条）及各10文档delta，101轮完成/pending0，active/highWater20。idle141.328MB、50ms采样peak300.548MB，PG2/TCP3/Timeout2；归档正文读取0，707次modelsFor只202个Models。cold worker查询473–477（mean474.62）、warm341，不含server/seed SQL。此前361.267MB/350.454MB失败完整保留；修真实重复分配，不调高预算或手动GC。真实idle74257ms释放后可再激活。
+
+证据与所有原始失败：[本轮总账](verification/fix-round/verification.md)、[75条main保留](verification/fix-round/main-content-audit.md)；最终实测摘录：`"peakBytes": 300548096`。逐审查项提交/kept理由、未测与部署/凭据轮换草案在根目录未提交REFACTOR-REPORT.md。源码验收完成，仍待维护者审阅集成；本机RSS不等于2核2GB生产长期共存验收。
 
 ## 多端工作台（2026-11-02）
 
@@ -74,7 +144,7 @@
 - **按次 effort**：`agent_ask`/`task_run` 的 `effort`（14 §7，D52，需 admin）只作用于由该委派启动的那次运行；`run.end` 记录 `thinking` 与 `effort`。真实 Luna 验收覆盖降级、回退、拒绝与不泄漏；06 生产 Jarvis → maintainer 已验证 `sources` 逐字引用与 `thinking/effort.requested:low`，见 [06 验收](verification/release-26102106.md)。
 - **委派原文引用**：`agent_ask`/`task_run` 的 `sources`（06 §6.1，D51）由程序逐字附上来源会话的入站消息；真实 Luna 验收覆盖引用、逐字相等和拒绝其他会话。已在 0.2.26102104 的生产 Jarvis 上经 CLI 渠道验证（见 [release-26102105](verification/release-26102105.md)）；06 生产 CLI 原文引用与 low effort 探针通过，见 [06 验收](verification/release-26102106.md)；飞书/微信渠道里的使用待验证。
 - **飞书任务状态卡**：`channel-feishu_task_card` 同消息更新、四个固定状态词、两个短列表、仅通知的两个按钮、新文字撤销旧按钮；离线 75 项通过。真实飞书 PATCH 与按钮回调待发版后验证。
-- **插件**：channel-cli、context-files、channel-mcp（19 个操作）、browser-skill、codex-tools、web-tools、channel-github、channel-feishu、media-tools、cron、mcp-client、native-automation。清单见 [plugins.md](plugins.md)。
+- **插件**：channel-cli、context-files、channel-mcp（21 个操作）、browser-skill、codex-tools、web-tools、channel-github、channel-feishu、media-tools、cron、mcp-client、native-automation。清单见 [plugins.md](plugins.md)。
 - **自维护闭环一例**：GitHub issue → 维护 Agent 修复 → 提交与 PR → 人工审核合并；另有真实一次性 cron 作业由模型创建并按时执行。
 - **飞书**：私聊与群旁观、全参与者会话背景、卡片按钮回调、离线消息合并恢复、四条共享命令；文本、图片、文件、音频、视频出站取得平台消息 ID。
 ## 已知缺口（尚未实现）

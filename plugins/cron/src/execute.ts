@@ -1,4 +1,4 @@
-import type { EventInput, PluginAPI } from "@yonder/sdk";
+import type { EventInput, PluginAPI, TriggerIO } from "@yonder/sdk";
 import { checkDelivery, errorText, type Job, type RecordRun } from "./job.js";
 import { recordRun as writeRun } from "./persistence.js";
 
@@ -8,9 +8,10 @@ export async function executeRun(
 	job: Job,
 	run: RecordRun,
 	active: { controller: AbortController; session?: string | undefined },
+	emit: TriggerIO["emit"] = api.events.emit,
 ): Promise<RecordRun> {
 	try {
-		await api.events.emit({
+		await emit({
 			type: "cron.started",
 			from: "plugin:cron",
 			data: { job: job.id, run: run.id, scheduled: run.scheduled },
@@ -57,7 +58,15 @@ export async function executeRun(
 			run.session = session.id;
 			try {
 				if (active.controller.signal.aborted) throw new Error("Cron stopped");
-				const result = await api.sessions.submit(session.id, { text: payload.text }, { wait: true });
+				const result = await api.sessions.submit(
+					session.id,
+					{ text: payload.text },
+					{
+						wait: true,
+						...(job.executionOwner ? { executionOwner: job.executionOwner } : {}),
+						...(job.resources ? { resources: job.resources } : {}),
+					},
+				);
 				run.text = result.text;
 				if (result.attachments) run.attachments = result.attachments;
 				if (result.status !== "done") throw new Error(result.reason || result.status);
@@ -104,6 +113,6 @@ export async function executeRun(
 	}
 	run.ended = new Date().toISOString();
 	await writeRun(api, run);
-	await api.events.emit({ type: `cron.${run.status}`, from: "plugin:cron", data: run });
+	await emit({ type: `cron.${run.status}`, from: "plugin:cron", data: run });
 	return run;
 }

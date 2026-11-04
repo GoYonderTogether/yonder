@@ -1,11 +1,11 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { inspectToolCatalog } from "@yonder/runtime-adapter/runtime/catalog";
 import type { ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
-import { inspectToolCatalog } from "../../../packages/core/src/runtime/catalog.js";
 import plugin from "../src/index.js";
 
 async function tools() {

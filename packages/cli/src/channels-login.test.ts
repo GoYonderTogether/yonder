@@ -2,10 +2,10 @@ import { execFile, execFileSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { initHome, serveControl } from "@yonder/core";
+import { initHome, serveControl } from "@yonder/local-host";
+import { testModel } from "@yonder/local-host/config/test-support";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { testModel } from "../../core/src/config/test-support.js";
 
 const cli = resolve("packages/cli/dist/index.js");
 const execFileAsync = promisify(execFile);

@@ -17,6 +17,9 @@ const GroupJoin = lazy(() => import("./pages/GroupJoin").then((m) => ({ default:
 const Conversation = lazy(() => import("./pages/Chat").then((m) => ({ default: m.Conversation })));
 const ChatShell = lazy(() => import("./pages/Chat").then((m) => ({ default: m.ChatShell })));
 const Connect = lazy(() => import("./pages/Connect").then((m) => ({ default: m.Connect })));
+const MeDevices = lazy(() => import("./pages/Devices").then((m) => ({ default: m.MeDevices })));
+const MeDevice = lazy(() => import("./pages/Devices").then((m) => ({ default: m.MeDevice })));
+const WorkDevices = lazy(() => import("./pages/WorkDevices").then((m) => ({ default: m.WorkDevices })));
 const Install = lazy(() => import("./pages/Install").then((m) => ({ default: m.Install })));
 const Download = lazy(() => import("./pages/Download").then((m) => ({ default: m.Download })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
@@ -35,6 +38,32 @@ function Private({ children }: { children: ReactNode }) {
 	) : (
 		<Navigate to="/login" state={{ next: loc.pathname + loc.search }} replace />
 	);
+}
+
+/** 设备页需要当前账号 id（查询键与缓存都按账号隔离）；未登录由 Private 拦下。 */
+function useAccountId(): string | undefined {
+	const s = useStore($session);
+	return s && !s.actor.anonymous ? s.actor.id : undefined;
+}
+
+function MeRoute() {
+	const s = useStore($session);
+	return s ? <Me /> : null;
+}
+
+function MeDevicesRoute() {
+	const accountId = useAccountId();
+	return accountId ? <MeDevices accountId={accountId} /> : null;
+}
+
+function MeDeviceRoute() {
+	const accountId = useAccountId();
+	return accountId ? <MeDevice accountId={accountId} /> : null;
+}
+
+function WorkDevicesRoute() {
+	const accountId = useAccountId();
+	return accountId ? <WorkDevices accountId={accountId} /> : null;
 }
 
 export function App() {
@@ -86,9 +115,13 @@ export function App() {
 						<Route path="/friends/add" element={<AddFriend />} />
 						<Route path="/contacts/:id?" element={<Contacts />} />
 						<Route path="/connect" element={<Connect />} />
-						<Route path="/me" element={<Me />} />
+						<Route path="/me" element={<MeRoute />} />
+						<Route path="/me/devices" element={<MeDevicesRoute />} />
+						<Route path="/me/devices/:id" element={<MeDeviceRoute />} />
 						<Route path="/me/edit" element={<ProfileEdit />} />
 						<Route path="/me/settings/:section?" element={<SettingsPage />} />
+						<Route path="/work/devices" element={<WorkDevicesRoute />} />
+						<Route path="/work/devices/:id" element={<WorkDevicesRoute />} />
 						<Route path="/work/*" element={<WorkRoot />} />
 						<Route element={<ChatShell />}>
 							<Route path="/" element={null} />

@@ -6,7 +6,7 @@ import {
 	UserMessageComponent,
 } from "@earendil-works/pi-coding-agent";
 import { Spacer, Text, TruncatedText } from "@earendil-works/pi-tui";
-import { observeControl, packageVersion, type TerminalUpdate } from "@yonder/core";
+import { observeControl, packageVersion, type TerminalUpdate } from "@yonder/local-host";
 import { chatCommands, type SessionNotification, type YEvent } from "@yonder/sdk";
 import { CommandAutocomplete } from "./autocomplete.js";
 import { CompactToolExecution, MessagePresentation } from "./message-presentation.js";

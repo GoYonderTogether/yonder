@@ -1,5 +1,7 @@
 import type { AgentsAPI } from "./agent-bindings.js";
-import type { Attachment, TranscriptItem } from "./messages.js";
+import type { RunEndData, SubmissionMetadata } from "./event-data.js";
+import type { Attachment, Delivery, OutMessage, OutputPart, TranscriptItem } from "./messages.js";
+import type { PluginStorage } from "./plugin-storage.js";
 import type { ToolContext } from "./tool-context.js";
 
 export type { ToolContext } from "./tool-context.js";
@@ -139,16 +141,20 @@ export interface SessionsAPI {
 		close?: "run-end" | "manual";
 	}): Promise<SessionInfo>;
 	/** Plugins may also submit system reminders to open main/persistent sessions, under their current profile. No human authority is implied. */
-	submit(id: string, input: Input, opts: { wait: true; busy?: "followup" | "steer" | "interrupt" }): Promise<RunResult>;
 	submit(
 		id: string,
 		input: Input,
-		opts: { wait?: false; busy?: "followup" | "steer" | "interrupt" },
+		opts: { wait: true; busy?: "followup" | "steer" | "interrupt" } & SubmissionMetadata,
+	): Promise<RunResult>;
+	submit(
+		id: string,
+		input: Input,
+		opts: { wait?: false; busy?: "followup" | "steer" | "interrupt" } & SubmissionMetadata,
 	): Promise<InputReceipt>;
 	submit(
 		id: string,
 		input: Input,
-		opts?: { wait?: boolean; busy?: "followup" | "steer" | "interrupt" },
+		opts?: { wait?: boolean; busy?: "followup" | "steer" | "interrupt" } & SubmissionMetadata,
 	): Promise<RunResult | InputReceipt>;
 	abort(id: string): Promise<void>;
 	close(id: string): Promise<void>;
@@ -239,7 +245,7 @@ export interface Channel {
 	multiAgent?: boolean;
 	id: string;
 	kinds: string[];
-	output: { stream: boolean; attachments: boolean };
+	output: { stream: boolean; attachments: boolean; singleResult?: boolean };
 	features?: ChannelFeatures;
 	/** Read a platform label for this exact conversation when supported. This does not prove membership or access. */
 	describeConversation?(
@@ -282,35 +288,6 @@ export interface AskResult {
 	event: YEvent;
 	results: RunResult[];
 }
-export interface OutMessage {
-	/** Stable delivery attempt identifier, reused on retry. */
-	deliveryId?: string;
-	notification?: NotificationIntent;
-	text: string;
-	/** Semantic reply target: verified internal inbound event ID; does not force a quote. */
-	respondTo?: string;
-	/** Verified account refs to notify in the target conversation. */
-	mentions?: Ref[];
-	/** Automatic reply source; explicit replyTo still forces a quoted reply. */
-	sourceMessageId?: string;
-	attachments?: Attachment[];
-	replyTo?: string;
-}
-export interface Delivery {
-	ok: boolean;
-	/** Transient failure before any part was sent. Never combine with id or uncertain. */
-	retryable?: boolean;
-	uncertain?: boolean;
-	id?: string;
-	error?: string;
-}
-export type OutputPart =
-	| { type: "message_start"; id: string }
-	| { type: "message_end"; text: string }
-	| { type: "text"; delta: string }
-	| { type: "tool"; phase: "start" | "end"; name: string; label?: string; ok?: boolean }
-	| { type: "final"; text: string }
-	| { type: "error"; message: string };
 
 export interface Tool {
 	name: string;
@@ -342,9 +319,20 @@ export interface RenderContext {
 	event?: YEvent;
 	signal?: AbortSignal;
 }
+export interface TriggerIO {
+	emit(e: EventInput): Promise<YEvent>;
+	/** Host process start, so idle Bot activation is not mistaken for a service restart. */
+	startedAt: number;
+	/** The host owns a single scheduler; undefined removes this trigger's next tick. */
+	schedule(at: number | undefined): Promise<void>;
+}
 export interface Trigger {
 	id: string;
-	start(io: { emit(e: EventInput): Promise<YEvent> }): Promise<void>;
+	start(io: TriggerIO): Promise<void>;
+	/** Includes in-flight execution, result persistence and delivery. */
+	busy?(): boolean;
+	/** Deterministic scheduled work, invoked by the host. No per-Bot timer is needed. */
+	tick?(now: number): Promise<void>;
 	stop(): Promise<void>;
 }
 export interface EnvProvider {
@@ -354,7 +342,11 @@ export interface EnvProvider {
 }
 export interface Hook {
 	/** Filter a complete outbound message, including its destination Ref, before any channel attempt or ledger record. */
-	beforeSend?(message: OutMessage & { to: Ref }, owner?: ExecutionOwner): HookResult<{ message: OutMessage }>;
+	beforeSend?(
+		message: OutMessage & { to: Ref },
+		owner?: ExecutionOwner,
+		final?: { runId: string; status: RunEndData["status"]; sourceEventId: string },
+	): HookResult<{ message: OutMessage }>;
 	id: string;
 	beforeTool?(call: ToolCall, ctx: ToolContext): HookResult<{ block: string } | { args: object }>;
 	afterTool?(call: ToolCall, result: ToolResult, ctx: ToolContext): HookResult<{ result: ToolResult }>;
@@ -388,12 +380,15 @@ export interface ServiceEndpoint {
 }
 
 export interface ExecutionOwner {
+	/** Creator native input event IDs, captured and revalidated by core. Never model parameters. */
+	inputs?: string[];
 	session: string;
 	agent: string | null;
 	profile: string;
 }
 
 export interface ResolvedExecution {
+	resources?: import("./workbench.js").WorkspaceResource[];
 	capabilities: Capability[];
 	channelInstances?: string[];
 }
@@ -469,6 +464,7 @@ export interface PluginAPI extends PluginViewsAPI {
 		): Promise<Delivery>;
 	};
 	execution: {
+		capture(ctx: ToolContext): Promise<ExecutionOwner>;
 		resolve(owner: ExecutionOwner): Promise<ResolvedExecution>;
 		run(request: {
 			owner: ExecutionOwner;
@@ -487,6 +483,7 @@ export interface PluginAPI extends PluginViewsAPI {
 	host: { status(ctx: ToolContext): Promise<HostStatus>; modelReady(agent: string): Promise<boolean> };
 	models: Models;
 	paths: { data: string };
+	storage: PluginStorage;
 }
 export interface PluginModule {
 	setup(api: PluginAPI): void | Promise<void>;

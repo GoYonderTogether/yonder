@@ -47,8 +47,9 @@
 	--shadow-soft: 0 1px 2px rgb(21 21 21 / 0.08), 0 8px 28px -12px rgb(21 21 21 / 0.18);
 	/* 纸面压在深桌面上时的投影与描边，名片组件用 */
 	--paper-edge: #e7e2d6;
-	--paper-shadow: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 0 0 1px var(--paper-edge),
-		0 30px 60px -20px rgb(0 0 0 / 0.55), 0 12px 24px -12px rgb(0 0 0 / 0.4);
+	--paper-shadow:
+		0 1px 0 rgb(255 255 255 / 0.7) inset, 0 0 0 1px var(--paper-edge), 0 30px 60px -20px rgb(0 0 0 / 0.55),
+		0 12px 24px -12px rgb(0 0 0 / 0.4);
 
 	/* 展示字体：宋体系衬线，名片名字与页面大标题 */
 	--font-display: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
@@ -172,8 +173,9 @@
 		--shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -12px rgb(0 0 0 / 0.72);
 		--shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px -14px rgb(0 0 0 / 0.6);
 		--paper-edge: #302f2d;
-		--paper-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 0 0 1px var(--paper-edge),
-			0 30px 60px -20px rgb(0 0 0 / 0.8), 0 12px 24px -12px rgb(0 0 0 / 0.6);
+		--paper-shadow:
+			0 1px 0 rgb(255 255 255 / 0.06) inset, 0 0 0 1px var(--paper-edge), 0 30px 60px -20px rgb(0 0 0 / 0.8),
+			0 12px 24px -12px rgb(0 0 0 / 0.6);
 		--w-normal: 360;
 		--w-medium: 460;
 		--w-semibold: 560;

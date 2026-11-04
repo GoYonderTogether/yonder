@@ -11,8 +11,12 @@
 		"packages/pi-durable",
 		"packages/protocol",
 		"packages/device",
+		"packages/bot-definition",
 		"packages/sdk",
-		"packages/core",
+		"packages/runtime-adapter",
+		"packages/bot-core",
+		"packages/local-host",
+		"packages/cloud-host",
 		"packages/gateway",
 		"packages/cli",
 		"apps/app",
@@ -46,7 +50,9 @@
 		"plugins/code-intel",
 		"plugins/codex-companion",
 		"plugins/advisor",
-		"plugins/market"
+		"plugins/market",
+		"connectors/dsh",
+		"packages/connect"
 	],
 	"scripts": {
 		"version:check": "node scripts/version-check.mjs --check",
@@ -72,7 +78,7 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder",
-	"version": "0.3.26110303",
+	"version": "0.3.26110401",
 	"overrides": {
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai",
 		"body-parser": "2.4.0",

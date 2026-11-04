@@ -254,3 +254,42 @@ export class CardRoute {
 		this.socket?.terminate();
 	}
 }
+
+/**
+ * Controller → cloud → executor relay. The controller signs the request itself; the cloud forwards
+ * the bytes to the executor's inbox with its "same owner" attestation and returns the signed answer.
+ * Nothing here is authority: the executor verifies both before granting anything.
+ */
+export class CloudRoute {
+	readonly kind = "card" as const;
+	private readonly base: URL;
+	constructor(
+		private readonly config: { baseUrl: string; deviceId: string },
+		private readonly token: () => Promise<string>,
+		allowLoopback = false,
+	) {
+		this.base = endpoint(config.baseUrl, allowLoopback);
+		if (this.base.pathname !== "/") throw new Error("Cloud route baseUrl must be an origin");
+	}
+	async exchange(envelope: SignedEnvelope, signal: AbortSignal): Promise<unknown> {
+		signal.throwIfAborted();
+		const token = await this.token();
+		if (!token || /[\r\n]/.test(token)) throw new Error("Invalid Card device credential");
+		// The cloud relays an outer frame unchanged; only the inner signed bytes are the request.
+		const frame: RelayFrame = { protocol: "yonder.execution.relay", version: 1, routeId: randomUUID(), envelope };
+		const response = await fetch(new URL(`/api/devices/${this.config.deviceId}/relay`, this.base), {
+			method: "POST",
+			signal,
+			redirect: "error",
+			headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+			body: JSON.stringify({ frame }),
+		});
+		if (response.status !== 200) {
+			// Status only: error bodies and tokens never reach logs or model context.
+			await response.body?.cancel().catch(() => {});
+			throw new Error(`Execution HTTP status ${response.status}`);
+		}
+		return response.json();
+	}
+	async close(): Promise<void> {}
+}

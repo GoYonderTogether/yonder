@@ -1,6 +1,8 @@
-import { createHash, createPublicKey, type KeyObject, sign, verify } from "node:crypto";
+import { createHash, createHmac, createPublicKey, type KeyObject, sign, timingSafeEqual, verify } from "node:crypto";
 import { Check } from "typebox/value";
 import {
+	type CloudAttestation,
+	CloudAttestationSchema,
 	type CommandIdentity,
 	type CommandState,
 	type RpcMessage,
@@ -14,6 +16,7 @@ import {
 export * from "./schema.js";
 export const MAX_MESSAGE_BYTES = 1024 * 1024;
 export const MAX_MESSAGE_AGE_MS = 60_000;
+export const MAX_ATTESTATION_AGE_MS = 300_000;
 
 export function publicKeyId(key: KeyObject): string {
 	const publicKey = key.type === "public" ? key : createPublicKey(key);
@@ -117,4 +120,67 @@ export function commandKey(identity: CommandIdentity): string {
 
 export function recoveredCommandState(state: CommandState): CommandState {
 	return state === "running" ? "unknown" : state;
+}
+
+/** Both sides derive the same key: the cloud stores the token hash, the executor holds the token. */
+export function attestationKey(deviceToken: string): Buffer {
+	if (!deviceToken || deviceToken.length > 128 || /\s/.test(deviceToken)) throw new Error("UNAUTHORIZED");
+	return createHash("sha256").update(deviceToken).digest();
+}
+
+/** SHA-256 digests are also what the cloud stores instead of the token itself. */
+export function attestationKeyFromHash(tokenSha256Hex: string): Buffer {
+	if (!/^[a-f0-9]{64}$/.test(tokenSha256Hex)) throw new Error("INVALID_REQUEST");
+	return Buffer.from(tokenSha256Hex, "hex");
+}
+
+export type AttestationInput = Omit<CloudAttestation, "mac">;
+
+const AttestationInputSchema = {
+	type: "object",
+	additionalProperties: false,
+	required: ["ownerId", "cloudDeviceId", "executorDeviceId", "action", "subject", "issuedAt", "expiresAt"],
+	properties: {
+		ownerId: { type: "string", minLength: 1, maxLength: 4096 },
+		cloudDeviceId: { type: "string", minLength: 1, maxLength: 4096 },
+		executorDeviceId: { type: "string", minLength: 1, maxLength: 4096 },
+		action: { enum: ["introduce", "revoke", "policy"] },
+		subject: { type: "string", minLength: 1, maxLength: 4096 },
+		issuedAt: { type: "integer", minimum: 0 },
+		expiresAt: { type: "integer", minimum: 0 },
+	},
+} as const;
+
+function attestationBytes(input: AttestationInput): Buffer {
+	return Buffer.from(
+		JSON.stringify([
+			input.ownerId,
+			input.cloudDeviceId,
+			input.executorDeviceId,
+			input.action,
+			input.subject,
+			input.issuedAt,
+			input.expiresAt,
+		]),
+	);
+}
+
+export function signAttestation(key: Buffer, input: AttestationInput): CloudAttestation {
+	if (!Check(AttestationInputSchema, input)) throw new Error("INVALID_REQUEST");
+	const mac = createHmac("sha256", key).update(attestationBytes(input)).digest("base64url");
+	return { ...input, mac };
+}
+
+/** Verifies the cloud's claim; the caller still checks that the subject matches its own registration. */
+export function verifyAttestation(value: unknown, key: Buffer, now = Date.now()): CloudAttestation {
+	if (!Check(CloudAttestationSchema, value)) throw new Error("INVALID_REQUEST");
+	const packet = value as CloudAttestation;
+	const expected = createHmac("sha256", key).update(attestationBytes(packet)).digest();
+	const actual = Buffer.from(packet.mac, "base64url");
+	if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new Error("UNAUTHORIZED");
+	if (packet.expiresAt <= packet.issuedAt || packet.expiresAt - packet.issuedAt > MAX_ATTESTATION_AGE_MS)
+		throw new Error("UNAUTHORIZED", { cause: { verification: "invalid-window" } });
+	if (packet.expiresAt <= now) throw new Error("UNAUTHORIZED", { cause: { verification: "expired" } });
+	if (packet.issuedAt > now) throw new Error("UNAUTHORIZED", { cause: { verification: "future" } });
+	return packet;
 }

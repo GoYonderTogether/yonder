@@ -121,7 +121,7 @@
 3. **`docs/spec/04-plugins.md:35`**："共九个：channels、tools、contexts、triggers、envs、hooks、presets、skills、permissions"，但 §3 只有 `3.1`–`3.8` 八个小节，`permissions` 落在文末 `## 统一权限门面（permissions 槽）`（第 285 行）。design §10 要求补第 10 个槽 `views` 时一并改口径。
 4. **`docs/spec/16-card-plugin.md:3`** 引用 `yonder-card-web/server/src/{devices,realtime,chat,cards}.ts` 与 `proposals/ai-card/plugin.md`——后者所在目录**已不存在**（`ls proposals/` 无 `ai-card`），前者改名后应变 `yonder-cloud/server/...`。
 5. **7 处断链**（自写脚本遍历所有非 `node_modules` md）：`CHANGELOG.md` → `RELEASE-LOCATION-READY.md`；`docs/prompts/v5-draft.zh-CN.md` → `jarvis/{SOUL,AGENTS,SOURCES}.md`（3 处，实际在 `plugins/agent-presets/prompts/jarvis/`）；`plugins/native-automation/README.md` → `../../HANDOFF-LOCATION.md`；`skills/skill-creator/SKILL.md` → `references/{redlining,ooxml}.md`（2 处）。
-6. **`docs/` 会把内部记录当产品文档发出去**：`readDocs` 递归 `walk`（`packages/core/src/release/index.ts:125-137`），`yonder docs --list` 会列 `verification/…`、`research/…`、`verification/evidence/*.json`。而 `docs/verification/evidence/service-host-command-final-20261025.json` 里含 `~/.local/share/yonder-harness/...` 的进程快照。
+6. **`docs/` 会把内部记录当产品文档发出去**：`readDocs` 递归 `walk`（`packages/core/src/release/index.ts:125-137`），`yonder docs --list` 会列 `verification/…`、`research/…`、`verification/evidence/*.json`。而 `摘录："remaining": [] / "remaining": [],` 里含 `~/.local/share/yonder-harness/...` 的进程快照。
 
 ## 3. 参照：pi 与 opencode 的布局
 

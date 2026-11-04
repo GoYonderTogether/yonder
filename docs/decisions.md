@@ -1,55 +1,120 @@
 # 决策记录
 
+## 2026-11-05 平台模型改为官方 DeepSeek，额度改按 token 计（主人要求）
+
+云端 Bot 的平台模型从 RightAPI `glm-5.3-flash` 换成官方 DeepSeek（`https://api.deepseek.com`，模型 `deepseek-flash`），仍是唯一平台模型，用户还不能自选；base URL 与模型 id 变成 worker 的部署配置，缺省即这两个值，密钥仍是 0600 文件。同日把额度从「每条消息/每小时回复数」改成按 token 计：手机验证账号每周 1 亿（Asia/Shanghai 自然周，周一 00:00 重置），匿名访客在单张名片上 20 万、跨名片合计 50 万（耗尽须手机验证），一张名片最多接纳 50 位不同访客且不设卡片总量，访客用量不占主人额度，访客验证手机时把本周已用并进账号。只计 provider 计费的输入 + 输出，排除 cache-hit token（DeepSeek 的 `prompt_cache_miss_tokens` + `completion_tokens`）；每次模型调用前判定、调用后入账，拒绝时用 `quota_exceeded` 说明是哪项上限与何时重置；新增 `GET /api/usage`。这样额度与真实成本同口径，避免缓存命中的长对话被重复计价。代价是额度表与判定点写在 yonder-cloud 的 server 与迁移里，worker 每次调用多一次上报请求；旧的访客消息条数限制由它取代。见 16 §6、22。
+
 ## 2026-11-05 主站改为已备案的 yonder.zethai.cn（主人要求）
 
 yonderbot.net 没有 ICP 备案，国内直连时阿里云拦截 HTTP、重置 TLS，手机和微信里的分享链接打不开。主站与默认 endpoint 改为 yonder.zethai.cn（zethai.cn 已备案，证书已覆盖）；yonderbot.net 的页面 308 跳到新域名，接口与设备 WebSocket 保留给旧客户端。服务端只认一个 PUBLIC_ORIGIN，浏览器登录态按域名重新建立。见 08、16 §5。
 
+## 2026-11-03：Bot 网络 P2 六项裁决（主人裁定）
+
+P0–P1 报告提交了六个待决问题，主人逐项裁定，P2 据此实现：
+
+**D5 连接器规范编号保持 23。** 22 已被 shared-bot-core 占用，23 已写入 index、16 与代码引用；不再改号，代价是编号顺序与批准时的草案不一致，由 23 开头一句说明原因。
+
+**D6 `kind='harness'` 用新增前向迁移放宽。** `devices.kind` 与 `device_codes.kind` 的 CHECK 都加 `harness`，编号接在现有序列后；照抄 006 迁移放宽 `cloud` 的做法，不重建表、不改旧行。代价是多一条迁移，旧版本服务端无法识别 `harness` 行。
+
+**D7 允许表挂 `/api/bots/:id/devices`。** 取代 19 §9 原先写的 `/api/bot-devices`：`GET` 返回该 Bot 的生效集合与 `mode`，`PUT` 设 `all` 或 `selected` 列表。挂在 Bot 下与"这是 Bot 的属性"语义一致，权限一律按 Bot 主人判定，他人与非本账号设备 ID 都返回不泄露存在性的 404。
+
+**D8 云端介绍的传输复用既有 `/ws/execution` 中继。** 不新增第二条通道：执行端用设备 token 开一条"收件箱"连接、自报 `executor.hello`，云端把同账号控制端的签名封套转发过来，并在 relay 外层附加一条 HMAC 声明（密钥是执行端 device token 的 SHA-256，云端只存哈希、执行端持有 token，双方可算）。执行端验签 + 验声明后自行签发 grant。代价是介绍依赖已有中继；好处是外部可见协议只多两类帧，且云端仍无法伪造或扩大授权。
+
+**D9 grant 摘要上报与主人撤销。** 执行端经同一中继上报全部 grant 摘要，主人在网页看到自己设备的**所有** grant 并可撤销任意一条；`DELETE /api/devices/:id/grants/:grantId` 经中继下发，离线保留待投递、重连再发，未知结果绝不重放。`grants.list` RPC 仍只给已配对 principal 自己的 grant，保持最小可见性；主人视图是网页侧另一条路径。代价是云端存一份只读摘要副本，它不是授权来源，执行端仍是唯一判定点。
+
+**D10 保留 `devices_operation`。** research/01 标的"代码超出规范"以补规范结束：18 §5 与 plugins.md 已列该工具，它也是工作台远程资源的显式入口。
+
+这批裁决同时固化了两条实现约束：执行端本地策略（`pairing policy`）持久保存在执行端 home，云端不可改；`devices` 插件在选中远程资源但未加载时必须如实报错，不静默失败。
+
+## 2026-11-03：Bot 网络三层打通：云端介绍配对、允许表、外部 harness 连接器（主人批准）
+
+主人明确要求三层各自可组合：任何登录端能看全部设备（①），Bot 可住云端或任意本机、也可来自 DSH/Hermes/OpenClaw（②），每个 Bot 默认可操作主人的全部设备、可按 Bot 收窄（③）。据此批准四条决定。
+
+**D1 授权由云端代为介绍配对。** 新增账号级 Bot×设备允许表，默认"全部设备"，新绑定设备自动进入默认集合，主人可按 Bot 收窄成指定列表。实际执行仍要设备端 grant，但不再要求人工双端核对指纹：两台设备都已用自己 deviceToken 绑定到同一云账号时，云端把控制端与执行端公钥互相转交并声明"同一主人"，执行端在本地核对后自动签发 grant，能力取云端请求 ∩ 执行端本地策略 ∩ 允许表目标。理由是 19 §1 已写明信任云端经 TLS 转交主人请求，再要求人工核对只多一道用户不会做的手续；手工离线配对保留为高安全选项，并允许执行端设为"只接受手工配对"。代价是云端被攻破时攻击者能替自己签 grant，缓解只有执行端本地策略、设备与网页可见的 grant 列表和撤销。见 18 §2、19 §7/§9、05 §3。
+
+**D2 外部 harness 用连接器伪装成一台设备。** 云端已有 `/ws/device` 登记、`PUT /api/device/agents`、消息帧与工作桥，连接器只实现这套协议的子集，云端与网页不为每个框架改代码。连接器必须实现设备 hello、Bot 登记、消息收发、`sessions.list/open/submit/transcript/abort` 与事件流；harness 会话状态与转录仍归 harness，Yonder 不复制。每个框架一层薄适配：DSH 用进程内 bundle 插件，Hermes 用平台插件，OpenClaw 用 feature 插件。不把 A2A 当主协议：它只覆盖消息，看不到也驱动不了会话列表，DSH 也不讲 A2A，以后可作为只聊天的低配接入。代价是多一个规范面与三个适配维护点，而云端已能承载。见 16 §5、新增 23。
+
+**D3 DSH 的"一句话"安装是一条 shell 命令。** DSH 的 `plugin_manager` 工具默认只在 Creator 预设开启，agent 也不能直接写 profile 目录，所以形式定为用户发一句 `npx -y @yonder/connect dsh`，由 DSH 的 agent 用 bash 执行并批准一次越权；该命令只装连接器包、写自己的状态目录、打开 `/connect?code=…`。硬规矩：不改 PATH/git config/环境变量，不装全局命令，状态只写 `$DSH_HOME/yonder/`，入站只用带鉴权的路由，不读写 DSH 的 sessions/storages，声明版本范围并在不匹配时降级为只提供工具。此路径在 DSH 默认预设下是否成立尚未实测；不成立就退回用户自己在终端粘贴同一条命令。发布到 npm 属对外动作，另立确认。见 23 §6。
+
+**D4 底座先合入 shared-bot-core。** 两个仓库各自合并、跑全量检查，不 push；新功能都在合并后的基线上做。代价是合并冲突要按两侧意图逐项取舍（提示词装配、路由唤醒 helper、operability 适配、decision 日志都各有两侧改动），且旧 core 兼容门面已删除，调用方全部改为直连真实包。
+
+## 2026-11-03：owner设备插件与原生program ToolTask（BRIEF授权阶段11）
+
+复用一次绑定的工作授权及现work-bridge，新增真worker窄工具分支而不伪web会话；DB owner/设备/mapping、本机已接纳defaultProfile/ToolPolicy和原grant仍为上限。云端默认capabilities不默增exec；多Agent按namespace显式选择，无手动会话再绑定。来源仅owner DM或capture得到的真实程序refs，新增ExecutionOwner.inputs和可信core submit metadata，旧无refs程序保普通行为不授设备，修改程序执行参数不能保留旧owner资格；cron更新/启用一律重捕获，包含delivery/schedule，避免把旧owner来源用于新投递目标，task_run补实际resources继承。
+
+同会话稳定program conversation+每invocation原生ToolTask指针保存handle和幂等，复用schema/hooks/intent/replay，不合成模型输入、不直接call tool.execute、不污染主人对话。只在唯一adapter刷新实际宿主工具值，每run冻结授权名单/目标/facts，与当前在线集合取交，访客/群不拉owner目录；客户端不是工具宿主，不从设备种类虚构能力。原生Harness在beforeAgent准备后读取当时registry解析Agent，修复首次动态工具仍取准备前快照的缺口；同phase缓存Agent时，beforeRequest用可选toolsRemoved对本次请求只减不增，保持每次provider请求边界离线过滤。环境seam另逐次传真实taskId，使beforeTool前的env可读取本task快照；普通conversation级调用兼容。任务定义与调度不变，adapter仍按冻结名单取交。直接修改本仓自有pi-durable的有限overlay由BRIEF明确授权，FORK记实文件，原来源/保护/旧overlay保留，不访问外部fork/push。详见19 §8与CONTRIBUTING任务例外。
+
+## 2026-11-03：共享Bot最终卡片的单结果语义（BRIEF授权阶段10）
+
+卡片工具与人工名片草稿分开：新增channel-card_reply_card只准备当前真实来源的最终interactive。复用原beforeSend、PluginFiles与事件监听，以native runId关联单张意图，FS/PG同实现；同run最后成功保存者生效。核心只把可信最终来源交给hook，先准备再判断有效内容/持久化run.end，沿原ledger投递；有效卡片+空文本不是空回答，失败不预发卡片。message.attempt持久完整outgoing后清意图，重试仍用原卡片，不发明通用defer队列、额外发送收据或完整outbox恢复。每次新send/prepare管线调用一遍hook，既有attempt重试复用持久outgoing而不重跑hook；不宣称跨重试全局exactly-once。未进入首attempt的回复沿原文本恢复语义。现有card_push的人工作品草稿行为不变。准备阶段以SDK只读autoReplySource识别当前仍有效run的来源；adapter只读已匹配route ID与本轮冻结binding.reply，避免把waiting=false误作auto或采用已过期的Route.reply。不新增匹配器/授权服务，后台保留旧runId但不能借新run准备卡片。同阶段实测发现单结果渠道reply:none会使Worker永等source回执并堵住后续消息；共享最终路径对此waiting=false来源返回固定系统error，不回模型正常文本，不说动作未执行，不由Worker外层竞态补发。普通本机静默与io.ask不变。仅本次两worktree实施与本机验证，不部署。
+
+## 2026-11-02：共享 Bot 核心与单进程云端 worker（维护者授权）
+
+维护者授权本次 BRIEF 架构变更：Bot schema、解析与配置求值归 `@yonder/bot-definition`，本机和云端共用，旧路径兼容导出而不复制实现。BotSource 复用现有 WorkspaceFiles 并提供 home、workspace、模板与 skill 来源，本机与 PG 使用同一加载/重载和解析算法；canonical 路径属于来源事实，不由核心猜测。运行状态以既有 pi Storage 与领域 Store 为边界；PG 先复用 pi-durable 的提交校验/读算法持久化增量批次，避免复制运行循环或 SQL 后端；持久 ID、原子提交、隔离和资源预算必须实测。插件存储采用 open(root?) 的 FS/PG 文件/文档能力，保留 memory 已配置用户库与 tasks 旧 SQLite 只读事件导入；周期策略保留在插件，以宿主唯一调度器驱动相同 tick，避免每 Bot 常驻资源。包边界采用 bot-core.createBot 单一共享主线、runtime-adapter 唯一 pi 进口（纯默认入口与显式 node/postgres）、local-host 本机装配；旧 core 只兼容导出。层级检查追踪跨 workspace 传递导入，禁止共享入口反向加载宿主代码，notifications/budget 持久化归 Store，SDK 注册能力不经 testing 入口。本机与云端使用同一个 Bot 定义解析、提示词装配、路由/会话/投递和运行循环。宿主文件、进程与事实从核心移到存储与环境适配，保留唯一 pi 运行适配入口；本机目录 + 单连接 SQLite 行为保持，云端采用 PostgreSQL + Redis 与虚拟工作区，不为人格新开列。插件私有数据走按插件、租户隔离的存储能力。
+
+生产只有 2 核 2–4 GB、3 Mbps，故一个 worker 按消息激活全部 Bot，以 LRU 释放空闲实例，不为账号/Bot 启动容器、子进程、定时器或长连接。复用 channel-card、/ws/device 与 appendMessage，不使云端 server 依赖 @yonder 包。平台唯一模型原为 RightAPI glm-5.3-flash，2026-11-05 起改为官方 DeepSeek deepseek-flash（见同日条目）；真实失败作为独立 error 消息，不能伪造回复，错误不进入模型历史。卡片支持每按钮链接，设备工具沿已有工作桥鉴权。完整契约与验收见 [22](spec/22-shared-bot-core.md)。本次只在两个指定 worktree 实施与本机验证，不推送、部署或改 Docker 托管逻辑、安装脚本和发布流水线。
+
+本次保留原 SDK `executionContext(signal)` 公开契约（spec/04）：SDK index 仅可使用 chord/context 的 `BACKGROUND_CONTEXT`、`withAbortSignal` 构造纯取消上下文；pi-ai/pi-durable 仍只能 import type。精确例外由同一层级检查限定符号，不开放第二套模型或会话运行。
+
+阶段7将既有模型健康与官方额度维护统一为 Runtime.maintenance(now) 的确定性 tick，由本机或云端的单宿主调度器驱动；原core兼容工厂在Node宿主保留并清理驱动。保留原探测/轮询节奏与首次读取，不能以去掉interval为由停掉已有行为。
+
+阶段8主系统sections与keys默认由createBot调用同一systemPromptParts/systemPromptKeys提供，本机可保留原配置接纳事实扩展，不能依赖每个宿主重复补装人格主段。
+
+阶段8接线先明确现有契约：worker以真实渠道emit保留自动投递，按source的最终send/sent完成串行处理，不用会抑制渠道回复的ask，也不在外层竞争补发。TriggerIO.schedule改为可await的持久deadline确认，两个实际宿主分别内存/PG实现；LRU解绑保留持久计划，用户取消才删除。无环境由共享NoEnvironment明确拒绝文件/进程操作，来源与私有存储照常工作；程序模型运行使用同一平台owner额度桶，不能绕开server原准入。SDK结构化内容/error能力是worker真实接线的前置，先随阶段8完成，阶段9再完成两份客户端呈现；属于依赖顺序调整，不删减验收。
+
+云端单结果是渠道明确能力output.singleResult：保留共享路由/投递，但禁止同源即时工具消息抢占唯一结果，返回真实失败并指导写最终回复；跨会话主动投递保持原权限与deliveryId。模型回退通知不额外发送；卡片只准备最终意图、失败不预先投递。该差异由BRIEF每用户输入仅一结果的硬约束要求，不改变本机多段输出，也不添加通用延迟发送框架。
+
+LRU只在真实工作全部结束后释放：Runtime pending与scheduler tick/Trigger.busy共同判定，异步cron/market任务包含结果持久化和投递；忙状态解除唤醒等候激活，不能把launch返回当完成。复用现有Trigger生命周期，不引入第二任务管理器。
+
+维护者同日澄清阶段门槛：先在原始 a6a6c0b5 记录完整测试与 build 基线，后续不得新增测试失败，build/typecheck/lint 必须通过；基线已有的机器原因失败可保留，不再因这些失败停止。
+
 ## 2026-11-03 已配置会话的精确平台标签（主人要求）
 
-v15 P1原话包含完整群名，但宿主operability只有conv/binding/profile，存储事件无群名、session title为空；配置标签不能证明平台群名。为补这项明确缺失的身份映射，在现有Channel上新增可选只读describeConversation，飞书复用现有客户端精确GET群信息，QQ无接口保持unknown。仅核验owner私有main时，对当前Agent已有精确绑定且摘要限量的至多8个已知群补标签；保留当前8K摘要预算、取消signal及旧CLI/inspect无被动网络语义。标签是身份帮助，不授权、不证明membership/收发可用，不改BOT配置/人设，不增加意图模型、名称解析正则、目录存储或缓存。见04 §3.1与11飞书能力。
+配置标签不能证明平台群名；为补这项缺失的身份映射，在现有Channel上新增可选只读describeConversation，飞书复用现有客户端精确读取群信息，QQ无接口保持unknown。仅核验owner私有main时，对当前Agent已有精确绑定且摘要限量的已知群补标签；摘要预算不变，旧CLI/inspect不产生被动网络请求。标签是身份帮助，不授权、不证明membership/收发可用，不改BOT配置/人设，不增加意图模型、名称解析正则、目录存储或缓存。见04 §3.1与11飞书能力。
 
 ## 2026-11-03 parent 原始目标与转述分层（主人要求）
 
-v15真实交接将模型自行加入的“不重复发送”放在main输入的主任务段，而已核验owner原件仅作为conversation JSON辅助事实。代码能证明这一优先级缺口；不能据此认定每次误办均由它导致。复用parentOrigins，全部owner原件核验成功时，以内部结构化任务帧把原文作为主要目标区，模型转述作为辅助说明；不解析自然语言意图、不新增goal ledger、解释模型、授权层或存储。原文不重复装配，未核验、guest及混合来源保持原有限权与来源上下文。该修复只改变同Agent parent请求的宿主输入结构，不修改BOT persona/home，群历史仍独立。见02 parent_ask契约。
+模型转述可能被抬成主任务，而模型自行加入的约束反过来覆盖已核验的 owner 原件。全部 owner 原件核验成功时，用内部结构化任务帧把原文作为主要目标区、模型转述作为辅助说明：不解析自然语言意图，不新增 goal ledger、解释模型、授权层或存储。原文不重复装配，未核验、guest 及混合来源保持原有来源上下文与限权。只改变同 Agent parent 请求的宿主输入结构，不改 persona/home，群历史仍独立。代价：多一层结构化帧，未核验来源继续不能享受该优先级。见 02 parent_ask 契约。
 
 ## 2026-11-03 普通批次配置复用完整依赖预检（主人要求）
 
-不新增目标解释模型、reconcile API或配置DSL。现有social.update仍负责会话policy局部补丁，完整scope/profile/binding由既有agents.update原子处理；明确启用普通批次处理（设置mode=batch或batch.run=true，合并后两者均生效）的候选必须在写入前检查真实处理依赖，可确定缺件一次给出具体路径与现有修复入口，不保存已知无效的普通处理目标。不自动修改共享profile、权限或群历史；模型从原话选择既有工具执行，宿主负责候选校验、重载、事实回读。代价是实际存在跨字段缺口时需要Agent形成完整候选，而不是对多个Bot的home打预置补丁。见11配置入口契约。
+不新增目标解释模型、reconcile API 或配置 DSL。现有 social.update 仍负责会话 policy 局部补丁，完整scope/profile/binding由既有agents.update原子处理；明确启用普通批次处理（设置mode=batch或batch.run=true，合并后两者均生效）的候选必须在写入前检查真实处理依赖，可确定缺件一次给出具体路径与现有修复入口，不保存已知无效的普通处理目标。不自动修改共享profile、权限或群历史；模型从原话选择既有工具执行，宿主负责候选校验、重载、事实回读。代价是实际存在跨字段缺口时需要Agent形成完整候选，而不是对多个Bot的home打预置补丁。见11配置入口契约。
 
 ## 2026-11-03 共享main按可信来源分别执行与交付（主人要求）
 
-v14真实run.end将QQ parent请求与Feishu P1私聊合在一轮，最终QQ答复被投递到P1请求来源，P1目标遗漏。共享历史不等于一个执行轮必须混合所有来源。保持同Agent、同main原生conversation；仅收窄原生inbox一次消费的来源范围，不改busy字段名称/取值、事件或协议版本，不新增用户配置、Yonder队列或任务状态库。
+共享历史不等于一个执行轮必须混合所有来源。保持同 Agent、同 main 原生 conversation；仅收窄原生 inbox 一次消费的来源范围，不改 busy 字段名称/取值、事件或协议版本，不新增用户配置、Yonder 队列或任务状态库。
 
-可信来源复用持久原事件/parent来源核验；同源steer保持及时补充，异源不取消当前生成并持久排队，最终边界只取一个来源组。明确interrupt保留原调用方跨源取消选择；内部工具结果和续办继承原来源，write-only提醒不变。旧无来源元数据的Pi调用兼容，旧转录不迁移、不重放。代价是异源请求要等待当前轮，但不再收到另一个来源的同一最终答复。见02 §1.2、07对接busy映射。
+可信来源复用持久原事件与 parent 来源核验：同源 steer 及时补充，异源不取消当前生成并持久排队，最终边界只取一个来源组；明确 interrupt 保留跨源取消。内部工具结果和续办继承原来源，write-only 提醒不变；旧无来源元数据的 Pi 调用兼容，旧转录不迁移、不重放。来源键不构成权限或「完成」判定。
 
-实现已沿GoYonderTogether/pi正式fork归源：D1 `4e37df84c2929fb46e86b58d7b18a189bf8825d9`迁回14个anchor源文件，Harness现存93文件逐字节核对0差异；原同步guard依次通过D2与D3核验，最终来源D3 `91e8c7a958ad15a7f5a4be9e6a76c0162ee77c1c`使用可选interrupt标记保留显式跨源取消并入当前轮的原语义，不改变原mode枚举；从干净D3重建匹配pi-ai包。原hashline断言迁回fork，Harness保留core消费者集成检查。没有绕过同步保护或直接修改vendored源码。配置、授权、发言与任务完成仍由原模型/工具边界负责，来源键不构成权限或“完成”判定。
+代价：异源请求要等当前轮，但不再收到另一个来源的同一最终答复。见 02 §1.2、07 对接 busy 映射。
 
 ## 2026-11-03 普通群模型处理与发言机会分离（主人要求）
 
-主人要求“每条消息能够接收，接收了不一定回复”，并确认同一个Agent办事、群历史独立。v14真实QQ事件证明：明确batch.run=true的GPT候选仍被兄弟Bot成功出站清除并推进batch-read，未进入模型。此前仅保留focused候选不足以兑现该目标。
+主人要求「每条消息能够接收，接收了不一定回复」，并确认同一个 Agent 办事、群历史独立。只保留 focused 候选不足以兑现该目标。
 
-沿既有batch.run表达普通消息处理授权，不新增模式、意图分类器、模型调度器或转录存储。既有准入/quiet/暂停/显式过滤/批次限制继续生效；通过这些边界的普通消息不能因指向别人或兄弟先答而在模型前消费。最新公开出站进入已有群上下文，由模型判断是否NO_REPLY；接单、权限与发送前核验保持独立。run=true以外的旧规则保留。见11“接收与自主发言”及“发言协调”。历史已消费事件不回滚或重放，使用新原话入站验收。
+沿既有 batch.run 表达普通消息处理授权，不新增模式、意图分类器、模型调度器或转录存储。既有准入、quiet、暂停、显式过滤与批次限制继续生效；通过这些边界的普通消息不能因指向别人或兄弟先答而在模型前被消费。最新公开出站进入已有群上下文，由模型判断是否 NO_REPLY；接单、权限与发送前核验保持独立。见 11「接收与自主发言」与「发言协调」。历史已消费事件不回滚或重放。代价：未显式启用 batch.run 的群仍只按旧规则处理普通消息。
 
 ## 2026-11-02 iOS 接入发版与 TestFlight（主人要求）
 
-主人要求安卓与 iOS 都真实提交源码、真实发版，并在本机模拟器与 iPhone 17 Pro 上实测。iOS 侧最初完全没有发布通道：仓库中没有 iOS 工作流，App Store Connect 里也没有 `net.yonderbot.app` 的 App 记录。
+主人要求安卓与 iOS 都真实提交源码、真实发版，并在本机模拟器与 iPhone 17 Pro 上实测。iOS 侧原先没有发布通道：仓库没有 iOS 工作流，App Store Connect 也没有 `net.yonderbot.app` 的 App 记录。决定按安卓、桌面同一套「Release 公开后按 tag 派发」补一条 `ios-release.yml`：归档后用带 `provisioningProfiles` 映射的 ExportOptions 导出（Tauri 自带导出实测失败），经 App Store Connect API Key 上传 TestFlight。App 记录只能在网页后台创建，它与分发 profile、签名材料属一次性外部状态；`gen/apple` 仍不入库，由 `prepare-ios.mjs` 重放签名设置与图标。不做 fastlane、不上正式审核、不把证书或 Key 写进仓库。
 
-- **App 记录与 profile 用 API 与网页后台补齐**：App 记录只能从 App Store Connect 网页创建（API 无此能力），已在后台建好（App ID 6829804055，SKU `net.yonderbot.app`）；App Store 分发 profile 用 App Store Connect API 创建。Bundle ID 早已注册，分发证书与私钥配对，缺的只是 profile 与 App。
-- **发版链**：新增 `ios-release.yml`，与安卓、桌面同一套「Release 公开后按 tag 派发」的模式。归档用 `tauri ios build --archive-only`，导出必须用带 `provisioningProfiles` 映射的 ExportOptions（Tauri 自带的导出不带映射，实测失败），上传用 App Store Connect API Key 走 `altool --upload-app`。签名材料全在 secrets，构建后删除。
-- **生成目录的可靠重放**：`gen/apple` 与 `gen/android` 一样不入库，`tauri ios init` 会重置签名设置与图标。`prepare-ios.mjs` 重放团队/手动签名/profile，并把品牌 PNG 铺白底重出无 alpha 的整套图标（App Store 拒绝带 alpha 的 1024 图标，上传报 90717）。
-- **不做**：不引入 fastlane、不上传 App Store 正式审核（只到 TestFlight）；不把证书或 API Key 写入仓库。
-
-代价：macOS runner 排队常超过十分钟，iOS 构建在 CI 上比安卓慢；App 记录、profile 与 secrets 是一次性外部状态，丢失证书私钥会导致无法继续用同一签名升级。见 09 §6.5。
+代价：macOS runner 排队常超过十分钟，iOS 构建比安卓慢；证书私钥一旦丢失就无法再以同一签名升级。细节见 09 §6.5。
 
 ## 2026-11-02 默认 Bot 中文名改为「小未」（主人要求）
 
 主人 2026-11-02 要求新账号默认 Bot 的中文名从「小歪」改为「小未」，取自 Yonder 的中文名「未至之境」；英文名 `Yonder Bot` 不变。网页端发送的默认名（`apps/app/src/lib/personalAgent.ts` 的 `DEFAULT_BOT`）与云端创建时的缺省名同步改，规范见 16 §「默认 Bot 与云端创建」。已有账号保持原名：服务端本来就在账号名下已有默认 Bot 时原样返回，不写数据库迁移，不批量改名。
 
-## 2026-11-02 两种安装形态、桌面壳本机优先、Windows 托盘与安卓/桌面产物分发（维护者批准）
+## 2026-11-02 两种安装形态与桌面壳本机优先（维护者批准）
 
-安装默认只装核心（CLI、内核、服务），交互可以是微信/QQ 等渠道、云端连接或 CLI/TUI；`install.sh --desktop` / `install.ps1 -Desktop` 在核心装完后追加桌面应用。桌面壳启动时先经已安装的 `yonder ui --json` 取本机网关地址并短超时探测，可达就本机直连控制面，不可达才加载 `https://yonderbot.net/`；窗口导航白名单是本机回环与 yonderbot.net，其他外链交系统浏览器。壳仍不打包本机运行时、不读凭据、不提供托盘或第二套通知，也不注入壳标记。理由是桌面端应当先服务本机服务，云端只是回落；代价是壳多一条本机探测路径与两处入口来源，但数据面不变。关闭窗口即退出，服务与状态栏继续运行，所以“关掉桌面 = 回到只装核心”。
+安装默认只装核心（CLI、内核、服务），交互可以是微信/QQ 等渠道、云端连接或 CLI/TUI；`install.sh --desktop` / `install.ps1 -Desktop` 在核心装完后追加桌面应用。理由是桌面端应当先服务本机服务，云端只是回落；代价是壳多一条本机探测路径与两处入口来源，但数据面不变。
 
-状态栏由 macOS 扩展到 Windows：新增常驻托盘 `Yonder Status`（用户级登录自启，固定菜单骨架为服务状态、检查更新、停止服务并退出，不承载交互窗口），由 `service install` 注册、`service uninstall` 移除；Linux 明确不做。分发方面，`android-release.yml` 在正式 Release 后构建签名 APK（GitHub 资产 `yonder-android.apk` 与 OSS `android/yonder-<version>.apk`、`android/latest.json`），App 内按 versionCode 比较、校验 sha256 后交系统安装器，确认框必须由用户点击，不做静默安装；`desktop-release.yml` 构建 macOS dmg 与 Windows nsis，上传同一 Release 与 OSS `desktop/<version>/`，无 Developer ID 时 macOS ad-hoc 签名、Windows 未签名，签名与公证另立验收。发布产物放新 bucket `yonder-release`（阿里云 OSS，cn-hangzhou，public-read，只放发布产物），CI 凭据来自 secrets，不进仓库。见 09 §3.1、§6.1–§6.4。
+桌面壳启动时先经已安装的 `yonder ui --json` 取本机网关地址并短超时探测，可达就本机直连控制面，不可达才加载 `https://yonderbot.net/`；窗口导航白名单是本机回环与 yonderbot.net，其他外链交系统浏览器。壳仍不打包本机运行时、不读凭据、不提供托盘或第二套通知，也不注入壳标记。关闭窗口即退出，服务与状态栏继续运行，所以「关掉桌面 = 回到只装核心」。见 09 §3.1、§6.2。
+
+## 2026-11-02 Windows 托盘与安卓、桌面产物分发（维护者批准）
+
+状态栏由 macOS 扩展到 Windows：新增常驻托盘 `Yonder Status`（用户级登录自启，固定菜单骨架为服务状态、检查更新、停止服务并退出，不承载交互窗口），由 `service install` 注册、`service uninstall` 移除；Linux 明确不做。理由是同一套安装与状态语义跨平台一致，代价是每个平台各自构建与验收。见 09 §6.1。
+
+安卓 APK 与桌面 dmg/nsis 在正式 Release 后由 CI 构建，上传同一 Release 与对象存储 bucket；App 内按 versionCode 比较、校验 sha256 后交系统安装器，确认框必须由用户点击，不做静默安装。无 Developer ID 时 macOS ad-hoc 签名、Windows 未签名，签名与公证另立验收。代价是三个平台的产物各自验收，构建成功不等于安装通过。见 09 §6.3–§6.4。
 
 ## 2026-11-01 CI 成功后自动发版、默认启用严格门禁（用户明确要求）
 
@@ -1005,169 +1070,83 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 贾维斯主会话累积到 113 MB，其中桌面截图以整张 base64 写进转录，单条最大 7 MB；压缩请求与生成请求都撞上本地网关 16 MB 上限，连续两轮以 413 结束。截图工具本身没有上限，`read` 有。决定：内核统一处理，不由各插件各写一套——工具结果带图片时按工具图片上限（1600×1600、1.5 MB）重新编码、每结果最多 4 张；generation 每次请求前把更早轮次的图片换成带产物路径的一行文字，本轮最多留 4 张。转录保留原始记录，只在请求时裁剪，所以恢复、审计和压缩不受影响。已有历史不做原地改写；需要时由维护者按会话决定清理。
 
 
-### 2026-11-01：独立个人资料编辑页（主人本轮要求）
+### 2026-11-01：个人资料编辑、个人小店与兼容前端（主人本轮要求）
 
-- 从「我的」进入 `/me/edit`，单页编辑头像、名片背景、昵称、个性签名；保存后返回「我的」，不再在概览内展开表单或自动弹出二维码。旧 `?card=new` 入口兼容跳转。用户头像与昵称始终展示；图片未选或恢复默认时使用现有默认头像与中性背景。
-- 名片展示开关只控制个性签名、账号 ID、个人小店；明确为展示偏好，不改变既有访问权限。图片沿用真实 OSS 上传接口（JPEG/PNG/WebP，最大 5 MiB），失败保留表单，不伪造成功。
-- 社交后端新增 `PUT /api/me/profile` 原子保存账户与默认名片并发布，返回 `{actor,card}`。输入为 `{name,avatarUrl,tagline,markdown,coverUrl,visibility}`，图片字段为公开 HTTPS URL 或 null；visibility 三个布尔字段为 `signature/code/greeting`。昵称 1–40 字，签名最多 120 字，开场白最多 2000 字。图片上传先完成，后端事务后才更新会话与缓存。
-- CardFace 追加可选 `coverUrl: string|null`、`visibility`；undefined 保留旧卡片背景行为，null 明确恢复默认。保留原卡的 theme、tags、section、sticker、display 与其它字段，不修改 Bot 名片工作流。不需要数据库迁移。头像归账户 avatar_url，名片展示设置归已有 face JSONB/published snapshot。
-
-
-### 2026-11-01：个人小店与图片裁剪（主人本轮要求）
-
-- 整批实现后按主人新要求先发布兼容现有后端的前端，尚未支持的高级能力保持关闭；旧交接 ZIP 不再作为本批部署包。个人资料编辑移除「访客开场白」输入与展示开关，保留旧 markdown/greeting 数据，避免保存时误删既有名片正文。展示项改为个性签名、账号 ID、个人小店，头像和昵称始终展示。
-- 选头像/背景先选相册或主动拍照，再进入裁剪；头像圆形预览并导出 512×512，背景 3:1 预览并导出 1600×533。允许移动、缩放与取消；未完成裁剪不替换当前图片，保存资料时才上传真实图片。未选或恢复默认时使用原有默认头像、中性背景。原图上限 20 MiB，输出 JPEG/PNG/WebP 不超过 5 MiB；错误可恢复，清理本地图片 URL。
-- 个人页以单一「我的小店」板块承接自己的发布，原发布统计和入口合并；收藏、点赞、需求保留为个人活动。编辑资料提供小店管理入口，未保存编辑离开时明确确认。旧 /me/market/posts 转到 /me/shop，/me/shop 进入本人小店；公共 /shop/:accountId 使用已有短码/UUID 解析。访客从他人资料或商品卖家进入其小店，显示对自己可见的挂单；主人可管理在售和隐藏发布，到期自动归入隐藏。
-- 沿用分页 GET /api/market/listings，增加 sellerId 筛选；小店主动访问不受 discoverable 的 Bot/市场发现开关限制，但必须满足服务器的可读规则。列表、详情、收藏、点赞、对比、询问创建与 Agent watch 共用服务端可见规则，不能靠前端过滤或直链绕过。
-- Listing 新增可选 visibility（public/friends/private，旧数据 public）、expiresAt（UTC 毫秒或 null，旧数据长期）、coordinates（latitude/longitude 或 null）。谁可见仅所有人、互为好友、仅自己三种；Bot 以已有主人身份权限读取。主人能管理未删除的全部发布；其他人只能读 active、未到期且符合范围的发布。有效期 UI 为长期、1/3/7/30天，只有用户改变期限时计算新的 expiresAt，不因普通编辑自动续期。
-- 沿用 pause/resume 表示隐藏/恢复。新增 DELETE /api/market/listings/:id 为本人软删除：产品中移除，正常读取包括本人均不再返回，保留既有交易沟通引用；操作前确认，失败不假移除。恢复过期发布必须重新选择有效时间。隐藏、过期或删除只阻止新询问，已有参与者仍可查看并继续已有沟通，不向无关用户暴露帖子内容。
-- 发布地点可不选，不再默认填上海。可手填地点或主动附上浏览器当前位置，位置权限只在点击时请求；坐标保留约 3 位小数并可清除，不自动反查地名或接入付费地图 SDK。发布预览明确显示是否附定位，详情仅在有真实坐标时提供地图跳转。
-- 后端新增兼容旧数据的 018 迁移，保留既有照片 OSS 接口；发布包需包含迁移及升级/回滚边界说明。名片 visibility.shop 仅控制资料中的小店入口展示，不代表小店隐私，挂单可见性由每条发布的权限控制。
-
-- 现有 market SDK 工具同步小店字段：market_search 追加可选 sellerId/mine/status；market_publish 的 listing 追加 visibility/expiresAt/coordinates，action 追加 delete，继续要求既有 ownerApproved:true，缺批准不发请求。新建不再强制地点（缺省空），不增加工具数量或独立权限系统；删除结果遵循后端 204。不得主动采集用户定位，坐标只能来自主人明确提供的数据。
-- 本人分页支持 mine=1&status=active|paused（expired 仅保留旧接口兼容），非本人状态筛选拒绝；active 为未到期在售，paused 合并手动隐藏和所有到期发布。旧接口调用不带新增字段仍兼容。
-
-- 升级/回退边界：018 只增加列，旧资料默认公开且长期。发布先迁移并启用新权限过滤后端，再发布新网页。已有仅好友、仅自己、过期或软删除数据后，不得回退至不识别 018 权限规则的旧后端；单纯回退旧二进制可能暴露这些发布。保留新权限检查的修正版才可作为安全回退目标。
-
-- 混合版本保护：新增公开只读 GET /api/market/capabilities 返回 {listingPolicy:true,sellerShops:true}，禁止缓存。新网页在小店查询及带可见性/期限/定位的写入前确认能力；旧后端 404 或缺失能力时停止请求并提示升级，不得把受限发布降级成公开。market SDK 对新参数与 delete 同样先检查，未支持返回 capability_unavailable，不发送写请求。
-
-- 本轮界面收敛：小店只显示「在售、已隐藏」两项，过期发布由服务端实时归入隐藏，无需用户刷新状态或定时写库；隐藏行可标注到期原因并续期。旧 status=expired 链接转为隐藏，接口可保留旧筛选兼容。个人主页删除「收藏的名片」整块，不删除已有收藏记录；市场收藏仍保留。
-
-
-### 2026-11-02：先发布可兼容的前端（主人本轮要求）
-
-- 线上后端尚无 /api/me/profile 和 /api/market/capabilities。先上线兼容界面，既有文字资料编辑、公开发布、普通编辑和隐藏/恢复继续可用；不部署或改动后端。
-- 新增客户端 marketCapabilities 只读查询，404/不支持返回 false，网络失败明确报错。头像、背景、展示设置、新可见范围/期限/坐标/删除在旧后端明确关闭，不能先允许选择再假保存。新后端能力返回 true 后自动开放。
-- 旧后端只允许公开、无期限、无坐标的普通发帖/编辑，并剥离不支持的默认字段。任何仅好友、仅自己、有限期或真实坐标请求必须先验证能力，不得静默变公开；普通 pause/resume 保留原接口，delete 始终要求新能力。旧后端地点必须手填，不伪造城市或自动填写线上；新后端仍为可选。
-- 旧后端的昵称/签名保存沿用已有 draft/publish 与 updateProfile，保留 markdown/face/display。只有实际完成才更新成功状态；多次请求部分成功时明确提示并同步真实缓存，不假称原子成功。新后端仍使用原子保存。
-- 本人小店在旧后端沿用 mine=1 服务端分页，不发送旧服会忽略的 status/sellerId；只对已加载内容作在售/隐藏展示，提供更多页入口并避免把当前页为空当成总量为空。他人小店入口等到服务支持 sellerShops 才开放。
-- 通过现有 CI → release.yml（require_ci=true）→ Deploy web 发布，核验真实网页版本；高级能力和后端部署仍单独交接。
-
-- 个人签名的显示语义：human 的签名以 card.tagline 为准，null/空表示不显示，不回退到旧 face.headline 或正文摘要；保存时仍保留原卡面数据。Bot/agent 的卡面优先级保持不变。
-
-- 当前服务可创建的发布类型为物品、服务、求助、创意、招聘五种；前端不展示后端无法保存的 other 创建选项，也不静默转换成其它类型。
-
-- 正式站路由兼容：/market 与 public/market 图片目录同名，已有 nginx 的目录优先规则会将直达链接转到 /market/ 并返回403。根路径网页构建需输出 market/index.html 作为同一 SPA 入口，保留旧图片地址，不改 nginx；入口资源必须继续正确指向根 assets，普通相对路径网关构建不受影响。
-
+- 从「我的」进入 `/me/edit` 单页编辑头像、名片背景、昵称、个性签名；保存后返回「我的」，旧 `?card=new` 入口兼容跳转。头像与昵称始终展示；展示开关只控制个性签名、账号 ID、个人小店，属展示偏好，不改变访问权限。
+- 头像/背景先选图再裁剪（头像 512×512，背景 1600×533；原图 20 MiB 内，输出 JPEG/PNG/WebP ≤5 MiB），未完成裁剪不替换当前图片，保存时才经真实 OSS 上传；失败保留表单与输入，不伪造成功。
+- 社交后端新增 `PUT /api/me/profile` 原子保存账户与默认名片并发布，返回 `{actor,card}`；输入 `{name,avatarUrl,tagline,markdown,coverUrl,visibility}`，图片为公开 HTTPS URL 或 null，visibility 为 `signature/code/greeting` 三个布尔。CardFace 追加可选 `coverUrl` 与 `visibility`（null 明确恢复默认，undefined 保留旧行为），不改 Bot 名片工作流，不需要数据库迁移。
+- 个人页以单一「我的小店」承接自己的发布；`/me/shop` 为本人小店，公共 `/shop/:accountId` 解析短码或 UUID，旧 `/me/market/posts` 跳转。小店只显示「在售、已隐藏」，过期由服务端实时归入隐藏并可续期。
+- Listing 新增可选 `visibility`（public/friends/private）、`expiresAt` 与 `coordinates`；`DELETE /api/market/listings/:id` 为本人软删除。隐藏、过期与删除只阻止新询问，已有沟通保留。发布地点可选，坐标只来自主人明确提供的数据，不自动采集定位。
+- 018 迁移只增加列。先迁移并启用新权限过滤后端，再发布新网页；存在仅好友、仅自己、过期或软删除数据后，不得回退到不识别 018 的旧后端。
+- 混合版本保护：公开只读 `GET /api/market/capabilities` 返回 `{listingPolicy, sellerShops}`。新旧网页与 market SDK 在发送带可见性/期限/坐标的写入或 delete 前必须确认能力，缺失时停止并报 `capability_unavailable`，不得把受限发布静默降级为公开。
+- 交付顺序取「先发布兼容旧后端的前端」：高级能力在旧后端明确关闭而不是先允许选择再假保存，昵称/签名保存沿用既有 draft/publish。理由是线上后端尚未提供这些接口；代价是同一功能分两次上线，中间期依赖能力探测。
 
 ### 2026-11-01：Harness 自配置闭环（主人本轮要求）
 
-主人要求从根因修复真实对话暴露的问题，完整设计后由子 Agent 实施，而非逐 Bot 补配置/提示词。复用 management/config/social、pi-durable 和事件回执：候选可接纳性与 profile 定位、同步 reload/失败恢复、真实路由诊断、可信 owner 来源跨分身与续办、可操作的委派错误、实际模型事实及已有附件读取入口。移除 social.update 无条件“另发确认”的第二审批门，保留能力/身份/目标作用域；同 Agent 工作能力与群独立上下文分开，不能暗中共享私人 main 或扩大非主人权限。每请求模型事实只作稳定前缀后的独立动态尾段，不改变稳定正文。范围、验收和责任见[自配置方案](research/harness-self-configuration-20261101.md)。本轮授权仓库实现与验证，不因此推送自动发版或修改正式 home/install。
+主人要求从根因修复真实对话暴露的问题，完整设计后由子 Agent 实施，而非逐 Bot 补配置/提示词。复用 management/config/social、pi-durable 和事件回执：候选可接纳性与 profile 定位、同步 reload/失败恢复、真实路由诊断、可信 owner 来源跨分身与续办、可操作的委派错误、实际模型事实及已有附件读取入口。移除 social.update 无条件「另发确认」的第二审批门，保留能力/身份/目标作用域；同 Agent 的工作能力与群独立上下文分开，不能暗中共享私人 main 或扩大非主人权限。每请求模型事实只作稳定前缀后的独立动态尾段，不改变稳定正文。范围、验收和责任见[自配置方案](research/harness-self-configuration-20261101.md)。
 
+- 按可信渠道/接入类型补齐常见默认链：新建非 isolated Agent 的 main 协助、已获准官方安全群的派生缺件；保留显式拒绝与自定义，飞书未具备可信 membership 时仍需显式接入，不自动扩大范围。
+- 本机进程把实际 home/Agent/profile 带进只读 inspect 定位，显式参数、目标 Agent 与 home 边界优先；普通终端与写入默认兼容，环境变量不授予权限，不按配置档名猜主会话。不新增管理协议或执行框架。
+- 宿主按真实 env/exec/CLI 暴露可用管理路径，通用指引要求先完成可行且已授权的配置并报告真实不支持的部分；保持 parent_ask agent-local，不改为全局管家、不提升 Bot 能力。跨目标通知保持消息引用校验并给出省略非目标引用的恢复办法，不静默改参数或伪造来源。
+- 验收输入必须与主人的飞书/QQ 原话一致，不在 user message 里塞 CLI、路径或配置算法；操作型验收只算工具链证据。宿主提供真实管理定位，方法由随包通用指引承载，真实模型与平台验收分开记录。
 
-### 2026-11-01：默认链补齐与自然需求验收（主人纠正）
-
-主人要求按可信渠道/接入类型补齐常见默认链，具体错误必须给补全依赖与复查入口；验收输入必须与其飞书/QQ口语一致，不能在 user message 中给 CLI、文件路径或配置算法。上一轮操作型真实验收保留为工具链证据，不代表自然需求通过。默认优先级与场景矩阵见[方案补充](research/harness-self-configuration-20261101.md)。补齐新建非 isolated Agent 的 main 协助与已获准官方安全群的派生缺件，保留显式拒绝/自定义；飞书未具备可信 membership 时仍需显式接入，不自动扩大范围。宿主提供真实管理定位，方法由随包通用指引承载，真实模型和平台验收继续分开记录。
+代价：默认链与诊断事实都要随配置演进同步维护；本轮授权仓库实现与验证，不因此推送自动发版或修改正式 home/install。
 
 ### 2026-11-01：调度任务的主人管理入口（主人本轮要求）
 
-主人要求 CLI、MCP 等入口可查看和编辑所有调度任务，不再只能由创建它的 Agent 管理。管理请求复用运行中 cron 调度器及其持久化和串行队列，保留作业原有 owner 与执行权限；跨归属访问要求真实主人管理授权或 Agent 的实际 admin 能力，不能通过管理入口提升原作业能力或绕开渠道范围。未认证为主人管理入口的 MCP 不自动取得此权限。
+主人要求 CLI、MCP 等入口可查看和编辑所有调度任务，不再只能由创建它的 Agent 管理。管理请求复用运行中 cron 调度器及其持久化和串行队列，保留作业原有 owner 与执行权限；跨归属访问要求真实主人管理授权或 Agent 的实际 admin 能力，不能通过管理入口提升原作业能力或绕开渠道范围。未认证为主人管理入口的 MCP 不自动取得此权限。代价：管理面与执行面共享同一队列，跨归属请求须先证明授权。
 
-### 2026-11-02：本机只读管理检查保持执行上下文
+### 2026-11-02：配置接纳事实与运行事实投影（主人要求）
 
-自然群验收重复出现：private主会话执行裸 inspect，命令默认查询group档，模型误判当前权限并停止办理。通用提示和显式profile示例未稳定消除该问题，故沿主人“默认完整链不丢信息”诉求补共享上下文连续性：本机进程携带实际home/Agent/profile供只读inspect定位，显式参数、目标Agent与home边界优先；普通终端和写入默认兼容，环境变量不授予权限，不按配置档名猜主会话。不新增管理协议或执行框架。
+- 每次模型请求在稳定 system 前缀之后经现有动态 sections 追加只读的配置接纳事实，按实际读取并校验的源 revision 区分 effective、pending、rejected、pending-restart 与 unknown；接受 revision 必须对应真正校验的源字节，不在发布后重读磁盘冒认。运行继续使用固定快照，该事实不宣称运行已换档。
+- 候选在解析某个源时提前失败，也必须将仍对应该拒绝源字节的候选标为 rejected，不能永远 pending；可附最多三条有界 scope/path 线索并指向现有管理校验、更新与读回入口。不把原始 YAML、错误堆栈、绝对 home 路径或其他 Agent 正文塞进系统事实。
+- 运行态能力与已加载插件等只读查询沿已接纳快照读取，不能因磁盘候选未接纳而失去工作控制或修复入口；候选管理仍保留完整校验与授权，两者不混用。
+- 管理 patch 从语法有效的原始映射合并后再校验完整候选，使已有语义错误的配置仍可通过原生接口修复；原件不是映射、语法损坏、目标身份不符、权限不足或版本冲突仍拒绝。
+- 有限精确 `per:conv` 接收绑定可以证明普通消息域被完整遮蔽，跨 type 仍核对同 key profile，不能证明时保守拒绝；不新增会话 namespace 或一般匹配求解器。候选新增前置覆盖同样检查打开会话，改档须显式关闭并保留历史后再配置。
+- social 的首条目标策略可以从完全未写 social 的 Agent 初始化，缺省 policy 有稳定 revision，inspect 与 CAS update 不因可选字段缺失报错；conversation patch 对已知嵌套 batch 字段局部合并，保留未指定的同级窗口、count 与限制。
+- 复用全局 `inspect` 与已接纳快照提供一份只读会话运行投影，供管理反馈、social 检查与已验证 parent 上下文共用：历史 route/session/profile/wake 是事实，当前首匹配、参与策略、consumer 与能力是预测，必须分栏；`wake:write` 不证明运行，`batch-read` 不证明模型已执行，送达须有来源关联的真实发送结果。
+- 投影保留已核验的来源身份事实（from、owner 关系、渠道提供的 senderIsBot、原生提及），未知不猜；最近样本是 Bot 回声时仍保留并展示真实参与原因，不筛选成功原件掩盖失败，也不强制所有群启用模型。
+- 宿主与 CLI 使用同一有界摘要而不是完整投影：省略重复的工具/scope/管理对象，明确这是本 Agent 精确绑定视图而非全局成员目录，省略项计数并标记 omitted/truncated，不截断身份或权限后假称完整；完整详情仍按需经 inspect 取得。默认最多 8 个精确 conv、摘要最多 8000 字符。
+- 现有 `social.update` 标准路径已有派生 consumer 与 CAS、校验、回滚，不另造配置 DSL、任务判官或第二 runtime；配置完成后复用同一 inspect 返回 policy revision、接纳与 source/consumer 后置事实。平台状态未知时标 unknown，不据 unknown 要求用户重配权限，也不加虚构的平台 API。
+- 代价：接纳、静态可用、运行与送达是四类独立证据，模型必须依据它们判断，不能互相替代；摘要上限使超出部分只能按需复查。
 
-### 2026-11-02：发布与真实群验收中的兼容批次隔离
+### 2026-11-02：路由与批次消费链（主人要求）
 
-主人要求把共享修复正式发布并更新本机，以真实飞书/QQ群原话验收，不能用Bot配置或提示词特例补洞。发布前确认兼容窗口仍真实发出channel-qq.group-batch，却未纳入共享群→私人main拒绝；将该已知兼容输入纳入原有admission约束，保留合法per-conv/reply:none/旧wake:write行为，不增审批/配置DSL/新运行时。已有不安全home只经现有候选校验/原子更新做必要最小binding迁移，保留私人历史与persona；真实原话、接纳、运行、送达、发布和Cloud证据分别核验，见本轮验收记录。
+- 兼容窗口内仍会发出的 `channel-qq.group-batch` 与 `*.batch-ready` 一样受群上下文隔离约束：须为独立 `persistent/per:conv` 且 `reply:none`，合法旧批次的 `wake:write` 保持兼容，新参与批次不得以 write 吞掉运行。不增审批、配置 DSL 或新运行时；已有不安全 home 只经现有候选校验与原子更新做最小绑定迁移，保留私人历史与 persona。
+- 批次链的可用性按当前来源事件、策略插件、目标会话与实际 profile 逐项证明；同渠道或其他群存在 `social.batch-ready` 绑定不构成本群可消费的证据。显式与派生策略进入 batch 时须先有匹配消费者，或沿既有机制从已选择该插件的来源 profile 派生伴随绑定。
+- 缺链时保留原输入并给出可读的 `no-binding` 原因与修复入口，不保存成可运行批次；不自动为 profile 增选插件，也不升级 write、record、disabled 或自定义策略的权限。
+- 派生默认只依据实际顺序匹配的首个来源绑定：后置同渠道的官方群绑定不能替前置精确自定义绑定证明默认接纳；来源匹配结果同时用于参与候选与最终路由，不另造 matcher 或逐渠道特例。自定义 write 仍只记录，由 Agent 按原需求自行配置实际运行。
+- 代价：自定义绑定与官方群默认并存时需要显式写出完整链，配置面比「宽泛可用」更严格。
 
-### 2026-11-02：飞书自然目标的真实群目录发现
+### 2026-11-02：飞书自然目标的真实群目录发现（主人要求）
 
-真实群验收准备确认：历史工具要求已知chat ID，状态/群索引没有飞书真实名称映射，导致主人只给群名时Agent无法自主定位。沿channel-feishu已有客户端与加入群列表接口提供受read/network/admin及实例范围约束的只读chats目录；保留真实名称/引用、分页不完整与重名，权限缺项指向现有scope诊断。不造跨渠道目录框架，不在内核写飞书规则，不让用户背ID，不预配测试群。规范见11 §7.7。
+沿 channel-feishu 已有客户端与加入群列表接口，提供受 read/network/admin 及实例范围约束的只读 chats 目录；保留真实名称与引用，分页不完整与重名如实呈现，权限缺项指向现有 scope 诊断。主人只给群名时由该工具定位到可核验引用，重名或结果不完整不自动选第一个。不造跨渠道目录框架，不在内核写飞书规则，不让用户背 chat ID，不预配测试群；工具只发现，不接入、不改绑定、不发送消息。代价：目录只覆盖机器人实际可见且已分页返回的群，重名与不完整必须由使用者判断。见 11 §7.7。
 
-### 2026-11-02：真实群接办中的管理路径与不支持部分
+### 2026-11-02：跨仓发布通知与私有部署自协调（主人要求）
 
-真实QQ验收证明gpt-senpai own main为standard，具exec但无admin工具且未选管理skill，模型仍未使用CLI路径，并把禁止群→私人main解释成需要再次隐私确认。保持parent_ask agent-local语义，不改为全局管家、不提升Bot能力；宿主按真实env/exec/CLI暴露可用管理路径，通用指引要求先完成可行原授权配置并报告真实不支持部分。跨目标通知保持消息引用校验，并给出省略非目标引用的恢复办法，不静默改参数或伪造来源。
+网站部署复用 Cloud 已有的公开 Release 拉取、精确 SHA 与服务器幂等部署，不另建凭据或框架：本仓工作流只有已配置跨仓凭据时才发匹配的 `repository_dispatch`，否则明确记录网页待协调，不用必然无权的请求伪装成功。Cloud 保留既有定时拉取与手动派发路径，定时配置不是执行延迟保证。代价：Release 公开、部署派发与服务器验收是三种状态，各自记录。见 09 §5.1。
 
-### 2026-11-02：跨仓发布通知与私有部署自协调
+### 2026-11-02：工作台运行位置、资源集合与模型来源（主人批准实施）
 
-正式发布实测通知因本仓GITHUB_TOKEN无权访问私有Cloud而404，且旧event_type与接收方deploy-web不符。复用Cloud已有公开Release拉取/精确SHA/服务器幂等部署，不另建凭据或框架；公众工作流只有已配跨仓凭据才发匹配事件，否则明确网页待协调而非伪成功。保留私有仓既有schedule与手动派发，实际延迟不作5分钟承诺。当前版本沿手动派发已验部署，后续通知修复走正常CI。
+输入底部以「运行位置」和「工作区」两个资源按钮表达：本体宿主独立于可操作的多设备/多目录，也允许仅设备或不指定；另有权限、合并的模型/供应商/effort、加号附件与拖放。主人工作台显式默认 bypass，不改变渠道/群聊已有预设，自定义权限复用能力集合。模型来源收敛为云端服务与运行宿主本机，不实现其他设备模型代理；云端复用同一 Harness 与工作桥并账号隔离，会话仍单宿主 pi-durable，不暗中迁移。设备执行复用已有 grant/command 账本。目录选择不把任意 shell 沙箱化，云端凭据按服务端密钥保管，不宣称 E2EE。代价：会话仍绑定单一宿主，切换运行位置不会迁移已有会话。见 19 §7。
 
-### 2026-11-02：配置接纳事实与失败候选修复
+### 2026-11-03：prompt 内顺序与来源帧（主人要求）
 
-真实飞书自然需求中，Agent 自行找到目标却直接写入被拒绝的候选，随后称已配置成功。沿现有 watcher、管理 patch 与每请求动态 sections 补源 revision 接纳事实，不解析 bash 命令、不新增审批/完成循环。管理入口先合并语法有效的原始映射再校验完整候选，使错误配置可以通过原生接口修复；保留身份、权限、版本与完整可接纳性约束。模型依据真实接纳/路由/运行/送达证据完成工作，当前固定运行快照与隐私隔离不变。
+- 同 Agent、同 main 的原生 conversation 可以同时含多个来源，但一次运行的目标仍须由可信来源决定：宿主事实 → 补充背景 → 当前原文或已核验 owner 任务区，原请求最后出现且只出现一次。背景的可信度与权限边界保持原样，不据此删历史或扩大授权。
+- 已准入的新原生事件以真实事件 ID 识别当前请求，正文相同不等于平台重放；`conversation:` 中的结构化 JSON 作为文本保留双引号，只转义会破坏围栏的 `&<>` 并压平换行，属性照常转义。共享 `runtime.events` 只按来源身份表达去重语义，不叠重复规则。
+- 程序结果与 continuation 附有界来源帧：按实际准备会话经既有 requestSources 核验父链得到原始来源 ID/conv，最多 8 项并明确 total/omitted；无来源或核验失败记 unknown，不从正文或自称身份猜。程序结果只关联列出的来源，不是新的主人原话、授权或「后来请求已完成」的证明。
+- 原结果与原件正文只保留一次，不重复装配；不自动 fan-out 新输入，不新建队列、lease、goal 库或第二判断模型。群历史与私人上下文继续隔离，模型依据真实当前目标决定动作。
+- 受限交付的错误必须指向条件化的既有接办方式（如同一 Agent 的 parent_ask 与原群发送路径），并区分暂停、无发言机会与目标已可靠回应；不建新 lease 或任务库，也不凭 owner 身份或模型自述取得发言机会。
+- 代价：来源帧占用一部分 turn 预算；位置调整不能单独证明模型会正确理解，仍需真实群原话验收。
 
-### 2026-11-02：精确会话覆盖与打开会话保护
+### 2026-11-03：关注候选的来源与消费边界（主人要求）
 
-真实飞书需求需要同一Agent仅为指定群选择新档；首条命中路由已有此表达，旧pairwise校验却忽略遮蔽。只为有限精确per:conv接收绑定证明普通消息域完整遮蔽，跨type仍核对同key profile，不新增Agent、会话namespace或一般匹配求解器；不能证明时保守拒绝。候选新增前置覆盖同样检查打开会话，改档须显式关闭保留历史后再配置。social的接纳/静音/参与策略仍独立生效，不以该证明绕过授权或发言约束。
+关注（focused）是已核验的调度事实，不属于普通开放候选。复用既有 focused 事实与 offer 流程，让它贯穿 willing → GroupTurn → groupContext：兄弟 Bot 的成功回复只结束普通候选，关注候选保留来源直到自身的既有准入与运行，暂停、对象、权限与发送协调不变。旧记录缺字段保留兼容，内部构造以类型约束防止再次漏传；不伪造 @、任务归属或授权，batch-read 仍不得冒充模型已读。代价：关注候选可能在同一话题的兄弟发言之后仍运行一次，需要在观测上按触发原因区分。
 
+### 2026-11-03：软提醒与持续目标一致（主人要求）
 
-### 2026-11-02：失败候选的聚合状态与有效版本
+公共目标段原先要求任何时间或上下文提醒即收尾，与 14 §1 的软阈值语义冲突：软提醒与压缩只提示，不 abort、不改变终态。只替换该句，使软提醒后保留目标并续办，仅真实硬限制、取消或阻塞才部分交付；不改 runtime limits 的执行，也不宣称该矛盾单独解释所有失败。代价：模型不再把提醒当作停止信号，长任务可能继续多轮。
 
-v0.3.26110206 的真实飞书原话复验中，原生 Pi 请求已包含当前 Agent rejected，但同一候选仍为 pending；解析提前失败使完整候选拒绝指纹为空。沿现有源 revision 与结构化 ConfigIssue 修复聚合状态，并区分磁盘候选和实际接纳版本，给出最多三条 scope/path 与既有管理修复入口。拒绝与同一源字节关联，变更或成功后失效；不新增完成裁判、bash 命令识别或逐 Bot 特例。平台发送成功不能替代配置接纳与新入站运行证据。
+### 2026-11-03：文档与实现去重（主人要求）
 
-### 2026-11-02：工作台运行位置、资源集合与模型来源
-
-主人明确要求实施并授权真实多端 Luna 验收与发版。输入底部以运行位置和工作区两个资源按钮表达：本体宿主独立于可操作的多设备/多目录，也允许仅设备或不指定；另有权限、合并模型/供应商/effort、加号附件及拖放。主人工作台显式默认 bypass，不改变渠道/群聊已有预设；自定义权限复用能力集合。模型来源收敛为云端服务与运行宿主本机，不实现上一轮讨论的其他设备模型代理。云端 Runtime 复用同一 Harness 与工作桥，账号隔离；会话仍单宿主 pi-durable，不暗中迁移。设备执行复用已有 grant/command 账本，修正旧 W0 状态描述；详细行为与验收见 spec/19 §7。任意 shell 不被目录选择自动沙箱化；云端凭据按服务端密钥保管，不宣称 E2EE。
-
-
-### 2026-11-02：运行态查询与未接纳候选分离
-
-新版/work真实复验发现，capabilities.get经plugins.list重解析被拒绝的Agent候选，导致设备在线、旧有效配置运行时工作RPC仍400。运行态能力及已加载插件查询必须复用已接纳内核状态，不依赖尚未接纳的磁盘配置；候选管理仍保留完整校验与授权。这修复共享读取边界，不靠恢复某个Bot候选使页面暂时可用，历史中断是否同因继续按证据区分。
-
-
-### 2026-11-02：逐会话可消费链与主会话管理职责
-
-v7真实飞书普通消息进入批次但来源profile未选参与插件，同渠道别群的consumer使宽泛可用性判断误通过；QQ已成功parent_ask，主会话却将群管理解释为合并私人main而停止。批次resolver必须按当前事件、插件、会话与profile证明完整消费者链，复用现有伴随绑定，缺链沿现有no-binding诊断且不增权；见08。共享内置指引区分Agent身份、主会话管理职责与群独立上下文，解释write/run、参与策略、reply与显式发送能力，完成已核验授权的可行工作。验收继续用真实群原话，不向user message注入配置知识，不新增完成裁判或逐Bot补丁。
-
-
-### 2026-11-02：派生默认沿实际来源绑定
-
-v7飞书精确自定义来源被后置同渠道observer错误地证明为官方群默认，继承批次并覆盖真实自定义接收语义。按08既有自定义绑定优先约定，将实际顺序匹配的来源绑定在参与候选与最终路由间共用；只有首命中官方群形状派生默认，不以渠道上另一个绑定替代证明。复用matches，不新增matcher、用户配置或逐渠道特例；自定义write仍只记录，由Agent依原需求自行配置实际运行。
-
-
-### 2026-11-02：自管理统一会话运行事实
-
-v08真人原话复验继续失败：飞书将v7旧write入账当成新版本执行验证；QQ主会话把私人main不可直绑误当作没有管理路径。按主人要求继续修共享架构，复用现有全局inspect、首来源/consumer resolver与accepted快照建立一份运行事实投影，供自管理反馈、social检查和已验证parent上下文使用。区分历史/预测、入账/策略批次/实际run/送达，保留raw show stdout、离线unknown及权限边界；不新增agents.inspect别名、runAs、第二runtime、意图正则或完成判官。参数与语义见08 §3.2、13 §2.3。实现仍交Luna，正式发布与原话真实群验收继续分层记录。
-
-
-### 2026-11-03：来源帧与有界同源上下文
-
-v09原话复验发现：合法shell重定向可过滤stderr，private DM又未注入同一运行事实；同一main的一次run包含QQ parent、飞书短句及QQ工具结果，实际操作/答复目标仍为QQ。另QQ原文已在Pi，空batch trigger不等于正文丢失，但触发上下文未关联当前sourceEvents的身份/原件。沿主人通用Harness要求，复用共享投影与现有conversationContext补owner私聊事实、同origin近期原件和已准入batch来源帧；为此扩展01的可选before/order有界查询，旧正序行为不变。保留既有显式steer，不以配置值冒称实际调度事实，不加新runtime、意图parser或任务状态判官，不改Bot配置或向真实user message塞操作提示。边界见08 §3.3。主人随后明确选择“同一个 Agent 办事，群历史独立”；这作为功能和数据边界契约，不将该澄清拼进真实验收user消息，仍用原话验证Harness默认理解。
-
-
-### 2026-11-03：诊断保留来源身份与处理断点
-
-v10已确认私聊来源帧正确装配，模型仍把P1 write旁观误认完整办理，并将最近Bot回声的no-binding当主人消息接入故障。保持真实样本与路由，不按成功/群名筛选；在共享operability投影保留已核验sender/bot/关系事实，由同一CLI摘要解释已有scope/participation造成的record-only断点，历史执行继续独立。修公共main/非main术语，不改权限、参与策略或合法旁观配置。详见08 §3.2-3.3。
-
-
-### 2026-11-03：保留关注候选的来源与消费边界
-
-v10 GPT原生账号第三条原话与探针成为focused候选，但Zfish一句普通“在。”成功出站后，social delivered()清除了GPT willing并推进其batch-read，GPT从未获得该批模型运行。flush已算focused却未随willing保存，导致普通候选与关注候选生命周期混用。复用既有focused事实与offer流程，只让兄弟成功回复结束普通候选；关注候选保留来源至自身既有准入/运行，暂停/对象/权限/发送协调不变。不用正文猜任务、不新增调度器或任务判官，batch-read仍不得冒充模型已读。见11的发言协调。
-
-
-### 2026-11-03：关注事实从调度连续进入模型
-
-v12真实首个跟进批次的focused已保留至willing，兄弟发言后成功运行；但offer构造turn没带该事实，groupContext仍写independent contribution，调度与模型的互动语义断开。把现有focused贯穿willing→GroupTurn→compact groupContext，内部构造以类型约束避免再次漏传；旧记录缺字段保留兼容，不伪造@、任务归属或授权。另一批虽入站在300秒内，实际consider时已超期，真实focused=false；保留该事实，不为了验收重标成跟进。见11共同视野。
-
-
-### 2026-11-03：同一投影的有界索引与按需详情
-
-v12实测owner prepared约52k字符，其中owner-private frame原始18k、escaped约30k；8个完整operability事实约17k，主因是重复预测能力/工具/scope及管理与配置对象，不是近期原话或运行历史。其他已选turn contributions约20k另计，不把它们全部算进本修复。把已有CLI摘要映射提升到core让宿主/CLI复用同一有界索引，完整projector/inspect仍保留；明确本Agent精确binding视图不是全局成员目录，避免把缺少GPT原生conv误判未入群。省略结构项有计数，不断截身份/权限做假完整，不改Bot配置、persona或用户原话。边界见08 §3.2。
-
-
-### 2026-11-03：现有配置事务与外部能力事实
-
-v13主会话群发已真实完成，群普通消息已进入GPT模型，但仍错误要求先改未查询的QQ平台范围，P1仍未配置可参与链。复核现有social.update标准路径已有derived consumer与CAS/验证/回滚，不另造配置DSL、任务判官或第二runtime；先修optional social revision崩溃、batch浅覆盖丢已有配置，并把既有inspect接到重载后回执。QQ status/README的无条件平台设置指令改为known/unknown与实测入站分层，不加虚构平台API或扩大权限。见08/11。
-
-
-### 2026-11-03：软提醒与持续目标一致
-
-v13 main/GPT真实运行均触发maxTokens软提醒，而公共goal段仍要求任何time/context reminder即wrap up，与14§1软阈值不abort/不limit终态矛盾。只替换该句，使软提醒/压缩保留目标并续办，仅真实硬限制、取消或阻塞部分交付；不改runtime limits执行、不宣称该矛盾单独解释所有失败。358122c3相关18项通过1项真实模型未测，7300预算不变。
-
-
-### 2026-11-03：新请求身份与受限交付的可行动错误
-
-v0.3.26110301实群确认：主人新native事件有完整P1标签与record-only缺口，但模型仍引用旧回执；JSON文本节点把1158个双引号转成实体，多出5790字符。保留现有事件ID/去重/回执来源，用主人私有main事实区明确新事件与历史完成证据的边界；conversation文本保留JSON引号、属性继续安全转义，不升摘要预算或加意图判断。QQ两次真实message_send又因来源群session无当前发言机会被统一“不要重试”拒绝；保留群协调，复用已有parent_ask及main原群发送路径，让错误指出条件化的既有接办方式，暂停/已可靠回应不建议绕过。不建新lease、队列、完成判官或任务库，不改Bot persona或owner模型。见02/03/11。
-
-
-### 2026-11-03：补充背景先于本轮主请求
-
-同一失败轮还装入15988字符Feishu历史及73字符memory背景，实际位于32字符当前主人原文之后；新原话被包在平台旧结论之前，不能把全部32k都归因JSON转义。03旧表与07的turn→贡献→正文顺序亦不一致。统一为宿主事实→补充背景→当前原文/verified owner任务区；原文最后且仅一次，原时间和来源仍由turn提供，背景仍不可信且不扩权。不删除既有历史、不改Bot context选择，不新增摘要模型。该呈现修复待实群验证，不能仅凭位置调整宣称行为已正确。
-
-
-### 2026-11-03：程序报告和已投递叙述的来源类型
-
-26110302实群P1主会话新发成立但普通probe仍只write。当前原文在Feishu背景被再贴一次，多个不同ID历史还含旧助手配置结论；“成功投递正文”只证明发送，不能升级内容为当前状态。只去掉背景内pending原件的重复正文，保留不同ID历史、来源时间和原始存储；既有delivery.parent标其原请求，未知不造来源。共享runtime.events重写去重语义为来源身份，移除与user级新事件例外不对称的泛化句，不叠重复规则。
-
-同轮QQ parent仅覆盖first，second/third进入原群运行；tool-result实际位于second batch与third batch之间，不能误称它总在最后。但prompt省略了event.parent/可核来源覆盖，只给程序结果JSON。复用requestSources及实际准备session为程序结果/continuation提供有界source-frame，明确是原任务证据而非新主人指令/后来要求已完成证明。未知显式记录，原件/结果正文不重复，不自动fan-out、不新queue/lease/goal库或第二判断模型。原话与群历史隔离不变，模型依真实当前目标决定动作。见03/11。
+把同一主题的多条事件记录合并为决策条目：配置接纳与运行事实投影、路由与批次消费链、prompt 内顺序与来源帧、关注候选来源边界、个人资料与小店；每条保留决定、理由与代价，不再复述单次验收过程。spec 中属于实现的细节（返回值字面、调用顺序、超时与路径常量、事故复盘句）删除，契约语义不变。代价：具体历史细节此后只存在于 git log 与验收记录，规范只写目标行为。

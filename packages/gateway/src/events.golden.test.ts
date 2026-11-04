@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { PROTOCOL } from "@yonder/core";
+import { PROTOCOL } from "@yonder/local-host";
 import { describe, expect, it } from "vitest";
 import { EVENT_SCHEMAS } from "./protocol/index.js";
 

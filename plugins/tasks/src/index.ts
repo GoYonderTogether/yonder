@@ -1,13 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import {
 	type Attachment,
 	type Capability,
 	definePlugin,
 	type Hook,
-	type Message,
 	type PluginAPI,
 	type ToolContext,
 	type TSchema,
@@ -16,8 +12,16 @@ import { renderPng, renderText, taskBoard } from "./board.js";
 import { digest } from "./digest.js";
 import { type Config, moments, stallWindow } from "./moments.js";
 import { DONE, GET, LIST, OPEN, SHOW, UPDATE } from "./prompts.js";
-import { type AuditResult, type Open, Store, type Task, type Update, type UpdateItem } from "./store/index.js";
-import { ongoing, own } from "./store/project.js";
+import {
+	type AuditResult,
+	type Open,
+	Store,
+	type Task,
+	type TaskExecutionMetadata,
+	type Update,
+	type UpdateItem,
+} from "./store/index.js";
+import { instructionFields, ongoing, own } from "./store/project.js";
 import { auditPrompt, budgetReached, parseAuditVerdict, registerTaskViews } from "./views.js";
 
 const string = { type: "string", minLength: 1, pattern: "[\\s\\S]*\\S[\\s\\S]*" };
@@ -49,6 +53,12 @@ const change = {
 	deliverable: string,
 	note: string,
 };
+async function captureExecution(api: PluginAPI, ctx: ToolContext): Promise<TaskExecutionMetadata> {
+	return {
+		executionOwner: await api.execution.capture(ctx),
+		...(ctx.resources === undefined ? {} : { resources: structuredClone(ctx.resources) }),
+	};
+}
 /** 完成审计：另开一个只读会话复核，末行 `<approved/>` 才算通过；审计的不是被审计的会话，所以不会死等自己。 */
 async function auditCompletion(
 	api: PluginAPI,
@@ -92,7 +102,7 @@ function budgetHook(store: Store): Hook {
 	return {
 		id: "tasks-budget",
 		async beforeRequest(messages, ctx) {
-			const tasks = store.list(ctx).filter((task) => own(task, ctx) && ongoing(task) && task.budget.tokens);
+			const tasks = (await store.list(ctx)).filter((task) => own(task, ctx) && ongoing(task) && task.budget.tokens);
 			if (!tasks.length) return undefined;
 			const spent = messages.reduce(
 				(sum, message) => (message.role === "assistant" ? sum + message.usage.input + message.usage.output : sum),
@@ -101,7 +111,7 @@ function budgetHook(store: Store): Hook {
 			const notes: string[] = [];
 			for (const task of tasks) {
 				const reached = spent >= (task.budget.tokens ?? 0) && !task.budget.warned;
-				const charged = store.spend(task.id, spent, reached);
+				const charged = await store.spend(task.id, spent, reached);
 				if (reached && charged) notes.push(budgetReached(charged, spent));
 			}
 			if (!notes.length) return undefined;
@@ -122,7 +132,7 @@ export default definePlugin({
 		[],
 	),
 	setup(api) {
-		const store = new Store(api.paths.data);
+		const store = new Store(api.storage.open());
 		registerTaskViews(api, store);
 		const config = (api.config ?? {}) as Config;
 		api.triggers.register({
@@ -159,7 +169,7 @@ export default definePlugin({
 			obj({ ...content, origin: string }, ["title", "objective", "acceptance", "nonGoals"]),
 			["write"],
 			// SAFETY: typebox 已按 Open 校验参数，这里只需把校验过的对象交给存储层。
-			(args, ctx) => store.open(args as unknown as Open, ctx),
+			async (args, ctx) => store.open(args as unknown as Open, ctx, await captureExecution(api, ctx)),
 		);
 		add(
 			"update",
@@ -177,10 +187,15 @@ export default definePlugin({
 				const { id, updates, ...patch } = args as { id?: string; updates?: UpdateItem[] };
 				if (updates) {
 					if (id) throw new Error("Pass either id or updates, not both");
-					return store.updateMany(updates, ctx);
+					const changedInstructions = updates.some((item) => instructionFields.some((field) => field in item));
+					return changedInstructions
+						? captureExecution(api, ctx).then((metadata) => store.updateMany(updates, ctx, metadata))
+						: store.updateMany(updates, ctx);
 				}
 				if (!id) throw new Error("update requires id or updates");
-				return store.update(id, patch as Update, ctx);
+				return instructionFields.some((field) => field in patch)
+					? captureExecution(api, ctx).then((metadata) => store.update(id, patch as Update, ctx, metadata))
+					: store.update(id, patch as Update, ctx);
 			},
 		);
 		add(
@@ -194,17 +209,17 @@ export default definePlugin({
 					evidence = args.evidence as string[];
 				// 先审后关：审计员只看任务契约和这次交的证据，通过才真的关闭。
 				if (config.audit?.enabled !== false) {
-					const task = store.get(id, ctx).task;
+					const task = (await store.get(id, ctx)).task;
 					const result = await auditCompletion(api, config, ctx, task, deliverable, evidence);
-					store.recordAudit(task.id, result);
+					await store.recordAudit(task.id, result);
 					if (result.verdict !== "approved")
 						throw new Error(`An independent auditor rejected this completion: ${result.reason}`);
 				}
 				return store.done(id, deliverable, evidence, ctx);
 			},
 		);
-		add("list", LIST, obj({}), ["read"], (_args, ctx) =>
-			store.list(ctx).map((task) => ({
+		add("list", LIST, obj({}), ["read"], async (_args, ctx) =>
+			(await store.list(ctx)).map((task) => ({
 				...task,
 				recentlyDone: config.moments?.postRetain === true && store.recentlyDone(task),
 			})),
@@ -223,9 +238,9 @@ export default definePlugin({
 					throw new Error("Invalid target or view");
 				if (view === "detail" && !args.id) throw new Error("detail requires id");
 				const board = taskBoard(
-					store.list(ctx),
+					await store.list(ctx),
 					Date.now(),
-					view === "detail" ? store.get(args.id as string, ctx) : undefined,
+					view === "detail" ? await store.get(args.id as string, ctx) : undefined,
 					stallWindow(config.stallMinutes),
 				);
 				if (target === "json") return board;
@@ -245,14 +260,13 @@ export default definePlugin({
 				let attachments: Attachment[] | undefined;
 				let text = "";
 				try {
+					const files = api.storage.open();
+					if (!files.localRoot)
+						return api.messages.send({ to, text: renderText(board, api.locale), signal: ctx.signal });
 					const bytes = await renderPng(board, api.locale);
-					await mkdir(api.paths.data, { recursive: true });
-					const name = `tasks-${randomUUID()}.png`,
-						path = join(api.paths.data, name);
-					await writeFile(path, bytes);
-					attachments = [
-						{ kind: "image" as const, mime: "image/png", uri: pathToFileURL(path).href, name, bytes: bytes.length },
-					];
+					const name = `tasks-${randomUUID()}.png`;
+					const uri = await api.storage.writeAttachment(name, bytes, "image/png");
+					attachments = [{ kind: "image" as const, mime: "image/png", uri, name, bytes: bytes.length }];
 				} catch (error) {
 					api.log.warn("Task image unavailable; using text", { error: String(error) });
 					text = renderText(board, api.locale);

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { gatewaySettings, requestControl, setAccessTokenHash } from "@yonder/core";
+import { gatewaySettings, requestControl, setAccessTokenHash } from "@yonder/local-host";
 
 export async function uiCommand(home: string, rotate: boolean, open: boolean, json: boolean): Promise<unknown> {
 	const settings = await gatewaySettings(home);

@@ -52,22 +52,25 @@ import {
 import { type MenuAnchor, useMenuTrigger } from "../work/lib/useLongPress";
 import { ActionMenu } from "../work/ui/ActionMenu";
 
-const preview = (m?: Message) => {
+export const previewMessage = (m?: Message) => {
 	if (!m) return "还没有消息";
 	const c = m.content;
 	return c.type === "text" || c.type === "markdown"
 		? c.text.replace(/[#>*`|\n-]+/g, " ").trim()
 		: c.type === "interactive"
 			? c.title
-			: c.type === "image"
-				? "[图片]"
-				: "[文件]";
+			: c.type === "error"
+				? c.text
+				: c.type === "image"
+					? "[图片]"
+					: "[文件]";
 };
 const clock = (t: number) =>
 	new Date(t).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
 
-/** Bot 离线统一文案：横幅、输入框占位、进入会话与发送后的提示共用这一句。 */
+/** 设备 Bot 离线后会在上线时送达；云端 Bot 离线时当前不可用，不承诺排队。 */
 const OFFLINE_HINT = "Bot 离线，消息会在上线后送达";
+const CLOUD_OFFLINE_HINT = "云端 Bot 当前不可用";
 
 /** 没有会话时的空态：不自动跳转，点「开始聊天」才开与默认 Bot 的私聊（B5：/ 可达、可刷新）。 */
 function EmptyChats({ onStart, busy }: { onStart: () => void; busy: boolean }) {
@@ -323,7 +326,7 @@ function ConvRow({ c, actors, meId, active }: { c: Conv; actors: Map<string, Act
 						{c.mentionUnread && (
 							<span className={cn("mr-1 font-medium", active ? "text-on-accent" : "text-danger")}>[有人@我]</span>
 						)}
-						{preview(c.last)}
+						{previewMessage(c.last)}
 					</span>
 				</span>
 				{c.unread > 0 && (
@@ -576,13 +579,13 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 	const ownerBinding = owner.data;
 	const ownerEligible = other?.kind === "agent" && other.ownerId === me?.id && !!other.deviceId;
 	const agentOnline = other?.kind === "agent" && !!other.online;
-	// 云端 Bot（小未）没有设备，不能显示「电脑离线」：只有绑了设备的 Agent 才提示离线。
-	const cloudBot = other?.kind === "agent" && !other.deviceId && other.ownerId === me?.id;
-	const offlineAgent = other?.kind === "agent" && !other.online && !cloudBot;
+	// 无设备的 Agent 是云端 Bot；online 来自共享 worker 实际状态。
+	const cloudBot = other?.kind === "agent" && !other.deviceId;
+	const offlineAgent = other?.kind === "agent" && !other.online;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 切换会话时重置
 	useEffect(() => {
-		if (offlineAgent) toast(OFFLINE_HINT);
-	}, [offlineAgent, id]);
+		if (offlineAgent) toast(cloudBot ? CLOUD_OFFLINE_HINT : OFFLINE_HINT);
+	}, [offlineAgent, cloudBot, id]);
 	return (
 		<>
 			<AppBar
@@ -737,7 +740,9 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 					</div>
 				</div>
 			)}
-			{offlineAgent && <p className="mx-auto mb-2 text-center text-small text-muted">{OFFLINE_HINT}</p>}
+			{offlineAgent && (
+				<p className="mx-auto mb-2 text-center text-small text-muted">{cloudBot ? CLOUD_OFFLINE_HINT : OFFLINE_HINT}</p>
+			)}
 			<AiGeneratedNotice conv={conv} actors={actors} />
 			{conv?.kind !== "notice" && (
 				<Composer
@@ -842,6 +847,20 @@ export function Bubble({
 	const tight = mine
 		? { borderTopRightRadius: first ? undefined : 6, borderBottomRightRadius: last ? undefined : 6 }
 		: { borderTopLeftRadius: first ? undefined : 6, borderBottomLeftRadius: last ? undefined : 6 };
+	if (c.type === "error")
+		return (
+			<div
+				data-message-id={m.id}
+				className={cn("social-message flex w-full items-center gap-2", mine && "flex-row-reverse", first && "mt-3")}
+			>
+				<p role="alert" className="max-w-[80%] whitespace-pre-wrap text-small text-danger">
+					{c.text}
+				</p>
+				<time dateTime={new Date(m.createdAt).toISOString()} className="text-caption text-faint">
+					{messageClock(m.createdAt)}
+				</time>
+			</div>
+		);
 	return (
 		<div
 			data-message-id={m.id}
@@ -929,7 +948,7 @@ export function Bubble({
 								{c.actions.map((a) => (
 									<Link
 										key={a.id}
-										to={c.link ?? "#"}
+										to={a.link ?? c.link ?? "#"}
 										className="press inline-flex h-8 items-center rounded-full bg-accent px-3 text-small font-medium text-on-accent"
 									>
 										{a.label}
@@ -993,7 +1012,7 @@ export function Composer({
 	reply?: Message;
 	onClearReply?: () => void;
 	offline: boolean;
-	/** 对方是没有设备的云端 Bot（小未）：只能引导，不是「离线」 */
+	/** 对方是无设备的云端 Bot；offline 时显示当前不可用状态。 */
 	cloudBot?: boolean;
 	/** 私聊对象是 Bot 时传入：发完后重新取它的在线状态，避免页面里缓存的「在线」过期而漏掉离线提示 */
 	agentId?: string;
@@ -1088,7 +1107,7 @@ export function Composer({
 			if (agentId) {
 				const [fresh] = await api.actors([agentId]).catch(() => [] as Actor[]);
 				void qc.invalidateQueries({ queryKey: ["actors"] });
-				if (fresh ? !fresh.online : offline) toast(OFFLINE_HINT);
+				if (fresh ? !fresh.online : offline) toast(cloudBot ? CLOUD_OFFLINE_HINT : OFFLINE_HINT);
 			} else if (offline) toast(OFFLINE_HINT);
 			return true;
 		} catch (error) {
@@ -1198,7 +1217,7 @@ export function Composer({
 					value={text}
 					readOnly={sending}
 					rows={1}
-					placeholder={cloudBot ? "小未暂时只能帮你开始" : offline ? OFFLINE_HINT : "输入消息"}
+					placeholder={cloudBot && offline ? CLOUD_OFFLINE_HINT : offline ? OFFLINE_HINT : "输入消息"}
 					onChange={(e) => {
 						setMentionTokens(editedMentions(text, e.target.value, mentionTokens));
 						setText(e.target.value);

@@ -1,13 +1,13 @@
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { cacheSdkResult } from "@yonder/runtime-adapter/node/runtime/tool-output-cache";
+import { inspectToolCatalog } from "@yonder/runtime-adapter/runtime/catalog";
+import { fromResult, toResult } from "@yonder/runtime-adapter/runtime/results";
 import type { ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
-import { inspectToolCatalog } from "../../../packages/core/src/runtime/catalog.js";
-import { fromResult, toResult } from "../../../packages/core/src/runtime/results.js";
-import { cacheSdkResult } from "../../../packages/core/src/runtime/tool-output-cache.js";
 import plugin from "../src/index.js";
 
 test("module report selection and descriptor size", async () => {
@@ -42,7 +42,7 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 		if (!tool) throw new Error("tool missing");
 		const dir = await tempHome("yonder-lens-cache-");
 		try {
-			await copyFile(resolve("packages/core/src/runtime/index.ts"), join(dir, "index.ts"));
+			await copyFile(resolve("packages/runtime-adapter/src/node/runtime/index.ts"), join(dir, "index.ts"));
 			const ctx = {
 				agent: null,
 				profile: "test",

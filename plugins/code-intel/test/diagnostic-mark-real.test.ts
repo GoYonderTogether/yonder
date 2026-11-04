@@ -1,13 +1,13 @@
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
+import { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
 import type { ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse } from "yaml";
-import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
-import { openDatabase } from "../../../packages/core/src/runtime/db.js";
-import { Runtime } from "../../../packages/core/src/runtime/index.js";
 import plugin from "../src/index.js";
 import { callLens } from "../src/lens-mcp.js";
 
@@ -55,7 +55,7 @@ test.skipIf(process.env.YONDER_DIAGNOSTIC_MARK_REAL !== "1")(
 		const events: Array<{ type: string; name?: string; phase?: string }> = [];
 		const runtime = await Runtime.open({
 			home,
-			db: await openDatabase(join(home, "state.db")),
+			storage: await openRuntimeStorage(await openDatabase(join(home, "state.db"))),
 			config: {
 				schema: 1,
 				credentials: join(home, "auth.json"),

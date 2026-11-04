@@ -107,7 +107,7 @@ identity:
 
 管理 patch 应从语法有效的原始配置映射合并后，校验完整候选；不得因磁盘原件已有语义错误而在合并前拒绝修复。原件不是映射、语法损坏、目标身份不符、权限不足或版本冲突仍拒绝，不能绕过完整候选、引用与既有会话检查。
 
-每次模型请求在稳定 system 前缀之后追加只读的配置接纳事实，复用现有动态 sections，不建立新的完成判定或操作协议。事实按实际读取并校验的源 revision 区分 effective（与有效配置一致）、pending（新源尚未接纳）、rejected（同一 revision 已拒绝）、pending-restart（非热更新字段待重启）与 unknown（无法核实）。修改后的下一 revision 不能沿用旧拒绝结果；接受 revision 必须对应真正校验的源字节，不能在发布后重读磁盘冒认。当前运行继续使用固定快照，此事实不宣称运行已换档。运行态能力、已加载插件等只读查询也须沿已接纳快照读取，不能因未接纳磁盘候选无效而失去工作控制或修复入口；候选管理的校验与权限保持独立。源 revision 表示当前磁盘候选；已知时另给出实际接纳的 revision，不把失败文件版本写成有效快照。候选在解析某个源时提前失败，也必须将仍对应该拒绝源字节的当前候选标为 rejected，不能永远呈现为 pending。当前拒绝可携带最多三条有界的 scope/path 线索，并指向现有管理校验、更新和读回入口；不把原始 YAML、错误堆栈、绝对 home 路径或其他 Agent 正文塞入系统事实。候选字节变化、来源移除或接纳成功后，不沿用旧问题。
+每次模型请求在稳定 system 前缀之后追加只读的配置接纳事实，复用现有动态 sections，不建立新的完成判定或操作协议。事实按实际读取并校验的源 revision 区分 effective（与有效配置一致）、pending（新源尚未接纳）、rejected（同一 revision 已拒绝）、pending-restart（非热更新字段待重启）与 unknown（无法核实）。修改后的下一 revision 不能沿用旧拒绝结果；接受 revision 必须对应真正校验的源字节，不能在发布后重读磁盘冒认。当前运行继续使用固定快照，此事实不宣称运行已换档。运行态能力、已加载插件等只读查询也须沿已接纳快照读取，不能因未接纳磁盘候选无效而失去工作控制或修复入口；候选管理的校验与权限保持独立。源 revision 表示当前磁盘候选；已知时另给出实际接纳的 revision，不把失败文件版本写成有效快照。候选在解析某个源时提前失败，也必须将仍对应该拒绝源字节的当前候选标为 rejected，不能永远呈现为 pending。当前拒绝可携带少量有界的 scope/path 线索，并指向现有管理校验、更新和读回入口；不把原始 YAML、错误堆栈、绝对 home 路径或其他 Agent 正文塞入系统事实。候选字节变化、来源移除或接纳成功后，不沿用旧问题。
 
 工作区读取沿执行环境，事实只投影当前 Agent 与 home 的安全状态和复查入口，不展示配置正文、凭据、其他 Agent 的私密内容或未经筛选的解析错误。脚本退出成功、文件读回、接纳、路由、运行与送达互不替代；宿主不根据工具命令或模型措辞猜测写入者、不自动回滚，也不替模型宣告任务完成。
 
@@ -121,12 +121,12 @@ social 的首条目标策略可以从完全未写social的Agent初始化：缺�
 - 历史 route/session/profile/wake 是历史事实；当前已接纳配置的首匹配、参与策略、consumer、实际 profile 能力与工具/渠道范围是预测，必须分栏。复用既有顺序匹配与精确 consumer resolver。 来源匹配不代表已经过完整 router 准入，正向预测标未核验，实际接纳以存储的路由事件为准。`--profile` 只选择检查档，不替换目标绑定的实际 profile。磁盘候选、accepted revision 与当前运行快照继续区分，未知历史 revision 不借用当前值。
 - 明确区分仅入账、直接运行与策略控制的批次/折叠路径。`wake:write` 本身不证明运行，也不否定后续批次运行；`batch-read` 不证明模型已经执行。运行证明须关联真实 run 输入；批次按同一 Agent、插件、conv 的 `sourceEvents` 关联 batch-ready/folded-ready，再关联 run，不只搜索原消息 id。只凭同群、同会话或相近时间不能关联其他 Bot 的运行。
 - 发送能力与实际送达分别列出；`reply:none` 只关闭自动投递。只有具有来源关联的真实发送结果才能证明该次送达，旧公告、未关联的 message.out 或配置前发送均不能代替新配置验证。有界查询未发现只记未观察到，不宣称永远未执行。投影不替模型宣告完成，不写事件、创建/唤醒会话或发送消息。
-- 原生 validate/update 的既有结果可附独立运行 metadata；不把 derived 字段写回 AgentConfig。`agents show --json` 保持原 stdout 往返契约；仅本机 runtime inspect context 的 home、Agent 与目标吻合时，复用同一 inspect 将简短运行事实输出到独立 stderr。普通终端、其他 Agent 或跨 home 不自动追加；第二次查询失败或与磁盘版本分歧明确显示，不能冒充原子快照，不因此让成功的原始配置读取变失败。
+- 原生 validate/update 的既有结果可附独立运行 metadata；不把 derived 字段写回 AgentConfig。`agents show --json` 的 stdout 往返契约不变；仅当查询来自本机、且 home 与 Agent 同目标吻合时，才额外给出简短运行事实，普通终端、其他 Agent 或跨 home 不自动追加。这些事实与磁盘版本分歧时明确显示，不冒充原子快照，也不因此让成功的原始配置读取变失败。
 - parent 上下文只对既有 `parentOrigins` 验证通过且具备主人关系的原件投影目标 source conv/event；从 kernel 组合层注入共享查询，不在 prompt 层重算路由。事实不授予权限、不携带私有转录/正文/凭据，不改变群 profile、主人授权范围或私人 main 隔离。主会话可沿既有原生管理能力承办主人任务；不能因不能直绑私人 main 就宣称所有可行配置也不支持，也不能将 default 的 exec 能力自动开放给群成员。
 
 投影的样本还须保留已核验的来源身份事实（from、已知的owner关系、渠道提供的senderIsBot及原生提及事实），未知不猜测。最近样本是Bot回声时仍保留样本，不筛选成功原件来掩盖失败；展示其真实参与原因，将合法防互刷记录与主人入站缺路由区分。CLI与宿主沿同一投影解释当前仅入账、scope排除或未形成模型处理路径，不能仅以consumer=not-applicable或write配置冒充已处理；历史执行/投递证据继续独立，不从预测宣布已运行。旁观配置保持合法，不强制所有群启用模型，不凭群名映射账号或扩大权限。
 
-主人宿主上下文与CLI的默认运行事实视图使用同一核心有界摘要，不把完整profile工具目录、重复scope数组或每会话重复的管理/revision对象全部内联。原始projector与inspect详细查询保持可用。摘要明确agent与current-agent/exact-binding范围，不是全局群成员目录；未出现另一Agent或conversation只能表示本视图未覆盖，不能推出未入群。保留样本身份、来源binding/profile/wake/reply、当前scope/参与/consumer原因、实际run/delivery状态及少量可核验ID、显式发送能力和既有修复入口；相同元数据去重，不把不同revision合并成同一快照。默认仍最多8个精确conv，序列化摘要最多8000字符；超额整项省略并标记omitted/truncated，不截断ID或权限约束后假称完整。完整原话与Pi历史不删改，细节沿真实inspect按需取。
+主人宿主上下文与CLI的默认运行事实视图使用同一核心有界摘要，不把完整profile工具目录、重复scope数组或每会话重复的管理/revision对象全部内联。原始projector与inspect详细查询保持可用。摘要明确agent与current-agent/exact-binding范围，不是全局群成员目录；未出现另一Agent或conversation只能表示本视图未覆盖，不能推出未入群。保留样本身份、来源binding/profile/wake/reply、当前scope/参与/consumer原因、实际run/delivery状态及少量可核验ID、显式发送能力和既有修复入口；相同元数据去重，不把不同revision合并成同一快照。摘要规模有界：超额项整项省略并标记 omitted/truncated，不截断身份或权限约束后假称完整。完整原话与Pi历史不删改，细节沿真实inspect按需取。
 
 ### 3.3 原始来源上下文连续
 
@@ -238,7 +238,7 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 | `outsiders.publicDocs` | 路径数组 | 主人标记为公开、外人只能读这些目录或条目 |
 | `defaults.channelPolicy` | `open`（默认）或 `closed` | 未配白名单的渠道：放行走外人额度，或只允许主人与白名单 |
 
-这些键的机器可读形状由 `packages/core/src/config/schema.golden.json` 守护（20 §5），改键即改 golden。控制面通过 `config.get` 的 `home` 视图读取，通过 `config.update` 的 home 白名单写入（contracts.md「O51 IMP-34 运行期契约同步」）；home 段写入需要重启内核才生效，agent 段写入即时重载。
+这些键的机器可读形状由 `packages/local-host/src/config/schema.golden.json` 守护（20 §5），改键即改 golden。控制面通过 `config.get` 的 `home` 视图读取，通过 `config.update` 的 home 白名单写入（contracts.md「O51 IMP-34 运行期契约同步」）；home 段写入需要重启内核才生效，agent 段写入即时重载。
 
 `agents/<id>/agent.yaml` 的可选键另有：配置档或 defaults 内的 `limits.maxTokens`（正整数），以及本文件下文社交策略中的 `social` 段。
 

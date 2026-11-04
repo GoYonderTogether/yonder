@@ -1,7 +1,9 @@
+import type { WorkspaceResource } from "@yonder/sdk";
 import {
 	type Attachment,
 	assertChannelInstance,
 	type Capability,
+	type ExecutionOwner,
 	parseRef,
 	type ToolContext,
 	type TSchema,
@@ -18,6 +20,9 @@ export interface Job {
 	id: string;
 	name: string;
 	owner: Owner;
+	/** Native source captured when the program is created or deliberately changed. */
+	executionOwner?: ExecutionOwner;
+	resources?: WorkspaceResource[];
 	capabilities: Capability[];
 	schedule: Schedule;
 	payload: Payload;

@@ -147,6 +147,9 @@ export async function operateRpc(deps: CommandDeps, request: RpcRequest, commit:
 			}
 			return record.receipt;
 		}
+		case "grants.list":
+			// Only the paired principal's own grants; the owner view is a separate cloud path.
+			return store.summaries().filter((grant) => grant.principalId === p);
 		case "grants.revoke":
 			store.revoke(p, request.params.grantId, false);
 			commit({ revoked: true });

@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { Link, MemoryRouter, useLocation, useNavigate } from "react-router";
 import { expect, it, vi } from "vitest";
+import { setWorkDevices } from "../src/work/lib/workOnline";
 import { WorkShell } from "../src/work/WorkShell";
 
 const state = vi.hoisted(() => ({
@@ -10,10 +11,11 @@ const state = vi.hoisted(() => ({
 	rail: "present",
 	node: "pane-test",
 	device: undefined as string | undefined,
+	deviceName: "MacBook",
 }));
 vi.mock("../src/work/api/nodes", () => ({
-	useActiveNode: () => ({ id: state.node, deviceId: state.device }),
-	activeNode: () => ({ id: state.node, deviceId: state.device }),
+	useActiveNode: () => ({ id: state.node, deviceId: state.device, name: state.deviceName }),
+	activeNode: () => ({ id: state.node, deviceId: state.device, name: state.deviceName }),
 }));
 vi.mock("../src/work/api/stream", () => ({ mux: { subscribe: () => () => {} } }));
 vi.mock("../src/work/lib/queries", () => ({
@@ -57,13 +59,14 @@ vi.mock("radix-ui", () => ({
 vi.mock("../src/work/ui/WorkToolbar", () => ({
 	WorkToolbar: (p: {
 		title: React.ReactNode;
+		subtitle?: React.ReactNode;
 		leftOpen?: boolean;
 		onLeft?(): void;
 		rightOpen?: boolean;
 		onRight?(): void;
 		more?: React.ReactNode;
 	}) => (
-		<div data-testid="local-work-header">
+		<div data-testid="local-work-header" data-subtitle={p.subtitle === undefined ? undefined : String(p.subtitle)}>
 			{p.onLeft && (
 				<button type="button" aria-label={p.leftOpen ? "收起工作列表" : "展开工作列表"} onClick={p.onLeft} />
 			)}
@@ -234,5 +237,31 @@ it("切换设备与断点不复用右栏关闭意图", async () => {
 	state.width = "desktop";
 	await show();
 	expect(container.querySelector('[data-testid="test-chat"]')?.getAttribute("data-rail")).toBe("false");
+	await act(() => root.unmount());
+});
+it("远程会话的运行位置显示真实宿主名与在线态，本机会话不显示", async () => {
+	// 19 §7：运行位置显示真实宿主名，不把云站同源称为用户电脑。
+	state.node = "subtitle-device";
+	state.device = "device-1";
+	state.width = "desktop";
+	state.rail = "empty";
+	setWorkDevices([{ id: "device-1", name: "MacBook", online: true, workProtocol: 1 }]);
+	const { container, root } = await render("/work/s");
+	const chatHeader = () =>
+		container.querySelector('[data-testid="test-chat"]')?.querySelector('[data-testid="local-work-header"]');
+	expect(chatHeader()?.getAttribute("data-subtitle")).toBe("MacBook · 在线");
+	setWorkDevices([{ id: "device-1", name: "MacBook", online: false, workProtocol: 1 }]);
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	});
+	expect(chatHeader()?.getAttribute("data-subtitle")).toBe("MacBook · 离线");
+	// 本机节点没有 deviceId：运行位置一行不存在，不是“本机 · 在线”。
+	state.device = undefined;
+	state.node = "subtitle-local";
+	setWorkDevices([{ id: "device-1", name: "MacBook", online: false }]);
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	});
+	expect(chatHeader()?.hasAttribute("data-subtitle")).toBe(false);
 	await act(() => root.unmount());
 });

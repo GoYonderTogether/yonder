@@ -1,5 +1,5 @@
 import { adventurer, bigSmile, lorelei, notionists, thumbs, toonHead } from "@dicebear/collection";
-import { createAvatar } from "@dicebear/core";
+import { createAvatar, type Style } from "@dicebear/core";
 import { useMemo, useState } from "react";
 import { cn } from "../lib/cn";
 import { Button } from "../ui/Button";
@@ -11,7 +11,11 @@ import { Button } from "../ui/Button";
  * 留待资源就绪后在 TABS 里加一项，不放空占位。
  */
 
-const STYLE_GROUPS = [
+// 各风格的 Options 互不兼容，收集进同一数组必须放宽到统一 Style 类型；
+// 只传 seed/size，选项都是各自的默认值，类型参数不影响运行行为。
+type AnyDiceBearStyle = Style<Record<string, unknown>>;
+
+const STYLE_GROUPS: { key: string; label: string; styles: { id: string; style: AnyDiceBearStyle }[] }[] = [
 	{
 		key: "creature",
 		label: "小动物",
@@ -30,12 +34,11 @@ const STYLE_GROUPS = [
 			{ id: "big-smile", style: bigSmile },
 		],
 	},
-] as const;
+];
 
 const SEEDS_PER_PAGE = 12;
 
-const avatarUri = (style: (typeof STYLE_GROUPS)[number]["styles"][number]["style"], seed: string) =>
-	createAvatar(style, { seed, size: 96 }).toDataUri();
+const avatarUri = (style: AnyDiceBearStyle, seed: string) => createAvatar(style, { seed, size: 96 }).toDataUri();
 
 export function AvatarPicker({
 	value,

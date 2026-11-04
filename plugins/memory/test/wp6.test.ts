@@ -17,7 +17,7 @@ async function setup(extra = {}) {
 it("emits first-run once, persists ack and suppresses it after restart; audit is byte/mtime read-only", async () => {
 	const h = await setup(),
 		b = new Bootstrap(h.api, h.config, new Wechat(h.api, h.config), []);
-	await b.trigger().start({ emit: (e) => h.api.events.emit(e) });
+	await b.trigger().start({ startedAt: Date.now(), schedule: () => {}, emit: (e) => h.api.events.emit(e) });
 	try {
 		expect(h.events.filter((e) => (e.data as { reason: string }).reason === "first-run")).toHaveLength(1);
 		await b.check((e) => h.api.events.emit(e));

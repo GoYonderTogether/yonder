@@ -31,13 +31,14 @@ export interface Actor {
 export type MessageContent =
 	| { type: "text"; text: string; mentions?: string[]; mentionAll?: boolean }
 	| { type: "markdown"; text: string; mentions?: string[]; mentionAll?: boolean }
+	| { type: "error"; text: string }
 	| { type: "image"; url: string; name?: string }
 	| { type: "file"; url: string; name: string; bytes?: number }
 	| {
 			type: "interactive";
 			title: string;
 			body: string;
-			actions: { id: string; label: string }[];
+			actions: { id: string; label: string; link?: string }[];
 			state: "pending" | "done";
 			link?: string;
 	  };
@@ -166,9 +167,16 @@ export interface Session {
 	guest?: { max: number; remaining: number };
 }
 
-export type DeviceKind = "laptop" | "desktop" | "server" | "cloud";
+/** `harness` = an external harness connector registered as a device (spec 16 §5, 23). */
+export type DeviceKind = "laptop" | "desktop" | "server" | "cloud" | "harness";
 
-/** 运行 Yonder 的一台电脑。以后由多设备部署插件接入，目前只读。 */
+/** The executor identity a device reported over its authenticated inbox relay (spec 18 §5). */
+export interface DeviceExecutor {
+	deviceId: string;
+	publicKey: string;
+}
+
+/** 运行 Yonder 的一台电脑。 */
 export interface Device {
 	id: string;
 	/** Stable public reference; UUID id remains the internal API identity. */
@@ -179,6 +187,44 @@ export interface Device {
 	current?: boolean;
 	online: boolean;
 	workProtocol?: 1;
+	/** Present only after that device's executor reported its own identity. */
+	executor?: DeviceExecutor;
+	/** ISO time of the last completed device hello; absent when it never connected. */
+	lastSeenAt?: string;
+	/** ISO time of the newest message this device's own Bots sent; absent when it never sent one. */
+	lastActiveAt?: string;
+}
+
+/** One grant summary the executor reported, shown back to its owner (spec 19 §10). */
+export interface DeviceGrant {
+	grantId: string;
+	/** Hex SHA-256 of the controller's public key. */
+	principalId: string;
+	botId: string | null;
+	botLabel: string | null;
+	source: "cloud" | "manual";
+	capabilities: string[];
+	targetIds: string[];
+	readRoots: string[];
+	writeRoots: string[];
+	revision: number;
+	issuedAt: string;
+	expiresAt: string;
+	revokedAt: string | null;
+}
+
+/** `observed:false` means the device never reported; it is not "no grants". */
+export interface DeviceGrants {
+	observed: boolean;
+	grants: DeviceGrant[];
+}
+
+/** A Bot's effective device set (spec 19 §9). Not an authorization source. */
+export interface BotDevices {
+	botId: string;
+	mode: "all" | "selected";
+	devices: { id: string; code?: string; name: string; kind: DeviceKind; online: boolean }[];
+	allowed: string[];
 }
 
 export interface Profile {

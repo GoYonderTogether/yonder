@@ -1,9 +1,9 @@
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { inspectToolCatalog } from "@yonder/runtime-adapter/runtime/catalog";
 import type { ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
-import { inspectToolCatalog } from "../../../packages/core/src/runtime/catalog.js";
 import plugin from "../src/index.js";
 
 test("AST search registration and selection", async () => {
@@ -67,7 +67,7 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 			env: new NodeExecutionEnv({ cwd: process.cwd() }),
 			signal: new AbortController().signal,
 		} as ToolContext;
-		const scope = { lang: "typescript", paths: ["packages/core/src/runtime/grep.ts"] };
+		const scope = { lang: "typescript", paths: ["packages/runtime-adapter/src/runtime/grep.ts"] };
 		const first = await tool.execute({ ...scope, pattern: "const $NAME = $VALUE", maxMatches: 1 }, ctx);
 		expect(first.isError).not.toBe(true);
 		expect(first.text).toContain("grep.ts:");

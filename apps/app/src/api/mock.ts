@@ -10,6 +10,8 @@ const devices = new Map<string, Device>([
 	["d-1", { id: "d-1", name: "MacBook Pro", kind: "laptop", current: true, online: true }],
 	["d-2", { id: "d-2", name: "云服务器", kind: "cloud", online: true }],
 ]);
+/** 原型里的 Bot×设备允许表：没有条目＝全部设备。 */
+const botDevices = new Map<string, string[]>();
 const agent1: Actor = {
 	id: "a-1",
 	kind: "agent",
@@ -512,6 +514,36 @@ export const mockApi: ApiClient = {
 			if (a.deviceId === id) a.online = online;
 		});
 		return { ...d };
+	},
+	async deviceGrants(id) {
+		if (!devices.has(id)) throw new Error("没有这台设备");
+		// 原型没有执行端，如实返回“从未上报”，不伪造授权列表。
+		return { observed: false, grants: [] };
+	},
+	async revokeDeviceGrant() {
+		throw new Error("原型没有可撤销的授权");
+	},
+	async botDevices(botId) {
+		const owners = [...actors.values()].filter((a) => a.kind === "agent" && a.ownerId === me.id);
+		if (!owners.some((a) => a.id === botId)) throw new Error("没有这个 Bot");
+		const stored = botDevices.get(botId);
+		const list = [...devices.values()].map((d) => ({ id: d.id, name: d.name, kind: d.kind, online: d.online }));
+		return {
+			botId,
+			mode: stored ? "selected" : "all",
+			devices: list,
+			allowed: stored ?? list.map((d) => d.id),
+		};
+	},
+	async setBotDevices(botId, input) {
+		const owners = [...actors.values()].filter((a) => a.kind === "agent" && a.ownerId === me.id);
+		if (!owners.some((a) => a.id === botId)) throw new Error("没有这个 Bot");
+		if (input.mode === "all") botDevices.delete(botId);
+		else {
+			if (input.devices.some((id) => !devices.has(id))) throw new Error("没有这台设备");
+			botDevices.set(botId, input.devices);
+		}
+		return this.botDevices(botId);
 	},
 	async contacts() {
 		await wait();

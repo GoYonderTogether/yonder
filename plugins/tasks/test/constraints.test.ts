@@ -1,96 +1,96 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import type { ToolContext } from "@yonder/sdk";
-import { tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { Store } from "../src/store/index.js";
 
-// Real SQLite, no model calls: these are the schema and state constraints the tools enforce.
 const content = {
 	title: "Verify task ledger",
 	objective: "Persist task changes and recover their history",
-	acceptance: ["SQLite rows preserve the original event", "Reopened store returns the latest state"],
+	acceptance: ["Events preserve the original history", "Reopened store returns latest state"],
 	nonGoals: ["Model evaluation"],
 };
-function caller(agent = "main", session = "1"): ToolContext {
-	return {
-		agent,
-		session,
-		profile: "owner",
-		capabilities: ["read", "write"],
-		env: {} as never,
-		signal: new AbortController().signal,
-	};
-}
-async function temporary() {
-	return tempHome("yonder-tasks-constraints-");
-}
+const caller = (agent = "main", session = "1"): ToolContext => ({
+	agent,
+	session,
+	profile: "owner",
+	capabilities: ["read", "write"],
+	env: {} as never,
+	signal: new AbortController().signal,
+});
+const makeStore = (root: string) => new Store(createFilePluginStorage(root).open());
+const temporary = () => tempHome("yonder-tasks-constraints-");
 
 test("parent chains stop at two levels and reject cycles", async () => {
 	const root = await temporary(),
-		store = new Store(root),
+		store = makeStore(root),
 		ctx = caller();
 	try {
-		const parent = store.open(content, ctx);
-		const sub = store.open({ ...content, parent: parent.id }, ctx);
-		const nested = store.open({ ...content, parent: sub.id }, ctx);
-		expect(store.get(nested.id, ctx).task.parent).toBe(sub.id);
-		expect(() => store.open({ ...content, parent: nested.id }, ctx)).toThrow("Task nesting is limited to 2 levels");
-		expect(() => store.open({ ...content, parent: "missing" }, ctx)).toThrow("Parent task not found");
-		// 成环：父任务不能挂到自己的子孙下面，也不能挂到自己下面。
-		expect(() => store.update(parent.id, { parent: sub.id }, ctx)).toThrow("A task cannot be nested under itself");
-		expect(() => store.update(sub.id, { parent: nested.id }, ctx)).toThrow("A task cannot be nested under itself");
-		expect(() => store.update(sub.id, { parent: sub.id }, ctx)).toThrow("A task cannot be nested under itself");
-		expect(store.get(parent.id, ctx).task.parent).toBeNull();
-		// 合法改挂：nested 挂到 parent 下面仍是两层。
-		store.update(nested.id, { parent: parent.id }, ctx);
-		expect(store.get(nested.id, ctx).task.parent).toBe(parent.id);
+		const parent = await store.open(content, ctx);
+		const sub = await store.open({ ...content, parent: parent.id }, ctx);
+		const nested = await store.open({ ...content, parent: sub.id }, ctx);
+		expect((await store.get(nested.id, ctx)).task.parent).toBe(sub.id);
+		await expect(store.open({ ...content, parent: nested.id }, ctx)).rejects.toThrow(
+			"Task nesting is limited to 2 levels",
+		);
+		await expect(store.open({ ...content, parent: "missing" }, ctx)).rejects.toThrow("Parent task not found");
+		await expect(store.update(parent.id, { parent: sub.id }, ctx)).rejects.toThrow(
+			"A task cannot be nested under itself",
+		);
+		await expect(store.update(sub.id, { parent: nested.id }, ctx)).rejects.toThrow(
+			"A task cannot be nested under itself",
+		);
+		await expect(store.update(sub.id, { parent: sub.id }, ctx)).rejects.toThrow("A task cannot be nested under itself");
+		expect((await store.get(parent.id, ctx)).task.parent).toBeNull();
+		await store.update(nested.id, { parent: parent.id }, ctx);
+		expect((await store.get(nested.id, ctx)).task.parent).toBe(parent.id);
 	} finally {
-		store.close();
+		await store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
 
 test("blocking a task requires a note saying what blocks it", async () => {
 	const root = await temporary(),
-		store = new Store(root),
+		store = makeStore(root),
 		ctx = caller();
 	try {
-		const task = store.open(content, ctx);
-		store.update(task.id, { state: "active" }, ctx);
-		expect(() => store.update(task.id, { state: "blocked" }, ctx)).toThrow(
+		const task = await store.open(content, ctx);
+		await store.update(task.id, { state: "active" }, ctx);
+		await expect(store.update(task.id, { state: "blocked" }, ctx)).rejects.toThrow(
 			"Blocking a task requires a note saying what blocks it",
 		);
-		expect(() => store.update(task.id, { state: "blocked", note: "   " }, ctx)).toThrow(
+		await expect(store.update(task.id, { state: "blocked", note: "   " }, ctx)).rejects.toThrow(
 			"Blocking a task requires a note saying what blocks it",
 		);
-		expect(store.get(task.id, ctx).task.state).toBe("active");
-		store.update(task.id, { note: "Missing required-input.txt" }, ctx);
-		store.update(task.id, { note: "Missing required-input.txt" }, ctx);
-		expect(store.update(task.id, { state: "blocked", note: "Missing required-input.txt" }, ctx).state).toBe("blocked");
-		// 已经在阻塞态时补别的字段不再要求重复写原因。
-		expect(store.update(task.id, { objective: "Reworded objective" }, ctx).state).toBe("blocked");
+		expect((await store.get(task.id, ctx)).task.state).toBe("active");
+		await store.update(task.id, { note: "Missing required-input.txt" }, ctx);
+		await store.update(task.id, { note: "Missing required-input.txt" }, ctx);
+		expect((await store.update(task.id, { state: "blocked", note: "Missing required-input.txt" }, ctx)).state).toBe(
+			"blocked",
+		);
+		expect((await store.update(task.id, { objective: "Reworded objective" }, ctx)).state).toBe("blocked");
 	} finally {
-		store.close();
+		await store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
 
 test("a batch of updates commits all of it or none of it", async () => {
 	const root = await temporary(),
-		store = new Store(root),
+		store = makeStore(root),
 		ctx = caller();
 	try {
-		const first = store.open(content, ctx);
-		const second = store.open({ ...content, title: "Second ledger" }, ctx);
-		const before = [store.get(first.id, ctx), store.get(second.id, ctx)].map(({ task, history }) => ({
-			state: task.state,
-			title: task.title,
-			events: history.length,
-		}));
-		expect(() => store.updateMany([], ctx)).toThrow("updates requires at least one entry");
-		// 第一条合法、第二条越级（open → review），整批回滚。
-		expect(() =>
+		const first = await store.open(content, ctx);
+		const second = await store.open({ ...content, title: "Second ledger" }, ctx);
+		const before = await Promise.all(
+			[first, second].map(async ({ id }) => {
+				const { task, history } = await store.get(id, ctx);
+				return { state: task.state, title: task.title, events: history.length };
+			}),
+		);
+		await expect(store.updateMany([], ctx)).rejects.toThrow("updates requires at least one entry");
+		await expect(
 			store.updateMany(
 				[
 					{ id: first.id, title: "Renamed" },
@@ -98,8 +98,8 @@ test("a batch of updates commits all of it or none of it", async () => {
 				],
 				ctx,
 			),
-		).toThrow("Invalid task transition: open -> review");
-		expect(() =>
+		).rejects.toThrow("Invalid task transition: open -> review");
+		await expect(
 			store.updateMany(
 				[
 					{ id: first.id, state: "active" },
@@ -107,16 +107,15 @@ test("a batch of updates commits all of it or none of it", async () => {
 				],
 				ctx,
 			),
-		).toThrow("Task not found for caller");
-		expect(
-			[store.get(first.id, ctx), store.get(second.id, ctx)].map(({ task, history }) => ({
-				state: task.state,
-				title: task.title,
-				events: history.length,
-			})),
-		).toEqual(before);
-		// 有序批：同一条任务的两步在一个事务里按顺序生效。
-		const applied = store.updateMany(
+		).rejects.toThrow("Task not found for caller");
+		const after = await Promise.all(
+			[first, second].map(async ({ id }) => {
+				const { task, history } = await store.get(id, ctx);
+				return { state: task.state, title: task.title, events: history.length };
+			}),
+		);
+		expect(after).toEqual(before);
+		const applied = await store.updateMany(
 			[
 				{ id: first.id, state: "active" },
 				{ id: first.id, state: "review" },
@@ -129,33 +128,33 @@ test("a batch of updates commits all of it or none of it", async () => {
 			["review", content.title],
 			["open", "Renamed ledger"],
 		]);
-		expect(store.get(first.id, ctx).task.state).toBe("review");
+		expect((await store.get(first.id, ctx)).task.state).toBe("review");
 	} finally {
-		store.close();
+		await store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
 
 test("contract defaults to the acceptance points and lightweight children persist", async () => {
 	const root = await temporary(),
-		store = new Store(root),
+		store = makeStore(root),
 		ctx = caller();
 	try {
-		const derived = store.open(content, ctx);
+		const derived = await store.open(content, ctx);
 		expect(derived.contract).toBe(content.acceptance.join("; "));
-		const explicit = store.open({ ...content, contract: "Ship only when the ledger replays cleanly" }, ctx);
+		const explicit = await store.open({ ...content, contract: "Ship only when the ledger replays cleanly" }, ctx);
 		expect(explicit.contract).toBe("Ship only when the ledger replays cleanly");
-		const child = store.open({ ...content, parent: derived.id, lightweight: true }, ctx);
+		const child = await store.open({ ...content, parent: derived.id, lightweight: true }, ctx);
 		expect(child.lightweight).toBe(true);
-		const reopened = new Store(root);
-		expect(reopened.get(child.id, ctx).task).toMatchObject({
+		const reopened = makeStore(root);
+		expect((await reopened.get(child.id, ctx)).task).toMatchObject({
 			parent: derived.id,
 			lightweight: true,
 			contract: content.acceptance.join("; "),
 		});
-		reopened.close();
+		await reopened.close();
 	} finally {
-		store.close();
+		await store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });

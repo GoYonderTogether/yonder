@@ -1,10 +1,10 @@
 import { PassThrough } from "node:stream";
-import { observeControl, requestControl } from "@yonder/core";
+import { observeControl, requestControl } from "@yonder/local-host";
 import { beforeEach, expect, test, vi } from "vitest";
 import { plainTaskChat } from "./plain-chat.js";
 
-vi.mock("@yonder/core", async (original) => ({
-	...(await original<typeof import("@yonder/core")>()),
+vi.mock("@yonder/local-host", async (original) => ({
+	...(await original<typeof import("@yonder/local-host")>()),
 	observeControl: vi.fn(),
 	requestControl: vi.fn(),
 }));

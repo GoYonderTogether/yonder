@@ -1,12 +1,12 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
+import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/local-host";
+import { testModel } from "@yonder/local-host/config/test-support";
+import { filterTaskOnly } from "@yonder/local-host/control/guard";
 import type { EventPage } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, describe, expect, it } from "vitest";
 import { parse, stringify } from "yaml";
-import { testModel } from "../../core/src/config/test-support.js";
-import { filterTaskOnly } from "../../core/src/control/guard.js";
 import { principalOf, tokenHash } from "../src/auth.js";
 import { startGateway } from "../src/index.js";
 

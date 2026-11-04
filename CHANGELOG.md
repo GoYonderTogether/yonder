@@ -2,10 +2,32 @@
 
 ## [Unreleased]
 
+### Added
+
+- cloud-host：平台模型改为官方 DeepSeek（`https://api.deepseek.com`、`deepseek-flash`），base URL 与模型 id 由 `CLOUD_BOT_MODEL_BASE_URL` / `CLOUD_BOT_MODEL` 配置；仍是唯一平台模型，用户不能自选。
+- runtime：每次模型调用前按 token 额度判定、调用后按实际用量入账，只计输入 + 输出、排除 cache-hit；额度主体由宿主给出，本机不带额度时行为不变。
+- connect：新增 `@yonder/connect dsh` 安装器，装好连接器包、用既有设备码流程配对并把设备令牌写入 `$DSH_HOME/yonder/`（0600）。
+- connect：新增 `hermes` 与 `openclaw` 子命令——Hermes 以 drop-in 目录装入 `~/.hermes/plugins/`，OpenClaw 经 `openclaw plugins install --force --accept-capabilities` 安装；共用设备码配对与 0600 令牌落盘，`--remove` 卸载并清除连接器自身状态。
+- dsh-connector：新增 DSH bundle 插件 `@yonder/dsh-connector`，把本机 DSH 及其 agent 登记为 Yonder Bot，并提供 `sessions.list/open/submit/transcript/abort` 与 `sessions.watch`（spec 23）。
+- hermes-connector：新增 Hermes 平台插件（drop-in），出站 `/ws/device` 连接把本机 Hermes 及其 profile 登记为 Bot，会话经 api_server REST 与网关事件流驱动（spec 23；状态仅 `<HERMES_HOME>/yonder/`）。
+- openclaw-connector：新增 OpenClaw feature 插件，经本地 Gateway WebSocket（与 CLI/Control UI 同一 RPC 面）驱动会话，并登记 OpenClaw agent 为 Bot（spec 23；状态仅 `<OPENCLAW_STATE_DIR>/yonder/`）。
+- bot-network：新增 `scripts/bot-network/e2e.mjs`，一条命令跑完真机端到端环路（临时 PG/Redis、真实云端与 worker、构建好的网页 + headless Chrome、真实 `yonder-connect dsh`、DSH 与真实模型、执行端、收窄与卸载）。
+
+## [0.3.26110401] - 2026-11-04
+
+### Added
+
+- one-command iPhone install of the production shell
+- move the main site to the filed domain yonder.zethai.cn
+
 ## [0.3.26110303] - 2026-11-03
 
 ### Fixed
 
+- local-host：云端 Bot 的程序入口不再为"未选择资源"合成只有本机的资源表，否则每台远端设备都被判成"没有当前授权"。
+- cloud-host：允许表里存在 harness 设备时，`tools.catalog` 的 `unsupported` 只跳过该设备，不再清空整轮其它设备的工具。
+- app：设备页把真实在线事实交给工作桥，设备详情里的会话列表不再恒报「设备暂未连接」；Bot 可操作设备的复选框可访问名带上设备类型，同主机名的两台设备可以分辨。
+- connect：`--remove` 清除连接器自己的（空）状态目录，23 §6 的显式断开不再留下目录。
 - channel-feishu：背景不再复制本轮待处理正文；已送达助手发言附原来源和时间，明确回执不证明其中的配置或完成结论。
 - core：后台结果与续办输入标明程序角色及已核验的原请求范围；未知来源明确保留，历史回执不代替新请求完成。
 - carry verified source coverage with program inputs
@@ -92,6 +114,12 @@
 
 ### Added
 
+- cloud-host：云 Bot 可调用主人在线设备已授权的插件工具；复用现工作桥和原生 ToolTask，按真实私聊/程序来源与每轮权限快照隔离，离线移除目录，默认云能力不增加 exec。
+
+- channel-card：新增当前会话最终交互卡片工具，按真实运行来源准备独立按钮链接；失败不预发卡片，原名片草稿工具保持人工发布流程。
+
+- cloud-host：单进程 PostgreSQL Worker，按需激活与20实例LRU、统一持久调度；通过原渠道接平台GLM与owner额度，真实错误按唯一结果投递且不进入后续模型提示词。
+
 - app：与 Bot 的会话在输入条上方显示一行「内容由 AI 生成」，含 Bot 成员的群聊同样显示，按《人工智能生成合成内容标识办法》作可见标识；与人的会话不显示。
 - 安装脚本新增 `--desktop` / `-Desktop`：核心装完后一并安装桌面应用（macOS dmg、Windows 安装程序）并注册后台服务，关掉桌面窗口即回到只装核心。
 - 桌面应用启动时先连接本机 Yonder，服务未运行时才打开 yonderbot.net。
@@ -109,6 +137,12 @@
 
 ### Changed
 
+- core：单结果渠道关闭自动回复时返回真实系统状态，完成当前输入并放行后续队列；本机普通静默与等待调用方的语义保持。
+
+- app：云端Bot按真实worker在线状态呈现，错误显示为气泡外红色提示；历史/列表保留错误正文，交互卡片每个按钮使用自己的链接。
+
+- core：共享组合根与唯一路径的运行时适配拆为独立包，本机宿主提供存储和环境；原 core 导出保持兼容，层级检查覆盖共享包传递依赖，健康/额度维护沿原节奏由宿主统一驱动。
+- core：本机与云端定义来源共用解析和提示词装配；运行状态及插件私有数据支持 SQLite/目录与租户隔离的 PostgreSQL 存储。memory 保留本机库，tasks 只读导入旧 SQLite 完整事件并保留原库；插件周期任务由宿主统一调度。
 - 网页市场的「我的需求」改为读写云端 `watch_tasks`：换设备或清缓存不再丢失，候选按需求条件只读搜索，不会推进 Bot 插件的已通知记录；旧浏览器里的需求首次打开时一次性迁到云端，成功后才删除本机副本。
 - 发布产物同步上传到阿里云 OSS `yonder-release`，供下载页与应用内更新读取。
 - 安卓应用内更新会校验安装包摘要后交系统安装器确认，不静默安装。

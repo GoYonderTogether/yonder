@@ -1,5 +1,5 @@
 // Controlled HTTP protocol integration, NOT real Sol judgment/E2E.
-// Only public @yonder/core; one real kernel, resident channel-cli inputs, synthetic data.
+// Only public @yonder/local-host; one real kernel, resident channel-cli inputs, synthetic data.
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -9,7 +9,7 @@ import { createConnection } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
-import { initHome, openKernel, packageVersion } from "@yonder/core";
+import { initHome, openKernel, packageVersion } from "@yonder/local-host";
 import { parse, stringify } from "yaml";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");

@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/sdk",
-	"version": "0.3.26110303",
+	"version": "0.3.26110401",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -15,9 +15,21 @@
 			"types": "./dist/testing.d.ts",
 			"import": "./dist/testing.js"
 		},
+		"./registrations": {
+			"types": "./dist/registrations.d.ts",
+			"import": "./dist/registrations.js"
+		},
 		"./node-ipc": {
 			"types": "./dist/node-ipc.d.ts",
 			"import": "./dist/node-ipc.js"
+		},
+		"./node-storage": {
+			"types": "./dist/node-storage.d.ts",
+			"import": "./dist/node-storage.js"
+		},
+		"./trigger-scheduler": {
+			"types": "./dist/trigger-scheduler.d.ts",
+			"import": "./dist/trigger-scheduler.js"
 		}
 	},
 	"dependencies": {
@@ -25,11 +37,15 @@
 		"@earendil-works/pi-durable": "1.3.0",
 		"typebox": "1.3.27",
 		"yaml": "2.9.1",
-		"@yonder/protocol": "0.3.26110303",
-		"@earendil-works/chord": "1.3.0"
+		"@yonder/protocol": "0.3.26110401",
+		"@earendil-works/chord": "1.3.0",
+		"proper-lockfile": "4.1.2"
 	},
 	"files": [
 		"dist",
 		"native"
-	]
+	],
+	"devDependencies": {
+		"@types/proper-lockfile": "4.1.4"
+	}
 }
