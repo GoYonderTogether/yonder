@@ -18,7 +18,7 @@ import type { RuntimeServices } from "@yonder/runtime-adapter/contracts";
 import { PostgresStorage } from "@yonder/runtime-adapter/postgres";
 import type { Channel, Credential, Preset } from "@yonder/sdk";
 import type { Pool } from "pg";
-import { type CloudBotIdentity, ensureCloudDefinition } from "./definitions.js";
+import { type CloudBotIdentity, ensureCloudDefinition, PLATFORM_MODEL_REF } from "./definitions.js";
 import { createDeviceTools } from "./device-tools.js";
 import { createPostgresPluginStorage } from "./plugin-storage.js";
 import type { createPostgresScheduler } from "./scheduler.js";
@@ -29,11 +29,16 @@ export interface CloudBotOptions {
 	pool: Pool;
 	deviceBridge?: { endpoint: string; token: string };
 	identity: CloudBotIdentity;
+	/** Provider-qualified platform model a newly seeded Bot config uses; existing Bot files keep their own. */
+	model?: string;
 	descriptors: PluginDescriptor[];
 	channels: ReadonlyMap<string, Channel>;
 	scheduler: ReturnType<ReturnType<typeof createPostgresScheduler>["scope"]>;
 	runtimeServices: RuntimeServices;
 	admitRun: NonNullable<Parameters<typeof Runtime.open>[0]["admitRun"]>;
+	/** Platform token quota: checked before each model call and charged after it (docs/spec/16 §6). */
+	checkQuota?(run: string): Promise<string | undefined>;
+	recordQuota?(run: string, usage: { input: number; output: number }): Promise<void>;
 	environment: string;
 	version: string;
 	report(error: unknown): void;
@@ -43,7 +48,7 @@ export interface CloudBotOptions {
 /** The PG host assembles services; routing, sessions, tools, prompt and running are createBot's real mainline. */
 export async function openCloudBot(options: CloudBotOptions) {
 	const { pool, identity, scheduler, runtimeServices } = options;
-	const config = await ensureCloudDefinition(pool, identity, options.environment);
+	const config = await ensureCloudDefinition(pool, identity, options.environment, options.model ?? PLATFORM_MODEL_REF);
 	const installed = new Map(options.descriptors.map((entry) => [entry.use, entry]));
 	const descriptors = (config.plugins ?? []).map((selected) => {
 		const entry = installed.get(selected.use);
@@ -232,6 +237,18 @@ export async function openCloudBot(options: CloudBotOptions) {
 						: {}),
 					storage: await PostgresStorage.open(pool, identity.ownerId, identity.id),
 					admitRun: options.admitRun,
+					...(options.checkQuota && options.recordQuota
+						? {
+								modelQuota: () => ({
+									async check({ run }: { run?: string }) {
+										return run === undefined ? undefined : options.checkQuota!(run);
+									},
+									async record({ run }: { run?: string }, usage: { input: number; output: number }) {
+										if (run !== undefined) await options.recordQuota!(run, usage);
+									},
+								}),
+							}
+						: {}),
 					onIdle: async (id) => {
 						await runtimeOptions.onIdle?.(id);
 						options.onIdle?.();

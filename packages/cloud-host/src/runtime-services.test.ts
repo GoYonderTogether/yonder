@@ -19,9 +19,11 @@ test("PG runtime exposes only the platform model and isolated readable output ca
 	try {
 		const a = host.forBot("tenant-a", "bot-a");
 		const b = host.forBot("tenant-b", "bot-b");
-		expect(a.models.getProviders().map((provider) => provider.id)).toEqual(["rightapi-glm"]);
-		expect(a.models.getModels().map((model) => model.id)).toEqual(["glm-5.3-flash"]);
-		expect(a.models.getModel("rightapi-glm", "glm-5.3-flash")?.cost.input).toBe(0.15);
+		expect(a.models.getProviders().map((provider) => provider.id)).toEqual(["deepseek"]);
+		expect(a.models.getModels().map((model) => model.id)).toEqual(["deepseek-flash"]);
+		// Cost/context facts come from the installed pi-ai catalog, not from a guessed number.
+		expect(a.models.getModel("deepseek", "deepseek-flash")?.cost.input).toBeGreaterThan(0);
+		expect(a.models.getModel("deepseek", "deepseek-flash")?.contextWindow).toBeGreaterThan(100000);
 		const env = a.environment({ cwd: "/bots/bot-a", resolved: { env: "local" } });
 		const signal = new AbortController().signal;
 		const context = executionContext(signal);
@@ -53,8 +55,8 @@ test("shared platform health and usage persist across reopening, while closing a
 	const host = await createPostgresRuntimeServices({ pool: database.pool, apiKey: "transport-test-only" });
 	const a = host.forBot("tenant-a", "bot-a");
 	const b = host.forBot("tenant-b", "bot-b");
-	await a.health.hold(["rightapi-glm/glm-5.3-flash"], "transport-test health", 60, 30);
-	a.quota.recordWindow("rightapi-glm@default", {
+	await a.health.hold(["deepseek/deepseek-flash"], "transport-test health", 60, 30);
+	a.quota.recordWindow("deepseek@default", {
 		usedPercent: 10,
 		windowMinutes: 300,
 		resetsAt: Date.now() + 60000,
@@ -63,13 +65,13 @@ test("shared platform health and usage persist across reopening, while closing a
 	a.watch.stop();
 	expect(a.quotaPoller).toBeUndefined();
 	await b.watch.tick(Date.now());
-	expect(b.health.held("rightapi-glm/glm-5.3-flash")).toBe(true);
+	expect(b.health.held("deepseek/deepseek-flash")).toBe(true);
 	await host.close();
 	const reopened = await createPostgresRuntimeServices({ pool: database.pool, apiKey: "transport-test-only" });
 	try {
 		const services = reopened.forBot("tenant-a", "bot-a");
-		expect(services.health.held("rightapi-glm/glm-5.3-flash")).toBe(true);
-		expect(services.quota.window("rightapi-glm@default")?.usedPercent).toBe(10);
+		expect(services.health.held("deepseek/deepseek-flash")).toBe(true);
+		expect(services.quota.window("deepseek@default")?.usedPercent).toBe(10);
 	} finally {
 		await reopened.close();
 	}
@@ -91,7 +93,7 @@ test("PG model binding reuses each runtime config and keeps attached Bot timeout
 		a.attachRuntime!(first);
 		b.attachRuntime!(second);
 		build.mockClear();
-		const config = { resolved: { model: "rightapi-glm/glm-5.3-flash", credentialSlots: {} } };
+		const config = { resolved: { model: "deepseek/deepseek-flash", credentialSlots: {} } };
 		const pending = a.modelsFor(config);
 		expect(a.modelsFor(config)).toBe(pending);
 		const modelsA = await pending;
@@ -104,7 +106,7 @@ test("PG model binding reuses each runtime config and keeps attached Bot timeout
 			{ firstTokenMs: 120, totalMs: 1000 },
 			{ firstTokenMs: 30, totalMs: 1000 },
 		]);
-		expect(modelsA.getModel("rightapi-glm", "glm-5.3-flash")?.id).toBe("glm-5.3-flash");
+		expect(modelsA.getModel("deepseek", "deepseek-flash")?.id).toBe("deepseek-flash");
 	} finally {
 		build.mockRestore();
 		await host.close();

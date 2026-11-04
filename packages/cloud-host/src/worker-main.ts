@@ -14,6 +14,8 @@ try {
 		endpoint: required("YONDER_CLOUD_ENDPOINT"),
 		workerKeyFile: required("CLOUD_BOT_WORKER_KEY_FILE"),
 		modelKeyFile: required("CLOUD_BOT_MODEL_KEY_FILE"),
+		...(process.env.CLOUD_BOT_MODEL_BASE_URL ? { modelBaseUrl: process.env.CLOUD_BOT_MODEL_BASE_URL } : {}),
+		...(process.env.CLOUD_BOT_MODEL ? { model: process.env.CLOUD_BOT_MODEL } : {}),
 	});
 	console.log("Cloud Bot worker ready");
 	let closing = false;

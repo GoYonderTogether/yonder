@@ -19,7 +19,11 @@ const folder = await mkdtemp(join(tmpdir(), "yonder-worker-verification-"));
 const workerKey = randomBytes(32);
 await writeFile(join(folder, "worker.key"), workerKey, { mode: 0o600 });
 await writeFile(join(folder, "model.key"), randomBytes(32).toString("hex"), { mode: 0o600 });
-const modelKeyFile = live ? join(homedir(), ".config/yonder/cloud-bot-model.key") : join(folder, "model.key");
+// A live run needs the platform model's own key file; `CLOUD_BOT_MODEL_KEY_FILE` names it (0600 file, never
+// printed). Without one the live scenario is reported as untested rather than silently skipped.
+const modelKeyFile = live
+	? (process.env.CLOUD_BOT_MODEL_KEY_FILE ?? join(homedir(), ".config/yonder/cloud-bot-model.key"))
+	: join(folder, "model.key");
 const backend = await localCloud(workerKey, load ? 30 : 10);
 const transport = live ? undefined : await modelTransport();
 let child;

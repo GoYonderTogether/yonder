@@ -1,7 +1,11 @@
 import { withDefaultOutsider } from "@yonder/bot-core/kernel/peer";
 import { parseAgentConfig, parseYonderConfig, type YonderConfig } from "@yonder/bot-definition";
+import { PLATFORM_MODEL, PLATFORM_PROVIDER } from "@yonder/runtime-adapter/postgres";
 import type { Pool } from "pg";
 import { cloudPlugins } from "./plugins.js";
+
+/** The provider-qualified id a new cloud Bot's config uses for the single platform model. */
+export const PLATFORM_MODEL_REF = `${PLATFORM_PROVIDER}/${PLATFORM_MODEL}`;
 
 export interface CloudBotIdentity {
 	id: string;
@@ -14,6 +18,8 @@ export async function ensureCloudDefinition(
 	pool: Pool,
 	bot: CloudBotIdentity,
 	environment: string,
+	/** Provider-qualified platform model id; every new Bot's yonder.yaml and profile use it. */
+	model: string = PLATFORM_MODEL_REF,
 ): Promise<YonderConfig> {
 	const plugins = cloudPlugins.map((id) => ({
 		use: `@yonder/plugin-${id}`,
@@ -29,7 +35,7 @@ export async function ensureCloudDefinition(
 	}));
 	const config = {
 		schema: 1,
-		defaultModel: "rightapi-glm/glm-5.3-flash",
+		defaultModel: model,
 		locale: "zh-CN",
 		timezone: "Asia/Shanghai",
 		agents: [{ id: bot.id, workspace: `agents/${bot.id}` }],
@@ -47,7 +53,7 @@ export async function ensureCloudDefinition(
 		defaultProfile: "default",
 		profiles: {
 			default: {
-				model: "rightapi-glm/glm-5.3-flash",
+				model,
 				plugins: cloudPlugins,
 				capabilities: ["read", "write", "network", "message", "admin"],
 				contexts: ["default-agent-soul", "default-agent-work"],

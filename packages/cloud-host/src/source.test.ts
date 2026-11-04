@@ -21,7 +21,7 @@ let disk: BotSource;
 let postgres: BotSource;
 const configText = "schema: 1\nagents:\n  - id: main\n    workspace: agents/main\n";
 const agentText =
-	"schema: 1\nowner: person:owner\nid: main\nname: 小未\ndefaultProfile: default\nprofiles:\n  default:\n    model: rightapi-glm/glm-5.3-flash\n    contexts: [default-agent-soul, default-agent-work]\n    capabilities: []\nbindings: []\n";
+	"schema: 1\nowner: person:owner\nid: main\nname: 小未\ndefaultProfile: default\nprofiles:\n  default:\n    model: deepseek/deepseek-flash\n    contexts: [default-agent-soul, default-agent-work]\n    capabilities: []\nbindings: []\n";
 
 beforeAll(async () => {
 	database = await testPostgres();
@@ -102,7 +102,7 @@ test("PG source supplies presets, Markdown children, prompt templates and select
 	for (const [path, text] of [
 		[
 			"presets/default.yaml",
-			"schema: 1\ndescription: Complete a bounded general task.\nmodel: rightapi-glm/glm-5.3-flash\n",
+			"schema: 1\ndescription: Complete a bounded general task.\nmodel: deepseek/deepseek-flash\n",
 		],
 		[
 			"agents/child.md",

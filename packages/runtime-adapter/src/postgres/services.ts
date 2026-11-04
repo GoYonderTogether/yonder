@@ -17,14 +17,25 @@ import { fromResult, toResult } from "../runtime/results.js";
 import type { RuntimeBackgroundOptions, RuntimeToolHost } from "../runtime/tool-activation.js";
 import type { RuntimeSessionConfig } from "../types.js";
 
-function glmModelDefinition(): ModelsJsonModel {
-	const zai = builtinProviders().find((provider) => provider.id === "zai");
-	const model = zai?.getModels().find((candidate) => candidate.id === "glm-5.3-flash");
-	if (!model) throw new Error("The installed Z.AI model catalog does not contain glm-5.3-flash");
+/** 平台唯一模型的 provider id；云端只提供这一个，用户还不能自选（2026-11-05 主人决定）。 */
+export const PLATFORM_PROVIDER = "deepseek";
+export const PLATFORM_BASE_URL = "https://api.deepseek.com";
+export const PLATFORM_MODEL = "deepseek-flash";
+
+/**
+ * 平台模型定义取自已装 pi-ai 的真实目录（同一 API、成本、上下文与思考档位），只改对外 id 与 baseUrl：
+ * 云端 worker 用一个平台密钥调用官方 DeepSeek，不冒充目录里的其它 provider。
+ */
+function platformModelDefinition(baseUrl: string, modelId: string): ModelsJsonModel {
+	const catalog = builtinProviders().find((provider) => provider.id === "deepseek");
+	const model = catalog?.getModels().find((candidate) => candidate.id === modelId);
+	if (!model)
+		throw new Error(`The installed pi-ai catalog does not contain ${modelId}; check CLOUD_BOT_MODEL before deploying`);
 	return {
-		id: "glm-5.3-flash",
+		id: modelId,
 		name: model.name,
 		api: model.api,
+		baseUrl,
 		input: model.input,
 		reasoning: model.reasoning,
 		cost: model.cost,
@@ -37,16 +48,17 @@ function glmModelDefinition(): ModelsJsonModel {
 		...(model.samplingParamsByThinkingLevel !== undefined
 			? { samplingParamsByThinkingLevel: model.samplingParamsByThinkingLevel }
 			: {}),
+		// DeepSeek 官方接口接受 system/developer 消息，不需要 rightapi 网关的 systemAsUser 整形。
 		...(model.compat !== undefined ? { compat: model.compat } : {}),
 	};
 }
 
 const providerConfig = (baseUrl: string, model: ModelsJsonModel) => ({
-	"rightapi-glm": {
+	[PLATFORM_PROVIDER]: {
 		baseUrl,
 		api: "openai-completions",
 		authHeader: true,
-		compat: { systemAsUser: true, supportsStore: false, supportsDeveloperRole: false },
+		compat: { supportsStore: false, supportsDeveloperRole: false },
 		models: [model],
 	},
 });
@@ -62,10 +74,10 @@ CREATE TABLE IF NOT EXISTS bot_runtime_tool_output (
 function keyStore(key: string): CredentialStore {
 	return {
 		async read(name) {
-			return name === "rightapi-glm" ? { type: "api_key", key } : undefined;
+			return name === PLATFORM_PROVIDER ? { type: "api_key", key } : undefined;
 		},
 		async list(): Promise<readonly CredentialInfo[]> {
-			return [{ providerId: "rightapi-glm", type: "api_key" }];
+			return [{ providerId: PLATFORM_PROVIDER, type: "api_key" }];
 		},
 		async modify() {
 			throw new Error("Cloud model credentials are platform-managed");
@@ -250,7 +262,9 @@ function createPostgresToolHost(pool: Pool, tenant: string, bot: string, outputP
 export async function createPostgresRuntimeServices(options: {
 	pool: Pool;
 	apiKey: string;
+	/** Platform model endpoint and id; both come from worker configuration, never from a user. */
 	baseUrl?: string;
+	model?: string;
 	onReport?: (error: unknown) => void;
 }): Promise<{ forBot(tenant: string, bot: string): RuntimeServices; close(): Promise<void> }> {
 	if (!options.apiKey || /[\r\n\0]/.test(options.apiKey)) throw new Error("Invalid platform model credential");
@@ -291,7 +305,9 @@ export async function createPostgresRuntimeServices(options: {
 	);
 	await Promise.all([health.load(), quota.load()]);
 	const gate = new ModelGate(health, quota);
-	const providers = providerConfig(options.baseUrl ?? "https://api.site/v1", glmModelDefinition());
+	const baseUrl = options.baseUrl ?? PLATFORM_BASE_URL;
+	const modelId = options.model ?? PLATFORM_MODEL;
+	const providers = providerConfig(baseUrl, platformModelDefinition(baseUrl, modelId));
 	const modelsForSelection = (
 		selection: Readonly<Record<string, string>> = {},
 		telemetry?: import("../runtime/models.js").ModelsTelemetry,
@@ -318,14 +334,14 @@ export async function createPostgresRuntimeServices(options: {
 				defaults: credential,
 				async capture(selection) {
 					for (const [provider, slot] of Object.entries(selection))
-						if (provider !== "rightapi-glm" || slot !== "default")
-							throw new Error("Only the platform-managed default RightAPI slot is available");
-					return { "rightapi-glm": "platform-managed" };
+						if (provider !== PLATFORM_PROVIDER || slot !== "default")
+							throw new Error("Only the platform-managed default model slot is available");
+					return { [PLATFORM_PROVIDER]: "platform-managed" };
 				},
 				bind(selection) {
 					for (const [provider, slot] of Object.entries(selection))
-						if (provider !== "rightapi-glm" || slot !== "default")
-							throw new Error("Only the platform-managed default RightAPI slot is available");
+						if (provider !== PLATFORM_PROVIDER || slot !== "default")
+							throw new Error("Only the platform-managed default model slot is available");
 					return credential;
 				},
 				async beginLogin() {
@@ -356,7 +372,7 @@ export async function createPostgresRuntimeServices(options: {
 							modelsForSelection(
 								config.resolved.credentialSlots,
 								{
-									onProviderEvent: (_provider, data) => quota.record("rightapi-glm@default", data),
+									onProviderEvent: (_provider, data) => quota.record(`${PLATFORM_PROVIDER}@default`, data),
 								},
 								timeouts,
 							),

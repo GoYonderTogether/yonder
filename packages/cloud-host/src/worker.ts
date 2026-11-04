@@ -1,7 +1,13 @@
 import { readFile, stat } from "node:fs/promises";
 import { redactError } from "@yonder/bot-core/delivery/model-notice";
 import { createCardWorkerPlugin } from "@yonder/plugin-channel-card";
-import { createPostgresRuntimeServices, migratePostgresRuntime } from "@yonder/runtime-adapter/postgres";
+import {
+	createPostgresRuntimeServices,
+	migratePostgresRuntime,
+	PLATFORM_BASE_URL,
+	PLATFORM_MODEL,
+	PLATFORM_PROVIDER,
+} from "@yonder/runtime-adapter/postgres";
 import type { Delivery, EventInput } from "@yonder/sdk";
 import type { Pool } from "pg";
 import type { CloudBotIdentity } from "./definitions.js";
@@ -24,8 +30,13 @@ export interface CloudWorkerOptions {
 	endpoint: string;
 	workerKeyFile: string;
 	modelKeyFile: string;
-	/** Transport test seam; the executable always uses the platform endpoint/model. */
+	/**
+	 * Platform model endpoint and id (env `CLOUD_BOT_MODEL_BASE_URL` / `CLOUD_BOT_MODEL`, both optional).
+	 * They only ever widen a deployment's own configuration, never a user's choice: every cloud Bot keeps using
+	 * the one platform model, and `PLATFORM_MODEL_REF` is what a new Bot's config is seeded with.
+	 */
 	modelBaseUrl?: string;
+	model?: string;
 	report?(error: unknown): void;
 }
 
@@ -53,15 +64,20 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 	const version = (
 		JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
 	).version;
+	const modelBaseUrl = options.modelBaseUrl ?? PLATFORM_BASE_URL;
+	const model = options.model ?? PLATFORM_MODEL;
 	const runtimeHost = await createPostgresRuntimeServices({
 		pool,
 		apiKey,
-		...(options.modelBaseUrl ? { baseUrl: options.modelBaseUrl } : {}),
+		baseUrl: modelBaseUrl,
+		model,
 		onReport: report,
 	});
 	type Bot = Awaited<ReturnType<typeof openCloudBot>>;
 	type Entry = { ready: Promise<Bot>; busy: boolean; used: number; closing?: Promise<void> };
 	const identities = new Map<string, CloudBotIdentity>();
+	/** Admission is idempotent per run, so later checks repeat the source the server already accepted. */
+	const admittedSources = new Map<string, string>();
 	const active = new Map<string, Entry>();
 	const queues = new Map<string, Promise<unknown>>();
 	const sources = new Map<
@@ -223,6 +239,7 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 				pool,
 				deviceBridge: { endpoint: options.endpoint, token },
 				identity,
+				model: `${PLATFORM_PROVIDER}/${model}`,
 				descriptors,
 				channels: card.channels,
 				scheduler: scoped,
@@ -240,6 +257,7 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 						(event) => event.type === "message.in" && (event.data as { msgId?: string }).msgId,
 					);
 					const sourceMessageId = source && (source.data as { msgId: string }).msgId;
+					if (sourceMessageId) admittedSources.set(run, sourceMessageId);
 					const response = await fetch(
 						`${options.endpoint}/api/worker/bots/${encodeURIComponent(id)}/model-admission`,
 						{
@@ -250,6 +268,9 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 					);
 					if (!response.ok) {
 						const body = (await response.json()) as { error?: string; message?: string };
+						// 额度拒绝把服务端给出的真实原因（哪项上限、何时重置）原样带到这一轮的停止原因里，
+						// 渠道侧显示的必须是这句，而不是一条笼统的「准入失败」。
+						if (body.error === "quota_exceeded") throw new Error(body.message ?? "模型额度已用完");
 						throw new Error(
 							response.status === 429
 								? "已达到云端 Bot 每小时回复上限"
@@ -258,6 +279,32 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 									: `云端额度准入失败（HTTP ${response.status}）：${body.message ?? body.error ?? "请求未获准"}`,
 						);
 					}
+				},
+				// Token 额度按每一次模型调用检查与入账：准入只管运行开始，长运行可能在半途撞上额度。
+				async checkQuota(run) {
+					// 同一次运行的重复检查必须带原来的来源消息，服务端才认得出这是同一个来源而不是新运行。
+					const sourceMessageId = admittedSources.get(run);
+					const response = await fetch(
+						`${options.endpoint}/api/worker/bots/${encodeURIComponent(id)}/model-admission`,
+						{
+							method: "POST",
+							headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+							body: JSON.stringify({ runId: run, ...(sourceMessageId ? { sourceMessageId } : {}) }),
+						},
+					);
+					// 已经准入过的 run 直接放行：每小时回复上限只扣一次。
+					if (response.ok) return undefined;
+					const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
+					if (body.error === "run_conflict" || body.error === "source_not_admitted") return undefined;
+					if (body.error === "quota_exceeded") return body.message ?? "模型额度已用完";
+					return `云端额度服务暂不可用（HTTP ${response.status}）`;
+				},
+				async recordQuota(run, usage) {
+					await fetch(`${options.endpoint}/api/worker/bots/${encodeURIComponent(id)}/model-usage`, {
+						method: "POST",
+						headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+						body: JSON.stringify({ runId: run, input: usage.input, output: usage.output }),
+					});
 				},
 			}),
 		};
