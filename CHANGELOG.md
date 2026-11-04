@@ -4,6 +4,8 @@
 
 ### Added
 
+- cloud-host：平台模型改为官方 DeepSeek（`https://api.deepseek.com`、`deepseek-flash`），base URL 与模型 id 由 `CLOUD_BOT_MODEL_BASE_URL` / `CLOUD_BOT_MODEL` 配置；仍是唯一平台模型，用户不能自选。
+- runtime：每次模型调用前按 token 额度判定、调用后按实际用量入账，只计输入 + 输出、排除 cache-hit；额度主体由宿主给出，本机不带额度时行为不变。
 - connect：新增 `@yonder/connect dsh` 安装器，装好连接器包、用既有设备码流程配对并把设备令牌写入 `$DSH_HOME/yonder/`（0600）。
 - connect：新增 `hermes` 与 `openclaw` 子命令——Hermes 以 drop-in 目录装入 `~/.hermes/plugins/`，OpenClaw 经 `openclaw plugins install --force --accept-capabilities` 安装；共用设备码配对与 0600 令牌落盘，`--remove` 卸载并清除连接器自身状态。
 - dsh-connector：新增 DSH bundle 插件 `@yonder/dsh-connector`，把本机 DSH 及其 agent 登记为 Yonder Bot，并提供 `sessions.list/open/submit/transcript/abort` 与 `sessions.watch`（spec 23）。

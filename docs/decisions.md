@@ -1,5 +1,9 @@
 # 决策记录
 
+## 2026-11-05 平台模型改为官方 DeepSeek，额度改按 token 计（主人要求）
+
+云端 Bot 的平台模型从 RightAPI `glm-5.3-flash` 换成官方 DeepSeek（`https://api.deepseek.com`，模型 `deepseek-flash`），仍是唯一平台模型，用户还不能自选；base URL 与模型 id 变成 worker 的部署配置，缺省即这两个值，密钥仍是 0600 文件。同日把额度从「每条消息/每小时回复数」改成按 token 计：手机验证账号每周 1 亿（Asia/Shanghai 自然周，周一 00:00 重置），匿名访客在单张名片上 20 万、跨名片合计 50 万（耗尽须手机验证），一张名片最多接纳 50 位不同访客且不设卡片总量，访客用量不占主人额度，访客验证手机时把本周已用并进账号。只计 provider 计费的输入 + 输出，排除 cache-hit token（DeepSeek 的 `prompt_cache_miss_tokens` + `completion_tokens`）；每次模型调用前判定、调用后入账，拒绝时用 `quota_exceeded` 说明是哪项上限与何时重置；新增 `GET /api/usage`。这样额度与真实成本同口径，避免缓存命中的长对话被重复计价。代价是额度表与判定点写在 yonder-cloud 的 server 与迁移里，worker 每次调用多一次上报请求；旧的访客消息条数限制由它取代。见 16 §6、22。
+
 ## 2026-11-05 主站改为已备案的 yonder.zethai.cn（主人要求）
 
 yonderbot.net 没有 ICP 备案，国内直连时阿里云拦截 HTTP、重置 TLS，手机和微信里的分享链接打不开。主站与默认 endpoint 改为 yonder.zethai.cn（zethai.cn 已备案，证书已覆盖）；yonderbot.net 的页面 308 跳到新域名，接口与设备 WebSocket 保留给旧客户端。服务端只认一个 PUBLIC_ORIGIN，浏览器登录态按域名重新建立。见 08、16 §5。
@@ -48,7 +52,7 @@ P0–P1 报告提交了六个待决问题，主人逐项裁定，P2 据此实现
 
 维护者授权本次 BRIEF 架构变更：Bot schema、解析与配置求值归 `@yonder/bot-definition`，本机和云端共用，旧路径兼容导出而不复制实现。BotSource 复用现有 WorkspaceFiles 并提供 home、workspace、模板与 skill 来源，本机与 PG 使用同一加载/重载和解析算法；canonical 路径属于来源事实，不由核心猜测。运行状态以既有 pi Storage 与领域 Store 为边界；PG 先复用 pi-durable 的提交校验/读算法持久化增量批次，避免复制运行循环或 SQL 后端；持久 ID、原子提交、隔离和资源预算必须实测。插件存储采用 open(root?) 的 FS/PG 文件/文档能力，保留 memory 已配置用户库与 tasks 旧 SQLite 只读事件导入；周期策略保留在插件，以宿主唯一调度器驱动相同 tick，避免每 Bot 常驻资源。包边界采用 bot-core.createBot 单一共享主线、runtime-adapter 唯一 pi 进口（纯默认入口与显式 node/postgres）、local-host 本机装配；旧 core 只兼容导出。层级检查追踪跨 workspace 传递导入，禁止共享入口反向加载宿主代码，notifications/budget 持久化归 Store，SDK 注册能力不经 testing 入口。本机与云端使用同一个 Bot 定义解析、提示词装配、路由/会话/投递和运行循环。宿主文件、进程与事实从核心移到存储与环境适配，保留唯一 pi 运行适配入口；本机目录 + 单连接 SQLite 行为保持，云端采用 PostgreSQL + Redis 与虚拟工作区，不为人格新开列。插件私有数据走按插件、租户隔离的存储能力。
 
-生产只有 2 核 2–4 GB、3 Mbps，故一个 worker 按消息激活全部 Bot，以 LRU 释放空闲实例，不为账号/Bot 启动容器、子进程、定时器或长连接。复用 channel-card、/ws/device 与 appendMessage，不使云端 server 依赖 @yonder 包。平台唯一模型为 RightAPI glm-5.3-flash；真实失败作为独立 error 消息，不能伪造回复，错误不进入模型历史。卡片支持每按钮链接，设备工具沿已有工作桥鉴权。完整契约与验收见 [22](spec/22-shared-bot-core.md)。本次只在两个指定 worktree 实施与本机验证，不推送、部署或改 Docker 托管逻辑、安装脚本和发布流水线。
+生产只有 2 核 2–4 GB、3 Mbps，故一个 worker 按消息激活全部 Bot，以 LRU 释放空闲实例，不为账号/Bot 启动容器、子进程、定时器或长连接。复用 channel-card、/ws/device 与 appendMessage，不使云端 server 依赖 @yonder 包。平台唯一模型原为 RightAPI glm-5.3-flash，2026-11-05 起改为官方 DeepSeek deepseek-flash（见同日条目）；真实失败作为独立 error 消息，不能伪造回复，错误不进入模型历史。卡片支持每按钮链接，设备工具沿已有工作桥鉴权。完整契约与验收见 [22](spec/22-shared-bot-core.md)。本次只在两个指定 worktree 实施与本机验证，不推送、部署或改 Docker 托管逻辑、安装脚本和发布流水线。
 
 本次保留原 SDK `executionContext(signal)` 公开契约（spec/04）：SDK index 仅可使用 chord/context 的 `BACKGROUND_CONTEXT`、`withAbortSignal` 构造纯取消上下文；pi-ai/pi-durable 仍只能 import type。精确例外由同一层级检查限定符号，不开放第二套模型或会话运行。
 

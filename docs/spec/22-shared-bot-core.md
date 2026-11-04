@@ -36,7 +36,7 @@ Worker 复用 channel-card、/ws/device 帧和 appendMessage，作为受信任�
 
 云端仅通过已有 prompt.overrides 或 HostFacts 改环境段：运行在云端，无云端目录操作能力；列出当前已连接的设备，说明接入设备可解锁能力；需要设备/客户端时使用卡片工具引导绑定/安装，不只口头描述。
 
-平台唯一模型为 RightAPI `glm-5.3-flash`，base_url 为 `https://api.site/v1`。密钥从运行时环境变量或沿用 *_KEY_FILE 的文件注入，不进入代码、日志、快照、转录或提交。平台每账号每小时模型回复默认上限 30，可配置；以 Bot 的 owner 账号汇总名下所有云端 Bot，匿名访客现有 10 条限制保持。cron/关注等程序派模型也须在实际新运行准入处使用同一平台Redis额度桶，不能只限制HTTP用户输入。server已准入的用户输入不得重复扣额；程序准入沿现有worker渠道身份核验Bot/owner，不信任自报租户，不在worker另设一套计数。合法会话成员的输入沿用既有准入，不因发送者不是 owner 而改为伪引导。
+平台唯一模型为官方 DeepSeek `deepseek-flash`，base_url 为 `https://api.deepseek.com`（2026-11-05 主人决定，取代此前的 RightAPI `glm-5.3-flash`）；用户还不能自选模型。base URL 与模型 id 是 worker 的部署配置（`CLOUD_BOT_MODEL_BASE_URL`、`CLOUD_BOT_MODEL`），缺省即上面两个值；新 Bot 的配置按它播种。密钥从 `CLOUD_BOT_MODEL_KEY_FILE`（0600 文件）注入，不进入代码、日志、快照、转录或提交。平台按 token 计额度：手机验证账号每周 1 亿、访客每张名片 20 万且跨名片合计 50 万，规则与判定点见 [16 §6](16-card-plugin.md)。平台每账号每小时模型回复默认上限 30，可配置；以 Bot 的 owner 账号汇总名下所有云端 Bot。原有的匿名访客消息条数限制由 token 额度取代，见 16 §6。cron/关注等程序派模型也须在实际新运行准入处使用同一平台Redis额度桶，不能只限制HTTP用户输入。server已准入的用户输入不得重复扣额；程序准入沿现有worker渠道身份核验Bot/owner，不信任自报租户，不在worker另设一套计数。合法会话成员的输入沿用既有准入，不因发送者不是 owner 而改为伪引导。
 
 ## 4 结构化卡片与错误
 
@@ -52,6 +52,6 @@ MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可�
 
 ## 6 实施门槛
 
-先在未改动的 a6a6c0b5 提交记录完整默认测试与 build 基线。每阶段执行 CONTRIBUTING 的完整 build/typecheck/test/lint（含 layer/size）；build、typecheck、lint 必须通过，测试相对基线不得新增失败。基线已存在的机器原因失败允许保留并如实记录，不阻止推进。模型测试使用真实 gpt-6-luna，云端端到端使用真实 glm-5.3-flash；缺凭据记未测。PG/Redis 仅在本机启动，用后关闭。验证区分源码、默认检查、真实模型、多租户、端到端与资源证据，不能互相替代。
+先在未改动的 a6a6c0b5 提交记录完整默认测试与 build 基线。每阶段执行 CONTRIBUTING 的完整 build/typecheck/test/lint（含 layer/size）；build、typecheck、lint 必须通过，测试相对基线不得新增失败。基线已存在的机器原因失败允许保留并如实记录，不阻止推进。模型测试使用真实 gpt-6-luna，云端端到端使用真实平台模型（2026-11-05 起为官方 DeepSeek `deepseek-flash`）；缺凭据记未测。PG/Redis 仅在本机启动，用后关闭。验证区分源码、默认检查、真实模型、多租户、端到端与资源证据，不能互相替代。
 
 pi-durable 若无法支持同进程多实例与 PG，先改本仓运行实现；否则评估两端共享的更轻循环，均不可行才停止。设备工具为最后阶段，若时间不足可停止并写清完成位置，不留桩。所有 A1–A12 结果及阶段提交、偏离、未测、迁移/环境变量/worker 启动/systemd 草案写入根目录未提交的 REFACTOR-REPORT.md。不得推送、部署或连接生产服务器。
