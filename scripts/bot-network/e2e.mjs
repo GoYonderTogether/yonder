@@ -18,7 +18,7 @@ import { redactError } from "../../packages/bot-core/dist/delivery/model-notice.
  *   →  DSH boots the packed connector against the user's configured DeepSeek model
  *   →  a real `yonder-executor` binds the same account as a second device
  *   →  a real Yonder agent host is the device whose catalogue carries `devices_*`
- *   →  the cloud Bot (real glm-5.3-flash) reads and writes a file on the executor and reads it back
+ *   →  the cloud Bot (the real platform model) reads and writes a file on the executor and reads it back
  *   →  the owner narrows that Bot in the web UI and the next call has no device tools.
  *
  * Every model turn is a real model call. A missing credential records 未测 for that step instead
@@ -34,7 +34,8 @@ const root = resolve(import.meta.dirname, "../..");
 const cloudCheckout = resolve(process.env.YONDER_CLOUD_CHECKOUT ?? join(root, "../yonder-cloud-bot-network"));
 const keep = process.argv.includes("--keep");
 const deepseekAuth = "/Users/zoran/Documents/yonder/.yonder/auth.json";
-const botModelKey = join(process.env.HOME ?? "", ".config/yonder/cloud-bot-model.key");
+const botModelKey =
+	process.env.CLOUD_BOT_MODEL_KEY_FILE ?? join(process.env.HOME ?? "", ".config/yonder/cloud-bot-model.key");
 
 const stepRows = [];
 const untested = [];
@@ -1073,12 +1074,15 @@ try {
 		});
 	}
 
-	// --- cloud Bot: real glm-5.3-flash through devices_list / devices_operation ------------------------
+	// --- cloud Bot: the real platform model through devices_list / devices_operation -------------------
 	if (!state.hasCloudModel) {
-		skip("云端 Bot 用真实 glm-5.3-flash 读/写执行端设备上的文件", "本机没有 ~/.config/yonder/cloud-bot-model.key");
+		skip(
+			"云端 Bot 用真实平台模型读/写执行端设备上的文件",
+			"本机没有 CLOUD_BOT_MODEL_KEY_FILE 或 ~/.config/yonder/cloud-bot-model.key",
+		);
 		skip("主人收窄后下一次调用被执行端拒绝", "云端 Bot 未启动");
 	} else {
-		await run("启动云端 Bot worker（真实 glm-5.3-flash）", async () => {
+		await run("启动云端 Bot worker（真实平台模型）", async () => {
 			state.worker = await startWorker({
 				databaseUrl: state.services.databaseUrl,
 				cloudOrigin: state.cloud.origin,

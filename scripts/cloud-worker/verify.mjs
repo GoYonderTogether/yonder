@@ -33,7 +33,7 @@ const modelInputs = [];
 let sampler;
 let peakSample;
 const report = {
-	mode: live ? "real-glm-5.3-flash" : "loopback-transport",
+	mode: live ? "real-platform-model" : "loopback-transport",
 	scenario: scenario ?? "reply",
 	results: [],
 	rounds: [],
