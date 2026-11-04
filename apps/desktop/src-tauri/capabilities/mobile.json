@@ -2,6 +2,6 @@
 	"identifier": "mobile",
 	"windows": ["main"],
 	"platforms": ["android", "iOS"],
-	"remote": { "urls": ["https://yonderbot.net/*"] },
+	"remote": { "urls": ["https://yonder.zethai.cn/*", "https://yonderbot.net/*"] },
 	"permissions": ["core:default"]
 }

@@ -48,7 +48,7 @@ die() {
 }
 step() { printf '\n== %s\n' "$*"; }
 
-CLOUD="https://yonderbot.net/"
+CLOUD="https://yonder.zethai.cn/"
 
 # 桌面安装包与 desktop-release.yml 的产物命名一致：Yonder_<version>_<arch>.dmg（Tauri 2 默认）。
 desktop_url() {

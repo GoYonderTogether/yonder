@@ -1,5 +1,9 @@
 # 决策记录
 
+## 2026-11-05 主站改为已备案的 yonder.zethai.cn（主人要求）
+
+yonderbot.net 没有 ICP 备案，国内直连时阿里云拦截 HTTP、重置 TLS，手机和微信里的分享链接打不开。主站与默认 endpoint 改为 yonder.zethai.cn（zethai.cn 已备案，证书已覆盖）；yonderbot.net 的页面 308 跳到新域名，接口与设备 WebSocket 保留给旧客户端。服务端只认一个 PUBLIC_ORIGIN，浏览器登录态按域名重新建立。见 08、16 §5。
+
 ## 2026-11-03 已配置会话的精确平台标签（主人要求）
 
 v15 P1原话包含完整群名，但宿主operability只有conv/binding/profile，存储事件无群名、session title为空；配置标签不能证明平台群名。为补这项明确缺失的身份映射，在现有Channel上新增可选只读describeConversation，飞书复用现有客户端精确GET群信息，QQ无接口保持unknown。仅核验owner私有main时，对当前Agent已有精确绑定且摘要限量的至多8个已知群补标签；保留当前8K摘要预算、取消signal及旧CLI/inspect无被动网络语义。标签是身份帮助，不授权、不证明membership/收发可用，不改BOT配置/人设，不增加意图模型、名称解析正则、目录存储或缓存。见04 §3.1与11飞书能力。

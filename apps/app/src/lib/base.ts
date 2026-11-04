@@ -17,7 +17,7 @@ export function gatewayHosted(): boolean {
 }
 
 /** Same trusted cloud origin as the desktop and channel-card entry points; never a runtime placeholder. */
-export const cloudPage = (path: string): string => new URL(path, "https://yonderbot.net").href;
+export const cloudPage = (path: string): string => new URL(path, "https://yonder.zethai.cn").href;
 export const localCloudNavigation = (): boolean => gatewayHosted() && !import.meta.env.VITE_SOCIAL_BASE;
 
 /** react-router 的 basename：不带尾斜杠，根路径为 "/"。 */

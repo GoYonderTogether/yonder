@@ -2,6 +2,6 @@
 	"identifier": "desktop",
 	"windows": ["main"],
 	"platforms": ["macOS", "windows", "linux"],
-	"remote": { "urls": ["https://yonderbot.net/*"] },
+	"remote": { "urls": ["https://yonder.zethai.cn/*", "https://yonderbot.net/*"] },
 	"permissions": ["core:default"]
 }

@@ -181,7 +181,7 @@ if ($Desktop) {
 	& $YonderCmd service install --home $HomeDir
 	if ($LASTEXITCODE -ne 0) { Die '装成后台任务失败；可稍后手动运行 yonder service install。' }
 	Say '核心已作为后台任务运行，关闭桌面应用不会停止它'
-	Say '桌面应用在开始菜单里的 Yonder；本机核心不可用时它会回落到 https://yonderbot.net/'
+	Say '桌面应用在开始菜单里的 Yonder；本机核心不可用时它会回落到 https://yonder.zethai.cn/'
 	Say ''
 	Say '还没登录模型供应商的话，先运行：'
 	Say ''

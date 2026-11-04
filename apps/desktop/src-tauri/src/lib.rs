@@ -20,7 +20,7 @@ mod mobile_update {
 /// 本机核心不可用时的云端站点；与线上完全相同的产物、路由与数据来源。
 /// 不注入 `__YONDER_SHELL__`、不打包本机运行时（见 docs/spec/09 §6.2）。
 #[cfg(desktop)]
-const CLOUD_ORIGIN: &str = "https://yonderbot.net";
+const CLOUD_ORIGIN: &str = "https://yonder.zethai.cn";
 
 /// 手机壳打开的云端地址；与 channel-card、market 的默认 endpoint 保持一致。
 /// 调试构建可用 `YONDER_MOBILE_ORIGIN` 指向本机开发服务器（真机 / 模拟器验收壳内网页用）；
@@ -28,7 +28,7 @@ const CLOUD_ORIGIN: &str = "https://yonderbot.net";
 #[cfg(mobile)]
 const MOBILE_ORIGIN: &str = match option_env!("YONDER_MOBILE_ORIGIN") {
     Some(origin) => origin,
-    None => "https://yonderbot.net",
+    None => "https://yonder.zethai.cn",
 };
 
 /// 外站链接交系统浏览器；壳本身不做第二套容器。
