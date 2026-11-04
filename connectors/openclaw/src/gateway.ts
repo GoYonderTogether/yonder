@@ -25,6 +25,9 @@ interface Pending {
 	timer: NodeJS.Timeout;
 }
 
+/** The loose socket shape the OpenClaw-bundled `ws` provides. */
+type WsSocket = { send(data: string): void; close(): void; readyState: number; on(ev: string, cb: (...a: unknown[]) => void): void; off(ev: string, cb: (...a: unknown[]) => void): void };
+
 export interface GatewayOptions {
 	/** `ws://127.0.0.1:<port>` resolved by the caller from the OpenClaw config. */
 	url: string;
@@ -36,7 +39,7 @@ export interface GatewayOptions {
 }
 
 export class GatewayClient {
-	private socket: WebSocket | undefined;
+	private socket: WsSocket | undefined;
 	private retry: ReturnType<typeof setTimeout> | undefined;
 	private delay = FIRST_DELAY_MS;
 	private stopped = false;
@@ -46,6 +49,7 @@ export class GatewayClient {
 	private readonly tasks = new Set<Promise<unknown>>();
 
 	constructor(private readonly options: GatewayOptions) {}
+
 
 	get connected(): boolean {
 		return this.open;
@@ -62,8 +66,8 @@ export class GatewayClient {
 		while (!this.stopped) {
 			try {
 				await this.connectOnce();
-			} catch {
-				// A refused connection is retried with backoff; the connector stays degraded.
+			} catch (error) {
+				process.stderr.write(`[yonder] gateway client error: ${error instanceof Error ? error.message : error}\n`);
 			}
 			if (this.stopped) return;
 			const delay = this.delay;
@@ -76,29 +80,30 @@ export class GatewayClient {
 	}
 
 	private async connectOnce(): Promise<void> {
-		const socket = new WebSocket(this.options.url, {
+		const WsConstructor = (await import("ws")).WebSocket;
+		const socket = new WsConstructor(this.options.url, {
 			headers: this.options.token ? { authorization: `Bearer ${this.options.token}` } : undefined,
 			maxPayload: 25 * 1024 * 1024,
-		} as unknown as string[]);
+		}) as unknown as WsSocket;
 		this.socket = socket;
 		await new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(() => reject(new Error("gateway connect timeout")), CONNECT_TIMEOUT_MS);
-			socket.addEventListener(
-				"open",
-				() => {
-					clearTimeout(timer);
-					resolve();
-				},
-				{ once: true },
-			);
-			socket.addEventListener(
-				"error",
-				() => {
-					clearTimeout(timer);
-					reject(new Error("gateway connect failed"));
-				},
-				{ once: true },
-			);
+			const onOpen = () => {
+				clearTimeout(timer);
+				cleanup();
+				resolve();
+			};
+			const onError = () => {
+				clearTimeout(timer);
+				cleanup();
+				reject(new Error("gateway connect failed"));
+			};
+			const cleanup = () => {
+				socket.off("open", onOpen);
+				socket.off("error", onError);
+			};
+			socket.on("open", onOpen);
+			socket.on("error", onError);
 		});
 		this.open = true;
 		this.delay = FIRST_DELAY_MS;
@@ -141,7 +146,32 @@ export class GatewayClient {
 		};
 	}
 
-	private async pump(socket: WebSocket): Promise<void> {
+	/**
+	 * Dispatch one wire frame: a `res` resolves its pending request, an `event`
+	 * goes to the connector. Shared by the handshake (before the pump) and the
+	 * pump itself.
+	 */
+	private dispatch(frame: Record<string, unknown>): void {
+		if (frame.type === "res") {
+			const id = typeof frame.id === "string" ? frame.id : undefined;
+			if (!id) return;
+			const pending = this.pending.get(id);
+			if (!pending) return;
+			clearTimeout(pending.timer);
+			this.pending.delete(id);
+			if (frame.ok === true) pending.resolve(frame.payload);
+			else
+				pending.reject(
+					new Error(String((frame.error as Record<string, unknown> | undefined)?.message ?? "gateway error")),
+				);
+			return;
+		}
+		if (frame.type === "event" && typeof frame.event === "string") {
+			this.options.onEvent({ event: frame.event, payload: frame.payload });
+		}
+	}
+
+	private async pump(socket: WsSocket): Promise<void> {
 		for await (const raw of framesOf(socket)) {
 			if (this.stopped) return;
 			let value: unknown;
@@ -151,24 +181,7 @@ export class GatewayClient {
 				continue;
 			}
 			if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-			const frame = value as Record<string, unknown>;
-			if (frame.type === "res") {
-				const id = typeof frame.id === "string" ? frame.id : undefined;
-				if (!id) continue;
-				const pending = this.pending.get(id);
-				if (!pending) continue;
-				clearTimeout(pending.timer);
-				this.pending.delete(id);
-				if (frame.ok === true) pending.resolve(frame.payload);
-				else
-					pending.reject(
-						new Error(String((frame.error as Record<string, unknown> | undefined)?.message ?? "gateway error")),
-					);
-				continue;
-			}
-			if (frame.type === "event" && typeof frame.event === "string") {
-				this.options.onEvent({ event: frame.event, payload: frame.payload });
-			}
+			this.dispatch(value as Record<string, unknown>);
 		}
 	}
 
@@ -188,24 +201,52 @@ export class GatewayClient {
 		}
 	}
 
-	/** One request/response round trip; rejects on a gateway error or timeout. */
+	/**
+	 * One request/response round trip. The reply is read off THIS socket
+	 * directly: the pump only starts after the handshake, so the connect
+	 * response would otherwise never be read. Other frames go through
+	 * `dispatch` (events reach the connector; other res frames resolve their
+	 * own pending entries).
+	 */
 	async request(method: string, params: unknown, options?: { timeoutMs?: number }): Promise<unknown> {
 		const id = this.nextRequestId();
 		const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
-		return new Promise((resolve, reject) => {
+		const socket = this.socket;
+		if (!socket || !this.open) throw new Error("gateway connection is not open");
+		const promise = new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
 				this.pending.delete(id);
 				reject(new Error(`gateway request timed out (${method})`));
 			}, timeoutMs);
 			timer.unref?.();
 			this.pending.set(id, { resolve, reject, timer });
-			const sent = this.send({ type: "req", id, method, params });
-			if (!sent) {
-				clearTimeout(timer);
-				this.pending.delete(id);
-				reject(new Error("gateway connection is not open"));
-			}
 		});
+		if (!this.send({ type: "req", id, method, params })) {
+			const pending = this.pending.get(id);
+			this.pending.delete(id);
+			if (pending) clearTimeout(pending.timer);
+			throw new Error("gateway connection is not open");
+		}
+		for await (const raw of framesOf(socket)) {
+			if (this.stopped) throw new Error("gateway connection closed");
+			let value: unknown;
+			try {
+				value = JSON.parse(raw);
+			} catch {
+				continue;
+			}
+			if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+			const frame = value as Record<string, unknown>;
+			if (frame.type === "res" && frame.id === id) {
+				const pending = this.pending.get(id);
+				if (pending) clearTimeout(pending.timer);
+				this.pending.delete(id);
+				if (frame.ok === true) return frame.payload;
+				throw new Error(String((frame.error as Record<string, unknown> | undefined)?.message ?? "gateway error"));
+			}
+			this.dispatch(frame);
+		}
+		throw new Error("gateway connection closed");
 	}
 
 	async stop(): Promise<void> {
@@ -228,7 +269,7 @@ export class GatewayClient {
 	}
 }
 
-async function* framesOf(socket: WebSocket): AsyncGenerator<string> {
+async function* framesOf(socket: WsSocket): AsyncGenerator<string> {
 	const queue: string[] = [];
 	const wake: (() => void)[] = [];
 	let ended = false;
@@ -236,23 +277,17 @@ async function* framesOf(socket: WebSocket): AsyncGenerator<string> {
 		const next = wake.shift();
 		next?.();
 	};
-	socket.addEventListener(
-		"message",
-		(event) => {
-			const data = (event as unknown as { data: unknown }).data;
-			if (typeof data === "string") {
-				queue.push(data);
-				notify();
-			}
-		},
-		{ once: false },
-	);
+	socket.on("message", (data: unknown) => {
+		const text = typeof data === "string" ? data : String(data);
+		queue.push(text);
+		notify();
+	});
 	const end = () => {
 		ended = true;
 		notify();
 	};
-	socket.addEventListener("close", end, { once: true });
-	socket.addEventListener("error", end, { once: true });
+	socket.on("close", end);
+	socket.on("error", end);
 	while (!ended) {
 		while (queue.length > 0) {
 			const item = queue.shift();

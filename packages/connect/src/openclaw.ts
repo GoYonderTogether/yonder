@@ -90,15 +90,15 @@ function runCommand(
 }
 
 /**
- * `openclaw plugins install <spec> --force --accept-capabilities --no-prompt`:
- * the non-interactive form (unreviewed sources require --accept-capabilities;
- * --no-prompt keeps an agent-driven install from stalling on a wizard).
+ * `openclaw plugins install <spec> --force --accept-capabilities`: the
+ * non-interactive form (unreviewed sources require --accept-capabilities;
+ * --force confirms the non-ClawHub source, so no wizard prompts).
  */
 export function installPlugin(options: PluginOptions): void {
 	const env = options.env ?? process.env;
 	const result = (options.run ?? runCommand)(
 		options.launcher,
-		["plugins", "install", options.spec, "--force", "--accept-capabilities", "--no-prompt"],
+		["plugins", "install", options.spec, "--force", "--accept-capabilities"],
 		env,
 	);
 	if (result.status !== 0) {
@@ -107,12 +107,12 @@ export function installPlugin(options: PluginOptions): void {
 	}
 }
 
-/** `openclaw plugins uninstall <id> --force --no-prompt` (leaves one `enabled:false` entry). */
+/** `openclaw plugins uninstall <id> --force` (leaves one `enabled:false` entry). */
 export function uninstallPlugin(options: Omit<PluginOptions, "spec">): void {
 	const env = options.env ?? process.env;
 	const result = (options.run ?? runCommand)(
 		options.launcher,
-		["plugins", "uninstall", "yonder-connector", "--force", "--no-prompt"],
+		["plugins", "uninstall", "yonder-connector", "--force"],
 		env,
 	);
 	if (result.status !== 0) {

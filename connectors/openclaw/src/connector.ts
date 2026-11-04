@@ -73,7 +73,9 @@ export function composeCloudInput(frame: Extract<InboundFrame, { type: "message"
 }
 
 class DeviceConnection implements OutboundConnection {
-	private socket: WebSocket | undefined;
+	// The OpenClaw runtime bundles `ws`; its type is richer than the root
+	// project's @types, so the constructor is typed loosely here.
+	private socket: { send(data: string): void; close(): void; readyState: number; on(ev: string, cb: (...a: unknown[]) => void): void; off(ev: string, cb: (...a: unknown[]) => void): void } | undefined;
 	private retry: ReturnType<typeof setTimeout> | undefined;
 	private delay = 1_000;
 	private stopped = false;
@@ -115,15 +117,19 @@ class DeviceConnection implements OutboundConnection {
 
 	private async connectOnce(): Promise<void> {
 		const url = deviceSocketUrl(this.endpoint);
-		const socket = new WebSocket(url, {
+		const WsConstructor = (await import("ws")).WebSocket;
+		const socket = new WsConstructor(url, {
 			headers: { authorization: `Bearer ${this.deviceToken}` },
 			maxPayload: 1_400_000,
-		} as unknown as string[]);
+		}) as unknown as NonNullable<typeof this.socket>;
 		this.socket = socket;
 		await new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(() => reject(new Error("cloud connect timeout")), 10_000);
-			socket.addEventListener("open", () => { clearTimeout(timer); resolve(); }, { once: true });
-			socket.addEventListener("error", () => { clearTimeout(timer); reject(new Error("cloud connect failed")); }, { once: true });
+			const onOpen = () => { clearTimeout(timer); cleanup(); resolve(); };
+			const onError = () => { clearTimeout(timer); cleanup(); reject(new Error("cloud connect failed")); };
+			const cleanup = () => { socket.off("open", onOpen); socket.off("error", onError); };
+			socket.on("open", onOpen);
+			socket.on("error", onError);
 		});
 		this.open = true;
 		this.delay = 1_000;
@@ -167,24 +173,25 @@ class DeviceConnection implements OutboundConnection {
 	}
 }
 
-async function* frames(socket: WebSocket): AsyncGenerator<string> {
+/** The loose socket shape the OpenClaw-bundled `ws` provides. */
+type WsSocket = NonNullable<DeviceConnection["socket"]>;
+
+async function* frames(socket: WsSocket): AsyncGenerator<string> {
 	const queue: string[] = [];
 	const wake: (() => void)[] = [];
 	let ended = false;
 	const notify = () => wake.shift()?.();
-	socket.addEventListener("message", (event) => {
-		const data = (event as unknown as { data: unknown }).data;
-		if (typeof data === "string") {
-			queue.push(data);
-			notify();
-		}
+	socket.on("message", (data: unknown) => {
+		const text = typeof data === "string" ? data : String(data);
+		queue.push(text);
+		notify();
 	});
 	const end = () => {
 		ended = true;
 		notify();
 	};
-	socket.addEventListener("close", end, { once: true });
-	socket.addEventListener("error", end, { once: true });
+	socket.on("close", end);
+	socket.on("error", end);
 	while (!ended) {
 		while (queue.length > 0) {
 			const item = queue.shift();

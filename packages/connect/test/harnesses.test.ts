@@ -154,7 +154,7 @@ describe("openclaw plugin install", () => {
 			},
 		});
 		expect(calls).toEqual([
-			["/x/openclaw", "plugins", "install", "npm-pack:/tmp/yonder.tgz", "--force", "--accept-capabilities", "--no-prompt"],
+			["/x/openclaw", "plugins", "install", "npm-pack:/tmp/yonder.tgz", "--force", "--accept-capabilities"],
 		]);
 	});
 
@@ -167,7 +167,7 @@ describe("openclaw plugin install", () => {
 				return { status: 0, stdout: "", stderr: "" };
 			},
 		});
-		expect(calls).toEqual([["/x/openclaw", "plugins", "uninstall", "yonder-connector", "--force", "--no-prompt"]]);
+		expect(calls).toEqual([["/x/openclaw", "plugins", "uninstall", "yonder-connector", "--force"]]);
 	});
 
 	test("surfaces openclaw's own failure text", () => {
