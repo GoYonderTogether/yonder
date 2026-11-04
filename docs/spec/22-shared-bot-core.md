@@ -44,6 +44,12 @@ SDK OutMessage 支持至少 interactive 结构化内容，channel-card 原样透
 
 MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可写，客户端提交时拒绝。超时、HTTP 状态错误、网络/隧道故障、空回答、超额度、worker 不在线均生成真实中文原因，不含密钥、鉴权头或堆栈。每条用户消息只有一个结果：正常回复或一条错误；错误不进入后续模型历史。共享 SDK 的用户可见 Bot 发言谓词同时约束投递和 social 群历史，`error` 不能被当作正常发言写入上下文。原生运行失败仍优先保留真实原因；单结果渠道中正常结束且waiting=false、reply:none的来源也须沿共享最终路径给系统error“本轮来源关闭自动回复，未投递模型回复”，不发模型正常文本、不暗示操作未执行，避免Worker等待不存在的回执而堵住该Bot队列；普通本机reply:none与io.ask/caller仍保持原语义。worker渠道声明output.singleResult，省略中间流/回退通知；对本轮来源的即时message_send明确失败并指导使用最终回复，不能返回伪发送成功或抢占结果槽。其他目标的主动发送仍按原权限和deliveryId投递。官方卡片工具只准备最终卡片，工具回执不得声称已投递，模型失败时不能先发卡片再吞掉错误。apps/app 使用 role="alert" 与 text-danger 渲染，不套正常气泡；会话列表支持该类型。云端输入框不再声明只能引导；其在线状态以实际 worker 为准，不使用设备 Bot 的“上线后送达”承诺掩盖云端失败。
 
+## 4.1 新建 Bot 的「已连接」提醒与主 Bot 运行位置（2026-11-05 主人要求）
+
+**已连接提醒只发生一次，且由 Bot 自己说。** Bot 无论在云端由 `POST /api/bots` 创建，还是本机通过 card 渠道登记，平台都为它开好与主人的真实私聊并记下「还没提醒过」。Bot 连上平台时，平台把这条事实变成一条真实的 `channel.connected` 事件（与设备授权完成后同一内核路径：`from: plugin:channel-card`、真实的 `acct:` 主人账号与 `conv:` 私聊、`kind: dm`、带 `target`），由路由按该 Bot 自己的主人私聊绑定唤醒 main，内容由模型决定。平台**不写问候文案、不代发消息**：事件 `data.text` 只陈述「已连接、私聊是哪条」这一事实，模型失败按正常运行错误如实呈现（`error` 消息），不谎称已打过招呼，也不要改写成一句平台代写的问候。派发后该记录删除，重连不再重复；一次成功即不再提醒。
+
+**主 Bot 默认在云端。** 每个账号的主 Bot 默认是云端 Bot，用云端额度。主人可以把它指到自己名下某台设备上的既有 Bot（不新建、不搬会话，只存一个指针，`GET/PUT /api/me/main-bot`），响应如实给出该设备当前是否在线，以及离线时接手的云端 Bot。设备离线时该账号没有本机 Bot 可用：**这个私聊里的消息自动退回云端 Bot 回答**（`findCloudBotForConversation` 的回落规则），所以断电只影响本机能力，不会让消息没人处理。设备在线时由设备 Bot 自己回答，云端不插手。指针指向的 Bot 或设备已不存在时如实退回云端，不留悬空指针。
+
 ## 5 远程设备工具
 
 设备工具按19 §8沿现工作桥暴露，使用真实worker身份、DB Bot owner/设备/映射核验与本机已接纳defaultProfile/ToolPolicy。资格仅真实owner DM或可核owner程序来源；一次绑定不等于全scope，实际cap/resources/grant求交，默认cloud不新增exec。owner设备内多Agent工具以稳定namespace和真实schema进入同Runtime模型目录；访客/群不取私密目录或facts。
