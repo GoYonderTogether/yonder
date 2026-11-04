@@ -1,8 +1,14 @@
 # 项目状态
 
-更新：2026-11-04。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
+更新：2026-11-05。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
+
+## bot-network 合入 main 与平台额度（2026-11-05，integrate/bot-network）
+
+`feat/bot-network` 已合入两仓新起的 `integrate/bot-network`（未 push、未部署）：冲突都按 main 的更新行为取舍，站点源保持 `https://yonder.zethai.cn`，版本号保持 `0.3.26110401`，包布局取分支的 `@yonder/bot-core` / `local-host` / `cloud-host` / `connect`。合并后 yonder `npm run build`/`typecheck`/`lint` 全通过，Vitest **2902 通过 / 0 失败 / 112 跳过**（536 文件通过 / 67 跳过），`test:node` 83/0/0/0/0；云端根与 server build、`version:check`、`deploy:test` 19/0、server 真实 PG/Redis **220 通过 / 0 失败 / 0 跳过**、SSR 3/0。真实平台模型复测：`scripts/cloud-worker/verify.mjs --live` 用官方 DeepSeek `deepseek-flash` 跑通两租户首轮与暖轮，密钥未进日志/转录。**未测**：生产部署、iPhone/Windows 设备、`openai/gpt-6-luna`（本机无凭据）、2 核 2 GB 生产共存。
+
+平台模型改为唯一官方 DeepSeek（`deepseek-flash`，用户不能自选），额度改按 token 计，规则见 [16 §6](spec/16-card-plugin.md)。额度只在云端 server 与迁移里实现，worker 每次调用前查账本、调用后上报用量；本机 Bot 不带额度，行为不变。旧的访客 10 条消息上限默认改为不限。
 
 ## Bot 网络 P6 端到端环路（2026-11-04）
 
