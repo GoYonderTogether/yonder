@@ -1,5 +1,4 @@
-import type { Listing, WatchTask } from "../market/types";
-import type { ApiClient, ListingInput, MarketCapabilities } from "./client";
+import type { ApiClient, MarketCapabilities } from "./client";
 import type { Actor, Card, CodeSent, Conversation, Device, Message, Session, ShareLink } from "./types";
 
 /** 社交服务的基址：缺省同源；挂在本机网关下时由 VITE_SOCIAL_BASE 指向云端或测试后端。 */
@@ -46,30 +45,12 @@ export async function request<T>(path: string, init: RequestInit = {}, missingAs
 	return (text ? JSON.parse(text) : undefined) as T;
 }
 
-/** 云端帖子视图（server/src/market.ts listingView）转成页面用的 Listing：图片取首张，状态转 paused。 */
-type CloudListing = Omit<Listing, "image" | "paused" | "metrics"> & {
-	images: string[];
-	sellerId: string;
-	status: "active" | "paused";
-	updatedAt: number;
-	metrics: { shortlists: number; likes?: number; humanViews?: number; agentViews?: number; inquiries?: number };
-};
-const toListing = ({ images, status, updatedAt: _updatedAt, metrics, ...rest }: CloudListing): Listing => ({
-	...rest,
-	image: images[0] ?? "",
-	paused: status === "paused",
-	metrics: {
-		shortlists: metrics.shortlists,
-		agentViews: metrics.agentViews ?? 0,
-		humanViews: metrics.humanViews ?? 0,
-		inquiries: metrics.inquiries ?? 0,
-	},
-});
 const json = (method: string, body?: unknown): RequestInit => ({
 	method,
 	...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
 });
 
+/** 云端能力探针；老云端没有这个端点（404）时按两项都不支持处理。 */
 async function marketCapabilities(): Promise<MarketCapabilities> {
 	let support: Partial<MarketCapabilities> | null;
 	try {
@@ -79,22 +60,6 @@ async function marketCapabilities(): Promise<MarketCapabilities> {
 		return { listingPolicy: false, sellerShops: false };
 	}
 	return { listingPolicy: support?.listingPolicy === true, sellerShops: support?.sellerShops === true };
-}
-async function ensureMarketSupport(capability: keyof MarketCapabilities) {
-	if (!(await marketCapabilities())[capability]) throw new Error("市场服务正在更新，此项功能暂未开放。");
-}
-async function compatibleListingInput<T extends Partial<ListingInput>>(input: T): Promise<T> {
-	const support = await marketCapabilities();
-	if (support.listingPolicy) return input;
-	if (
-		(input.visibility !== undefined && input.visibility !== "public") ||
-		input.expiresAt != null ||
-		input.coordinates != null
-	)
-		throw new Error("市场服务正在更新，暂不支持可见范围、有效期或定位设置；未保存此次发布。");
-	if ("location" in input && !input.location?.trim()) throw new Error("请填写地点，线上可填「线上」。");
-	const { visibility: _, expiresAt: __, coordinates: ___, ...legacy } = input;
-	return legacy as T;
 }
 
 export const httpApi: ApiClient = {
@@ -219,49 +184,6 @@ export const httpApi: ApiClient = {
 	createBot: (input) => request<Actor>("/bots", json("POST", input)),
 	ensureDefaultBot: (input) => request<Actor>("/me/default-bot", json("POST", input)),
 	marketCapabilities,
-	marketListings: async (query = {}) => {
-		if (query.sellerId || query.status) await ensureMarketSupport("sellerShops");
-		const params = new URLSearchParams();
-		for (const [key, value] of Object.entries(query)) {
-			if (value !== undefined && value !== "")
-				params.set(key, typeof value === "boolean" ? (value ? "1" : "0") : value);
-		}
-		const page = await request<{ items: CloudListing[]; nextCursor?: string }>(`/market/listings?${params}`);
-		return { ...page, items: page.items.map(toListing) };
-	},
-	marketListing: async (id) => {
-		const item = await request<CloudListing | null>(`/market/listings/${encodeURIComponent(id)}`, {}, true);
-		return item ? toListing(item) : null;
-	},
-	createListing: async (input) => {
-		const compatible = await compatibleListingInput(input);
-		return toListing(await request<CloudListing>("/market/listings", json("POST", compatible)));
-	},
-	updateListing: async (id, input) => {
-		const compatible = await compatibleListingInput(input);
-		return toListing(
-			await request<CloudListing>(`/market/listings/${encodeURIComponent(id)}`, json("PATCH", compatible)),
-		);
-	},
-	deleteListing: async (id) => {
-		await ensureMarketSupport("listingPolicy");
-		return request(`/market/listings/${encodeURIComponent(id)}`, json("DELETE"));
-	},
-	setListingPaused: async (id, paused) => {
-		return toListing(
-			await request<CloudListing>(
-				`/market/listings/${encodeURIComponent(id)}/${paused ? "pause" : "resume"}`,
-				json("POST"),
-			),
-		);
-	},
-	listWatchTasks: async () => (await request<{ items: WatchTask[] }>("/market/watch-tasks?limit=20")).items,
-	createWatchTask: (input) => request<WatchTask>("/market/watch-tasks", json("POST", input)),
-	updateWatchTask: (id, input) =>
-		request<WatchTask>(`/market/watch-tasks/${encodeURIComponent(id)}`, json("PATCH", input)),
-	deleteWatchTask: async (id) => {
-		await request(`/market/watch-tasks/${encodeURIComponent(id)}`, json("DELETE"));
-	},
 	setAgentOnline: (agentId, online) =>
 		request(`/agents/${encodeURIComponent(agentId)}/online`, json("PUT", { online })),
 	deviceCode: (code) => request(`/device/code?code=${encodeURIComponent(code)}`),

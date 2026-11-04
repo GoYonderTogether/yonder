@@ -1,8 +1,3 @@
-import { defaultFilters, filterListings } from "../market/flows";
-// 原型数据：仅用于前端原型演示，后端接入后整文件删除。内存实现，刷新即重置。
-
-import { DEMO_LISTINGS } from "../market/data";
-import type { Listing } from "../market/types";
 import type { ApiClient } from "./client";
 import { cardSummary } from "./summary";
 import type { Actor, Card, Conversation, Device, Message, MessageContent, Session } from "./types";
@@ -165,19 +160,6 @@ let session: Session | null = null;
 const listeners = new Set<(m: Message) => void>();
 const emit = (m: Message) => {
 	for (const l of listeners) l(m);
-};
-
-// 市场演示数据：只在 mock 构建（未设 VITE_API=http）里出现；真实构建走云端。
-// 惰性初始化：生产（http）构建里 mockApi 被摇掉，演示帖也不会进产物（JV2-J10-01）。
-let demoListings: Listing[] | undefined;
-const marketListings = () => {
-	demoListings ??= DEMO_LISTINGS.map((l) => ({ ...l }));
-	return demoListings;
-};
-const findListing = (id: string) => {
-	const listing = marketListings().find((l) => l.id === id);
-	if (!listing) throw new Error("没有这条帖子");
-	return listing;
 };
 
 export const mockApi: ApiClient = {
@@ -537,13 +519,14 @@ export const mockApi: ApiClient = {
 			.filter((a) => a.ownerId === session?.actor.id || friends.has(a.id))
 			.map((a) => ({ ...a }));
 	},
-	async createBot({ name }) {
+	async createBot({ name, avatarUrl }) {
 		await wait();
 		const owner = session?.actor.id ?? me.id;
 		const bot: Actor = {
 			id: `a-${now()}`,
 			kind: "agent",
 			name: name.trim(),
+			...(avatarUrl ? { avatarUrl } : {}),
 			ownerId: owner,
 			online: true,
 			public: false,
@@ -569,80 +552,5 @@ export const mockApi: ApiClient = {
 	},
 	async marketCapabilities() {
 		return { listingPolicy: false, sellerShops: false };
-	},
-	async marketListings(query = {}) {
-		if (query.sellerId || query.status) throw new Error("小店需要连接真实市场服务");
-		await wait();
-		const all = marketListings().filter((l) => !query.mine || l.mine);
-		const filtered = query.mine
-			? all
-			: filterListings(all, query.q ?? "", {
-					...defaultFilters,
-					kind: query.kind ?? "全部",
-					category: query.category ?? "全部",
-					city: query.city ?? "不限",
-					min: query.min ?? "",
-					max: query.max ?? "",
-					sort: { newest: "最新", price_asc: "价格从低到高", price_desc: "价格从高到低", relevance: "综合排序" }[
-						query.sort ?? "relevance"
-					],
-				});
-		const offset = Number(query.cursor ?? 0);
-		return {
-			items: filtered.slice(offset, offset + 20).map((l) => ({ ...l })),
-			...(offset + 20 < filtered.length ? { nextCursor: String(offset + 20) } : {}),
-		};
-	},
-	async marketListing(id) {
-		await wait();
-		const listing = marketListings().find((l) => l.id === id);
-		return listing && (!listing.paused || listing.mine) ? { ...listing } : null;
-	},
-	async createListing(input) {
-		if (input.visibility !== undefined || input.expiresAt !== undefined || input.coordinates !== undefined)
-			throw new Error("发布权限与有效期需要连接真实市场服务");
-		await wait();
-		const listing: Listing = {
-			...input,
-			id: crypto.randomUUID(),
-			image: input.images[0] ?? "",
-			seller: "我",
-			mine: true,
-			paused: false,
-			createdAt: now(),
-			metrics: { shortlists: 0, agentViews: 0, humanViews: 0, inquiries: 0 },
-		};
-		marketListings().unshift(listing);
-		return { ...listing };
-	},
-	async updateListing(id, input) {
-		if (input.visibility !== undefined || input.expiresAt !== undefined || input.coordinates !== undefined)
-			throw new Error("发布权限与有效期需要连接真实市场服务");
-		await wait();
-		const listing = findListing(id);
-		Object.assign(listing, input, { image: input.images?.[0] ?? listing.image });
-		return { ...listing };
-	},
-	async deleteListing() {
-		throw new Error("本地原型不支持删除发布，请连接真实市场服务");
-	},
-	async setListingPaused(id, paused) {
-		await wait();
-		const listing = findListing(id);
-		listing.paused = paused;
-		return { ...listing };
-	},
-	// 我的需求只存在云端 watch_tasks；原型构建没有云端，也不另造一份内存假数据。
-	async listWatchTasks() {
-		throw new Error("需求需要连接真实市场服务");
-	},
-	async createWatchTask() {
-		throw new Error("需求需要连接真实市场服务");
-	},
-	async updateWatchTask() {
-		throw new Error("需求需要连接真实市场服务");
-	},
-	async deleteWatchTask() {
-		throw new Error("需求需要连接真实市场服务");
 	},
 };

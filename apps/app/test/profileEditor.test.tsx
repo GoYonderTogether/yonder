@@ -9,7 +9,7 @@ import type { Actor, Card, CardFace } from "../src/api/types";
 import { CardFaceView, CardQrView } from "../src/components/card/CardFace";
 import { IdentityDetail } from "../src/components/IdentityDetail";
 import { identityHeadline, profileError, profileForm } from "../src/lib/profileEditor";
-import { uploadMarketImage } from "../src/market/uploadImage";
+import { uploadMarketImage } from "../src/lib/uploadImage";
 import { Me } from "../src/pages/Me";
 import { ProfileEdit } from "../src/pages/ProfileEdit";
 import { $session } from "../src/store";
@@ -53,8 +53,8 @@ vi.mock("../src/components/PhotoPicker", async () => {
 		},
 	};
 });
-vi.mock("../src/market/uploadImage", async (actual) => ({
-	...(await actual<typeof import("../src/market/uploadImage")>()),
+vi.mock("../src/lib/uploadImage", async (actual) => ({
+	...(await actual<typeof import("../src/lib/uploadImage")>()),
 	uploadMarketImage: vi.fn(),
 }));
 const actor: Actor = { id: "me", kind: "human", name: "原昵称", code: "ABC123" };
@@ -155,7 +155,6 @@ async function click(label: string) {
 it("loads the default card, preserves greeting whitespace, and saves the complete atomic payload", async () => {
 	await render([{ pathname: "/me" }, { pathname: "/me/edit", state: { appFrom: "/me" } }]);
 	await name(" 新昵称 ");
-	await act(() => props(required('[aria-label="展示个性签名"]')).onChange({ target: { checked: false } }));
 	await submit();
 	expect(api.saveProfile).toHaveBeenCalledWith({
 		name: "新昵称",
@@ -163,7 +162,8 @@ it("loads the default card, preserves greeting whitespace, and saves the complet
 		tagline: "签名",
 		markdown: " 开场白 ",
 		coverUrl: null,
-		visibility: { signature: false, code: true, greeting: true, shop: true },
+		visibility: { signature: true, code: true, greeting: true, shop: true },
+		face: { profile: {} },
 	});
 	expect($session.get()?.actor.name).toBe("新昵称");
 	expect(qc.getQueryData<Card>(["card", "card"])?.title).toBe("新昵称");
@@ -224,7 +224,7 @@ it("resetting both images saves null and never revives the legacy cover", async 
 		expect(button).toBeTruthy();
 		await act(() => button?.dispatchEvent(new window.Event("click", { bubbles: true })));
 	};
-	await restore("恢复默认背景");
+	await restore("恢复默认");
 	await restore("恢复默认头像");
 	expect(el.querySelector("img")).toBeNull();
 	expect(el.querySelector("iframe")).toBeNull();
@@ -390,27 +390,24 @@ it("rejects invalid crop output and removes failed preview images safely", async
 	expect(el.textContent).toContain(actor.name);
 });
 
-it("removes the opening controls while preserving existing hidden content and greeting preference", async () => {
+it("keeps the greeting text editable and preserves the existing greeting preference on save", async () => {
 	api.cards.mockResolvedValue([
 		{ ...card, face: { theme: "mist", visibility: { signature: true, code: true, greeting: false } } },
 	]);
 	await render();
-	expect(el.querySelector("textarea")).toBeNull();
-	expect(el.querySelector('[aria-label="展示访客开场白"]')).toBeNull();
-	expect(el.querySelector('[aria-label="展示个人小店"]')).toBeTruthy();
 	await submit();
 	expect(api.saveProfile.mock.calls[0][0]).toMatchObject({
 		markdown: " 开场白 ",
 		visibility: { greeting: false, shop: true },
 	});
 });
-it("asks before opening shop management with unsaved profile edits", async () => {
+it("asks before leaving with unsaved profile edits", async () => {
 	const confirm = vi.fn().mockReturnValue(false);
 	window.confirm = confirm;
 	await render();
 	await name("未保存");
 	await act(() =>
-		required('a[href="/me/shop"]').dispatchEvent(new window.Event("click", { bubbles: true, cancelable: true })),
+		required('button[aria-label="返回我的"]').dispatchEvent(new window.Event("click", { bubbles: true })),
 	);
 	expect(confirm).toHaveBeenCalledOnce();
 	expect(required("output").textContent).toBe("/me/edit");
@@ -419,7 +416,7 @@ it("asks before opening shop management with unsaved profile edits", async () =>
 
 async function signature(value: string) {
 	const label = [...el.querySelectorAll("label")].find(
-		(item) => item.getAttribute("for") && item.textContent?.startsWith("个性签名"),
+		(item) => item.getAttribute("for") && item.textContent?.startsWith("一句话"),
 	);
 	const input = label && document.getElementById(label.getAttribute("for") ?? "");
 	if (!input) throw new Error("Missing signature field");
@@ -440,9 +437,8 @@ it("keeps legacy nickname/signature saving functional and preserves all old card
 		return published;
 	});
 	await render();
-	expect(el.textContent).toContain("头像、背景与展示设置将在服务更新后开放");
+	expect(el.textContent).toContain("照片将在服务更新后开放");
 	expect(required('[aria-label="更换头像"]').hasAttribute("disabled")).toBe(true);
-	expect(required('[aria-label="展示个人小店"]').hasAttribute("disabled")).toBe(true);
 	await name(" 新昵称 ");
 	await signature(" 新的签名 ");
 	await submit();
@@ -451,7 +447,7 @@ it("keeps legacy nickname/signature saving functional and preserves all old card
 		title: original.title,
 		tagline: "新的签名",
 		markdown: original.markdown,
-		face: original.face,
+		face: { ...original.face, profile: {} },
 		display: original.display,
 	});
 	expect(api.publish).toHaveBeenCalledWith(card.id);
@@ -523,7 +519,7 @@ it("capability lookup errors block writes and retry preserves the text draft", a
 	await act(() => retry.dispatchEvent(new window.Event("click", { bubbles: true })));
 	await vi.waitFor(async () => {
 		await act(async () => {});
-		expect(el.textContent).toContain("头像、背景与展示设置将在服务更新后开放");
+		expect(el.textContent).toContain("照片将在服务更新后开放");
 	});
 	expect(required("input[required]").getAttribute("value")).toBe("等待保存");
 });

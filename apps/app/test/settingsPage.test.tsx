@@ -18,7 +18,6 @@ vi.mock("../src/work/features/settings/NotifySection", () => ({
 }));
 vi.mock("../src/work/features/settings/NodesSection", () => ({ NodesSection: () => <p>网关令牌</p> }));
 vi.mock("../src/work/features/settings/ChannelsSection", () => ({ ChannelsSection: () => <p>设备渠道</p> }));
-vi.mock("../src/work/features/settings/SocialSection", () => ({ SocialSection: () => <p>设备社交</p> }));
 vi.mock("../src/work/features/settings/AboutSection", () => ({ AboutSection: () => <p>本机更新</p> }));
 
 afterEach(() => {

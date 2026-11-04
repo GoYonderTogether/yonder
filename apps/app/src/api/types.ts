@@ -74,6 +74,23 @@ export interface CardDisplay {
 	source: string;
 }
 
+/**
+ * 名片背面与详情的可选资料块（后端 face.profile）：只承载用户填写的真实内容，
+ * 字段缺省就不渲染对应区块。
+ */
+export interface CardProfile {
+	/** 头衔，如「YonderAI 联合创始人」 */
+	title?: string;
+	/** 名字旁的小字，如英文别名 */
+	alias?: string;
+	/** 背面 k/v 行，最多 6 条 */
+	facts?: { k: string; v: string }[];
+	/** 背面「在找」一行 */
+	seeking?: string;
+	/** 「详情」展开的介绍 */
+	intro?: string;
+}
+
 /** 卡面结构（card-form.md §8），全部可选；只有名字必须。 */
 export interface CardVisibility {
 	shop?: boolean;
@@ -89,6 +106,8 @@ export interface ProfileUpdateInput {
 	markdown: string;
 	coverUrl: string | null;
 	visibility: CardVisibility;
+	/** 默认卡片的卡面扩展（profile 资料、标签）；省略时后端保留原值 */
+	face?: Pick<CardFace, "profile" | "tags">;
 }
 
 export interface ProfileUpdateResult {
@@ -100,6 +119,8 @@ export interface CardFace {
 	coverUrl?: string | null;
 	visibility?: CardVisibility;
 	theme: "mist" | "night" | "paper" | "ink";
+	/** 名片页纸卡上的资料：头衔、别名、背面事实、在找、介绍 */
+	profile?: CardProfile;
 	headline?: string;
 	tags?: string[];
 	section?: { title: string; body: string };

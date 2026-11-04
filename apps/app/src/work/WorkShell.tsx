@@ -151,8 +151,6 @@ export function WorkShell({
 	const page =
 		route.page === "settings" ? (
 			<Navigate to="/me/settings" replace />
-		) : route.page === "market" ? (
-			<Navigate to="/market" replace />
 		) : route.page === "console" ? (
 			cloudDevice ? (
 				<Navigate to={workPath()} replace />

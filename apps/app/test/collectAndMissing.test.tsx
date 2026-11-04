@@ -103,7 +103,7 @@ describe("JV2-J12-01 名片页收藏", () => {
 				</QueryClientProvider>,
 			),
 		);
-		await waitForUI(() => expect(button("和 TA 聊天")).toBeDefined());
+		await waitForUI(() => expect(button("和我的 AI 聊聊")).toBeDefined());
 		expect(button("收藏")).toBeUndefined();
 	});
 });

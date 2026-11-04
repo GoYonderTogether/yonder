@@ -12,7 +12,6 @@ const Shell = lazy(() => import("./components/Shell").then((m) => ({ default: m.
 const NewFriends = lazy(() => import("./pages/Friends").then((m) => ({ default: m.NewFriends })));
 const AddFriend = lazy(() => import("./pages/AddFriend").then((m) => ({ default: m.AddFriend })));
 const Contacts = lazy(() => import("./pages/Contacts").then((m) => ({ default: m.Contacts })));
-const CardsRedirect = lazy(() => import("./pages/Contacts").then((m) => ({ default: m.CardsRedirect })));
 const CardPage = lazy(() => import("./pages/CardPage").then((m) => ({ default: m.CardPage })));
 const GroupJoin = lazy(() => import("./pages/GroupJoin").then((m) => ({ default: m.GroupJoin })));
 const Conversation = lazy(() => import("./pages/Chat").then((m) => ({ default: m.Conversation })));
@@ -21,17 +20,11 @@ const Connect = lazy(() => import("./pages/Connect").then((m) => ({ default: m.C
 const Install = lazy(() => import("./pages/Install").then((m) => ({ default: m.Install })));
 const Download = lazy(() => import("./pages/Download").then((m) => ({ default: m.Download })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
-const Market = lazy(() => import("./pages/Market").then((m) => ({ default: m.Market })));
 const WorkRoot = lazy(() => import("./work/WorkRoot"));
+const Tasks = lazy(() => import("./pages/Tasks").then((m) => ({ default: m.Tasks })));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const ProfileEdit = lazy(() => import("./pages/ProfileEdit").then((m) => ({ default: m.ProfileEdit })));
-const Shop = lazy(() => import("./pages/Shop").then((m) => ({ default: m.Shop })));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
-
-function MarketPostsRedirect() {
-	const location = useLocation();
-	return <Navigate to={"/me/shop" + location.search} replace state={location.state} />;
-}
 
 function Private({ children }: { children: ReactNode }) {
 	const s = useStore($session);
@@ -74,7 +67,6 @@ export function App() {
 				<Routes>
 					<Route path="/login" element={<Login />} />
 					<Route path="/u/:id" element={<CardPage />} />
-					<Route path="/shop/:accountId" element={<Shop />} />
 					<Route path="/p/:accountId" element={<CardPage />} />
 					<Route path="/g/:token" element={<GroupJoin />} />
 					<Route path="/get" element={<Install />} />
@@ -89,19 +81,12 @@ export function App() {
 						}
 					>
 						<Route path="/pa" element={<Navigate to="/" replace />} />
-						<Route path="/market" element={<Market />} />
-						<Route path="/market/search" element={<Market />} />
-						<Route path="/market/category/:channel" element={<Market />} />
-						<Route path="/me/market/posts" element={<MarketPostsRedirect />} />
-						<Route path="/me/market/:section" element={<Market />} />
-						<Route path="/cards/:id?" element={<CardsRedirect />} />
-						<Route path="/cards/:id/edit" element={<CardsRedirect />} />
+						<Route path="/tasks" element={<Tasks />} />
 						<Route path="/friends/new" element={<NewFriends />} />
 						<Route path="/friends/add" element={<AddFriend />} />
 						<Route path="/contacts/:id?" element={<Contacts />} />
 						<Route path="/connect" element={<Connect />} />
 						<Route path="/me" element={<Me />} />
-						<Route path="/me/shop" element={<Shop />} />
 						<Route path="/me/edit" element={<ProfileEdit />} />
 						<Route path="/me/settings/:section?" element={<SettingsPage />} />
 						<Route path="/work/*" element={<WorkRoot />} />

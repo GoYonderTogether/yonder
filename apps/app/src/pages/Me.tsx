@@ -8,7 +8,6 @@ import { AppBar, BackButton } from "../components/AppBar";
 import { BotCards } from "../components/BotCards";
 import { CreateBotDialog } from "../components/CreateBotDialog";
 import { MyCard } from "../components/MyCard";
-import { MyMarket } from "../components/market/MarketStats";
 import { SelfIdentity } from "../components/wallet/ContactDetail";
 import { entityRef } from "../lib/entityRef";
 import { internalState } from "../lib/navigation";
@@ -76,22 +75,13 @@ export function Me() {
 			<SelfIdentity />
 			<div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 pb-24 lg:px-8 lg:pb-10">
 				{s.actor.anonymous ? (
-					<>
-						<section aria-label="注册引导" className="rounded-card bg-raised p-5">
-							<h2 className="font-medium">注册后可加好友</h2>
-							<p className="mt-1 text-small text-muted">
-								你现在是访客账号，可以聊天、加入群聊；注册后还能加好友、管理 Bot 与设备，已有记录会保留。
-							</p>
-						</section>
-						<Button variant="primary" onClick={() => nav("/login")}>
-							注册 / 登录
-						</Button>
-					</>
+					<Button variant="primary" onClick={() => nav("/login")}>
+						注册 / 登录
+					</Button>
 				) : (
 					<>
 						<BotCards />
 						<MyCard />
-						<MyMarket />
 						<section aria-label="我的 Bot" className="overflow-hidden rounded-card bg-raised">
 							<div className="flex items-center justify-between px-5 pt-4 pb-2">
 								<h2 className="text-small font-medium text-muted">我的 Bot</h2>
@@ -150,24 +140,6 @@ export function Me() {
 						</section>
 						<CreateBotDialog open={creatingBot} onOpenChange={setCreatingBot} />
 						<div className="overflow-hidden rounded-card bg-raised">
-							<details className="px-4 py-4">
-								<summary className="cursor-pointer text-body">渠道接入</summary>
-								<p className="mt-2 text-small text-muted">
-									网页无法读取本机渠道状态。请在运行 Yonder 的设备终端执行 <code>yonder channels list</code>{" "}
-									查看状态；授权或扫码需由主人完成。
-								</p>
-								<ul className="mt-2 space-y-2 text-small">
-									<li>
-										飞书：状态未知 · 配置后运行 <code>yonder channels login feishu</code>
-									</li>
-									<li>
-										微信：状态未知 · 配置后运行 <code>yonder channels login wechat-ilink</code>
-									</li>
-									<li>
-										QQ：状态未知 · 先运行 <code>yonder-qq setup --home /绝对路径 --agent main --open</code> 配置
-									</li>
-								</ul>
-							</details>
 							<Item to="/connect" icon={Monitor} label="设备" />
 						</div>
 						{!agents.length && !failure && (

@@ -55,10 +55,8 @@ if (process.argv.includes("--check")) {
 	await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
 	try {
 		const base = `http://127.0.0.1:${server.address().port}`;
-		for (const path of ["/", "/pa", "/market", "/version.json", "/yonder-sw.js", "/market/camera.jpg"])
+		for (const path of ["/", "/pa", "/version.json", "/yonder-sw.js"])
 			assert.equal((await fetch(base + path)).status, 200, path);
-		assert.match((await fetch(`${base}/market`)).headers.get("content-type"), /^text\/html/);
-		assert.match((await fetch(`${base}/market/camera.jpg`)).headers.get("content-type"), /^image\/jpeg/);
 		for (const path of ["/src/main.tsx", "/assets/missing.js", "/market/missing.js", "/%2e%2e%2findex.html"])
 			assert.equal((await fetch(base + path)).status, 404, path);
 		console.log("Preview HTTP check passed: SPA, public assets, missing assets and source boundary");

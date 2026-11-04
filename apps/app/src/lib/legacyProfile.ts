@@ -7,7 +7,7 @@ export async function saveLegacyProfile(
 	client: Pick<ApiClient, "updateProfile" | "saveDraft" | "publish">,
 	actor: Actor,
 	card: Card | undefined,
-	form: Pick<ProfileUpdateInput, "name" | "tagline">,
+	form: Pick<ProfileUpdateInput, "name" | "tagline"> & { face?: ProfileUpdateInput["face"] },
 	callbacks: { active(): boolean; onActor(actor: Actor): void; onCard(card: Card): void; pendingDraft?: Card },
 ): Promise<ProfileUpdateResult> {
 	const invalid = profileTextError(form);
@@ -44,14 +44,14 @@ export async function saveLegacyProfile(
 		active();
 		attempted = true;
 		const draft =
-			ownDraft && !signatureChanged
+			ownDraft && !signatureChanged && !form.face
 				? card
 				: await client.saveDraft(card.id, {
 						title: card.title,
 						tagline,
 						markdown: card.markdown,
 						display: card.display,
-						face: card.face,
+						face: { theme: card.face?.theme ?? "mist", ...card.face, ...(form.face ?? {}) },
 					});
 		acknowledged.push("签名草稿已保存，发布尚未确认");
 		callbacks.onCard(draft);

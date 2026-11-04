@@ -8,6 +8,7 @@ import { chatApi, chatError } from "../api/chat";
 import type { Actor, Conversation as Conv, Message, Session } from "../api/types";
 import { selectAccount } from "../cache";
 import { AppBar, BackButton } from "../components/AppBar";
+import { CreateBotEntry } from "../components/CreateBotEntry";
 import { AiBadge } from "../components/chat/AiBadge";
 import { AiGeneratedNotice } from "../components/chat/AiGeneratedLabel";
 import { AnonHint } from "../components/chat/AnonHint";
@@ -35,8 +36,8 @@ import { socialUnavailable } from "../lib/socialError";
 import { useSocialRealtime } from "../lib/socialRealtime";
 import { useDesktop } from "../lib/useDesktop";
 import { useEntityId } from "../lib/useEntityId";
+import { useNeedsBot } from "../lib/useOnboarding";
 import { needsVerify } from "../lib/verify";
-import { readMarketDraft } from "../market/handoff";
 import { $session } from "../store";
 import { Avatar, GroupAvatar, Status } from "../ui/Avatar";
 import { Button } from "../ui/Button";
@@ -81,6 +82,16 @@ function EmptyChats({ onStart, busy }: { onStart: () => void; busy: boolean }) {
 	);
 }
 
+/** 账号还没有自己的 Bot 时的空态：只有一个「创建你的 bot」入口，打开引导流程。 */
+function NoBotChats() {
+	return (
+		<div className="m-auto flex max-w-xs flex-col items-center px-6 py-10 text-center">
+			<p className="text-title font-semibold tracking-tight">还没有会话</p>
+			<CreateBotEntry className="mt-5" />
+		</div>
+	);
+}
+
 function useActors(ids: string[]) {
 	const key = [...new Set(ids)].sort().join(",");
 	// 在线态每 15 秒刷新一次（窗口可见时），设备断开后聊天页不会长期显示「在线」。
@@ -108,6 +119,7 @@ export function ChatShell() {
 	const desktop = useDesktop();
 	const nav = useNavigate();
 	const { agent: defaultBot } = usePersonalAgent();
+	const needsBot = useNeedsBot();
 	const defaultConv = defaultBot && convs?.find((c) => c.kind === "dm" && c.memberIds.includes(defaultBot.id));
 	// 不自动跳进任何会话（B5）：没有会话时显示空态，点「开始聊天」才建/开与默认 Bot 的私聊。
 	const botId = defaultBot?.id;
@@ -200,7 +212,10 @@ export function ChatShell() {
 					{shown.map((c) => (
 						<ConvRow key={c.id} c={c} actors={actors} meId={me?.id} active={!!id && (c.id === id || c.code === id)} />
 					))}
-					{!isLoading && !isError && !convs?.length && <EmptyChats onStart={() => void startChat()} busy={starting} />}
+					{!isLoading &&
+						!isError &&
+						!convs?.length &&
+						(needsBot ? <NoBotChats /> : <EmptyChats onStart={() => void startChat()} busy={starting} />)}
 					{!isLoading && !isError && !!convs?.length && !shown.length && (
 						<p className="px-3 py-6 text-small text-faint">没有匹配的会话。</p>
 					)}
@@ -217,7 +232,11 @@ export function ChatShell() {
 				) : convs?.length ? (
 					<Users aria-hidden="true" className="m-auto text-faint" size={32} />
 				) : !isLoading && !isError ? (
-					<EmptyChats onStart={() => void startChat()} busy={starting} />
+					needsBot ? (
+						<NoBotChats />
+					) : (
+						<EmptyChats onStart={() => void startChat()} busy={starting} />
+					)
 				) : null}
 			</main>
 		</div>
@@ -1029,25 +1048,6 @@ export function Composer({
 		});
 	};
 	const ref = useRef<HTMLTextAreaElement>(null);
-	const loc = useLocation();
-	const nav = useNavigate();
-	const consumed = useRef<string | null>(null);
-	// 市场页把整理好的上下文带来时只填充输入框，发送仍由用户确认。
-	useEffect(() => {
-		const draft = readMarketDraft(loc.state, convId);
-		if (!draft || consumed.current === loc.key) return;
-		consumed.current = loc.key;
-		setText((previous) => (previous ? `${previous}\n\n${draft}` : draft));
-		const { marketDraft: _draft, ...rest } = loc.state;
-		nav(loc.pathname + loc.search, { replace: true, state: rest });
-		toast("已带入市场内容，确认后再发送给 Bot");
-	}, [loc.key, loc.state, convId, nav, loc.pathname, loc.search]);
-	useEffect(() => {
-		if (consumed.current && ref.current) {
-			ref.current.style.height = "auto";
-			ref.current.style.height = `${Math.min(ref.current.scrollHeight, 160)}px`;
-		}
-	}, []);
 	const qc = useQueryClient();
 	const [sending, setSending] = useState(false);
 	const pending = useRef(false);

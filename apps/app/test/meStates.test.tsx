@@ -49,28 +49,11 @@ async function render(node: React.ReactNode) {
 const human = { id: "me", kind: "human" as const, name: "Me" };
 
 describe("Me 页按登录态", () => {
-	it("显示渠道状态来源与接入指引", async () => {
-		$session.set({ actor: human });
-		api.contacts.mockResolvedValue([]);
-		await render(<Me />);
-		for (const text of [
-			"渠道接入",
-			"飞书：状态未知",
-			"微信：状态未知",
-			"QQ：状态未知",
-			"yonder channels list",
-			"yonder channels login feishu",
-			"yonder channels login wechat-ilink",
-			"yonder-qq setup",
-		]) {
-			expect(container.textContent).toContain(text);
-		}
-	});
-	it("anonymous visitor gets the register guide and login button, no contact load", async () => {
+	it("anonymous visitor gets the login button only, no contact load", async () => {
 		$session.set({ actor: { ...human, anonymous: true } });
 		await render(<Me />);
-		expect(container.textContent).toContain("注册后可加好友");
 		expect(container.textContent).toContain("注册 / 登录");
+		expect(container.textContent).toContain("设置");
 		expect(api.contacts).not.toHaveBeenCalled();
 	});
 

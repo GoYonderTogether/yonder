@@ -1,7 +1,7 @@
 import { useStore } from "@nanostores/react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
 import { AppBar, BackButton } from "../components/AppBar";
 import { EmptyPane } from "../components/EmptyPane";
@@ -15,14 +15,6 @@ import { useDesktop } from "../lib/useDesktop";
 import { useEntityId } from "../lib/useEntityId";
 import { $session } from "../store";
 import { Button } from "../ui/Button";
-
-/** 旧 /cards、/cards/:id、/cards/:id/edit 地址：名片只在「我」里管理。 */
-export function CardsRedirect() {
-	const { id } = useParams();
-	const loc = useLocation();
-	const editing = loc.pathname.endsWith("/edit") || id === "new";
-	return <Navigate state={loc.state} to={editing ? "/me?card=new" : "/me"} replace />;
-}
 
 function SearchBox({ q, onChange }: { q: string; onChange: (q: string) => void }) {
 	return (

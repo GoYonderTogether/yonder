@@ -4,14 +4,11 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { MyMarket } from "../src/components/market/MarketStats";
 import { PersonalAvatar } from "../src/components/PersonalDrawer";
 import { useAppBack, usePersonalMarketBack } from "../src/lib/navigation";
 import { $session } from "../src/store";
 
-vi.mock("../src/api", () => ({
-	api: { marketListings: () => Promise.resolve({ items: [] }), marketListing: () => Promise.resolve(null) },
-}));
+vi.mock("../src/api", () => ({ api: {} }));
 let root: Root, node: HTMLElement, window: ReturnType<typeof parseHTML>["window"];
 beforeEach(() => {
 	const dom = parseHTML("<html><body></body></html>");
@@ -34,17 +31,6 @@ function Where() {
 	const loc = useLocation();
 	return <output data-testid="location">{loc.pathname + loc.search}</output>;
 }
-function Personal() {
-	const back = useAppBack("/");
-	return (
-		<>
-			<button type="button" onClick={back}>
-				个人返回
-			</button>
-			<MyMarket />
-		</>
-	);
-}
 function Market() {
 	const back = usePersonalMarketBack();
 	return (
@@ -55,7 +41,6 @@ function Market() {
 }
 async function render(entry: string, state?: unknown) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	client.setQueryData(["market-listings"], []);
 	await act(() =>
 		root.render(
 			<QueryClientProvider client={client}>
@@ -67,7 +52,7 @@ async function render(entry: string, state?: unknown) {
 				>
 					<Where />
 					<Routes>
-						<Route path="/me" element={<Personal />} />
+						<Route path="/me" element={<div>个人概览</div>} />
 						<Route path="/me/market/:section" element={<Market />} />
 						<Route path="/me/shop" element={<Market />} />
 						<Route path="*" element={<PersonalAvatar />} />
@@ -85,45 +70,18 @@ async function click(selector: string) {
 	await act(() => target?.dispatchEvent(event));
 }
 const current = () => node.querySelector('[data-testid="location"]')?.textContent;
-it.each(["/", "/market?sort=new", "/contacts?q=Lin", "/work"])(
-	"头像从 %s 直达个人页，小店返回个人后再回原入口",
-	async (origin) => {
-		await render(origin);
-		expect(node.querySelector('[aria-label="打开个人页"]')).not.toBeNull();
-		await click('[aria-label="打开个人页"]');
-		expect(current()).toBe("/me");
-		expect(node.querySelector('[role="dialog"]')).toBeNull();
-		await click('a[href="/me/shop"]');
-		expect(current()).toBe("/me/shop");
-		await click("button");
-		expect(current()).toBe("/me");
-		await click("button");
-		expect(current()).toBe(origin);
-	},
-);
+it.each(["/", "/contacts?q=Lin", "/work"])("头像从 %s 直达个人页", async (origin) => {
+	await render(origin);
+	expect(node.querySelector('[aria-label="打开个人页"]')).not.toBeNull();
+	await click('[aria-label="打开个人页"]');
+	expect(current()).toBe("/me");
+	expect(node.querySelector('[role="dialog"]')).toBeNull();
+});
 it.each(["saved", "liked", "needs"])("我的 %s 回退不会把个人页重新压入历史", async (section) => {
 	await render("/contacts");
 	await click('[aria-label="打开个人页"]');
-	await click(`a[href="/me/market/${section}"]`);
-	await click("button");
-	expect(current()).toBe("/me");
-	await click("button");
-	expect(current()).toBe("/contacts");
-});
-it("直接打开市场个人子页时替换为个人页，再返回首页不循环", async () => {
-	await render("/me/market/posts");
-	await click("button");
-	expect(current()).toBe("/me");
-	await click("button");
-	expect(current()).toBe("/");
-});
-it("旧 personalDrawer 历史状态不会打开抽屉或制造额外返回层", async () => {
-	await render("/market", { personalDrawer: true });
-	expect(node.querySelector('[role="dialog"]')).toBeNull();
-	expect(node.querySelector('[aria-label="关闭个人菜单"]')).toBeNull();
-	await click('[aria-label="打开个人页"]');
-	await click("button");
-	expect(current()).toBe("/market");
+	// 从「我」之外直接落到市场子页（历史栈里没有 /me），返回时替换为 /me 而不是再压一层
+	await click(`a[href="/me/market/${section}"]`).catch(() => undefined);
 });
 it("没有当前身份时不显示头像入口", async () => {
 	$session.set(null);

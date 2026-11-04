@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { expect, it } from "vitest";
 import { Shell } from "../src/components/Shell";
 
-it("始终按消息、工作、市场、通讯录排列主导航", () => {
+it("始终按消息、任务、通讯录排列主导航", () => {
 	Object.assign(globalThis, { location: { pathname: "/" } });
 	const html = renderToStaticMarkup(
 		<QueryClientProvider client={new QueryClient()}>
@@ -18,10 +18,9 @@ it("始终按消息、工作、市场、通讯录排列主导航", () => {
 		</QueryClientProvider>,
 	);
 	const mobile = html.slice(html.lastIndexOf('<nav aria-label="主导航"'));
-	expect([...mobile.matchAll(/aria-label="(消息|工作|市场|通讯录|我)"/g)].map((match) => match[1])).toEqual([
+	expect([...mobile.matchAll(/aria-label="(消息|任务|通讯录|我)"/g)].map((match) => match[1])).toEqual([
 		"消息",
-		"工作",
-		"市场",
+		"任务",
 		"通讯录",
 	]);
 });

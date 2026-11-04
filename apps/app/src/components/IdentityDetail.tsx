@@ -1,4 +1,3 @@
-import { ChevronRight, Store } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { Actor, Profile } from "../api/types";
@@ -7,7 +6,6 @@ import { internalState } from "../lib/navigation";
 import { cardVisibility, humanSignature, identityHeadline } from "../lib/profileEditor";
 import { Avatar, Status } from "../ui/Avatar";
 import { CardCover } from "./card/CardCover";
-import { THEMES } from "./card/themes";
 import { Markdown } from "./Markdown";
 
 /** Public and internal profiles share the same compact identity header and introduction. */
@@ -22,8 +20,6 @@ export function IdentityDetail({
 	children,
 	publicView = false,
 	showCode = true,
-	showShop = true,
-	shopAvailable = false,
 }: {
 	actor: Actor;
 	/** 名片页传完整名片（含 title）；个人页只有 Profile 的摘要卡，没有 title */
@@ -37,8 +33,6 @@ export function IdentityDetail({
 	publicView?: boolean;
 	/** 名片页的地址用名片码，账号码与之不同，在名片页隐藏以免两个码混淆 */
 	showCode?: boolean;
-	showShop?: boolean;
-	shopAvailable?: boolean;
 }) {
 	const loc = useLocation();
 	const [expandedFor, setExpandedFor] = useState<string | null>(null);
@@ -47,7 +41,6 @@ export function IdentityDetail({
 	const agent = actor.kind === "agent";
 	const href = (a: Actor) => `${publicView ? "/p" : "/contacts"}/${entityRef(a)}`;
 	const face = card?.face;
-	const palette = THEMES[face?.theme ?? "mist"];
 	const section = face?.section?.title?.trim() || face?.section?.body?.trim() ? face.section : undefined;
 	const visibility = cardVisibility(face);
 	const configuredCover = face?.coverUrl !== undefined;
@@ -57,12 +50,7 @@ export function IdentityDetail({
 	return (
 		<div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-4 lg:px-8 lg:py-6">
 			<section aria-label="身份资料" className="overflow-hidden rounded-panel bg-raised shadow-soft">
-				<div
-					className="relative h-32 overflow-hidden lg:h-40"
-					style={{
-						background: configuredCover ? "var(--tone)" : `linear-gradient(120deg,${palette.from},${palette.to})`,
-					}}
-				>
+				<div className="relative h-32 overflow-hidden bg-tone lg:h-40">
 					{configuredCover ? (
 						<CardCover url={face?.coverUrl} />
 					) : card?.display ? (
@@ -79,7 +67,6 @@ export function IdentityDetail({
 					) : face?.sticker?.url ? (
 						<img src={face.sticker.url} alt="" className="h-full w-full object-cover" />
 					) : null}
-					<div className="pointer-events-none absolute inset-0 bg-ground/30" />
 				</div>
 				<div className="relative flex flex-col gap-4 px-5 pb-5">
 					<div className="flex items-start gap-4">
@@ -87,7 +74,7 @@ export function IdentityDetail({
 							<Avatar actor={actor} size={72} online={agent ? !!actor.online : undefined} />
 						</div>
 						<div className="min-w-0 flex-1 pt-3">
-							<h1 className="break-words text-title leading-tight font-semibold tracking-tight">{title}</h1>
+							<h1 className="display break-words text-title leading-tight tracking-[0.02em]">{title}</h1>
 							{title !== actor.name && <p className="mt-1 break-words text-small text-muted">{actor.name}</p>}
 							{showCode && visibility.code && actor.code && (
 								<p className="mt-1 select-text text-caption text-muted">ID · {actor.code}</p>
@@ -129,17 +116,6 @@ export function IdentityDetail({
 						</article>
 					)}
 				</section>
-			)}
-			{showShop && shopAvailable && !agent && !actor.anonymous && visibility.shop !== false && (
-				<Link
-					to={`/shop/${entityRef(actor)}`}
-					state={internalState(loc)}
-					className="press flex min-h-16 items-center gap-3 rounded-card bg-raised px-5 hover:bg-tone"
-				>
-					<Store size={21} className="text-muted" />
-					<span className="flex-1 font-medium">小店</span>
-					<ChevronRight size={17} className="text-muted" />
-				</Link>
 			)}
 			{!!agents.length && (
 				<section aria-label={publicView ? "公开 Bot" : "Bot"} className="overflow-hidden rounded-card bg-raised">

@@ -12,9 +12,8 @@ describe("parseWork", () => {
 		expect(parseWork("/work/device/laptop/42")).toEqual({ deviceId: "laptop", session: "42" });
 		expect(workPath({ deviceId: "phone", session: "42" })).toBe("/work/device/phone/42");
 	});
-	it("treats the three feature pages as pages", () => {
+	it("treats the feature pages as pages", () => {
 		expect(parseWork("/work/console")).toEqual({ page: "console" });
-		expect(parseWork("/work/market")).toEqual({ page: "market" });
 		expect(parseWork("/work/settings")).toEqual({ page: "settings" });
 	});
 

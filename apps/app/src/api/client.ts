@@ -1,14 +1,4 @@
 import type {
-	Category,
-	Coordinates,
-	Listing,
-	ListingKind,
-	ListingVisibility,
-	WatchTask,
-	WatchTaskInput,
-	WatchTaskUpdate,
-} from "../market/types";
-import type {
 	Actor,
 	Card,
 	CodeSendInput,
@@ -31,51 +21,6 @@ import type {
 	ShareLinkKind,
 	VerifyKind,
 } from "./types";
-
-/** 云端 POST/PATCH 可写的帖子字段（与 server/src/market.ts listingInput 对齐）。 */
-export interface ListingInput {
-	visibility?: ListingVisibility;
-	expiresAt?: number | null;
-	coordinates?: Coordinates | null;
-	kind: ListingKind;
-	category: Category;
-	title: string;
-	description: string;
-	price: number;
-	unit: string;
-	location: string;
-	delivery: string;
-	images: string[];
-	sellerRole: string;
-	discoverable: boolean;
-	agent: boolean;
-	tags: string[];
-	facts: { label: string; value: string }[];
-	missing: string[];
-}
-
-export interface MarketCapabilities {
-	listingPolicy: boolean;
-	sellerShops: boolean;
-}
-
-export interface ListingQuery {
-	sellerId?: string;
-	status?: "active" | "paused" | "expired";
-	q?: string;
-	kind?: ListingKind;
-	category?: Category;
-	city?: string;
-	min?: string;
-	max?: string;
-	sort?: "relevance" | "newest" | "price_asc" | "price_desc";
-	mine?: boolean;
-	cursor?: string;
-}
-export interface ListingPage {
-	items: Listing[];
-	nextCursor?: string;
-}
 
 /**
  * 后端接口契约。每个方法对应 server/PLAN.md 中的一项接口能力。
@@ -171,29 +116,18 @@ export interface ApiClient {
 	/** 开关某个 Agent 的联网（关闭后它不再接收平台消息） */
 	setAgentOnline(agentId: string, online: boolean): Promise<Actor>;
 	/** 新建云端 Bot：只需名字，模型与预设等用服务端默认值。 */
-	createBot(input: { name: string }): Promise<Actor>;
+	createBot(input: { name: string; avatarUrl?: string }): Promise<Actor>;
 	/**
 	 * 幂等：账号没有任何自己的 Bot 时由服务端创建默认 Bot（小未 / Yonder Bot）并开好会话；已有则原样返回已有的。
 	 * 服务端在账号行锁内判断，重复登录与并发请求不会产生多个。
 	 */
 	ensureDefaultBot(input: { name: string; englishName: string }): Promise<Actor>;
 
-	// 市场：云端帖子。列表含他人公开帖与自己的全部帖（含已下架）。
+	/** 资料服务能力（云端 /market/capabilities）：头像上传与高级资料开关依赖它；探不到时按不支持处理。 */
 	marketCapabilities(): Promise<MarketCapabilities>;
-	marketListings(query?: ListingQuery): Promise<ListingPage>;
-	marketListing(id: string): Promise<Listing | null>;
-	/** 发布新帖；图片只接受 https 外链或内置 `/market/*.jpg`。 */
-	createListing(input: ListingInput): Promise<Listing>;
-	/** 修改帖子（kind 不可改）。 */
-	updateListing(id: string, input: Partial<Omit<ListingInput, "kind">>): Promise<Listing>;
-	/** 下架（paused）或重新上架（active）。 */
-	setListingPaused(id: string, paused: boolean): Promise<Listing>;
-	deleteListing(id: string): Promise<void>;
+}
 
-	// 市场：我的需求（云端 watch_tasks）。读写都走云端，`check` 只由装有 market 插件的
-	// Bot 调用（它会推进 seen_ids），网页只读列表与元数据，避免吞掉插件的通知。
-	listWatchTasks(): Promise<WatchTask[]>;
-	createWatchTask(input: WatchTaskInput): Promise<WatchTask>;
-	updateWatchTask(id: string, input: WatchTaskUpdate): Promise<WatchTask>;
-	deleteWatchTask(id: string): Promise<void>;
+export interface MarketCapabilities {
+	listingPolicy: boolean;
+	sellerShops: boolean;
 }

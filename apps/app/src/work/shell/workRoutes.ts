@@ -1,8 +1,8 @@
 import { useLocation } from "react-router";
 import { activeNode } from "../api/nodes";
 
-/** 工作区路由（挂在 /work/*）：/work、/work/:session、/work/console、/work/market、/work/settings。 */
-export const WORK_PAGES = ["console", "market", "settings"] as const;
+/** 工作区路由（挂在 /work/*）：/work、/work/:session、/work/console、/work/settings。 */
+export const WORK_PAGES = ["console", "settings"] as const;
 export type WorkPage = (typeof WORK_PAGES)[number];
 export type WorkRoute = { page?: WorkPage; session?: string; deviceId?: string };
 

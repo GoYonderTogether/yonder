@@ -19,7 +19,6 @@ import { ModelConnections } from "../work/features/settings/ModelConnections";
 import { NodesSection } from "../work/features/settings/NodesSection";
 import { NotifySection } from "../work/features/settings/NotifySection";
 import { RuntimeSettings } from "../work/features/settings/RuntimeSettings";
-import { SocialSection } from "../work/features/settings/SocialSection";
 import { setWorkDevices } from "../work/lib/workOnline";
 import { PrivacySection } from "./Friends";
 
@@ -31,7 +30,6 @@ const sections = [
 	["runtimes", "运行位置"],
 	["models", "云端模型"],
 	["channels", "渠道"],
-	["social", "社交设置"],
 	["about", "关于"],
 ] as const;
 
@@ -101,18 +99,14 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 				{section === "privacy" && !local && <PrivacySection />}
 				{local && (section === "models" || section === "runtimes") ? (
 					<section className="mx-4 rounded-card bg-raised p-4">
-						<p className="text-small text-muted">
-							登录云端账号后管理云端模型、运行位置和已绑定设备；本机网关登录仅授权当前设备。
-						</p>
 						<a
 							href={cloudPage(`/me/settings/${section}`)}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="mt-3 inline-block py-2 text-small text-accent-ink"
+							className="inline-block py-2 text-small text-accent-ink"
 						>
 							打开云端{title} ↗
 						</a>
-						<p className="mt-2 text-caption text-faint">云端在新窗口打开，关闭或切回此窗口即可返回本机。</p>
 					</section>
 				) : (
 					<>
@@ -138,12 +132,10 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 						</Button>
 					</section>
 				)}
-				{["notifications", "devices", "channels", "social", "about"].includes(section ?? "") && (
+				{["notifications", "devices", "channels", "about"].includes(section ?? "") && (
 					<>
 						{!local && section !== "about" && (
 							<section className="mx-4 mt-3 rounded-card bg-raised p-4" aria-label="设备选择">
-								<h2 className="font-medium">设备设置</h2>
-								<p className="mt-1 text-caption text-muted">设备设置只影响选中的设备；离线设备暂不可操作。</p>
 								{devices.isLoading && <p>加载中…</p>}
 								{devices.isError && <p className="text-danger">设备加载失败：{devices.error.message}</p>}
 								{devices.data?.length === 0 && (
@@ -175,7 +167,6 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 						<DeviceQueries key={`${session?.actor.id ?? "local"}:${node.id}`}>
 							{section === "notifications" && <NotifySection deviceAvailable={available} />}
 							{section === "channels" && available && <ChannelsSection />}
-							{section === "social" && available && <SocialSection />}
 							{section === "devices" && local && <NodesSection />}
 							{section === "about" && local && <AboutSection />}
 							{section === "about" && !local && (

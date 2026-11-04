@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { MessageCircle, Monitor, Store, Users } from "lucide-react";
+import { ListTodo, MessageCircle, Users } from "lucide-react";
 import { Suspense } from "react";
 import { NavLink, Outlet, useLocation, useMatch } from "react-router";
 import { cn } from "../lib/cn";
@@ -12,19 +12,18 @@ import { WORK_PAGES } from "../work/shell/workRoutes";
 import { PageLoading } from "./PageLoading";
 
 const chatItem = { to: "/", label: "消息", icon: MessageCircle };
-const marketItem = { to: "/market", label: "市场", icon: Store };
+const tasksItem = { to: "/tasks", label: "任务", icon: ListTodo };
 const contactsItem = { to: "/contacts", label: "通讯录", icon: Users };
-const workItem = { to: "/work", label: "工作", icon: Monitor };
 
 export function Shell() {
 	const loc = useLocation();
 	const me = useStore($session)?.actor;
 	const social = useSocialService();
-	const items = [chatItem, workItem, marketItem, contactsItem];
+	const items = [chatItem, tasksItem, contactsItem];
 	const workMatch = useMatch("/work/:id");
 	const deviceSession = useMatch("/work/device/:device/:session");
 	const hidden =
-		[useMatch("/c/:id"), useMatch("/contacts/:id"), useMatch("/me/edit"), useMatch("/me/shop")].some(Boolean) ||
+		[useMatch("/c/:id"), useMatch("/contacts/:id"), useMatch("/me/edit")].some(Boolean) ||
 		!!deviceSession ||
 		(!!workMatch && !(WORK_PAGES as readonly string[]).includes(workMatch.params.id ?? ""));
 	const active = (path: string) =>
@@ -56,7 +55,7 @@ export function Shell() {
 	return (
 		<div
 			data-social-surface={
-				location.pathname === "/" || /^\/(c|contacts|me|friends)(\/|$)/.test(location.pathname) ? "" : undefined
+				location.pathname === "/" || /^\/(c|contacts|me|friends|tasks)(\/|$)/.test(location.pathname) ? "" : undefined
 			}
 			className="flex h-full flex-col lg:flex-row"
 		>

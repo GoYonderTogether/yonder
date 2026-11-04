@@ -8,7 +8,6 @@ import type { Actor } from "../../api/types";
 import { deviceLabel, useCardItems } from "../../lib/cardItems";
 import { entityRef } from "../../lib/entityRef";
 import { useAppBack } from "../../lib/navigation";
-import { useMarketCapabilities } from "../../market/queries";
 import { $session } from "../../store";
 import { Button } from "../../ui/Button";
 import { toast } from "../../ui/Toast";
@@ -55,7 +54,6 @@ export function ContactDetail({ a, desktop, embedded = false }: { a: Actor; desk
 	const [params] = useSearchParams();
 	const data = useCardItems();
 	const setOnline = useAgentOnline();
-	const marketSupport = useMarketCapabilities();
 	const [busy, setBusy] = useState(false);
 	const agent = a.kind === "agent";
 	const self = a.id === data.me.id;
@@ -96,8 +94,6 @@ export function ContactDetail({ a, desktop, embedded = false }: { a: Actor; desk
 	const body = (
 		<IdentityDetail
 			actor={a}
-			showShop={!(self && embedded)}
-			shopAvailable={marketSupport.data?.sellerShops === true && !marketSupport.isError}
 			card={card}
 			summary={profile?.summary}
 			agents={

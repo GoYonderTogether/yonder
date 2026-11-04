@@ -1,20 +1,18 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Camera, ChevronRight, ImagePlus } from "lucide-react";
+import { ArrowLeft, Camera, Plus, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, Navigate } from "react-router";
+import { Navigate } from "react-router";
 import { api } from "../api";
-import type { MarketCapabilities } from "../api/client";
-import type { Actor, Card, Profile, ProfileUpdateInput, ProfileUpdateResult } from "../api/types";
+import type { Actor, Card, CardProfile, CardVisibility, Profile, ProfileUpdateInput, ProfileUpdateResult } from "../api/types";
 import { AppBar } from "../components/AppBar";
 import { CardCover } from "../components/card/CardCover";
 import { PhotoPicker, type PhotoPickerHandle } from "../components/PhotoPicker";
 import { saveLegacyProfile } from "../lib/legacyProfile";
 import { usePersonalMarketBack } from "../lib/navigation";
-import { profileError, profileForm, profileSaveError, profileTextError } from "../lib/profileEditor";
-import { uploadMarketImage, validateMarketImage } from "../market/uploadImage";
+import { profileError, profileSaveError, profileTextError } from "../lib/profileEditor";
+import { uploadMarketImage, validateMarketImage } from "../lib/uploadImage";
 import { $session } from "../store";
-import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 
@@ -30,6 +28,86 @@ function useImagePreview(file: File | null) {
 		return () => URL.revokeObjectURL(next);
 	}, [file]);
 	return url;
+}
+
+const MAX_FACTS = 6;
+const MAX_TAGS = 3;
+
+/** 表单里的资料块：CardProfile 的必填化版本，保存时把空串/空数组的字段剥掉。 */
+interface CardFormProfile {
+	title: string;
+	alias: string;
+	facts: { k: string; v: string }[];
+	seeking: string;
+	intro: string;
+}
+
+interface CardForm {
+	name: string;
+	tagline: string;
+	avatarUrl: string | null;
+	coverUrl: string | null;
+	markdown: string;
+	tags: string[];
+	visibility: CardVisibility;
+	profile: CardFormProfile;
+}
+
+/** 名片表单：正面（照片、名字、头衔、一句话、标签）+ 背面（事实、在找）+ 详情（介绍）。 */
+function cardForm(actor: Actor, card?: Card): CardForm {
+	const profile = card?.face?.profile ?? {};
+	return {
+		name: actor.name,
+		tagline: card?.tagline ?? "",
+		avatarUrl: actor.avatarUrl && actor.avatarUrl.startsWith("https://") ? actor.avatarUrl : null,
+		coverUrl: card?.face?.coverUrl && card.face.coverUrl.startsWith("https://") ? card.face.coverUrl : null,
+		markdown: card?.markdown ?? "",
+		tags: card?.face?.tags?.length ? [...card.face.tags] : [],
+		visibility: { signature: true, code: true, greeting: true, shop: true, ...(card?.face?.visibility ?? {}) },
+		profile: {
+			title: profile.title ?? "",
+			alias: profile.alias ?? "",
+			facts: profile.facts?.length ? profile.facts : [],
+			seeking: profile.seeking ?? "",
+			intro: profile.intro ?? "",
+		},
+	};
+}
+
+/** 空字段不下发：后端 profile 只承载真实内容。 */
+const formProfile = (profile: CardFormProfile): CardProfile => ({
+	...(profile.title.trim() ? { title: profile.title.trim() } : {}),
+	...(profile.alias.trim() ? { alias: profile.alias.trim() } : {}),
+	...(profile.facts.filter((f) => f.k.trim() && f.v.trim()).length
+		? { facts: profile.facts.filter((f) => f.k.trim() && f.v.trim()) }
+		: {}),
+	...(profile.seeking.trim() ? { seeking: profile.seeking.trim() } : {}),
+	...(profile.intro.trim() ? { intro: profile.intro.trim() } : {}),
+});
+
+/** 校验用输入：带上照片与展示开关，profile/tags 先不计入。 */
+const cardFormInput = (form: CardForm): ProfileUpdateInput => ({
+	name: form.name.trim(),
+	tagline: form.tagline.trim(),
+	avatarUrl: form.avatarUrl,
+	coverUrl: form.coverUrl,
+	markdown: form.markdown,
+	visibility: form.visibility,
+});
+
+/** 名片资料文案校验：头衔/别名/在找/介绍字数，k/v 行数与每行字数。 */
+function cardFormError(form: CardForm): string | undefined {
+	const title = form.profile.title.trim().length;
+	if (title > 60) return "头衔最多 60 个字";
+	if (form.profile.alias.trim().length > 40) return "别名最多 40 个字";
+	if (form.profile.facts.length > MAX_FACTS) return `背面信息最多 ${MAX_FACTS} 行`;
+	for (const fact of form.profile.facts) {
+		if (!fact.k.trim() || !fact.v.trim()) return "背面信息每行都要填 key 和 value";
+		if ([...fact.k].length > 12) return "背面信息的 key 最多 12 个字";
+		if ([...fact.v].length > 60) return "背面信息的 value 最多 60 个字";
+	}
+	if (form.profile.seeking.trim().length > 60) return "「在找」最多 60 个字";
+	if (form.profile.intro.trim().length > 500) return "介绍最多 500 个字";
 }
 
 export function ProfileEdit() {
@@ -90,7 +168,7 @@ function ProfileForm({
 }: {
 	actor: Actor;
 	card?: Card;
-	capabilities?: MarketCapabilities;
+	capabilities?: { listingPolicy: boolean; sellerShops: boolean };
 	capabilityError: boolean;
 	checking: boolean;
 	retryCapabilities(): void;
@@ -98,14 +176,14 @@ function ProfileForm({
 	const qc = useQueryClient();
 	const back = usePersonalMarketBack();
 	const formId = useId();
-	const [form, setForm] = useState(() => profileForm(actor, card));
+	const [form, setForm] = useState(() => cardForm(actor, card));
 	const [avatarFile, setAvatarFile] = useState<File | null>(null);
 	const [coverFile, setCoverFile] = useState<File | null>(null);
 	const avatarPreview = useImagePreview(avatarFile);
 	const coverPreview = useImagePreview(coverFile);
 	const picker = useRef<PhotoPickerHandle>(null);
-	const original = useRef(profileForm(actor, card));
-	const baseline = useRef(JSON.stringify(original.current));
+	const original = useRef(cardForm(actor, card));
+	const baseline = useRef(JSON.stringify(cardForm(actor, card)));
 	const legacyDraft = useRef<Card | undefined>(undefined);
 	const pending = useRef(false);
 	const alive = useRef(true);
@@ -125,8 +203,7 @@ function ProfileForm({
 		!!avatarFile ||
 		!!coverFile ||
 		form.avatarUrl !== original.current.avatarUrl ||
-		form.coverUrl !== original.current.coverUrl ||
-		JSON.stringify(form.visibility) !== JSON.stringify(original.current.visibility);
+		form.coverUrl !== original.current.coverUrl;
 	const blocked = ready && !advanced && advancedChanged;
 	const refresh = () =>
 		$session.get()?.actor.id === actor.id
@@ -167,11 +244,33 @@ function ProfileForm({
 		setForm((old) => ({ ...old, [kind === "avatar" ? "avatarUrl" : "coverUrl"]: null }));
 		setError(undefined);
 	};
+	// 背面事实行：k/v 两列 + 删除；最多 6 行
+	const setFact = (index: number, patch: Partial<{ k: string; v: string }>) =>
+		setForm((old) => ({
+			...old,
+			profile: {
+				...old.profile,
+				facts: old.profile.facts.map((fact, i) => (i === index ? { ...fact, ...patch } : fact)),
+			},
+		}));
+	const addFact = () =>
+		setForm((old) =>
+			old.profile.facts.length >= MAX_FACTS
+				? old
+				: { ...old, profile: { ...old.profile, facts: [...old.profile.facts, { k: "", v: "" }] } },
+		);
+	const removeFact = (index: number) =>
+		setForm((old) => ({
+			...old,
+			profile: { ...old.profile, facts: old.profile.facts.filter((_, i) => i !== index) },
+		}));
 	const save = async () => {
 		if (pending.current || $session.get()?.actor.id !== actor.id || !ready || blocked) return;
-		const invalid = advanced ? profileError(form) : profileTextError(form);
-		if (invalid) {
-			setError(invalid);
+		const invalid = advanced ? profileError(cardFormInput(form)) : profileTextError(form);
+		const cardInvalid = cardFormError(form);
+		const problem = invalid ?? cardInvalid;
+		if (problem) {
+			setError(problem);
 			return;
 		}
 		pending.current = true;
@@ -181,12 +280,18 @@ function ProfileForm({
 			let result: ProfileUpdateResult;
 			if (!advanced) {
 				setStage("正在保存…");
-				result = await saveLegacyProfile(api, actor, card, form, {
-					active: () => alive.current && $session.get()?.actor.id === actor.id,
-					onActor: acknowledgeActor,
-					onCard: acknowledgeDraft,
-					pendingDraft: legacyDraft.current,
-				});
+				result = await saveLegacyProfile(
+					api,
+					actor,
+					card,
+					{ ...form, face: { profile: formProfile(form.profile), tags: form.tags.map((t) => t.trim()).filter(Boolean) } },
+					{
+						active: () => alive.current && $session.get()?.actor.id === actor.id,
+						onActor: acknowledgeActor,
+						onCard: acknowledgeDraft,
+						pendingDraft: legacyDraft.current,
+					},
+				);
 			} else {
 				const image = async (file: File | null, original: string | null, label: string) => {
 					if (!alive.current || $session.get()?.actor.id !== actor.id)
@@ -205,11 +310,18 @@ function ProfileForm({
 				const avatarUrl = await image(avatarFile, form.avatarUrl, "头像");
 				const coverUrl = await image(coverFile, form.coverUrl, "背景");
 				const input: ProfileUpdateInput = {
-					...form,
 					name: form.name.trim(),
 					tagline: form.tagline.trim(),
 					avatarUrl,
 					coverUrl,
+					markdown: form.markdown,
+					visibility: form.visibility,
+					face: {
+						profile: formProfile(form.profile),
+						...(form.tags.map((t) => t.trim()).filter(Boolean).length
+							? { tags: form.tags.map((t) => t.trim()).filter(Boolean) }
+							: {}),
+					},
 				};
 				const imageError = profileError(input);
 				if (imageError) throw new Error(imageError);
@@ -251,7 +363,7 @@ function ProfileForm({
 			}
 		}
 	};
-	const invalid = advanced ? profileError(form) : profileTextError(form);
+	const invalid = advanced ? profileError({ ...form }) : profileTextError(form);
 	const dirty = !!avatarFile || !!coverFile || JSON.stringify(form) !== baseline.current;
 	const mayLeave = () => !dirty || window.confirm("有尚未保存的修改，确定离开吗？");
 	return (
@@ -287,7 +399,7 @@ function ProfileForm({
 				}}
 			>
 				<div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-3 pb-12 lg:px-6">
-					<section aria-label="头像与名片背景" className="overflow-hidden rounded-panel bg-raised shadow-soft">
+					<section aria-label="名片照片" className="overflow-hidden rounded-panel bg-raised shadow-soft">
 						<div className="relative h-40 overflow-hidden bg-tone lg:h-48">
 							<CardCover url={coverPreview ?? form.coverUrl} local={!!coverFile} />
 							<div className="absolute right-3 bottom-3 flex gap-2">
@@ -297,8 +409,7 @@ function ProfileForm({
 									disabled={busy || !advanced}
 									onClick={() => picker.current?.open("cover")}
 								>
-									<ImagePlus size={16} />
-									更换背景
+									更换照片
 								</Button>
 								{(coverFile || form.coverUrl) && (
 									<Button
@@ -307,7 +418,7 @@ function ProfileForm({
 										disabled={busy || !advanced}
 										onClick={() => restore("cover")}
 									>
-										恢复默认背景
+										恢复默认
 									</Button>
 								)}
 							</div>
@@ -321,12 +432,16 @@ function ProfileForm({
 								className="press relative -mt-9 shrink-0 rounded-full bg-raised p-1"
 							>
 								<span className="relative block size-20 overflow-hidden rounded-full">
-									<Avatar actor={{ ...actor, name: form.name || actor.name, avatarUrl: undefined }} size={80} />
 									<CardCover
 										url={avatarPreview ?? form.avatarUrl}
 										local={!!avatarFile}
-										className="absolute inset-0 h-full w-full object-cover"
+										className="h-full w-full object-cover"
 									/>
+									{!avatarPreview && !form.avatarUrl && (
+										<span className="flex h-full w-full items-center justify-center bg-tone-2 text-title text-muted">
+											{[...form.name.trim() || actor.name][0]}
+										</span>
+									)}
 								</span>
 								<span className="absolute right-0 bottom-0 rounded-full bg-accent p-1.5 text-on-accent">
 									<Camera size={14} />
@@ -334,7 +449,7 @@ function ProfileForm({
 							</button>
 							<div className="min-w-0 flex-1">
 								<p className="truncate font-semibold">{form.name.trim() || actor.name}</p>
-								<p className="mt-1 text-caption text-muted">头像与昵称始终展示</p>
+								<p className="mt-1 text-caption text-muted">名片照片；没有照片时显示名字首字</p>
 							</div>
 							{(avatarFile || form.avatarUrl) && (
 								<Button
@@ -352,69 +467,115 @@ function ProfileForm({
 					</section>
 					<fieldset disabled={busy} className="flex flex-col gap-5">
 						<Field
-							label="昵称（1–40 字）"
+							label="名字（1–40 字）"
 							value={form.name}
 							required
 							autoComplete="nickname"
 							onChange={(event) => setForm({ ...form, name: event.target.value })}
 						/>
 						<Field
-							label="个性签名（最多 120 字）"
+							label="头衔"
+							value={form.profile.title}
+							onChange={(event) => setForm({ ...form, profile: { ...form.profile, title: event.target.value } })}
+						/>
+						<Field
+							label="别名（名字旁的小字）"
+							value={form.profile.alias}
+							onChange={(event) => setForm({ ...form, profile: { ...form.profile, alias: event.target.value } })}
+						/>
+						<Field
+							label="一句话（最多 120 字）"
 							value={form.tagline}
 							onChange={(event) => setForm({ ...form, tagline: event.target.value })}
 						/>
+						<Field
+							label="在找（背面的一行，最多 60 字）"
+							value={form.profile.seeking}
+							onChange={(event) => setForm({ ...form, profile: { ...form.profile, seeking: event.target.value } })}
+						/>
 					</fieldset>
-					<fieldset disabled={busy || !advanced} className="rounded-card bg-raised">
-						<legend className="mb-2 text-small font-medium text-muted">名片展示</legend>
-						{(
-							[
-								{ key: "signature", label: "个性签名" },
-								{ key: "code", label: "账号 ID" },
-								{ key: "shop", label: "个人小店" },
-							] as const
-						).map(({ key, label }) => (
-							<label
-								key={key}
-								className="relative flex min-h-14 cursor-pointer items-center justify-between gap-4 px-1 text-small"
-							>
-								<span>{label}</span>
-								<input
-									type="checkbox"
-									role="switch"
-									disabled={busy || !advanced}
-									aria-checked={form.visibility[key]}
-									aria-label={`展示${label}`}
-									checked={form.visibility[key]}
-									onChange={(event) =>
-										setForm({ ...form, visibility: { ...form.visibility, [key]: event.target.checked } })
-									}
-									className="peer sr-only"
+					<fieldset disabled={busy} className="flex flex-col gap-3">
+						<legend className="mb-2 text-small font-medium text-muted">标签（最多 3 个）</legend>
+						{form.tags.map((tag, index) => (
+							<div key={index} className="flex gap-2">
+								<Field
+									label={`标签 ${index + 1}`}
+									value={tag}
+									className="flex-1"
+									onChange={(event) => {
+										const tags = [...form.tags];
+										tags[index] = event.target.value;
+										setForm({ ...form, tags: tags.filter((t, i) => t.trim() || i === index) });
+									}}
 								/>
-								<span
-									aria-hidden
-									className="pointer-events-none relative h-6 w-10 shrink-0 rounded-full bg-tone-2 transition-colors peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2"
+								<Button
+									type="button"
+									size="icon"
+									variant="ghost"
+									aria-label={`删除标签 ${index + 1}`}
+									className="self-end"
+									onClick={() => setForm({ ...form, tags: form.tags.filter((_, i) => i !== index) })}
 								>
-									<span
-										className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow-soft transition-transform ${form.visibility[key] ? "translate-x-4" : ""}`}
-									/>
-								</span>
-							</label>
+									<X size={16} />
+								</Button>
+							</div>
 						))}
+						{form.tags.length < MAX_TAGS && (
+							<Button
+								type="button"
+								size="sm"
+								className="self-start"
+								onClick={() => setForm({ ...form, tags: [...form.tags, ""] })}
+							>
+								<Plus size={14} />
+								添加标签
+							</Button>
+						)}
 					</fieldset>
-					<Link
-						to="/me/shop"
-						aria-disabled={busy}
-						onClick={(event) => {
-							if (busy || !mayLeave()) event.preventDefault();
-						}}
-						className="press flex min-h-14 items-center justify-between rounded-card bg-raised px-4 hover:bg-tone"
-					>
-						<span className="font-medium">我的小店</span>
-						<span className="flex items-center gap-1 text-small text-accent-ink">
-							管理
-							<ChevronRight size={16} />
-						</span>
-					</Link>
+					<fieldset disabled={busy} className="flex flex-col gap-3">
+						<legend className="mb-2 text-small font-medium text-muted">背面信息（最多 6 行）</legend>
+						{form.profile.facts.map((fact, index) => (
+							<div key={index} className="flex gap-2">
+								<Field
+									label={`名目 ${index + 1}`}
+									value={fact.k}
+									className="w-28 shrink-0"
+									onChange={(event) => setFact(index, { k: event.target.value })}
+								/>
+								<Field
+									label="内容"
+									value={fact.v}
+									className="flex-1"
+									onChange={(event) => setFact(index, { v: event.target.value })}
+								/>
+								<Button
+									type="button"
+									size="icon"
+									variant="ghost"
+									aria-label={`删除第 ${index + 1} 行`}
+									className="self-end"
+									onClick={() => removeFact(index)}
+								>
+									<X size={16} />
+								</Button>
+							</div>
+						))}
+						{form.profile.facts.length < MAX_FACTS && (
+							<Button type="button" size="sm" className="self-start" onClick={addFact}>
+								<Plus size={14} />
+								添加一行
+							</Button>
+						)}
+					</fieldset>
+					<fieldset disabled={busy} className="flex flex-col gap-1.5 text-small text-muted">
+						<legend className="mb-2 text-small font-medium text-muted">详情介绍（最多 500 字）</legend>
+						<textarea
+							rows={5}
+							className="field rounded-control bg-tone p-3.5 text-body text-ink outline-none"
+							value={form.profile.intro}
+							onChange={(event) => setForm({ ...form, profile: { ...form.profile, intro: event.target.value } })}
+						/>
+					</fieldset>
 					{!ready ? (
 						<div className="flex items-center justify-between gap-3 text-small text-muted">
 							<p role={capabilityError ? "alert" : "status"}>
@@ -427,11 +588,11 @@ function ProfileForm({
 							)}
 						</div>
 					) : !advanced ? (
-						<p className="text-caption text-muted">头像、背景与展示设置将在服务更新后开放</p>
+						<p className="text-caption text-muted">照片将在服务更新后开放</p>
 					) : null}
 					{blocked && (
 						<p role="alert" className="text-small text-danger">
-							服务版本已变化，请刷新后再保存图片与展示设置
+							服务版本已变化，请刷新后再保存照片
 						</p>
 					)}
 					{(error || invalid) && (
