@@ -3,11 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dispatchEvent, MediaFileType, type QQBotInboundMessage } from "@tencent-connect/qqbot-nodejs/protocol";
+import { testModel } from "@yonder/local-host/config/test-support";
+import { initHome, inspectHome } from "@yonder/local-host/kernel/home";
 import { checkPlugin, type PluginAPI, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { testModel } from "../../../packages/core/src/config/test-support.js";
-import { initHome, inspectHome } from "../../../packages/core/src/kernel/home.js";
 import {
 	assertInsideMediaRoot,
 	droppedAttachments,

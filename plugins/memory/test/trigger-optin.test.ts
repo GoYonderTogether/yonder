@@ -1,7 +1,7 @@
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { PluginAPI } from "@yonder/sdk";
-import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import plugin from "../src/index.js";
 import { Ingest } from "../src/ingest.js";
@@ -14,8 +14,8 @@ async function setup(root: string, triggers?: { inbox?: boolean; bootstrap?: boo
 		timezone: "UTC",
 		...(triggers ? { triggers } : {}),
 	};
-	await plugin.setup({ ...api, config } as PluginAPI);
-	const io = { emit: async (event: never) => event };
+	await plugin.setup({ ...api, config, storage: createFilePluginStorage(config.root) } as PluginAPI);
+	const io = { emit: async (event: never) => event, startedAt: Date.now(), schedule: () => {} };
 	return {
 		registrations,
 		async start() {
@@ -48,7 +48,11 @@ it("does not inspect attachments or create a root for message events unless capt
 	const base = await tempHome("memory-capture-optout-");
 	const root = join(base, "not-created");
 	const { api } = createRegistrationCollector();
-	const ingest = new Ingest(api, { root, owner: "person:test", timezone: "UTC" } as never, []);
+	const ingest = new Ingest(
+		{ ...api, storage: createFilePluginStorage(root) } as PluginAPI,
+		{ root, owner: "person:test", timezone: "UTC" } as never,
+		[],
+	);
 	try {
 		await ingest.chat({
 			id: "capture-off",
@@ -73,7 +77,7 @@ it("starts and stops explicitly enabled inbox and bootstrap triggers in a synthe
 		await access(join(root, "inbox"));
 		await access(join(root, ".memory"));
 		await instance.stop();
-		// stop clears both intervals and closes the chokidar watcher before the test removes the tree.
+		// stop releases scheduled deadlines and closes the watcher before removing the tree.
 	} finally {
 		await instance.stop();
 		await rm(base, { recursive: true, force: true });

@@ -1,0 +1,7 @@
+# Verification evidence cleanup
+
+The earlier cleanup parser mishandled `../review-*.log` and used implicit suffix wildcards. Its155 deletions included146 valid scratch removals and9 mistakes (16508bytes). The old “all unreferenced / no loss” conclusion was withdrawn. Seven complete originals were recovered directly from captured task-tool stdout, verifying file boundaries/lengths; no test rerun was presented as an old original. Two full originals remained incomplete: storage second round44pass/6fail (7187bytes), fourth round54pass/1fail (1497bytes). Only real captured command output/head/tail existed; the missing middle was not fabricated.
+
+Ten later correct scratch deletions made156 valid removals total and9 mistakes; seven of those mistakes had been recovered. These are historical counts, not the scope of today’s removal. Final acceptance gate/GLM/A12 values and historical failed gates were complete when summarized in [verification](verification.md).
+
+For this final cleanup, the maintainer explicitly changed retention: remove raw logs and large machine dumps from git, keep human documents with numbers, commands and short real excerpts, and delete untracked scratch logs in both worktrees. This authorized removal supersedes the earlier keep-if-referenced rule. Before deletion, documents read actual source artifacts and inline key excerpts. No new raw verification logs/dumps are committed.

@@ -2,6 +2,8 @@ import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { Check } from "typebox/value";
 import { describe, expect, it } from "vitest";
 import {
+	attestationKey,
+	attestationKeyFromHash,
 	CommandLookupSchema,
 	commandDigest,
 	commandKey,
@@ -15,7 +17,9 @@ import {
 	type RpcResponse,
 	recoveredCommandState,
 	type SubmitCommand,
+	signAttestation,
 	signMessage,
+	verifyAttestation,
 	verifyMessage,
 } from "./index.js";
 
@@ -183,5 +187,80 @@ describe("persistent command identity and recovery contract", () => {
 	});
 	it("requires the first release to declare checkpoint restore unsupported", () => {
 		expect(DeviceDescriptorSchema.properties.checkpointRestore.const).toBe("unsupported");
+	});
+	it("accepts device.introduce only with the frozen controller-supplied fields", () => {
+		const introduce = {
+			...request,
+			method: "device.introduce",
+			params: {
+				controllerPublicKey: controller.publicKey.export({ format: "der", type: "spki" }).toString("base64"),
+				label: "Laptop Bot",
+				botId: randomUUID(),
+				capabilities: ["read"],
+				targetIds: ["host:filesystem"],
+				actions: ["fs.read"],
+				readRoots: ["/tmp/root"],
+				writeRoots: [],
+			},
+		};
+		expect(Check(RpcRequestSchema, introduce)).toBe(true);
+		expect(Check(RpcRequestSchema, { ...introduce, params: { ...introduce.params, principal: "x" } })).toBe(false);
+		expect(Check(RpcRequestSchema, { ...introduce, params: { ...introduce.params, capabilities: ["admin"] } })).toBe(
+			false,
+		);
+		expect(Check(RpcRequestSchema, { ...introduce, params: { ...introduce.params, botId: "not-a-uuid" } })).toBe(false);
+	});
+	describe("cloud attestation", () => {
+		const token = "executor-device-token-for-attestation";
+		const input = {
+			ownerId: randomUUID(),
+			cloudDeviceId: randomUUID(),
+			executorDeviceId: randomUUID(),
+			action: "introduce" as const,
+			subject: principalId,
+			issuedAt: now,
+			expiresAt: now + 60_000,
+		};
+		it("verifies only with a key derived from the same device token", () => {
+			const signed = signAttestation(attestationKey(token), input);
+			expect(verifyAttestation(signed, attestationKeyFromHash(attestationKey(token).toString("hex")), now)).toEqual(
+				signed,
+			);
+			expect(() => verifyAttestation(signed, attestationKey(`${token}x`), now)).toThrow("UNAUTHORIZED");
+		});
+		it("rejects a signature that was moved to another executor or subject", () => {
+			const signed = signAttestation(attestationKey(token), input);
+			for (const changed of [
+				{ ...signed, executorDeviceId: randomUUID() },
+				{ ...signed, cloudDeviceId: randomUUID() },
+				{ ...signed, ownerId: randomUUID() },
+				{ ...signed, subject: publicKeyId(foreign.publicKey) },
+				{ ...signed, action: "revoke" as const },
+			])
+				expect(() => verifyAttestation(changed, attestationKey(token), now)).toThrow("UNAUTHORIZED");
+		});
+		it("rejects expired, future, over-long and malformed windows plus extra fields", () => {
+			const key = attestationKey(token);
+			expect(() => verifyAttestation(signAttestation(key, input), key, now + 60_000)).toThrow("UNAUTHORIZED");
+			expect(() =>
+				verifyAttestation(signAttestation(key, { ...input, issuedAt: now + -60_000, expiresAt: now - 1 }), key, now),
+			).toThrow();
+			expect(() =>
+				verifyAttestation(signAttestation(key, { ...input, expiresAt: now + 10 * 60_000 }), key, now),
+			).toThrow("UNAUTHORIZED");
+			expect(() => verifyAttestation({ ...signAttestation(key, input), extra: 1 }, key, now)).toThrow(
+				"INVALID_REQUEST",
+			);
+			expect(() => verifyAttestation({ ...signAttestation(key, input), mac: "short" }, key, now)).toThrow(
+				"INVALID_REQUEST",
+			);
+		});
+		it("rejects a naive base64 re-encoding of the same digest-looking string", () => {
+			const signed = signAttestation(attestationKey(token), input);
+			const swapped = Buffer.from(signed.mac, "base64url").toString("base64");
+			expect(() => verifyAttestation({ ...signed, mac: swapped }, attestationKey(token), now)).toThrow(
+				"INVALID_REQUEST",
+			);
+		});
 	});
 });

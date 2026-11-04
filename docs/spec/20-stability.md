@@ -20,7 +20,7 @@
 | views 协议 | placement（`rail`/`floating`/`page`）、`ViewDecl`、`ViewData`、`ViewsChangedEv` 的形状 | contracts.md、`@yonder/sdk` |
 | `yonder.yaml` | 顶层键、各键含义与取值；agent 配置档与 preset yaml 的字段（同 08、03 §4） | 08 |
 | `state.db` schema | 现有表与列的名称、类型与语义；`y_meta.schema_version` 基线为 v1 | 07 §1 |
-| 状态快照 | `status.json` 的 `schemaVersion: 1` 与 protocol 中同名字段 | `core/src/status/snapshot.ts`、`protocol/src/schema.ts` |
+| 状态快照 | `status.json` 的 `schemaVersion: 1` 与 protocol 中同名字段 | `bot-core/src/status/snapshot.ts`、`protocol/src/schema.ts` |
 | SDK `apiVersion` | 插件 `package.json` 的 `yonder.apiVersion`（当前 `1`）与内核支持的集合；缺省视为 `1` | 04 §6 |
 
 内部实现不在冻结之列：未导出的函数与模块、`scripts/yonder-*.mjs` 辅助脚本、日志文件名（`harness.log`、`status.log`）、launchd/systemd 标签的实现细节（由迁移负责，见 §3）。
@@ -85,9 +85,9 @@ hash 路由按 §3 弃用：至少保留 0.3、0.4 两个 minor，最早 0.5 移
 
 | 冻结项 | 检查 | 卡 |
 |---|---|---|
-| gateway 方法 | `packages/core/src/control/registry.golden.test.ts` ↔ `packages/protocol/golden/methods.json` | S-C02 |
+| gateway 方法 | `packages/local-host/src/control/registry.golden.test.ts` ↔ `packages/protocol/golden/methods.json` | S-C02 |
 | gateway 事件 | `packages/gateway/src/events.golden.test.ts` ↔ `packages/protocol/golden/events.json` | S-C03 |
-| `yonder.yaml`、agent、preset schema | `packages/core/src/config/schema.golden.test.ts` ↔ `schema.golden.json` | S-C04 |
+| `yonder.yaml`、agent、preset schema | `packages/local-host/src/config/schema.golden.test.ts` ↔ `schema.golden.json` | S-C04 |
 | 插件 `apiVersion` | SDK 导出 `API_VERSION`，加载器强制检查（测试随该卡） | S-C05 |
 | `state.db` schema | `y_meta.schema_version` 与迁移执行器测试（随该卡） | S-C06 |
 | views 协议 | `packages/sdk/src/views.golden.test.ts` ↔ `packages/sdk/golden/views.json` | S-C07 |

@@ -1,11 +1,11 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { request } from "node:http";
 import { join } from "node:path";
-import { initHome, openKernel, registry, releaseInfo } from "@yonder/core";
+import { initHome, openKernel, registry, releaseInfo } from "@yonder/local-host";
+import { testModel } from "@yonder/local-host/config/test-support";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
-import { testModel } from "../../core/src/config/test-support.js";
 import { type GatewayHandle, startGateway } from "../src/index.js";
 import { EVENT_TYPES } from "../src/protocol/index.js";
 

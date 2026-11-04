@@ -1,0 +1,1154 @@
+import { createRouter } from "@yonder/bot-core/routing/index";
+import { createSessions } from "@yonder/bot-core/sessions/index";
+import { parseAgentConfig, type YonderConfig } from "@yonder/local-host/config/index";
+import { socialPluginHooks } from "@yonder/local-host/kernel/social-plugin.test-support";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
+import type { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
+import { expect, test } from "vitest";
+
+// 真实加载官方 social 插件：路由里的参与判定由它提供（04 §3.6）。
+const participationHooks = await socialPluginHooks();
+
+test("channel connection routes only a verified owner through the first matching main binding", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		await store.identity().createPerson({ id: "owner", name: "Owner" });
+		await store.identity().link("acct:card:main:owner", "person:owner");
+		const agent = parseAgentConfig(
+			`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: owner
+profiles:
+  owner: { model: openai/gpt-6-luna }
+bindings:
+  - id: owner
+    match: { channel: card, kind: dm, from: owner }
+    session: main
+`,
+			"agent.yaml",
+			"main",
+		);
+		const runtime = {
+			create: async () => "42",
+			sessionState: async () => undefined,
+			describeTools: () => [],
+			submit: async () => ({
+				runId: "run",
+				status: "done",
+				text: "",
+				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+				inputs: [],
+			}),
+		} as unknown as Runtime;
+		const agents = new Map([[agent.id, agent]]);
+		const sessions = createSessions({
+			store,
+			agents,
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/yonder",
+			config: { agents: [{ id: "main", workspace: "./agents/main" }] } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const channels = new Map([["card", { multiAgent: true }]]) as unknown as NonNullable<
+			import("@yonder/bot-core/routing/types").CreateRouterOptions["channels"]
+		>;
+		const router = createRouter({ participationHooks, store, sessions, runtime: () => runtime, agents, channels });
+		const event = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:owner", text: "connected" },
+		});
+		expect(event.from).toBe("plugin:channel-card");
+		expect(event.routes).toMatchObject([{ agent: "main", binding: "owner", session: "42", wake: "run" }]);
+		const stranger = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:stranger", text: "connected" },
+		});
+		expect(stranger.routes).toMatchObject([{ agent: "main", binding: null, dropped: "no-binding" }]);
+		agent.bindings[0]!.reply = "none";
+		const unavailable = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:owner", text: "connected" },
+		});
+		expect(unavailable.routes).toMatchObject([{ agent: "main", binding: "owner", dropped: "send-unavailable" }]);
+		agent.bindings[0]!.match.channel = "cli";
+		agent.bindings[0]!.reply = "auto";
+		const implicit = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:owner", target: "main", text: "connected" },
+		});
+		expect(implicit.routes).toMatchObject([{ agent: "main", binding: "@target", session: "42", wake: "run" }]);
+		agent.profiles.owner!.channelInstances = ["cli"];
+		const denied = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:owner", target: "main", text: "connected" },
+		});
+		expect(denied.routes).toMatchObject([{ agent: "main", binding: "@target", dropped: "no-binding" }]);
+	} finally {
+		await db.close();
+	}
+});
+
+test("routes to the first matching binding and derives its conversation key", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const agent = parseAgentConfig(
+			`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: guest
+profiles:
+  guest: {}
+bindings:
+  - id: first
+    match: { channel: cli, kind: group }
+    session: { mode: persistent, per: conv }
+    profile: guest
+    wake: write
+  - id: second
+    match: { channel: cli }
+    session: { mode: persistent, per: conv }
+    profile: guest
+  - id: cron
+    match: { type: trigger-cron.fired }
+    session: main
+    profile: guest
+`,
+			"agent.yaml",
+			"main",
+		);
+		let submitted: (input: { wake?: string }) => void = () => {};
+		let nextSession = 42;
+		const runtime = {
+			create: async () => String(nextSession++),
+			submit: async (_id: string, input: { wake?: "run" | "write"; event?: { id: string } }) => {
+				submitted(input);
+				return {
+					runId: "run",
+					status: "done" as const,
+					text: "",
+					usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+					inputs: input.event ? [input.event.id] : [],
+				};
+			},
+		} as unknown as Runtime;
+		const sessions = createSessions({
+			store,
+			agents: new Map([[agent.id, agent]]),
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/yonder",
+			config: { agents: [{ id: "main", workspace: "./agents/main" }] } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			runtime: () => runtime,
+			agents: new Map([[agent.id, agent]]),
+		});
+		let submitDone!: () => void;
+		let submits = 0;
+		const wasSubmitted = new Promise<void>((resolve) => {
+			submitDone = resolve;
+		});
+		submitted = () => {
+			if (++submits === 2) submitDone();
+		};
+		const event = await router.emit({
+			type: "message.in",
+			from: "acct:cli:owner",
+			conv: "conv:cli:room",
+			data: { kind: "group", text: "hello" },
+		});
+		const cron = await router.emit({ type: "trigger-cron.fired", from: "plugin:trigger-cron", data: {} });
+		await wasSubmitted;
+		expect(event.routes).toEqual([
+			{ agent: "main", binding: "first", session: "42", wake: "write", busy: "steer", waiting: false },
+		]);
+		expect(cron.routes).toEqual([
+			{ agent: "main", binding: "cron", session: "43", wake: "run", busy: "steer", waiting: false },
+		]);
+		expect((await store.sessions.get("42"))?.key).toBe("conv:conv:cli:room");
+	} finally {
+		await db.close();
+	}
+});
+
+test("owner sources share a steered main session while Feishu observers only write", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const identity = store.identity();
+		await identity.createPerson({ id: "owner", name: "Owner" });
+		await identity.link("acct:cli:owner", "person:owner");
+		await identity.link("acct:feishu:owner", "person:owner");
+		const agent = parseAgentConfig(
+			`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: observer
+profiles:
+  owner: { level: standard }
+  observer: { level: readonly }
+bindings:
+  - id: cli-owner
+    match: { channel: cli, from: owner }
+    session: main
+    profile: owner
+    busy: steer
+  - id: feishu-owner
+    match: { channel: feishu, from: owner }
+    session: main
+    profile: owner
+    busy: steer
+  - id: feishu-group-observer
+    match: { channel: feishu, kind: group, from: [known, stranger] }
+    session: { mode: persistent, per: conv }
+    profile: observer
+    wake: write
+  - id: feishu-dm-observer
+    match: { channel: feishu, kind: dm, from: [known, stranger] }
+    session: { mode: persistent, per: conv }
+    profile: observer
+    wake: write
+`,
+			"agent.yaml",
+			"main",
+		);
+		const submitted: Array<{ id: string; input: { wake: "run" | "write"; busy?: "followup" | "steer" } }> = [];
+		let nextSession = 100;
+		let submitDone!: () => void;
+		const allSubmitted = new Promise<void>((resolve) => {
+			submitDone = resolve;
+		});
+		const runtime = {
+			create: async () => String(nextSession++),
+			submit: async (id: string, input: { wake: "run" | "write"; busy?: "followup" | "steer" }) => {
+				submitted.push({ id, input });
+				if (submitted.length === 4) submitDone();
+				return {
+					runId: `run-${submitted.length}`,
+					status: "done" as const,
+					text: "",
+					usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+					inputs: [],
+				};
+			},
+		} as unknown as Runtime;
+		const sessions = createSessions({
+			store,
+			agents: new Map([[agent.id, agent]]),
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/yonder-routing",
+			config: { agents: [{ id: "main", workspace: "./agents/main" }] } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const commandSessions: string[] = [];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			runtime: () => runtime,
+			agents: new Map([[agent.id, agent]]),
+			onCommand: async (session) => {
+				commandSessions.push(session.id);
+				return undefined;
+			},
+		});
+		const emit = (from: string, channel: string, room: string, kind: "dm" | "group") =>
+			router.emit({
+				type: "message.in",
+				from,
+				conv: `conv:${channel}:${room}`,
+				data: { kind, text: "hello" },
+			});
+		const [cliOwner, feishuOwner, group, dm] = await Promise.all([
+			emit("acct:cli:owner", "cli", "owner", "dm"),
+			emit("acct:feishu:owner", "feishu", "owner", "dm"),
+			emit("acct:feishu:other", "feishu", "group", "group"),
+			emit("acct:feishu:other", "feishu", "dm", "dm"),
+		]);
+		await allSubmitted;
+		const cliRoute = cliOwner.routes?.[0];
+		const feishuRoute = feishuOwner.routes?.[0];
+		const groupRoute = group.routes?.[0];
+		const dmRoute = dm.routes?.[0];
+		expect(cliRoute?.session).toBe(feishuRoute?.session);
+		expect(cliRoute).toMatchObject({ wake: "run", busy: "steer" });
+		expect(feishuRoute).toMatchObject({ wake: "run", busy: "steer" });
+		expect(groupRoute).toMatchObject({ wake: "write", busy: "steer" });
+		expect(dmRoute).toMatchObject({ wake: "write", busy: "steer" });
+		expect(groupRoute?.session).not.toBe(cliRoute?.session);
+		expect(dmRoute?.session).not.toBe(groupRoute?.session);
+		expect(commandSessions).toHaveLength(2);
+		expect(new Set(commandSessions)).toEqual(new Set([cliRoute?.session, feishuRoute?.session]));
+		expect(submitted.filter(({ input }) => input.wake === "run").map(({ input }) => input.busy)).toEqual([
+			"steer",
+			"steer",
+		]);
+		expect(submitted).toHaveLength(4);
+	} finally {
+		await db.close();
+	}
+});
+
+test("multiAgent targets only its own bound agent; ordinary channels cannot target", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const make = (id: string, bound: boolean) =>
+			parseAgentConfig(
+				`schema: 1\nid: ${id}\nname: ${id}\nowner: person:owner\ndefaultProfile: guest\nprofiles:\n  guest: {}\nbindings: ${bound ? "\n  - id: incoming\n    match: { channel: card, kind: dm }\n    session: { mode: persistent, per: conv }\n    wake: write" : "[]"}\n`,
+				"agent.yaml",
+				id,
+			);
+		const agents = new Map([
+			["one", make("one", true)],
+			["two", make("two", true)],
+			["unbound", make("unbound", false)],
+		]);
+		let session = 0;
+		const sessions = {
+			ensureAgent: async (agent: string, profile: string) => ({ session: { id: String(++session), agent, profile } }),
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const channels = new Map<string, import("@yonder/sdk").Channel>([
+			["card", { multiAgent: true } as import("@yonder/sdk").Channel],
+		]);
+		// wake:write never calls a model; no runtime is needed to inspect durable routes.
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents,
+			channels,
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const input = (target: string) => ({
+			type: "message.in",
+			from: "acct:card:two:human",
+			conv: "conv:card:two:dm",
+			data: { target, kind: "dm", text: "hello" },
+		});
+		let event = await router.emit(input("two"));
+		expect(event.routes?.map((r) => [r.agent, r.binding, r.dropped])).toEqual([
+			["one", null, "no-binding"],
+			["two", "incoming", undefined],
+			["unbound", null, "no-binding"],
+		]);
+		event = await router.emit(input("unbound"));
+		expect(event.routes?.every((r) => r.dropped === "no-binding")).toBe(true);
+		channels.set("card", { multiAgent: false } as import("@yonder/sdk").Channel);
+		event = await router.emit(input("two"));
+		expect(event.routes?.filter((r) => r.binding).map((r) => r.agent)).toEqual(["one", "two"]);
+	} finally {
+		await db.close();
+	}
+});
+
+test("social router isolates owner DMs and authorized groups and records its decisions", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		await store.identity().createPerson({ id: "owner", name: "Owner" });
+		await store.identity().link("acct:chat:owner", "person:owner");
+		await store.identity().link("acct:other:owner", "person:owner");
+		const agent = parseAgentConfig(`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: guest
+profiles:
+  guest: { level: readonly, plugins: [social] }
+social:
+  enabled: true
+  authorized:
+    conversations: ["conv:chat:group", "conv:chat:group2"]
+  defaults:
+    group: { batch: { run: true } }
+bindings:
+  - id: owner
+    match: { from: owner }
+    session: main
+  - id: group
+    match: { kind: group }
+    session: { mode: persistent, per: conv }
+  - id: batch
+    match: { type: social.batch-ready }
+    session: { mode: persistent, per: conv }
+    reply: none
+  - id: qq-legacy
+    match: { type: channel-qq.group-batch }
+    session: { mode: persistent, per: conv }
+    reply: none
+`);
+		const agents = new Map([[agent.id, agent]]);
+		const keys = new Map<string, string>();
+		const sessions = {
+			ensureAgent: async (_agent: string, _profile: string, key: string, mode: "main" | "persistent" | "ephemeral") => {
+				if (!keys.has(key)) keys.set(key, String(keys.size + 1));
+				const session = {
+					id: keys.get(key)!,
+					agent: _agent,
+					profile: _profile,
+					key,
+					mode,
+					version: "1",
+					opened: new Date().toISOString(),
+				};
+				if (!(await store.sessions.get(session.id))) await store.sessions.put(session);
+				return { session, profileMismatch: false };
+			},
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents,
+			socialBatchPlugin: true,
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const emit = (from: string, conv: string, kind: string, extra = {}) =>
+			router.emit({ type: "message.in", from, conv, data: { kind, ...extra } });
+		const owner1 = await emit("acct:chat:owner", "conv:chat:owner", "dm");
+		const owner2 = await emit("acct:other:owner", "conv:other:owner", "dm");
+		const group = await emit("acct:chat:owner", "conv:chat:group", "group", { mentioned: true });
+		const group2 = await emit("acct:chat:user", "conv:chat:group2", "group", { mentioned: true });
+		const batched = await emit("acct:chat:user", "conv:chat:group", "group");
+		expect(batched.routes?.[0]?.wake).toBe("write");
+		const revision = (await import("@yonder/bot-core/routing/social")).socialRevision(agent.social!);
+		const batch = (extra = {}) =>
+			router.emit({
+				type: "social.batch-ready",
+				from: "plugin:social",
+				conv: "conv:chat:group",
+				data: { agent: "main", through: batched.id, sourceEvents: [batched.id], policyRevision: revision, ...extra },
+			});
+		expect((await batch()).routes?.[0]?.session).toBe(batched.routes?.[0]?.session);
+		expect((await batch({ policyRevision: "stale" })).routes?.[0]?.session).toBeUndefined();
+		expect((await batch({ agent: "other" })).routes?.[0]?.session).toBeUndefined();
+		expect((await batch({ sourceEvents: [group2.id, batched.id] })).routes?.[0]?.session).toBeUndefined();
+		expect((await batch({ sourceEvents: [] })).routes?.[0]?.session).toBeUndefined();
+		const legacy = await router.emit({
+			type: "channel-qq.group-batch",
+			from: "plugin:channel-qq",
+			conv: "conv:chat:group",
+			data: { through: batched.id },
+		});
+		expect(legacy.routes?.[0]?.dropped).toBe("no-binding");
+		const unboundLegacy = await router.emit({
+			type: "channel-qq.group-batch",
+			from: "plugin:channel-qq",
+			conv: "conv:chat:group",
+			data: {},
+		});
+		expect(unboundLegacy.routes?.[0]?.binding).toBe("qq-legacy");
+		const legacyRouter = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			socialBatchPlugin: true,
+			agents: new Map([[agent.id, { ...agent, bindings: agent.bindings.filter((item) => item.id !== "batch") }]]),
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const noSocialBinding = await legacyRouter.emit({
+			type: "channel-qq.group-batch",
+			from: "plugin:channel-qq",
+			conv: "conv:chat:group",
+			data: { through: batched.id },
+		});
+		expect(noSocialBinding.routes?.[0]?.binding).toBe("qq-legacy");
+		const stranger = await emit("acct:chat:user", "conv:chat:private", "dm");
+		expect(owner1.routes?.[0]?.session).toBe(owner2.routes?.[0]?.session);
+		expect(group.routes?.[0]?.binding).toBe("group");
+		expect(group.routes?.[0]?.wake).toBe("run");
+		expect(new Set([owner1.routes?.[0]?.session, group.routes?.[0]?.session, group2.routes?.[0]?.session]).size).toBe(
+			3,
+		);
+		expect(stranger.routes?.[0]?.session).toBeUndefined();
+		const events = await store.events.query({ limit: 100 });
+		expect(events.events.filter((e) => e.type === "routing.social-decision")).toHaveLength(6);
+	} finally {
+		await db.close();
+	}
+});
+
+test("a later group observer does not promote an earlier exact custom source to the derived default", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const agent = parseAgentConfig(`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: p1
+profiles:
+  p1: { plugins: [] }
+social:
+  enabled: true
+  scope: ["conv:qq:elsewhere"]
+  defaults:
+    group: { plugin: social, mode: batch, batch: { run: true } }
+bindings:
+  - id: p1-source
+    match: { type: message.in, channel: feishu, conv: "conv:feishu:p1" }
+    session: { mode: persistent, per: conv }
+    profile: p1
+    wake: write
+    reply: none
+  - id: feishu-observer
+    match: { type: message.in, channel: feishu, kind: group }
+    session: { mode: persistent, per: conv }
+    profile: p1
+    wake: write
+    reply: none
+`);
+		let ensured = 0;
+		const sessions = {
+			ensureAgent: async (_agent: string, profile: string, key: string, mode: "main" | "persistent" | "ephemeral") => {
+				ensured++;
+				return {
+					session: {
+						id: `session-${ensured}`,
+						agent: "main",
+						profile,
+						key,
+						mode,
+						version: "1",
+						opened: new Date().toISOString(),
+					},
+					profileMismatch: false,
+				};
+			},
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const warnings: object[] = [];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents: new Map([[agent.id, agent]]),
+			channels: new Map([["feishu", { id: "feishu", kinds: ["group"] } as never]]),
+			socialBatchPlugin: true,
+			onWarn: (_message, data) => warnings.push(data ?? {}),
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const event = await router.emit({
+			type: "message.in",
+			from: "acct:feishu:member",
+			conv: "conv:feishu:p1",
+			data: { kind: "group", text: "probe" },
+		});
+		expect(event.routes?.[0]).toMatchObject({ agent: "main", binding: "p1-source", wake: "write" });
+		expect(ensured).toBe(1);
+		expect((await store.events.query({ type: "routing.social-decision" })).events).toEqual([]);
+		expect(warnings).toEqual([]);
+	} finally {
+		await db.close();
+	}
+});
+
+test("an explicit batch policy without profile selection and consumer fails closed with both repairs", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const conv = "conv:feishu:p1";
+		const agent = parseAgentConfig(`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: p1
+profiles: { p1: { plugins: [] } }
+social:
+  enabled: true
+  scope: ["${conv}"]
+  authorized: { conversations: ["${conv}"] }
+  defaults:
+    group: { mode: batch, batch: { run: true } }
+bindings:
+  - id: p1-source
+    match: { type: message.in, channel: feishu, kind: group, conv: "${conv}" }
+    session: { mode: persistent, per: conv }
+    profile: p1
+    wake: write
+    reply: none
+`);
+		let ensured = 0;
+		const sessions = {
+			ensureAgent: async () => {
+				ensured++;
+				throw new Error("unconsumable batch must not create a session");
+			},
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const warnings: object[] = [];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents: new Map([[agent.id, agent]]),
+			channels: new Map([["feishu", { id: "feishu", kinds: ["group"] } as never]]),
+			socialBatchPlugin: true,
+			onWarn: (_message, data) => warnings.push(data ?? {}),
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const event = await router.emit({ type: "message.in", from: "acct:feishu:member", conv, data: { kind: "group" } });
+		expect(event.routes?.[0]).toMatchObject({ agent: "main", binding: null, dropped: "no-binding" });
+		expect(ensured).toBe(0);
+		const fact = (await store.events.query({ type: "routing.social-decision" })).events[0];
+		if (!fact) throw new Error("batch consumer diagnostic fact is missing");
+		expect(fact?.data).toMatchObject({
+			consumerIssue: "batch-consumer-unavailable",
+			profile: "p1",
+			plugin: "social",
+			batchBinding: "missing",
+		});
+		expect((fact.data as { repair?: string }).repair).toContain(
+			"select social in profile p1 and add a matching persistent",
+		);
+		expect(warnings).toContainEqual(
+			expect.objectContaining({ diagnostic: "batch-consumer-missing", conv, profile: "p1" }),
+		);
+	} finally {
+		await db.close();
+	}
+});
+
+test.each([undefined, { enabled: false }])(
+	"membership group events never enter a private main session with social config %o",
+	async (social) => {
+		const db = await openDatabase(":memory:");
+		try {
+			const store = await createStore(db);
+			await store.identity().createPerson({ id: "owner", name: "Owner" });
+			await store.identity().link("acct:feishu:owner", "person:owner");
+			const agent = parseAgentConfig(
+				JSON.stringify({
+					schema: 1,
+					id: "main",
+					name: "Main",
+					owner: "person:owner",
+					defaultProfile: "main",
+					profiles: { main: { plugins: ["social"] } },
+					bindings: [
+						{ id: "owner-main", match: { channel: "feishu", kind: "group" }, session: "main" },
+						{
+							id: "batch",
+							match: { type: "social.batch-ready", channel: "feishu", conv: "conv:feishu:group" },
+							profile: "main",
+							session: { mode: "persistent", per: "conv" },
+							reply: "none",
+							wake: "run",
+						},
+					],
+					...(social ? { social } : {}),
+				}),
+			);
+			let ensured = 0;
+			const sessions = {
+				ensureAgent: async () => {
+					ensured++;
+					throw new Error("membership group must not enter main");
+				},
+			} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+			const router = createRouter({
+				participationHooks,
+				store,
+				sessions,
+				agents: new Map([[agent.id, agent]]),
+				channels: new Map([
+					[
+						"feishu",
+						{
+							id: "feishu",
+							multiAgent: true,
+							kinds: ["dm", "group"],
+							features: { groupParticipation: "membership" },
+						} as never,
+					],
+				]),
+				socialBatchPlugin: true,
+				runtime: () => {
+					throw new Error("No model");
+				},
+			});
+			const event = await router.emit({
+				type: "message.in",
+				from: "acct:feishu:owner",
+				conv: "conv:feishu:group",
+				data: { target: "main", kind: "group" },
+			});
+			expect(event.routes?.[0]).toMatchObject({
+				agent: "main",
+				binding: social ? "owner-main" : null,
+				dropped: "no-binding",
+			});
+			expect(ensured).toBe(0);
+		} finally {
+			await db.close();
+		}
+	},
+);
+
+test("social mapping limits the candidates without bypassing their bindings", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const make = (id: string, extra: object, bindings: object[]) =>
+			parseAgentConfig(
+				JSON.stringify({
+					schema: 1,
+					id,
+					name: id,
+					owner: "person:owner",
+					defaultProfile: "guest",
+					profiles: { guest: { level: "readonly" } },
+					bindings,
+					...extra,
+				}),
+			);
+		const match = { id: "group", match: { kind: "group" }, session: { mode: "persistent", per: "conv" } };
+		const main = make(
+			"main",
+			{
+				social: {
+					enabled: true,
+					authorized: { conversations: ["conv:chat:group"] },
+					mappings: [{ subject: "conv:chat:group", agent: "child", profile: "guest" }],
+				},
+			},
+			[match],
+		);
+		const child = make("child", {}, [match]);
+		const legacy = make("legacy", {}, [match]);
+		const agents = new Map([
+			[main.id, main],
+			[child.id, child],
+			[legacy.id, legacy],
+		]);
+		const sessions = {
+			ensureAgent: async (id: string) => ({ session: { id }, profileMismatch: false }),
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents,
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const event = await router.emit({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", mentioned: true },
+		});
+		expect(event.routes?.filter((route) => route.session).map((route) => route.agent)).toEqual(["child"]);
+		child.bindings = [];
+		const unbound = await router.emit({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", mentioned: true },
+		});
+		expect(unbound.routes?.every((route) => !route.session)).toBe(true);
+	} finally {
+		await db.close();
+	}
+});
+
+test("social scope does not steal other instances or legacy fan-out with real sessions", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const make = (id: string, instance?: string) =>
+			parseAgentConfig(
+				JSON.stringify({
+					schema: 1,
+					id,
+					name: id,
+					owner: "person:owner",
+					defaultProfile: "guest",
+					profiles: { guest: { level: "readonly", ...(instance ? { channelInstances: [instance] } : {}) } },
+					bindings: [
+						{ id: "input", match: { kind: "dm" }, session: { mode: "persistent", per: "conv" }, wake: "write" },
+					],
+					...(instance ? { social: { enabled: true, authorized: { accounts: [`acct:${instance}:user`] } } } : {}),
+				}),
+			);
+		const list = [make("social-a", "a"), make("social-b", "b"), make("legacy1"), make("legacy2")];
+		const agents = new Map(list.map((agent) => [agent.id, agent]));
+		let next = 0;
+		const runtime = {
+			create: async () => String(++next),
+			submit: async () => ({}),
+			notify: async () => {},
+		} as unknown as Runtime;
+		const sessions = createSessions({
+			store,
+			agents,
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/social-scope",
+			config: { agents: list.map((a) => ({ id: a.id, workspace: `./agents/${a.id}` })) } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const router = createRouter({ participationHooks, store, sessions, agents, runtime: () => runtime });
+		const send = (instance: string) =>
+			router.emit({
+				type: "message.in",
+				from: `acct:${instance}:user`,
+				conv: `conv:${instance}:dm`,
+				data: { kind: "dm" },
+			});
+		const a = await send("a");
+		const b = await send("b");
+		expect(a.routes?.filter((r) => r.session).map((r) => r.agent)).toEqual(["social-a", "legacy1", "legacy2"]);
+		expect(b.routes?.filter((r) => r.session).map((r) => r.agent)).toEqual(["social-b", "legacy1", "legacy2"]);
+		expect((await store.sessions.get(a.routes![0]!.session!))?.key).toBe("conv:conv:a:dm");
+	} finally {
+		await db.close();
+	}
+});
+
+test("social decision and input roll back together when audit storage fails", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		await db.run(
+			"CREATE TRIGGER fail_social BEFORE INSERT ON y_events WHEN NEW.type = 'routing.social-decision' BEGIN SELECT RAISE(ABORT, 'audit failure'); END",
+		);
+		const agent = parseAgentConfig(
+			JSON.stringify({
+				schema: 1,
+				id: "main",
+				name: "main",
+				owner: "person:owner",
+				defaultProfile: "guest",
+				profiles: { guest: {} },
+				bindings: [],
+				social: { enabled: true },
+			}),
+		);
+		const router = createRouter({
+			participationHooks,
+			store,
+			agents: new Map([[agent.id, agent]]),
+			sessions: {} as Parameters<typeof createRouter>[0]["sessions"],
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const input = {
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:dm",
+			data: { kind: "dm", msgId: "id" },
+		};
+		await expect(router.emit(input)).rejects.toThrow("audit failure");
+		expect(await store.events.findInput(input)).toBeUndefined();
+		await db.run("DROP TRIGGER fail_social");
+		expect((await router.emit(input)).routes?.[0]?.dropped).toBe("no-binding");
+		expect((await store.events.query({ limit: 100 })).events.map((e) => e.type)).toEqual([
+			"message.in",
+			"routing.social-decision",
+		]);
+	} finally {
+		await db.close();
+	}
+});
+
+test("a multiAgent card DM naming an Agent without a card binding enters its main session", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		await store.identity().createPerson({ id: "owner", name: "Owner" });
+		await store.identity().link("acct:card:keeper:actor", "person:owner");
+		const make = (id: string) =>
+			parseAgentConfig(
+				`schema: 1
+id: ${id}
+name: ${id}
+owner: person:owner
+defaultProfile: owner
+profiles:
+  owner: { level: bypass }
+bindings:
+  - id: cli-owner
+    match: { channel: cli, from: owner }
+    session: main
+`,
+				"agent.yaml",
+				id,
+			);
+		const ensured: string[][] = [];
+		const sessions = {
+			ensureAgent: async (agent: string, profile: string, key: string, mode: string) => {
+				ensured.push([agent, profile, key, mode]);
+				return { session: { id: `sess-${agent}`, agent, profile }, profileMismatch: false };
+			},
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const reported: string[] = [];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents: new Map([
+				["keeper", make("keeper")],
+				["other", make("other")],
+			]),
+			channels: new Map<string, import("@yonder/sdk").Channel>([
+				["card", { multiAgent: true } as import("@yonder/sdk").Channel],
+			]),
+			runtime: () => {
+				throw new Error("No model");
+			},
+			onReport: (error: unknown) => reported.push((error as Error).message),
+		});
+		const routeless = () => reported.filter((message) => message.startsWith("点名消息无法路由"));
+		const mine = await router.emit({
+			type: "message.in",
+			from: "acct:card:keeper:actor",
+			conv: "conv:card:keeper:dm",
+			data: { target: "keeper", kind: "dm", text: "在吗" },
+		});
+		// keeper 没有任何 card 绑定：隐式点名入口用 main 会话接住主人的私聊，别的 Agent 仍为 no-binding。
+		expect(mine.routes?.map((route) => [route.agent, route.binding, route.session, route.dropped])).toEqual([
+			["keeper", "@target", "sess-keeper", undefined],
+			["other", null, undefined, "no-binding"],
+		]);
+		expect(ensured).toEqual([["keeper", "owner", "main", "main"]]);
+		expect(routeless()).toEqual([]);
+		const stranger = await router.emit({
+			type: "message.in",
+			from: "acct:card:keeper:stranger",
+			conv: "conv:card:keeper:dm",
+			data: { target: "keeper", kind: "dm", text: "hi" },
+		});
+		expect(stranger.routes?.every((route) => route.dropped === "no-binding")).toBe(true);
+		expect(routeless().at(-1)).toContain("不是 owner");
+		const group = await router.emit({
+			type: "message.in",
+			from: "acct:card:keeper:actor",
+			conv: "conv:card:keeper:group",
+			data: { target: "keeper", kind: "group", text: "hi" },
+		});
+		expect(group.routes?.every((route) => route.dropped === "no-binding")).toBe(true);
+		expect(routeless().at(-1)).toContain("类型 group");
+		await router.emit({
+			type: "message.in",
+			from: "acct:card:keeper:actor",
+			conv: "conv:card:keeper:dm",
+			data: { target: "ghost", kind: "dm", text: "hi" },
+		});
+		expect(routeless().at(-1)).toContain("没有这个 Agent");
+	} finally {
+		await db.close();
+	}
+});
+
+test("official QQ groups outside social.scope get the restricted default instead of the legacy chain", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const make = (id: string) =>
+			parseAgentConfig(
+				JSON.stringify({
+					schema: 1,
+					id,
+					name: id,
+					owner: "person:owner",
+					defaultProfile: "qq-group",
+					profiles: { "qq-group": { plugins: ["social"], capabilities: ["read"] } },
+					// 有 social 配置，但 scope 不含这个群：仍应得到派生默认，而不是旧链。
+					social: {
+						enabled: true,
+						scope: ["conv:qq-main:group:other"],
+						authorized: { conversations: ["conv:qq-main:group:other"] },
+					},
+					bindings: [
+						{
+							id: "group",
+							match: { channel: "qq-main", kind: "group" },
+							session: { mode: "persistent", per: "conv" },
+							profile: "qq-group",
+							wake: "write",
+							reply: "none",
+						},
+						{
+							id: "batch",
+							match: { type: "social.batch-ready", channel: "qq-main" },
+							session: { mode: "persistent", per: "conv" },
+							profile: "qq-group",
+							reply: "none",
+						},
+					],
+				}),
+			);
+		const agent = make("main");
+		const agents = new Map([[agent.id, agent]]);
+		let next = 0;
+		const runtime = {
+			create: async () => String(++next),
+			submit: async () => ({}),
+			describeTools: () => [],
+			admitted: async () => false,
+		} as unknown as Runtime;
+		const sessions = createSessions({
+			store,
+			agents,
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/qq-default",
+			config: { agents: [{ id: agent.id, workspace: "./agents/main" }] } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const warnings: Array<{ message: string; data?: object }> = [];
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			agents,
+			socialBatchPlugin: new Set(["social"]),
+			channels: new Map([["qq-main", { id: "qq-main", kinds: ["dm", "group"] }]]) as unknown as NonNullable<
+				import("@yonder/bot-core/routing/types").CreateRouterOptions["channels"]
+			>,
+			runtime: () => runtime,
+			onWarn: (message, data) => warnings.push(data ? { message, data } : { message }),
+		});
+		const emit = (extra: object = {}) =>
+			router.emit({
+				type: "message.in",
+				from: "acct:qq-main:user",
+				conv: "conv:qq-main:group:new-group",
+				data: { kind: "group", text: "普通消息", msgId: crypto.randomUUID(), ...extra },
+			});
+		// 普通消息：只写进原生会话（旁观），运行数为 0。
+		const plain = await emit({ mentioned: false, social: { mentions: { bot: false } } });
+		expect(plain.routes?.[0]).toMatchObject({ agent: "main", binding: "group", wake: "write" });
+		const decisions = (await store.events.query({ type: "routing.social-decision" })).events.filter(
+			(event) => event.parent === plain.id,
+		);
+		expect(decisions[0]?.data).toMatchObject({ reason: "batch", derivedDefault: true });
+		// 被 @：硬触发，走官方 write 绑定写入，由批次决定运行。
+		const mention = await emit({ mentioned: true, social: { mentions: { bot: true } } });
+		expect(mention.routes?.[0]).toMatchObject({ agent: "main", binding: "group", wake: "write" });
+		expect(mention.routes?.[0]?.session).toBeDefined();
+		// 旧链不再被派生范围触发：没有旧运行绑定时只记 no-binding，绝不产生运行。
+		const legacy = await router.emit({
+			type: "channel-qq.group-batch",
+			from: "plugin:channel-qq",
+			conv: "conv:qq-main:group:new-group",
+			data: { through: mention.id },
+		});
+		expect(legacy.routes?.every((route) => !route.session)).toBe(true);
+		expect(warnings.some((item) => item.data && "deprecated" in item.data)).toBe(false);
+		// 批次准入使用派生默认范围。
+		const revision = (decisions[0]!.data as { revision: string }).revision;
+		const admitted = await router.admitBatch(
+			{
+				agent: "main",
+				conv: "conv:qq-main:group:new-group",
+				through: mention.id,
+				sourceEvents: [mention.id],
+				policyRevision: revision,
+			},
+			"social",
+		);
+		expect(admitted).toEqual({ session: mention.routes?.[0]?.session });
+	} finally {
+		await db.close();
+	}
+});
+
+test("an unavailable participation plugin only records inbound and writes the no-participation-plugin diagnostic", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const agent = parseAgentConfig(
+			JSON.stringify({
+				schema: 1,
+				id: "main",
+				name: "main",
+				owner: "person:owner",
+				defaultProfile: "guest",
+				profiles: { guest: {} },
+				social: { enabled: true, authorized: { conversations: ["conv:chat:group"] } },
+				bindings: [{ id: "group", match: { kind: "group" }, session: { mode: "persistent", per: "conv" } }],
+			}),
+		);
+		const warnings: Array<{ message: string; data?: object }> = [];
+		const router = createRouter({
+			store,
+			agents: new Map([[agent.id, agent]]),
+			sessions: {
+				ensureAgent: async (id: string) => ({ session: { id }, profileMismatch: false }),
+			} as unknown as Parameters<typeof createRouter>[0]["sessions"],
+			runtime: () => {
+				throw new Error("No model");
+			},
+			// 该 agent 选中的参与策略插件没有加载（social 未注册任何钩子）。
+			participationHooks: new Map(),
+			onWarn: (message, data) => warnings.push(data ? { message, data } : { message }),
+		});
+		const event = await router.emit({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", mentioned: true, text: "hello" },
+		});
+		expect(event.routes).toMatchObject([{ agent: "main", binding: null, dropped: "no-binding" }]);
+		const fact = (await store.events.query({ type: "routing.social-decision" })).events.find(
+			(item) => item.parent === event.id,
+		);
+		expect(fact?.data).toMatchObject({ agent: "main", reason: "record" });
+		expect(fact?.data).not.toHaveProperty("run");
+		expect(warnings).toContainEqual({
+			message: expect.stringContaining("参与策略插件"),
+			data: expect.objectContaining({ diagnostic: "no-participation-plugin", agent: "main", plugin: "social" }),
+		});
+		// 只记录一次诊断，不按消息刷屏。
+		await router.emit({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", mentioned: true, text: "again" },
+		});
+		expect(warnings.filter((item) => (item.data as { diagnostic?: string })?.diagnostic)).toHaveLength(1);
+	} finally {
+		await db.close();
+	}
+});

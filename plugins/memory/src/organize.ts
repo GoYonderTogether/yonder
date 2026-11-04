@@ -108,14 +108,14 @@ export class Organizer {
 		readonly api: PluginAPI,
 		readonly config: Config,
 	) {
-		this.store = new Store(config.root);
+		this.store = new Store(config.root, api.storage.open(config.root));
 	}
 	meta(ctx: ToolContext, op: string, id = "-"): WriteContext {
 		return { op, id, by: ctx.agent ? `agent:${ctx.agent}` : "plugin:memory", session: ctx.session, signal: ctx.signal };
 	}
 	async state(): Promise<Record<string, EntryState>> {
 		try {
-			return JSON.parse(await readText(this.config.root, ".memory/entries.json"));
+			return JSON.parse(await readText(this.store.files, ".memory/entries.json"));
 		} catch (e) {
 			if ((e as NodeJS.ErrnoException).code === "ENOENT") return {};
 			throw e;
@@ -145,7 +145,7 @@ export class Organizer {
 			return evidence;
 		if (evidence?.startsWith("^"))
 			for (const item of await this.pendingFiles()) {
-				const entry = records(await readText(this.config.root, item)).find((e) => `^${e.id}` === evidence);
+				const entry = records(await readText(this.store.files, item)).find((e) => `^${e.id}` === evidence);
 				if (entry && ["chat", "wechat-self"].includes(entry.source)) return evidence;
 			}
 		throw new Error("confirmed requires owner evt: evidence or plugin chat/wechat-self record evidence");
@@ -176,7 +176,7 @@ export class Organizer {
 		if (args.op === "get") {
 			let text = doc.template;
 			try {
-				text = await readText(this.config.root, doc.path);
+				text = await readText(this.store.files, doc.path);
 			} catch (e) {
 				if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
 			}
@@ -244,13 +244,13 @@ export class Organizer {
 		return { path: doc.path, ids: [args.id] };
 	}
 	async pendingFiles() {
-		return (await textFiles(this.config.root)).filter((p) => p.startsWith("timeline/") && /W\d{2}\.md$/.test(p));
+		return (await textFiles(this.store.files)).filter((p) => p.startsWith("timeline/") && /W\d{2}\.md$/.test(p));
 	}
 	async review(args: Args, ctx: ToolContext) {
 		if (args.op === "pending") {
 			const entries = [];
 			for (const path of await this.pendingFiles()) {
-				const text = await readText(this.config.root, path);
+				const text = await readText(this.store.files, path);
 				if (metadata(text).private === true || (args.week && !path.endsWith(`${args.week}.md`))) continue;
 				for (const e of records(text))
 					if (!e.done)
@@ -263,7 +263,7 @@ export class Organizer {
 			for (const e of args.entries ?? []) {
 				let found = false;
 				for (const path of await this.pendingFiles())
-					if (records(await readText(this.config.root, path)).some((r) => r.id === e.id)) {
+					if (records(await readText(this.store.files, path)).some((r) => r.id === e.id)) {
 						await this.store.edit(
 							path,
 							(text) => organizeText(text!, e.id, e.to),
@@ -300,7 +300,7 @@ export class Organizer {
 				this.meta(ctx, "memory_review.close"),
 			);
 		}
-		const text = await readText(this.config.root, doc.path);
+		const text = await readText(this.store.files, doc.path);
 		return {
 			path: doc.path,
 			ids: [],
@@ -314,7 +314,7 @@ export class Organizer {
 			return {
 				files: await Promise.all(
 					paths.map(async (path) => {
-						let text = await readText(this.config.root, path);
+						let text = await readText(this.store.files, path);
 						text = text.replace(/^- [^\n]*(?:\n {2}[^\n]*)*/gm, (line) => {
 							const id = /\^(m\w+)/.exec(line)?.[1];
 							return id && (!state[id] || state[id].hash !== hash(line))
@@ -331,7 +331,7 @@ export class Organizer {
 		if (args.op !== "add") {
 			path = "";
 			for (const p of paths) {
-				oldLine = [...(await readText(this.config.root, p)).matchAll(/^- [^\n]*(?:\n {2}[^\n]*)*/gm)]
+				oldLine = [...(await readText(this.store.files, p)).matchAll(/^- [^\n]*(?:\n {2}[^\n]*)*/gm)]
 					.map((m) => m[0])
 					.find((l) => l.includes(`^${args.id}`));
 				if (oldLine) {

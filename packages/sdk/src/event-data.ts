@@ -1,5 +1,5 @@
 import type { Attachment } from "./messages.js";
-import type { Delivery, Mode, Ref } from "./types.js";
+import type { Delivery, ExecutionOwner, Mode, Ref } from "./types.js";
 
 export interface SessionOpenData {
 	session: string;
@@ -11,7 +11,12 @@ export interface SessionCloseData {
 	session: string;
 	reason: string;
 }
-export interface SessionInputData {
+export interface SubmissionMetadata {
+	executionOwner?: ExecutionOwner;
+	/** A captured ceiling; it can only narrow current authority. */
+	resources?: import("./workbench.js").WorkspaceResource[];
+}
+export interface SessionInputData extends SubmissionMetadata {
 	session: string;
 	text: string;
 }

@@ -22,6 +22,11 @@ export async function workSessions(node?: NodeTarget): Promise<SessionInfo[]> {
 	return [...open, ...archived];
 }
 
+/** 设备详情页的会话列表：只列未归档的，按设备走同一工作桥；离线时由调用方决定不查。 */
+export async function deviceSessions(deviceId: string): Promise<SessionInfo[]> {
+	return rpc<SessionInfo[]>("sessions.list", {}, undefined, { deviceId });
+}
+
 const refresh = () => queryClient.invalidateQueries({ queryKey: ["sessions"] });
 
 /** §18 会话状态变更：archive / unarchive / pin / unpin / rename（§13）。成功后刷新工作列表。 */

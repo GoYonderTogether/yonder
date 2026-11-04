@@ -4,10 +4,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
-// S-N03：scripts/ 里的安装根与服务标签必须与 core 常量（packages/core/src/release/names.ts，S-N01）一致。
+// S-N03：scripts/ 里的安装根与服务标签必须与 core 常量（packages/local-host/src/release/names.ts，S-N01）一致。
 // 这些值同时是 0.3 的公共路径约定：改值必须同时改 core、scripts 与本测试。
 const REPO = path.join(import.meta.dirname, "..", "..");
-const NAMES = path.join(REPO, "packages/core/src/release/names.ts");
+const NAMES = path.join(REPO, "packages/local-host/src/release/names.ts");
 const INSTALL_ROOT = ".local/share/yonder/install";
 const SERVICE_LABEL = "dev.yonder.service";
 const STATUS_LABEL = "dev.yonder.status";

@@ -5,15 +5,15 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
+import { matches, sessionKey } from "@yonder/bot-core/routing/matching";
+import { initHome } from "@yonder/local-host/kernel/home";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import type { PluginAPI, Ref, YEvent } from "@yonder/sdk";
-import { tempHome } from "@yonder/sdk/testing";
+import { createFilePluginStorage, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import { WebSocketServer } from "ws";
-import { parseAgentConfig, parseYonderConfig } from "../../../packages/core/src/config/index.js";
-import { initHome } from "../../../packages/core/src/kernel/home.js";
-import { matches, sessionKey } from "../../../packages/core/src/routing/matching.js";
-import { openDatabase } from "../../../packages/core/src/runtime/db.js";
-import { createStore } from "../../../packages/core/src/store/index.js";
+import { parseAgentConfig, parseYonderConfig } from "../../../packages/local-host/src/config/index.js";
 import { CardChannel } from "../src/channel.js";
 
 const MODEL = "workbuddy/deepseek-v4.1-flash";
@@ -104,6 +104,7 @@ async function linked(
 	const endpoint = await backend();
 	const api = {
 		paths: { data },
+		storage: createFilePluginStorage(data),
 		agents: {
 			list: async () => [
 				{ id: "main", name: "Main", owner: "person:owner" as Ref },

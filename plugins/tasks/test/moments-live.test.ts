@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { openKernel } from "@yonder/local-host/kernel/index";
 import type { PluginAPI, Tool, ToolContext, Trigger } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
-import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { type Config, tick } from "../src/moments.js";
 import { Store } from "../src/store/index.js";
 
@@ -35,6 +35,7 @@ export const tools = [], requests = [], sent = [], triggers = [];
 export default { configSchema: tasks.configSchema, setup(value) {
   api = value;
   tasks.setup({...api,
+    execution: {...api.execution, async capture(ctx) {return {session:ctx.session, agent:ctx.agent, profile:ctx.profile};}},
     tools: {register(tool) {tools.push(tool); api.tools.register(tool);}},
     triggers: {register(trigger) {triggers.push(trigger); api.triggers.register(trigger);}}
   });
@@ -122,7 +123,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		env: {} as never,
 		signal: new AbortController().signal,
 	};
-	const store = new Store(probe.api.paths.data);
+	const store = new Store(probe.api.storage.open());
 
 	return {
 		home,
@@ -136,7 +137,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		},
 		async close() {
 			await kernel.close();
-			store.close();
+			await store.close();
 			await rm(home, { recursive: true, force: true });
 		},
 	};
@@ -176,7 +177,7 @@ test.skipIf(!auth || !existsSync(auth))(
 				const f = await fixture();
 				try {
 					await writeFile(join(f.home, "agents/main/result.txt"), "DONE\n");
-					const task = f.store.open(
+					const task = await f.store.open(
 						{
 							title: item.title,
 							objective: item.objective,
@@ -186,13 +187,13 @@ test.skipIf(!auth || !existsSync(auth))(
 						},
 						f.ctx,
 					);
-					f.store.update(task.id, { state: "active" }, f.ctx);
-					f.store.update(task.id, { state: "waiting-user", note: item.objective }, f.ctx);
+					await f.store.update(task.id, { state: "active" }, f.ctx);
+					await f.store.update(task.id, { state: "waiting-user", note: item.objective }, f.ctx);
 					await tick(f.probe.api, f.store, {}, Date.now() + 121 * 60000);
 					await expect
 						.poll(async () => (await f.kernel().events.query({ type: "run.end" })).events.length, { timeout: 180000 })
 						.toBeGreaterThan(0);
-					const current = f.store.get(task.id, f.ctx);
+					const current = await f.store.get(task.id, f.ctx);
 					const transcript = await f.kernel().sessions.transcript(f.ctx.session);
 					const ends = (await f.kernel().events.query({ type: "run.end" })).events;
 					const inputs = (await f.kernel().events.query({ type: "session.input", from: "plugin:tasks" })).events;

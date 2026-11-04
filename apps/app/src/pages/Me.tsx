@@ -7,6 +7,7 @@ import { api } from "../api";
 import { AppBar, BackButton } from "../components/AppBar";
 import { BotCards } from "../components/BotCards";
 import { CreateBotDialog } from "../components/CreateBotDialog";
+import { ConnectBotDialog } from "../components/devices/ConnectBotDialog";
 import { MyCard } from "../components/MyCard";
 import { MyMarket } from "../components/market/MarketStats";
 import { SelfIdentity } from "../components/wallet/ContactDetail";
@@ -57,6 +58,7 @@ export function Me() {
 	const loc = useLocation();
 	const [params] = useSearchParams();
 	const [creatingBot, setCreatingBot] = useState(false);
+	const [connectingBot, setConnectingBot] = useState(false);
 	const contactsQuery = useQuery({
 		queryKey: ["contacts"],
 		queryFn: api.contacts,
@@ -97,6 +99,9 @@ export function Me() {
 								<h2 className="text-small font-medium text-muted">我的 Bot</h2>
 								<span className="flex items-center gap-3 text-caption text-muted">
 									{agents.length} 位
+									<Button size="sm" onClick={() => setConnectingBot(true)}>
+										接入已有 Bot
+									</Button>
 									<Button size="sm" onClick={() => setCreatingBot(true)}>
 										新建 Bot
 									</Button>
@@ -149,6 +154,13 @@ export function Me() {
 							)}
 						</section>
 						<CreateBotDialog open={creatingBot} onOpenChange={setCreatingBot} />
+						<ConnectBotDialog
+							open={connectingBot}
+							onOpenChange={setConnectingBot}
+							onConnected={() => {
+								void contactsQuery.refetch();
+							}}
+						/>
 						<div className="overflow-hidden rounded-card bg-raised">
 							<details className="px-4 py-4">
 								<summary className="cursor-pointer text-body">渠道接入</summary>
@@ -168,7 +180,7 @@ export function Me() {
 									</li>
 								</ul>
 							</details>
-							<Item to="/connect" icon={Monitor} label="设备" />
+							<Item to="/me/devices" icon={Monitor} label="设备" />
 						</div>
 						{!agents.length && !failure && (
 							<div className="flex gap-2">

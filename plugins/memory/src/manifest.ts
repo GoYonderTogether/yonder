@@ -1,4 +1,4 @@
-import { readText } from "./files.js";
+import { type MemoryRoot, readText } from "./files.js";
 import type { Origin } from "./records.js";
 import { type Store, serial, type WriteContext } from "./store.js";
 export interface Manifest {
@@ -10,7 +10,7 @@ export function parseManifest(text: string): Manifest {
 	const data = JSON.parse(text);
 	return { files: data.files ?? {}, hashes: data.hashes ?? {}, keys: data.keys ?? {} };
 }
-export async function manifest(root: string): Promise<Manifest> {
+export async function manifest(root: MemoryRoot): Promise<Manifest> {
 	try {
 		return parseManifest(await readText(root, ".memory/manifest.json"));
 	} catch (e) {
@@ -19,8 +19,8 @@ export async function manifest(root: string): Promise<Manifest> {
 	}
 }
 export async function once(store: Store, key: string, ctx: WriteContext, run: (state: Manifest) => Promise<string>) {
-	return serial(`${store.root}/.memory/ingest`, async () => {
-		const state = await manifest(store.root);
+	return serial(store.files.localRoot ? `${store.root}/.memory/ingest` : store.files, async () => {
+		const state = await manifest(store.files);
 		if (state.keys[key]) return false;
 		const path = await run(state);
 		state.keys[key] = path;

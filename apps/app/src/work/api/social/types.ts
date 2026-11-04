@@ -31,13 +31,14 @@ export interface Actor {
 export type MessageContent =
 	| { type: "text"; text: string }
 	| { type: "markdown"; text: string }
+	| { type: "error"; text: string }
 	| { type: "image"; url: string; name?: string }
 	| { type: "file"; url: string; name: string; bytes?: number }
 	| {
 			type: "interactive";
 			title: string;
 			body: string;
-			actions: { id: string; label: string }[];
+			actions: { id: string; label: string; link?: string }[];
 			state: "pending" | "done";
 			link?: string;
 	  };

@@ -1,0 +1,38 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"references": [
+		{
+			"path": "../bot-definition"
+		},
+		{
+			"path": "../bot-core"
+		},
+		{
+			"path": "../runtime-adapter"
+		},
+		{
+			"path": "../local-host"
+		},
+		{
+			"path": "../../plugins/memory"
+		},
+		{
+			"path": "../../plugins/agent-presets"
+		},
+		{
+			"path": "../../plugins/tasks"
+		},
+		{
+			"path": "../../plugins/cron"
+		},
+		{
+			"path": "../../plugins/market"
+		},
+		{
+			"path": "../../plugins/web-tools"
+		},
+		{
+			"path": "../../plugins/channel-card"
+		}
+	]
+}

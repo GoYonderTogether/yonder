@@ -7,15 +7,15 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/context";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { initHome, openKernel } from "@yonder/local-host/kernel/index";
+import { attachmentFromPath } from "@yonder/runtime-adapter/node/runtime/attachments";
+import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
+import { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
 import type { Grant, PluginAPI, ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { resolveProfile } from "../packages/core/src/config/test-support.js";
-import { initHome, openKernel } from "../packages/core/src/kernel/index.js";
-import { attachmentFromPath } from "../packages/core/src/runtime/attachments.js";
-import { openDatabase } from "../packages/core/src/runtime/db.js";
-import { Runtime } from "../packages/core/src/runtime/index.js";
 
 const load = (path: string) => import(pathToFileURL(resolve(path)).href);
 const { createHostProvider } = await load("packages/device/src/backends/host.ts");
@@ -25,8 +25,8 @@ const { configuredRegistry } = await load("plugins/devices/src/connections.ts");
 const { DeviceController, executeCapabilities } = await load("plugins/devices/src/controller.ts");
 const { createDevicesPlugin } = await load("plugins/devices/src/index.ts");
 
-import { processTool } from "../packages/core/src/runtime/process.js";
-import { createRemoteEnvironment } from "../packages/core/src/runtime/remote-env.js";
+import { processTool } from "@yonder/runtime-adapter/node/runtime/process";
+import { createRemoteEnvironment } from "@yonder/runtime-adapter/node/runtime/remote-env";
 
 const close: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -221,7 +221,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		let session = "";
 		const runtime = await Runtime.open({
 			home,
-			db,
+			storage: await openRuntimeStorage(db),
 			config: { schema: 1, credentials: auth },
 			plugins: [{ id: "devices", tools: registrations.tools, hooks: [] }],
 			deviceOperation: (config, deviceId, commandId, action, args, signal) =>

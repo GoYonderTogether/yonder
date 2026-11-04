@@ -1,8 +1,8 @@
 import { rm } from "node:fs/promises";
-import { initHome, openKernel, releaseInfo } from "@yonder/core";
+import { initHome, openKernel, releaseInfo } from "@yonder/local-host";
+import { testModel } from "@yonder/local-host/config/test-support";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
-import { testModel } from "../../core/src/config/test-support.js";
 import { workControl } from "../src/work-control.js";
 
 it("uses the real registry and stream snapshots without admin or local methods", async () => {

@@ -1,0 +1,5 @@
+# Yonder connector: one row that opens an outbound connection to a Yonder account and
+# exposes the harness's sessions to it. State lives in $DSH_HOME/yonder/ only.
+- insert:
+    - id: yonder-connector
+      name: '@yonder/dsh-connector'

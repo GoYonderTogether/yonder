@@ -4,7 +4,7 @@
 
 | 块 | 唯一正文 | 装配 |
 |---|---|---|
-| 系统内置 | `packages/core/src/prompt/content.ts` | common 全体、resident 仅常驻、runtime 全体、cli 仅 exec；时间与位置仍在 turn |
+| 系统内置 | `packages/bot-core/src/prompt/content.ts` | common 全体、resident 仅常驻、runtime 全体、cli 仅 exec；时间与位置仍在 turn |
 | 默认主 Agent | `plugins/agent-presets/prompts/jarvis/` | 官方插件 jarvis-soul / jarvis-work 生成并读取工作区 SOUL.md / AGENTS.md |
 | 任务预设 | `plugins/agent-presets/prompts/tasks/` | task-general、task-coding、task-research；同一 preset 用于子任务和独立会话 |
 | 默认 Agent | `plugins/agent-presets/prompts/default-agent/` | 官方插件 default-agent-soul / default-agent-work；真实姓名、主人、职责来自配置 |

@@ -1,11 +1,11 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { stderr, stdout } from "node:process";
-import { initHome } from "@yonder/core";
+import { initHome } from "@yonder/local-host";
+import { testModel } from "@yonder/local-host/config/test-support";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import { parse, stringify } from "yaml";
-import { testModel } from "../../../core/src/config/test-support.js";
 import { runConfig } from "./config.js";
 import * as context from "./context.js";
 

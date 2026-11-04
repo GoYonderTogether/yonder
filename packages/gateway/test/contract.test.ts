@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { registry } from "@yonder/core";
+import { registry } from "@yonder/local-host";
 import { Check } from "typebox/value";
 import { describe, expect, it } from "vitest";
 import { eventValidation, mapEvent } from "../src/events.js";

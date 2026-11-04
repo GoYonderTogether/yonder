@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { openKernel } from "@yonder/local-host/kernel/index";
 import type { ChannelIO, YEvent } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
-import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { groupInstructions as cardInstructions } from "../../channel-card/src/setup.js";
 import { groupInstructions as qqInstructions } from "../../channel-qq/src/participation.js";
 

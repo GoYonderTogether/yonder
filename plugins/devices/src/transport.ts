@@ -17,6 +17,13 @@ export interface RegisteredDevice {
 	controllerKey: KeyObject;
 	deviceKey: KeyObject;
 	grants: readonly Grant[];
+	/** Set for cloud-discovered devices: the label/Bot the controller introduces itself as. */
+	introduce?: { label: string; botId: string | null };
+	/**
+	 * Wire identity when it differs from the outward one (18 §5). Cloud discovery exposes the
+	 * cloud UUID to the model while the executor only answers to its own deviceId.
+	 */
+	executorDeviceId?: string;
 	routes: readonly {
 		kind: "direct" | "card";
 		/** Adapter owns authenticated TLS/WSS and Card framing; return the inner signed envelope. */
@@ -98,12 +105,13 @@ export async function rpc<M extends RpcRequest["method"]>(
 	const requestId = randomUUID();
 	const now = Date.now();
 	const principalId = publicKeyId(device.controllerKey);
+	const wireDeviceId = device.executorDeviceId ?? device.deviceId;
 	const request = {
 		protocol: "yonder.execution",
 		version: 1,
 		kind: "request",
 		requestId,
-		deviceId: device.deviceId,
+		deviceId: wireDeviceId,
 		principalId,
 		issuedAt: now,
 		expiresAt: now + 60_000,
@@ -128,7 +136,7 @@ export async function rpc<M extends RpcRequest["method"]>(
 				{
 					kind: "response",
 					principalId,
-					deviceId: device.deviceId,
+					deviceId: wireDeviceId,
 					requestId,
 					now: Date.now(),
 				},
@@ -138,8 +146,10 @@ export async function rpc<M extends RpcRequest["method"]>(
 				},
 			);
 			if (response.kind !== "response") throw new Error("WRONG_TARGET");
-			if (!response.ok) throw new RemoteError(response.error.code, response.error.message);
-			return response.result;
+			if (!response.ok) {
+				throw new RemoteError(response.error.code, response.error.message);
+			}
+			return outward(response.result, device.executorDeviceId, device.deviceId);
 		} catch (error) {
 			if (error instanceof RemoteError) throw error;
 			// Never log arbitrary transport messages: they may contain credentials or response bodies.
@@ -188,4 +198,25 @@ export async function rpc<M extends RpcRequest["method"]>(
 		}
 	}
 	throw new UnconfirmedRequest(requestId, device.routes.length ? "unknown" : "offline", diagnostic);
+}
+
+/**
+ * Renames the executor's own device id to the cloud UUID the controller and model use (18 §5).
+ * Grants and receipts carry it too, so recurse through arrays and nested records.
+ */
+export function normalizeResult(result: unknown, device: RegisteredDevice): unknown {
+	return outward(result, device.executorDeviceId, device.deviceId);
+}
+
+function outward(result: unknown, executorDeviceId: string | undefined, deviceId: string): unknown {
+	if (!executorDeviceId || !result || typeof result !== "object") return result;
+	const rename = (value: unknown): unknown => {
+		if (Array.isArray(value)) return value.map(rename);
+		if (!value || typeof value !== "object") return value;
+		const clone = structuredClone(value) as Record<string, unknown>;
+		for (const [key, item] of Object.entries(clone))
+			clone[key] = key === "deviceId" && item === executorDeviceId ? deviceId : rename(item);
+		return clone;
+	};
+	return rename(result);
 }

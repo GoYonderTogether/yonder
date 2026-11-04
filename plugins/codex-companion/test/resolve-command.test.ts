@@ -1,9 +1,9 @@
 import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, relative } from "node:path";
+import { localEnvironment } from "@yonder/runtime-adapter/node/runtime/env";
 import type { ToolContext } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { localEnvironment } from "../../../packages/core/src/runtime/env.js";
 import { codexEnvironment, run, runCodex } from "../src/index.js";
 import { npmCodexEntrySource } from "../src/resolve-command.js";
 

@@ -2,12 +2,12 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { createStore } from "@yonder/local-host/store/index";
+import { attachmentFromPath } from "@yonder/runtime-adapter/node/runtime/attachments";
+import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
+import { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../packages/core/src/config/test-support.js";
-import { attachmentFromPath } from "../packages/core/src/runtime/attachments.js";
-import { openDatabase } from "../packages/core/src/runtime/db.js";
-import { Runtime } from "../packages/core/src/runtime/index.js";
-import { createStore } from "../packages/core/src/store/index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
@@ -19,7 +19,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		let id = "";
 		const runtime = await Runtime.open({
 			home,
-			db,
+			storage: await openRuntimeStorage(db),
 			config: { schema: 1, credentials: auth },
 			readEvent: store.events.get,
 			resolveSession: async () => ({

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { type HostCtx, MethodError, registry } from "@yonder/core";
+import { type HostCtx, MethodError, registry } from "@yonder/local-host";
 import { sessionMetadata } from "./snapshot.js";
 
 export const RING = 2000;

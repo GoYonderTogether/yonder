@@ -1,4 +1,4 @@
-import { Laptop, Monitor, Server } from "lucide-react";
+import { Cable, Laptop, Monitor, Server } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api";
@@ -13,6 +13,7 @@ export const deviceIcon: Record<DeviceKind, typeof Laptop> = {
 	desktop: Monitor,
 	server: Server,
 	cloud: Server,
+	harness: Cable,
 };
 
 export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -46,12 +47,15 @@ export function DeviceSheet({
 	open,
 	onOpenChange,
 	onChanged,
+	onRemoved = onChanged,
 }: {
 	device: Device;
 	agents: number;
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
 	onChanged: () => void;
+	/** 解绑成功后额外回调；详情页据此回到列表，普通改名仍留在原页。 */
+	onRemoved?: () => void;
 }) {
 	const [name, setName] = useState(device.name);
 	const [confirmRemove, setConfirmRemove] = useState(false);
@@ -80,9 +84,9 @@ export function DeviceSheet({
 		setRemoving(true);
 		try {
 			await api.removeDevice(device.id);
-			onChanged();
 			onOpenChange(false);
 			toast("设备已解绑");
+			onRemoved();
 		} catch (error) {
 			toast(error instanceof Error ? error.message : "解绑失败", true);
 		} finally {

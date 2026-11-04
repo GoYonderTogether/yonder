@@ -3,11 +3,11 @@ import { once } from "node:events";
 import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
-import { cliChannelEndpoint, initHome, requestControl } from "@yonder/core";
+import { cliChannelEndpoint, initHome, requestControl } from "@yonder/local-host";
+import { testModel } from "@yonder/local-host/config/test-support";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { testModel } from "../../core/src/config/test-support.js";
 
 test("CLI runs through the installed current symlink", async () => {
 	const directory = await tempHome("ya-");

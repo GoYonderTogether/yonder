@@ -44,9 +44,11 @@ export class Wechat {
 		readonly api: PluginAPI,
 		readonly config: Config,
 	) {
-		this.store = new Store(config.root);
+		this.store = new Store(config.root, api.storage.open(config.root));
 	}
 	async command(args: string[], signal: AbortSignal): Promise<Record<string, unknown>> {
+		if (!this.store.files.localRoot)
+			throw new Error("WeChat archive requires an available local or connected device environment");
 		try {
 			const { stdout } = await exec(
 				this.config.sources?.wechat?.cliPath ?? join(homedir(), ".local/bin/wechat-context"),
@@ -128,7 +130,7 @@ export class Wechat {
 		let read = 0,
 			written = 0,
 			skipped = 0;
-		const known = (await manifest(this.config.root)).keys;
+		const known = (await manifest(this.store.files)).keys;
 		for await (const m of this.history(args.chat, ctx.signal)) {
 			read++;
 			const day = m.timestamp ? DateTime.fromSeconds(m.timestamp, { zone: this.config.timezone }).toISODate() : null;

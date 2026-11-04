@@ -31,7 +31,7 @@
 
 测试源码入口：fork `apps/extension/src/tools/__tests__/bookmarks.browser.test.ts`，设置 `BSK_BOOKMARKS_CHROME` 为 CfT 可执行文件、`BSK_BOOKMARKS_BSK=/Users/zoran/.local/bin/bsk`、`YONDER_PLUGIN_ENTRY=<此 worktree>/plugins/browser-skill/test/bookmarks-live.mjs`，再在 fork 执行 `pnpm --filter @browser-skill/extension exec vitest run src/tools/__tests__/bookmarks.browser.test.ts --maxWorkers=4`。测试只建立自己的浏览器/daemon，结束后删除临时资源。
 
-[原始摘要与失败记录](browser-skill-fork/results.txt)；[实际运行 popup 预览](browser-skill-fork/popup.png)。完整执行日志留在本机 `/private/tmp/yonder-r2/B-*.log`。
+摘录：Test Files  56 passed \| 13 skipped (69) / Tests  252 passed \| 26 skipped (278)；[实际运行 popup 预览](browser-skill-fork/popup.png)。完整执行日志留在本机 `/private/tmp/yonder-r2/B-*.log`。
 
 ## 安装记录
 

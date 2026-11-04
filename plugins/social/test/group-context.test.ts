@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import { expect, test } from "vitest";
 import { groupFixture, mainConv } from "./group-fixture.js";
 
@@ -17,6 +20,21 @@ test("a group turn injects one compact context block with self, senders, coverag
 	const f = await groupFixture({ social: true, officialGroup: true });
 	const { kernel, probe } = f;
 	try {
+		const db = await openDatabase(join(f.home, ".yonder/state.db"));
+		try {
+			const store = await createStore(db, () => "person:owner");
+			await store.events.record({
+				type: "message.out",
+				conv: mainConv,
+				data: {
+					text: "cloud transport failure",
+					content: { type: "error", text: "cloud transport failure" },
+					delivery: { ok: true },
+				},
+			});
+		} finally {
+			await db.close();
+		}
 		await probe.ios["qq-main"].emit(message("在吗", true));
 		await expect.poll(() => probe.contexts.length, { timeout: 8000 }).toBe(1);
 		const messages = probe.messages[0] ?? [];
@@ -45,6 +63,8 @@ test("a group turn injects one compact context block with self, senders, coverag
 		const publicHistory = (batches[0]!.data as { publicHistory?: unknown[] }).publicHistory ?? [];
 		expect(publicHistory.length).toBeGreaterThan(0);
 		expect(publicHistory.length).toBeLessThanOrEqual(30);
+		expect(JSON.stringify(publicHistory)).not.toContain("cloud transport failure");
+		expect(blocks.join("\n")).not.toContain("cloud transport failure");
 	} finally {
 		await f.close();
 	}

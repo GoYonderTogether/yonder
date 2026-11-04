@@ -14,6 +14,7 @@ import { Button } from "../../ui/Button";
 import { toast } from "../../ui/Toast";
 import { AgentPublicToggle } from "../AgentPublicToggle";
 import { AppBar } from "../AppBar";
+import { BotDevices } from "../devices/BotDevices";
 import { IdentityDetail } from "../IdentityDetail";
 import { IdentityQr } from "../IdentityQr";
 import { Switch } from "./DeviceSheet";
@@ -144,6 +145,12 @@ export function ContactDetail({ a, desktop, embedded = false }: { a: Actor; desk
 				</dl>
 			)}
 			{mine && <AgentPublicToggle actor={a} />}
+			{mine && (
+				<section aria-label="可操作的设备" className="overflow-hidden rounded-card bg-tone">
+					<h2 className="px-4 pt-4 pb-1 text-small font-medium text-muted">可操作的设备</h2>
+					<BotDevices botId={a.id} />
+				</section>
+			)}
 		</IdentityDetail>
 	);
 	if (embedded) return body;

@@ -14,7 +14,13 @@ export async function operate(
 	ctx: ToolContext,
 	sessions: Map<string, Promise<DeviceSession>>,
 ): Promise<unknown> {
-	const pending = await controller.store.command(deviceId, publicKeyId(device.controllerKey), commandId);
+	// Look up by the outward id but decode against the executor's own id (18 §5).
+	const pending = await controller.store.command(
+		deviceId,
+		publicKeyId(device.controllerKey),
+		commandId,
+		device.executorDeviceId ?? deviceId,
+	);
 	if (pending && JSON.stringify(pending.origin) !== JSON.stringify(origin(ctx)))
 		throw new RemoteError("UNAUTHORIZED", "Foreign command");
 	const selected = ctx.resources?.find((resource) => resource.deviceId === deviceId);
@@ -24,7 +30,7 @@ export async function operate(
 	let sessionId: string;
 	if (pending)
 		sessionId = decodeCommand(pending.commandBase64, {
-			deviceId,
+			deviceId: device.executorDeviceId ?? deviceId,
 			principalId: publicKeyId(device.controllerKey),
 		}).deviceSessionId;
 	else {

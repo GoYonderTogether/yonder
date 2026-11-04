@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { openKernel } from "@yonder/local-host/kernel/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import { expect, test } from "vitest";
-import { openKernel } from "../../../packages/core/src/kernel/index.js";
-import { openDatabase } from "../../../packages/core/src/runtime/db.js";
 import { groupFixture, mainConv } from "./group-fixture.js";
 
 const authSource = process.env.YONDER_GROUP_AUTH_SOURCE ?? process.env.YONDER_TEST_AUTH;

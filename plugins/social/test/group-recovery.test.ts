@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { conversationMembers } from "@yonder/bot-core/tools/conversation";
+import { openKernel } from "@yonder/local-host/kernel/index";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { parseAgentConfig } from "../../../packages/core/src/config/index.js";
-import { openKernel } from "../../../packages/core/src/kernel/index.js";
-import { openDatabase } from "../../../packages/core/src/runtime/db.js";
-import { createStore } from "../../../packages/core/src/store/index.js";
-import { conversationMembers } from "../../../packages/core/src/tools/conversation.js";
+import { parseAgentConfig } from "../../../packages/local-host/src/config/index.js";
 import { groupFixture, mainConv } from "./group-fixture.js";
 
 const message = (text: string, mentioned = false, from = "acct:qq-main:owner") => ({

@@ -7,12 +7,15 @@ import {
 	type DeviceSession,
 	decodeCommand,
 	type ExecutionCapability,
+	type ExecutionError,
 	type Grant,
+	publicKeyId,
 	type RpcRequest,
 	type RpcResponse,
 	type SignedEnvelope,
 	SignedEnvelopeSchema,
 	signMessage,
+	verifyAttestation,
 } from "@yonder/protocol";
 import { Check } from "typebox/value";
 import type { BackendProvider } from "./backend-provider.js";
@@ -20,7 +23,7 @@ import { type ExecutorDiagnostic, ExecutorDiagnostics, verifyRequest } from "./e
 import { operateRpc } from "./executor-commands.js";
 import type { CommandDeps } from "./executor-deps.js";
 import { serveExecution } from "./executor-http.js";
-import { covered, digest, errorCodes, fail, has, now } from "./executor-support.js";
+import { covered, digest, errorCodes, fail, GrantListeners, has, now } from "./executor-support.js";
 import { type CommandRecord, ExecutorStore } from "./store.js";
 
 export class DeviceExecutor {
@@ -32,6 +35,8 @@ export class DeviceExecutor {
 	private faulted = false;
 	private readonly verifying = new AbortController();
 	private readonly diagnostics: ExecutorDiagnostics;
+	private cloudKey: Buffer | undefined;
+	private readonly grantListeners = new GrantListeners();
 	constructor(
 		home: string,
 		readonly backend: BackendProvider,
@@ -266,6 +271,142 @@ export class DeviceExecutor {
 		} finally {
 			this.requestsInFlight.delete(requestKey);
 		}
+	}
+	/**
+	 * Cloud-introduced pairing. The envelope verifies against the controller key carried in the
+	 * request (never an already-paired record); the cloud attestation proves this executor's own
+	 * registration and names the same controller. What is actually granted is decided here.
+	 */
+	async introduce(envelope: unknown, attestation: unknown, signal?: AbortSignal): Promise<SignedEnvelope> {
+		const budget = AbortSignal.any([this.verifying.signal, AbortSignal.timeout(15_000), ...(signal ? [signal] : [])]);
+		budget.throwIfAborted();
+		this.assertHealthy();
+		const claimed = structuredClone(envelope);
+		if (!Check(SignedEnvelopeSchema, claimed)) throw new Error("INVALID_REQUEST");
+		const untrusted = JSON.parse(
+			Buffer.from((claimed as SignedEnvelope).payloadBase64, "base64").toString("utf8"),
+		) as Partial<RpcRequest> & { params?: { controllerPublicKey?: unknown } };
+		if (untrusted.method !== "device.introduce" || untrusted.kind !== "request" || untrusted.deviceId !== this.deviceId)
+			throw new Error("WRONG_TARGET");
+		const encodedKey = untrusted.params?.controllerPublicKey;
+		if (typeof encodedKey !== "string" || typeof untrusted.requestId !== "string") throw new Error("INVALID_REQUEST");
+		const key = createPublicKey({ key: Buffer.from(encodedKey, "base64"), format: "der", type: "spki" });
+		const principalId = publicKeyId(key);
+		if (principalId !== untrusted.principalId)
+			throw new Error("UNAUTHORIZED", { cause: { verification: "principal" } });
+		const verified = await verifyRequest(
+			claimed,
+			key,
+			{ kind: "request", principalId, deviceId: this.deviceId, now: Date.now() },
+			budget,
+			this.diagnostics,
+		);
+		budget.throwIfAborted();
+		if (verified.kind !== "request" || verified.method !== "device.introduce") throw new Error("INVALID_REQUEST");
+		// Every refusal after this point is a signed answer, so the controller learns the real reason
+		// instead of waiting for a timeout it cannot interpret.
+		const refuse = (code: ExecutionError["code"]): SignedEnvelope => {
+			const issuedAt = Date.now();
+			return signMessage(
+				{
+					protocol: "yonder.execution",
+					version: 1,
+					kind: "response",
+					requestId: untrusted.requestId as string,
+					principalId,
+					deviceId: this.deviceId,
+					issuedAt,
+					expiresAt: issuedAt + 60_000,
+					ok: false,
+					error: { code, message: code },
+				},
+				this.store.key,
+			);
+		};
+		if (this.store.pairingPolicy === "manual-only") return refuse("UNPAIRED");
+		const cloud = this.store.data.cloud;
+		if (!cloud || !this.cloudKey) return refuse("UNPAIRED");
+		let claim: ReturnType<typeof verifyAttestation>;
+		try {
+			claim = verifyAttestation(attestation, this.cloudKey, Date.now());
+		} catch {
+			// A forged, expired or malformed claim is answered, not left to time out.
+			return refuse("UNAUTHORIZED");
+		}
+		if (
+			claim.ownerId !== cloud.ownerId ||
+			claim.cloudDeviceId !== cloud.cloudDeviceId ||
+			claim.executorDeviceId !== this.deviceId ||
+			claim.action !== "introduce" ||
+			claim.subject !== principalId
+		)
+			return refuse("UNAUTHORIZED");
+		const { params } = verified as RpcRequest & { method: "device.introduce" };
+		if (params.botId !== null && !this.store.allows(params.botId, cloud.cloudDeviceId)) return refuse("UNAUTHORIZED");
+		// An owner's explicit revocation wins over a repeated introduction.
+		if (this.store.wasRevoked(params.botId)) return refuse("GRANT_REVOKED");
+		const descriptor = await this.backend.describe();
+		if (descriptor.deviceId !== this.deviceId) return refuse("WRONG_TARGET");
+		if (!params.actions.every((name) => this.backend.actions[name] !== undefined))
+			return refuse("UNSUPPORTED_OPERATION");
+		if (!params.targetIds.every((id) => descriptor.targets.some((target) => target.id === id)))
+			return refuse("UNSUPPORTED_OPERATION");
+		const granted = this.store.introduce({
+			principalId,
+			publicKey: encodedKey,
+			botId: params.botId,
+			label: params.label,
+			capabilities: params.capabilities,
+			targetIds: params.targetIds,
+			actions: params.actions,
+			readRoots: params.readRoots,
+			writeRoots: params.writeRoots,
+		});
+		if (!granted) return refuse("UNAUTHORIZED");
+		this.grantListeners.notify();
+		const issuedAt = Date.now();
+		return signMessage(
+			{
+				protocol: "yonder.execution",
+				version: 1,
+				kind: "response",
+				requestId: untrusted.requestId as string,
+				principalId,
+				deviceId: this.deviceId,
+				issuedAt,
+				expiresAt: issuedAt + 60_000,
+				ok: true,
+				result: { grant: granted, principalId },
+			},
+			this.store.key,
+		);
+	}
+	/** Owner-side revocation arriving from the relay or the management CLI. */
+	revokeGrant(grantId: string): void {
+		const grant = this.store.data.grants[grantId];
+		this.store.revokeAny(grantId);
+		// Remember the Bot withdrawal so the next refresh cannot silently re-introduce it.
+		if (grant?.botId) {
+			this.store.data.revokedBots = { ...this.store.data.revokedBots, [grant.botId]: new Date().toISOString() };
+			this.store.save();
+		}
+		this.grantListeners.notify();
+	}
+	applyAllowance(botId: string, devices: string[] | null): void {
+		this.store.applyAllowance(botId, devices);
+		this.grantListeners.notify();
+	}
+	/** What the inbox relay connection learned about this executor's own cloud registration. */
+	rememberCloud(identity: { ownerId: string; cloudDeviceId: string }, cloudKey: Buffer): void {
+		this.store.rememberCloud(identity);
+		this.cloudKey = cloudKey;
+	}
+	summaries(): Grant[] {
+		return this.store.summaries();
+	}
+	/** Called once per grant-set change; the relay connection reports the new summaries. */
+	onGrantsChanged(listener: () => void): () => void {
+		return this.grantListeners.add(listener);
 	}
 	private async respond(request: RpcRequest, requestDigest: string): Promise<SignedEnvelope> {
 		const mutates = [

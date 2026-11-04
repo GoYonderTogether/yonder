@@ -20,11 +20,13 @@ export function historySummary(message: Message) {
 	const c = message.content;
 	return c.type === "text" || c.type === "markdown"
 		? c.text
-		: c.type === "image"
-			? (c.name ?? "图片")
-			: c.type === "file"
-				? c.name
-				: c.title;
+		: c.type === "error"
+			? c.text
+			: c.type === "image"
+				? (c.name ?? "图片")
+				: c.type === "file"
+					? c.name
+					: c.title;
 }
 export function ChatHistory({
 	d,
@@ -70,22 +72,28 @@ export function ChatHistory({
 					<p className="text-small font-medium">{sender(preview)}</p>
 					<p className="mt-1 text-caption text-muted">{time(preview)}</p>
 				</div>
-				<div className="rounded-card bg-tone p-4 break-words">
-					{preview.content.type === "image" ? (
-						<a href={preview.content.url} target="_blank" rel="noreferrer">
-							<img
-								src={preview.content.url}
-								alt={preview.content.name ?? "聊天图片"}
-								className="max-h-[60dvh] w-full rounded-control object-contain"
-							/>
-							<span className="mt-3 block text-center text-caption text-muted">查看原图</span>
-						</a>
-					) : preview.content.type === "markdown" ? (
-						<Markdown text={preview.content.text} />
-					) : (
-						<p className="whitespace-pre-wrap text-small leading-relaxed">{historySummary(preview)}</p>
-					)}
-				</div>
+				{preview.content.type === "error" ? (
+					<p role="alert" className="whitespace-pre-wrap text-small text-danger">
+						{preview.content.text}
+					</p>
+				) : (
+					<div className="rounded-card bg-tone p-4 break-words">
+						{preview.content.type === "image" ? (
+							<a href={preview.content.url} target="_blank" rel="noreferrer">
+								<img
+									src={preview.content.url}
+									alt={preview.content.name ?? "聊天图片"}
+									className="max-h-[60dvh] w-full rounded-control object-contain"
+								/>
+								<span className="mt-3 block text-center text-caption text-muted">查看原图</span>
+							</a>
+						) : preview.content.type === "markdown" ? (
+							<Markdown text={preview.content.text} />
+						) : (
+							<p className="whitespace-pre-wrap text-small leading-relaxed">{historySummary(preview)}</p>
+						)}
+					</div>
+				)}
 				{onSelectMessage && <Button onClick={() => onSelectMessage(preview)}>查看上下文</Button>}
 			</section>
 		);
@@ -201,7 +209,9 @@ export function ChatHistory({
 											<span className="truncate">{sender(message)}</span>
 											<span className="shrink-0">{new Date(message.createdAt).toLocaleDateString()}</span>
 										</span>
-										<span className="mt-1 block line-clamp-3 whitespace-pre-wrap text-small leading-relaxed">
+										<span
+											className={`mt-1 block line-clamp-3 whitespace-pre-wrap text-small leading-relaxed ${message.content.type === "error" ? "text-danger" : ""}`}
+										>
 											{historySummary(message)}
 										</span>
 									</>

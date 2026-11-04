@@ -7,7 +7,7 @@ import type {
 	Theme,
 } from "@earendil-works/pi-coding-agent";
 import type { Component, Container } from "@earendil-works/pi-tui";
-import type { Kernel, TerminalUpdate } from "@yonder/core";
+import type { Kernel, TerminalUpdate } from "@yonder/local-host";
 import type { SessionNotification, YEvent } from "@yonder/sdk";
 import type { CompactToolExecution } from "./message-presentation.js";
 import type { createInteractiveTui, KeybindingsManager, WorkingStatusIndicator } from "./pi-native.js";

@@ -2,13 +2,13 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRouter } from "@yonder/bot-core/routing/index";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import type { EventInput, PluginAPI } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
-import { parseAgentConfig } from "../../../packages/core/src/config/index.js";
-import { createRouter } from "../../../packages/core/src/routing/index.js";
-import { openDatabase } from "../../../packages/core/src/runtime/db.js";
-import { createStore } from "../../../packages/core/src/store/index.js";
+import { parseAgentConfig } from "../../../packages/local-host/src/config/index.js";
 import { Batches } from "../src/batches.js";
 import { decideParticipation } from "../src/participation.js";
 

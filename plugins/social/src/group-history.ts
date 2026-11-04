@@ -1,4 +1,5 @@
 import type { PluginAPI, Ref, SocialPolicy, YEvent } from "@yonder/sdk";
+import { isUserVisibleBotSpeech } from "@yonder/sdk";
 /** Public ledger only. Native message IDs deduplicate trusted Card fanout, never guessed QQ aliases. */
 export async function* groupEvents(api: PluginAPI, type: string, conv?: Ref) {
 	let after: string | undefined;
@@ -15,7 +16,7 @@ export async function publicEvents(api: PluginAPI, convs: Set<Ref>, limit = 100)
 		for (const type of ["message.in", "message.out"])
 			for await (const event of groupEvents(api, type, conv)) {
 				const data = event.data as { msgId?: string; social?: { room?: string }; delivery?: { ok?: boolean } };
-				if (type === "message.out" && !data.delivery?.ok) continue;
+				if (type === "message.out" && !isUserVisibleBotSpeech(event)) continue;
 				const key =
 					type === "message.in" && data.social?.room && data.msgId ? `${data.social.room}:${data.msgId}` : event.id;
 				if (!seen.has(key)) {

@@ -17,6 +17,7 @@ import { IMPORT_PREFIX } from "./lib/imports";
 import { deviceAgentMap, useDeviceAgents, useRefetchOnReconnect, useTitleOf } from "./lib/queries";
 import { useRailContent } from "./lib/railContent";
 import { useSession } from "./lib/useSession";
+import { useWorkOnline } from "./lib/workOnline";
 import { EmptyPane } from "./shell/EmptyPane";
 import { frameOf, type Screen } from "./shell/layoutMode";
 import { PageSkeleton } from "./shell/PageSkeleton";
@@ -65,6 +66,7 @@ export function WorkShell({
 }) {
 	const route = useWorkRoute();
 	const node = useActiveNode();
+	const online = useWorkOnline();
 	const cloudDevice = !!node.deviceId;
 	const breakpoint = useBreakpoint();
 	const location = useLocation();
@@ -216,6 +218,8 @@ export function WorkShell({
 			subtitle={
 				route.session
 					? [
+							// 运行位置显示真实宿主名与在线态（19 §7）；云端同源不冒充用户电脑。
+							node.deviceId ? `${node.name}${online ? " · 在线" : " · 离线"}` : undefined,
 							session?.mode === "persistent" ? branch : undefined,
 							profile.data?.summary ?? actor?.summary,
 							view.running ? "正在回复…" : session?.closed ? "已结束" : undefined,

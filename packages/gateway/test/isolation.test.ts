@@ -1,10 +1,10 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
+import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/local-host";
+import { testModel } from "@yonder/local-host/config/test-support";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
-import { testModel } from "../../core/src/config/test-support.js";
 import { tokenHash } from "../src/auth.js";
 import { startGateway } from "../src/index.js";
 

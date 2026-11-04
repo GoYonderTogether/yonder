@@ -11,8 +11,12 @@
 		"packages/pi-durable",
 		"packages/protocol",
 		"packages/device",
+		"packages/bot-definition",
 		"packages/sdk",
-		"packages/core",
+		"packages/runtime-adapter",
+		"packages/bot-core",
+		"packages/local-host",
+		"packages/cloud-host",
 		"packages/gateway",
 		"packages/cli",
 		"apps/app",
@@ -46,7 +50,9 @@
 		"plugins/code-intel",
 		"plugins/codex-companion",
 		"plugins/advisor",
-		"plugins/market"
+		"plugins/market",
+		"connectors/dsh",
+		"packages/connect"
 	],
 	"scripts": {
 		"version:check": "node scripts/version-check.mjs --check",

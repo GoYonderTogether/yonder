@@ -15,6 +15,8 @@
 
 自动回复或 `message_send` 经 send 发 Markdown；acct 先解析幂等 DM。仅匹配 ref 的 sent 才成功，15 秒超时或发送后断线返回 uncertain，绝不自动重发。真实后端目前错误只有 `{error}`，无法关联请求，等待超时。首版不提供上传附件或流式输出，入站 image/file 转附件。
 
+工具 `channel-card_reply_card({title,body,actions,link?})`：message 能力，只准备当前可自动回复的 card 消息的最终卡片，不发送第二条消息；按钮使用应用内路径，设备连接用 `/connect`，安装用 `/download`。成功完成本轮时，同一条最终回复被替换为 interactive 卡片。
+
 工具 `channel-card_card_push({instance,title,markdown,display?})`：write + network，当前 ToolContext.agent 决定身份，不接受其他 agentId；display 是 `{kind:'html'|'svg',source}`。工具只起草自己的名片，发布由人在网页完成。
 
 测试：`npx vitest run plugins/channel-card/test`。protocol.test.ts 为 loopback 协议契约替身，非模型替身；real-backend.test.ts 启动 sibling server 的真实实现和临时 PostgreSQL/Redis，无 sibling 或本地二进制时明确跳过。所有测试仅 loopback，无生产访问、无模型。实际验收见 docs/status.md。

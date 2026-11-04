@@ -2,13 +2,13 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { stdout } from "node:process";
-import { installedService, manageService } from "@yonder/core";
+import { installedService, manageService } from "@yonder/local-host";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { uninstall } from "./uninstall.js";
 
-vi.mock("@yonder/core", async (original) => ({
-	...(await original<typeof import("@yonder/core")>()),
+vi.mock("@yonder/local-host", async (original) => ({
+	...(await original<typeof import("@yonder/local-host")>()),
 	installedService: vi.fn(),
 	manageService: vi.fn(),
 }));

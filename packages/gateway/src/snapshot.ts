@@ -1,4 +1,4 @@
-import { type HostCtx, registry } from "@yonder/core";
+import { type HostCtx, registry } from "@yonder/local-host";
 
 /** Keep both consumers on the same authorised metadata read. */
 export function sessionMetadata(id: string, ctx: HostCtx) {

@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { type Capability, definePlugin, type ToolContext, type TSchema } from "@yonder/sdk";
+import { type Capability, definePlugin, type ToolContext, type TriggerIO, type TSchema } from "@yonder/sdk";
 import { Check } from "typebox/value";
 import { configSchema, configuredRegistry } from "./connections.js";
 import { DeviceController, executeCapabilities, toolError } from "./controller.js";
@@ -14,6 +14,8 @@ const device = { deviceId: id };
 const session = { ...device, deviceSessionId: id };
 const command = { ...device, commandId: id };
 const read: Capability[] = ["read", "network"];
+/** Cloud device/grant discovery refresh interval; discovery is read-only and idempotent. */
+const REFRESH_MS = 30_000;
 const object = (properties: Record<string, unknown>): TSchema =>
 	({
 		type: "object",
@@ -28,10 +30,36 @@ export function createDevicesPlugin(registry?: DeviceRegistry) {
 		configSchema,
 		setup(api) {
 			const connections = registry
-				? { registry, close: async () => {} }
-				: configuredRegistry(api.config, api.credentials);
+				? { registry, close: async () => {}, prepare: async () => {} }
+				: configuredRegistry(api.config, api.credentials, api.paths.data);
 			const controller = new DeviceController(api.paths.data, connections.registry);
-			api.triggers.register({ id: "devices-connections", start: async () => {}, stop: connections.close });
+			// Setup does no IO; the trigger performs the first cloud read and the periodic refresh.
+			let schedule: TriggerIO["schedule"] | undefined;
+			api.triggers.register({
+				id: "devices-connections",
+				async start(io) {
+					schedule = io.schedule;
+					// A failed first read is reported, not hidden behind an empty device list.
+					await connections.prepare().catch((error: unknown) => {
+						api.log.warn("Device discovery failed at start", {
+							reason: error instanceof Error ? error.message.slice(0, 200) : "unknown",
+						});
+					});
+					await io.schedule(Date.now() + REFRESH_MS);
+				},
+				async tick() {
+					try {
+						await connections.prepare();
+					} catch (error) {
+						api.log.warn("Device discovery refresh failed", {
+							reason: error instanceof Error ? error.message.slice(0, 200) : "unknown",
+						});
+					} finally {
+						await schedule?.(Date.now() + REFRESH_MS);
+					}
+				},
+				stop: connections.close,
+			});
 			const add = (
 				name: string,
 				description: string,

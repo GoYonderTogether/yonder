@@ -33,3 +33,22 @@ export const covered = (resource: string, roots: string[]) =>
 		const path = relative(root, resource);
 		return path === "" || (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path));
 	});
+
+/** Fires once per grant-set change; the relay connection is the only subscriber today. */
+export class GrantListeners {
+	private readonly listeners = new Set<() => void>();
+	add(listener: () => void): () => void {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+	/** A failing listener must not corrupt the executor's durable state. */
+	notify(): void {
+		for (const listener of this.listeners) {
+			try {
+				listener();
+			} catch {
+				/* the next grant change retries the report */
+			}
+		}
+	}
+}

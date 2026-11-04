@@ -1,0 +1,30 @@
+{
+	"id": "yonder-connector",
+	"categories": ["other"],
+	"name": "Yonder Connector",
+	"description": "Registers this OpenClaw gateway with a Yonder account: its agents as Bots and its sessions through the cloud's existing work bridge (spec 23). Outbound only — no inbound port, no transcript copy, no device-execution methods.",
+	"activation": {
+		"onStartup": true
+	},
+	"configSchema": {
+		"type": "object",
+		"additionalProperties": false,
+		"properties": {
+			"endpoint": {
+				"type": "string",
+				"description": "Yonder 服务地址（默认 https://yonderbot.net）"
+			},
+			"stateDir": {
+				"type": "string",
+				"description": "覆盖连接器状态目录（默认 <OPENCLAW_STATE_DIR>/yonder）"
+			},
+			"toolsOnly": {
+				"type": "boolean",
+				"description": "只提供状态工具，不建立后台连接"
+			}
+		}
+	},
+	"contracts": {
+		"tools": ["yonder_status"]
+	}
+}

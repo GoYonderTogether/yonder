@@ -1,0 +1,9 @@
+[project]
+name = "yonder-hermes-connector"
+version = "0.3.26110400"
+description = "Yonder connector bundle for Hermes Agent: registers this gateway with a Yonder account."
+requires-python = ">=3.10"
+dependencies = ["websockets>=13"]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]

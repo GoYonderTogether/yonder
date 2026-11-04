@@ -1,17 +1,19 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { EntryRecord } from "@earendil-works/pi-durable";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { prepareInput } from "@yonder/local-host/prompt/index";
+import { createStore } from "@yonder/local-host/store/index";
+import { Runtime } from "@yonder/runtime-adapter/node";
+import { FileCredentials } from "@yonder/runtime-adapter/node/runtime/credentials";
+import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
+import { localEnvironment, workspaceFiles } from "@yonder/runtime-adapter/node/runtime/env";
+import { buildModels } from "@yonder/runtime-adapter/node/runtime/models";
+import { readTranscript, transcriptItem } from "@yonder/runtime-adapter/runtime/transcript";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../../../packages/core/src/config/test-support";
-import { prepareInput } from "../../../packages/core/src/prompt";
-import { Runtime } from "../../../packages/core/src/runtime";
-import { FileCredentials } from "../../../packages/core/src/runtime/credentials";
-import { openDatabase } from "../../../packages/core/src/runtime/db";
-import { localEnvironment, workspaceFiles } from "../../../packages/core/src/runtime/env";
-import { buildModels } from "../../../packages/core/src/runtime/models";
-import { readTranscript, transcriptItem } from "../../../packages/core/src/runtime/transcript";
-import { createStore } from "../../../packages/core/src/store";
 import { fromTranscript, inputDetails, timeBucket } from "../src/work/lib/chat";
 import { emptyView, reduce } from "../src/work/lib/useSession";
 
@@ -24,11 +26,17 @@ test("real preparation and stored edit project metadata without losing the origi
 		const text = "保留正文\n<turn>这是用户写的 XML</turn>";
 		const event = await store.events.record({ type: "message.in", from: "acct:console:owner", data: { text } });
 		const session = { agent: null, profile: "default", cwd: home, resolved: resolveProfile({ contexts: ["context"] }) };
-		runtime = await Runtime.open({ db, home, config: { schema: 1 }, resolveSession: async () => session });
+		runtime = await Runtime.open({
+			storage: await openRuntimeStorage(db),
+			home,
+			config: { schema: 1 },
+			resolveSession: async () => session,
+		});
 		const id = await runtime.create({ agent: null, profile: "default", cwd: home });
 		await runtime.submit(id, { text, event, wake: "write" });
 		const [original] = await runtime.transcript(id);
 		if (!original) throw new Error("missing original input");
+		const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../packages/cli/dist/index.js");
 		const prepared = await prepareInput(
 			{ id, agent: null, profile: "default", mode: "task", key: "check", version: "check", opened: event.ts },
 			session,
@@ -37,6 +45,13 @@ test("real preparation and stored edit project metadata without losing the origi
 			{
 				home,
 				version: "check",
+				hostFacts: {
+					nodePath: process.execPath,
+					nodeVersion: process.version,
+					platform: process.platform,
+					cliPath,
+					cliAvailable: existsSync(cliPath),
+				},
 				locale: "zh-CN",
 				timezone: "UTC",
 				contexts: new Map([["context", { id: "context", placement: "turn", render: () => "真实上下文贡献" }]]),
