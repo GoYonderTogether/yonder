@@ -11,6 +11,8 @@ export interface CloudBotIdentity {
 	id: string;
 	name: string;
 	ownerId: string;
+	/** 平台还没告诉这只 Bot「你已连上主人」时给出的真实主人私聊 id。 */
+	greetConv?: string;
 }
 
 /** Only missing files are seeded; scaffoldWorkspace uses the shipped default-agent templates. */

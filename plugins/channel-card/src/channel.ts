@@ -15,6 +15,7 @@ import {
 import {
 	type CardWorkerHost,
 	greetCardOwners,
+	greetNewCardBots,
 	linkWorkOwner,
 	notifyWorkerDisconnected,
 	openWorkBridge,
@@ -191,6 +192,8 @@ export class CardChannel implements Channel {
 				this.deviceId = undefined;
 				this.warn(`Owner identity link skipped: ${(error as Error).message}`);
 			});
+			// 新 Bot 的「已连上主人」提醒：模型失败按普通错误显示，平台不代写问候。
+			await greetNewCardBots(this.io, this.owners, mappings, this.id, this.request.bind(this), this.warn.bind(this));
 			if (this.socket) this.socket.close();
 			else this.connect();
 		} finally {
@@ -481,9 +484,7 @@ export class CardChannel implements Channel {
 	}
 	async stop(): Promise<void> {
 		this.stopped = true;
-		notifyWorkerDisconnected(this.worker, "worker stopped", this.workerDisconnectNotified, (message) =>
-			this.warn(message),
-		);
+		notifyWorkerDisconnected(this.worker, "worker stopped", this.workerDisconnectNotified, this.warn.bind(this));
 		this.controller.abort();
 		clearTimeout(this.reconnect);
 		clearTimeout(this.pollTimer);

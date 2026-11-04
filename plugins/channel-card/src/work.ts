@@ -256,3 +256,43 @@ export function parseDeviceFrame(raw: { toString(): string }): Record<string, un
 		return;
 	}
 }
+
+/**
+ * 平台新建的本机 Bot 只提醒一次「你已连上主人」：走与授权完成后完全相同的内核入口
+ * （ownerConnected → channel.connected），说什么由 Bot 自己的模型决定。平台只给事实，
+ * 不写问候文案；模型失败按普通运行错误如实呈现，不代发一句假的问好。
+ */
+export async function greetNewCardBots(
+	io: ChannelIO | undefined,
+	owners: Array<{ agent: string; account: Ref; actor: string }>,
+	mappings: Map<string, string>,
+	instance: string,
+	request: (path: string, method: string, data: unknown) => Promise<unknown>,
+	warn: (message: string) => void,
+): Promise<void> {
+	if (!io?.ownerConnected) return;
+	let ids: { agentIds?: unknown };
+	try {
+		ids = (await request("/api/device/greetings", "POST", {})) as { agentIds?: unknown };
+	} catch {
+		warn("Bot connection notices could not be read");
+		return;
+	}
+	const pending = Array.isArray(ids.agentIds)
+		? ids.agentIds.filter((id: unknown): id is string => typeof id === "string")
+		: [];
+	for (const [agent, agentId] of mappings) {
+		if (!pending.includes(agentId)) continue;
+		const owner = owners.find((entry) => entry.agent === agent);
+		if (!owner) continue;
+		try {
+			const result = (await request("/api/device/dm", "POST", { agentId, accountId: owner.actor })) as {
+				convId?: unknown;
+			};
+			if (typeof result.convId !== "string" || !result.convId) throw new Error("Invalid card DM response");
+			await io.ownerConnected({ account: owner.account, conv: `conv:${instance}:${agent}:${result.convId}`, agent });
+		} catch {
+			warn(`Bot connection notice failed for ${agent}`);
+		}
+	}
+}

@@ -143,6 +143,8 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 			for (const bot of bots) identities.set(bot.id, bot);
 			connected();
 			await scheduler.start();
+			// 平台只说「你已连上主人和这个真实私聊」，打不打招呼由 Bot 自己决定；模型失败走普通运行错误。
+			for (const bot of bots) if (bot.greetConv) void greet(bot).catch((error) => report(error));
 		},
 		async onResult(sourceMessageId: string, delivery: Delivery) {
 			sources.get(sourceMessageId)?.resolve(delivery);
@@ -185,6 +187,27 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 		},
 	});
 	const descriptors = await cloudPluginDescriptors(card.plugin);
+	/**
+	 * 把「已连上主人」变成一条真实的 channel.connected 事件，与设备侧 ownerConnected 同一条内核路径：
+	 * 它按 Bot 自己的主人私聊绑定唤醒 main，由模型决定说什么。平台不写问候文案，也不代发消息。
+	 */
+	async function greet(bot: CloudBotIdentity & { greetConv?: string }) {
+		const conv = bot.greetConv;
+		if (!conv) return;
+		await enqueue(bot.id, async ({ bot: instance }) => {
+			await instance.router.emit({
+				type: "channel.connected",
+				from: "plugin:channel-card",
+				conv: `conv:card:${bot.id}:${conv}`,
+				data: {
+					account: `acct:card:${bot.id}:${bot.ownerId}`,
+					kind: "dm",
+					target: bot.id,
+					text: `渠道 card 已连接主人 ${bot.ownerId}，私聊是 ${conv}。你可以向主人打个招呼。`,
+				},
+			});
+		});
+	}
 	function retire(id: string, entry: Entry, bot: Bot) {
 		entry.closing = bot.close().finally(() => {
 			active.delete(id);
