@@ -33,7 +33,7 @@ const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
 
 function MarketPostsRedirect() {
 	const location = useLocation();
-	return <Navigate to={"/me/shop" + location.search} replace state={location.state} />;
+	return <Navigate to={`/me/shop${location.search}`} replace state={location.state} />;
 }
 
 function Private({ children }: { children: ReactNode }) {
