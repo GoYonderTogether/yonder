@@ -191,6 +191,22 @@ test("program conversation scope reuses a profile and creates a new session afte
 	});
 });
 
+test("an unselected resource ceiling leaves device grants to the executor instead of narrowing to the host", async () => {
+	// A Bot fanning out to every device tool sends no `resources`; the run must keep the host's own
+	// cwd rules *and* the devices plugin's full grant set (19 §7/§9), not a synthesized local-only scope.
+	const { calls, tools } = fixture();
+	const input = {
+		agent: "local-agent",
+		source,
+		ceiling: { capabilities: ["read" as const, "write" as const] },
+		tool: "files_read",
+		arguments: { path: "notes/today.md" },
+	};
+	await tools.call(input, "card", new AbortController().signal);
+	const resolved = calls[0]?.[1] as { resources?: unknown };
+	expect(resolved.resources).toBeUndefined();
+});
+
 test("program tools reject missing shared resources, empty capabilities, and unconfigured bridge instances", async () => {
 	const { calls, tools } = fixture();
 	const input = {

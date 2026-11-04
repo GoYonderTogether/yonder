@@ -85,14 +85,17 @@ export function createProgramTools({ agents, config, home, store, version, runti
 	}
 	async function authorizedConfig(input: ProgramToolInput) {
 		const base = sessionConfig(input.agent, input.ceiling);
-		if (input.ceiling.resources !== undefined && !input.ceiling.resources.length)
-			throw new Error("No shared device resources");
-		const sourceResources = input.ceiling.resources?.filter((resource) => resource.deviceId === input.source.deviceId);
-		if (input.ceiling.resources !== undefined && !sourceResources?.length)
-			throw new Error("No shared device resources");
+		// No resource selection in the calling run means the accepted default: an absent `resources`
+		// leaves local file tools on their cwd rules and lets the devices plugin apply every current
+		// grant (19 §7/§9). Synthesizing a local-only list here narrowed the program run to the host
+		// itself, so every remote device reported "no current read grant".
+		if (input.ceiling.resources === undefined) return base;
+		if (!input.ceiling.resources.length) throw new Error("No shared device resources");
+		const sourceResources = input.ceiling.resources.filter((resource) => resource.deviceId === input.source.deviceId);
+		if (!sourceResources.length) throw new Error("No shared device resources");
 		const resources = intersectResources(
 			[{ deviceId: "local", paths: [base.cwd] }],
-			sourceResources?.map((resource) => ({ ...resource, deviceId: "local" })),
+			sourceResources.map((resource) => ({ ...resource, deviceId: "local" })),
 		);
 		if (!resources?.length) throw new Error("No shared device resources");
 		return { ...base, resources };
