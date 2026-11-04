@@ -30,6 +30,11 @@ on:
         required: false
         default: ""
         type: string
+      mobile_origin:
+        description: 手机壳打开的站点（demo 分支用 https://demo.yonderbot.net）；留空为线上站点
+        required: false
+        default: ""
+        type: string
   release:
     types: [published]
 
@@ -143,9 +148,12 @@ jobs:
       - name: 归档
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          MOBILE_ORIGIN: ${{ inputs.mobile_origin }}
         run: |
           set -eu
           cd apps/desktop
+          # option_env! 在编译期读取；只在非空时设置，空字符串会被当成一个地址。
+          if [ -n "${MOBILE_ORIGIN:-}" ]; then export YONDER_MOBILE_ORIGIN="$MOBILE_ORIGIN"; fi
           npx --no-install tauri ios build --target aarch64 --archive-only --build-number "$BUILD_NUMBER"
           archive="$(find "$PWD/src-tauri/gen/apple/build" -maxdepth 1 -name '*.xcarchive' | head -1)"
           [ -n "$archive" ] || { echo "::error::no xcarchive was produced"; exit 1; }
@@ -200,6 +208,7 @@ jobs:
             --api-key "$KEY_ID" --api-issuer "$ISSUER_ID"
 
       - name: 上传 GitHub Release 资产
+        if: ${{ !inputs.mobile_origin }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$TAG" dist-ios/yonder-ios.ipa --clobber
