@@ -89,7 +89,10 @@ apple_dir="$APP_DIR/src-tauri/gen/apple"
 sed -i '' -e 's/^        CFBundleShortVersionString:/        CFBundleDisplayName: '"$DISPLAY_NAME"'\n        CFBundleShortVersionString:/' \
 	"$apple_dir/project.yml"
 (cd "$apple_dir" && xcodegen generate)
-node "$APP_DIR/prepare-ios.mjs"   # 重放图标等仓库约定设置
+# 重放图标等仓库约定设置。App ID 还没在开发者门户开 HealthKit capability 时，
+# 本地真机构建设 YONDER_SKIP_HEALTHKIT=1 先不带 HealthKit entitlement（正式 TestFlight 不跳）。
+: "${YONDER_SKIP_HEALTHKIT:=1}"
+YONDER_SKIP_HEALTHKIT="$YONDER_SKIP_HEALTHKIT" node "$APP_DIR/prepare-ios.mjs"
 # 本地真机签名：改回 Automatic + Apple Development（prepare-ios.mjs 默认写的是分发配置）
 pbx="$PROJECT/project.pbxproj"
 sed -i '' -e 's/CODE_SIGN_IDENTITY = "iPhone Distribution";/CODE_SIGN_IDENTITY = "Apple Development";/' "$pbx"
