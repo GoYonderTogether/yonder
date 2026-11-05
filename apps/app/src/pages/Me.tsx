@@ -152,6 +152,7 @@ export function Me() {
 							}}
 						/>
 						<div className="overflow-hidden rounded-card bg-raised">
+							<Item to="/me/memory" icon={Brain} label="我的记忆" />
 							<Item to="/me/connect-apps" icon={Puzzle} label="连接应用" />
 							<Item to="/me/devices" icon={Monitor} label="设备" />
 						</div>
