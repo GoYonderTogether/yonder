@@ -41,3 +41,24 @@ test.skipIf(testPostgresUnavailable)(
 		expect(await stored(agentPath)).toBe(before);
 	},
 );
+
+test.skipIf(testPostgresUnavailable)(
+	"memory's owner source follows the real owner DM once the platform names it",
+	async () => {
+		const owner = { id: "bot-source", ownerId: "owner-source", name: "云端 Bot" };
+		const sources = async () =>
+			JSON.parse(
+				(
+					await database.pool.query<{ content: string }>(
+						"SELECT content FROM bot_files WHERE tenant_id=$1 AND bot_id=$2 AND path='yonder.yaml'",
+						[owner.ownerId, owner.id],
+					)
+				).rows[0]!.content,
+			).plugins.find((plugin: { use: string }) => plugin.use === "@yonder/plugin-memory").config
+				.allowedSourceConversations;
+		await ensureCloudDefinition(database.pool, owner, "cloud", "zai/glm-5.3-flash");
+		expect(await sources()).toEqual([`conv:card:${owner.id}:${owner.ownerId}`]);
+		await ensureCloudDefinition(database.pool, { ...owner, ownerConv: "dm-1" }, "cloud", "zai/glm-5.3-flash");
+		expect(await sources()).toEqual([`conv:card:${owner.id}:dm-1`]);
+	},
+);

@@ -6,6 +6,8 @@ export interface CardWorkerBot {
 	ownerId: string;
 	/** 平台还没告诉这只 Bot「你已连上主人」：给出真实主人私聊，Bot 自行决定说什么。 */
 	greetConv?: string;
+	/** 主人和这只 Bot 的真实私聊；记忆插件只把它当作主人的来源会话。 */
+	ownerConv?: string;
 }
 export interface CardWorkerHost {
 	endpoint?: string;
@@ -23,17 +25,24 @@ export function workerBots(data: Record<string, unknown>): CardWorkerBot[] {
 	if (!Array.isArray(data.bots)) throw new Error("Invalid worker Bot map");
 	const bots = data.bots.map((bot): CardWorkerBot => {
 		if (!bot || typeof bot !== "object") throw new Error("Invalid worker Bot entry");
-		const row = bot as { id?: unknown; name?: unknown; ownerId?: unknown; greetConv?: unknown };
+		const row = bot as { id?: unknown; name?: unknown; ownerId?: unknown; greetConv?: unknown; ownerConv?: unknown };
 		if (
 			typeof row.id !== "string" ||
 			!row.id ||
 			typeof row.name !== "string" ||
 			typeof row.ownerId !== "string" ||
 			!row.ownerId ||
-			(row.greetConv !== undefined && (typeof row.greetConv !== "string" || !row.greetConv))
+			(row.greetConv !== undefined && (typeof row.greetConv !== "string" || !row.greetConv)) ||
+			(row.ownerConv !== undefined && (typeof row.ownerConv !== "string" || !row.ownerConv))
 		)
 			throw new Error("Invalid worker Bot entry");
-		return { id: row.id, name: row.name, ownerId: row.ownerId, ...(row.greetConv ? { greetConv: row.greetConv } : {}) };
+		return {
+			id: row.id,
+			name: row.name,
+			ownerId: row.ownerId,
+			...(row.greetConv ? { greetConv: row.greetConv } : {}),
+			...(row.ownerConv ? { ownerConv: row.ownerConv } : {}),
+		};
 	});
 	if (new Set(bots.map((bot) => bot.id)).size !== bots.length) throw new Error("Duplicate worker Bot id");
 	return bots;

@@ -13,6 +13,8 @@ export interface CloudBotIdentity {
 	ownerId: string;
 	/** 平台还没告诉这只 Bot「你已连上主人」时给出的真实主人私聊 id。 */
 	greetConv?: string;
+	/** 主人和这只 Bot 的真实私聊 id（打过招呼之后也一直给出）。 */
+	ownerConv?: string;
 }
 
 /** Only missing files are seeded; scaffoldWorkspace uses the shipped default-agent templates. */
@@ -33,7 +35,7 @@ export async function ensureCloudDefinition(
 						timezone: "Asia/Shanghai",
 						// 记忆工具与上下文只对这只 Bot 的 main 会话开放；主人私聊是唯一的来源会话。
 						allowedAgents: [bot.id],
-						allowedSourceConversations: [`conv:card:${bot.id}:${bot.greetConv ?? bot.ownerId}`],
+						allowedSourceConversations: [memorySource(bot)],
 						// 主人要求：主人私聊里的原话自动记入记忆（context from each source）。
 						capture: { enabled: true, channels: ["card"] },
 						// 主人要求：自我画像的上下文预算是 5000 字符（docs/spec/15 §10 默认 2000）。
@@ -108,7 +110,7 @@ export async function ensureCloudDefinition(
 			),
 		],
 	);
-	await adoptPlatformModel(pool, bot, model);
+	await adoptPlatformFacts(pool, bot, model);
 	const row = (
 		await pool.query<{ content: string }>(
 			"SELECT content FROM bot_files WHERE tenant_id=$1 AND bot_id=$2 AND path='yonder.yaml'",
@@ -118,12 +120,16 @@ export async function ensureCloudDefinition(
 	return parseYonderConfig(row.content, "yonder.yaml");
 }
 
+const memorySource = (bot: CloudBotIdentity) => `conv:card:${bot.id}:${bot.ownerConv ?? bot.greetConv ?? bot.ownerId}`;
+
 /**
- * Cloud Bots have no model choice: the worker serves exactly one platform model. A definition seeded under an
- * earlier platform model would name a model this worker cannot resolve, so rewrite every model field to the
- * current one. Fields already on it are left byte-for-byte.
+ * Facts the platform owns, kept current on every open (definitions are seeded once and never reseeded):
+ * - Cloud Bots have no model choice: the worker serves exactly one platform model, so a definition seeded
+ *   under an earlier one would name a model this worker cannot resolve.
+ * - The memory plugin's owner source conversation is the real owner DM, known only once the platform says so.
+ * Files already current are left byte-for-byte.
  */
-async function adoptPlatformModel(pool: Pool, bot: CloudBotIdentity, model: string): Promise<void> {
+async function adoptPlatformFacts(pool: Pool, bot: CloudBotIdentity, model: string): Promise<void> {
 	const paths = ["yonder.yaml", `agents/${bot.id}/agent.yaml`];
 	const rows = (
 		await pool.query<{ path: string; content: string }>(
@@ -141,6 +147,19 @@ async function adoptPlatformModel(pool: Pool, bot: CloudBotIdentity, model: stri
 			for (const key of ["model", "defaultModel"]) {
 				if (typeof record[key] === "string" && record[key] !== model) {
 					record[key] = model;
+					changed = true;
+				}
+			}
+			if (
+				record.use === "@yonder/plugin-memory" &&
+				bot.ownerConv &&
+				record.config &&
+				typeof record.config === "object"
+			) {
+				const config = record.config as Record<string, unknown>;
+				const sources = config.allowedSourceConversations;
+				if (!Array.isArray(sources) || sources.length !== 1 || sources[0] !== memorySource(bot)) {
+					config.allowedSourceConversations = [memorySource(bot)];
 					changed = true;
 				}
 			}
