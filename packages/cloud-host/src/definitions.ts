@@ -1,11 +1,11 @@
 import { withDefaultOutsider } from "@yonder/bot-core/kernel/peer";
 import { parseAgentConfig, parseYonderConfig, type YonderConfig } from "@yonder/bot-definition";
-import { PLATFORM_MODEL, PLATFORM_PROVIDER } from "@yonder/runtime-adapter/postgres";
+import { PLATFORM_MODEL } from "@yonder/runtime-adapter/postgres";
 import type { Pool } from "pg";
 import { cloudPlugins } from "./plugins.js";
 
 /** The provider-qualified id a new cloud Bot's config uses for the single platform model. */
-export const PLATFORM_MODEL_REF = `${PLATFORM_PROVIDER}/${PLATFORM_MODEL}`;
+export const PLATFORM_MODEL_REF = PLATFORM_MODEL;
 
 export interface CloudBotIdentity {
 	id: string;

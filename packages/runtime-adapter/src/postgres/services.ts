@@ -17,20 +17,34 @@ import { fromResult, toResult } from "../runtime/results.js";
 import type { RuntimeBackgroundOptions, RuntimeToolHost } from "../runtime/tool-activation.js";
 import type { RuntimeSessionConfig } from "../types.js";
 
-/** 平台唯一模型的 provider id；云端只提供这一个，用户还不能自选（2026-11-05 主人决定）。 */
+/** 平台唯一模型的 provider/model；云端只提供这一个，用户还不能自选（2026-11-05 主人决定）。
+ *  值由部署配置决定：裸模型 id 按默认 DeepSeek 目录解析，`provider/model` 直接取目录里这一对。 */
 export const PLATFORM_PROVIDER = "deepseek";
 export const PLATFORM_BASE_URL = "https://api.deepseek.com";
 export const PLATFORM_MODEL = "deepseek-flash";
 
 /**
- * 平台模型定义取自已装 pi-ai 的真实目录（同一 API、成本、上下文与思考档位），只改对外 id 与 baseUrl：
- * 云端 worker 用一个平台密钥调用官方 DeepSeek，不冒充目录里的其它 provider。
+ * provider id 与模型 id 分开解析：CLOUD_BOT_MODEL 是 `provider/model`（目录里真实存在的一对），
+ * 只带模型名时按 DeepSeek 官方目录解析（向后兼容旧的纯 `deepseek-flash` 配置）。
  */
-function platformModelDefinition(baseUrl: string, modelId: string): ModelsJsonModel {
-	const catalog = builtinProviders().find((provider) => provider.id === "deepseek");
+export function parsePlatformModel(model: string): { provider: string; model: string } {
+	const first = model.indexOf("/");
+	if (first < 0) return { provider: PLATFORM_PROVIDER, model };
+	if (model.indexOf("/", first + 1) >= 0) throw new Error(`Invalid CLOUD_BOT_MODEL ${model}: expected provider/model`);
+	return { provider: model.slice(0, first), model: model.slice(first + 1) };
+}
+
+/**
+ * 平台模型定义取自已装 pi-ai 的真实目录（同一 API、成本、上下文与思考档位），只改 baseUrl：
+ * 云端 worker 用一个平台密钥调用目录里这一对 provider/model，不冒充目录里的其它 provider。
+ */
+function platformModelDefinition(providerId: string, baseUrl: string, modelId: string): ModelsJsonModel {
+	const catalog = builtinProviders().find((provider) => provider.id === providerId);
 	const model = catalog?.getModels().find((candidate) => candidate.id === modelId);
 	if (!model)
-		throw new Error(`The installed pi-ai catalog does not contain ${modelId}; check CLOUD_BOT_MODEL before deploying`);
+		throw new Error(
+			`The installed pi-ai catalog does not contain ${providerId}/${modelId}; check CLOUD_BOT_MODEL before deploying`,
+		);
 	return {
 		id: modelId,
 		name: model.name,
@@ -48,17 +62,15 @@ function platformModelDefinition(baseUrl: string, modelId: string): ModelsJsonMo
 		...(model.samplingParamsByThinkingLevel !== undefined
 			? { samplingParamsByThinkingLevel: model.samplingParamsByThinkingLevel }
 			: {}),
-		// DeepSeek 官方接口接受 system/developer 消息，不需要 rightapi 网关的 systemAsUser 整形。
 		...(model.compat !== undefined ? { compat: model.compat } : {}),
 	};
 }
 
-const providerConfig = (baseUrl: string, model: ModelsJsonModel) => ({
-	[PLATFORM_PROVIDER]: {
+const providerConfig = (providerId: string, baseUrl: string, model: ModelsJsonModel) => ({
+	[providerId]: {
 		baseUrl,
-		api: "openai-completions",
+		api: "openai-completions" as const,
 		authHeader: true,
-		compat: { supportsStore: false, supportsDeveloperRole: false },
 		models: [model],
 	},
 });
@@ -71,13 +83,13 @@ CREATE TABLE IF NOT EXISTS bot_runtime_tool_output (
 	created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY(tenant_id,bot_id,output_id)
 )`;
 
-function keyStore(key: string): CredentialStore {
+function keyStore(provider: string, key: string): CredentialStore {
 	return {
 		async read(name) {
-			return name === PLATFORM_PROVIDER ? { type: "api_key", key } : undefined;
+			return name === provider ? { type: "api_key", key } : undefined;
 		},
 		async list(): Promise<readonly CredentialInfo[]> {
-			return [{ providerId: PLATFORM_PROVIDER, type: "api_key" }];
+			return [{ providerId: provider, type: "api_key" }];
 		},
 		async modify() {
 			throw new Error("Cloud model credentials are platform-managed");
@@ -270,7 +282,11 @@ export async function createPostgresRuntimeServices(options: {
 	if (!options.apiKey || /[\r\n\0]/.test(options.apiKey)) throw new Error("Invalid platform model credential");
 	const pool = options.pool;
 	await pool.query(serviceSchema);
-	const credential = keyStore(options.apiKey);
+	const baseUrl = options.baseUrl ?? PLATFORM_BASE_URL;
+	const { provider: providerId, model: modelId } = options.model
+		? parsePlatformModel(options.model)
+		: { provider: PLATFORM_PROVIDER, model: PLATFORM_MODEL };
+	const credential = keyStore(providerId, options.apiKey);
 	const health = new ModelHealth({
 		async load() {
 			const result = await pool.query<{ value: unknown }>(
@@ -305,9 +321,7 @@ export async function createPostgresRuntimeServices(options: {
 	);
 	await Promise.all([health.load(), quota.load()]);
 	const gate = new ModelGate(health, quota);
-	const baseUrl = options.baseUrl ?? PLATFORM_BASE_URL;
-	const modelId = options.model ?? PLATFORM_MODEL;
-	const providers = providerConfig(baseUrl, platformModelDefinition(baseUrl, modelId));
+	const providers = providerConfig(providerId, baseUrl, platformModelDefinition(providerId, baseUrl, modelId));
 	const modelsForSelection = (
 		selection: Readonly<Record<string, string>> = {},
 		telemetry?: import("../runtime/models.js").ModelsTelemetry,
@@ -334,13 +348,13 @@ export async function createPostgresRuntimeServices(options: {
 				defaults: credential,
 				async capture(selection) {
 					for (const [provider, slot] of Object.entries(selection))
-						if (provider !== PLATFORM_PROVIDER || slot !== "default")
+						if (provider !== providerId || slot !== "default")
 							throw new Error("Only the platform-managed default model slot is available");
-					return { [PLATFORM_PROVIDER]: "platform-managed" };
+					return { [providerId]: "platform-managed" };
 				},
 				bind(selection) {
 					for (const [provider, slot] of Object.entries(selection))
-						if (provider !== PLATFORM_PROVIDER || slot !== "default")
+						if (provider !== providerId || slot !== "default")
 							throw new Error("Only the platform-managed default model slot is available");
 					return credential;
 				},
@@ -372,7 +386,7 @@ export async function createPostgresRuntimeServices(options: {
 							modelsForSelection(
 								config.resolved.credentialSlots,
 								{
-									onProviderEvent: (_provider, data) => quota.record(`${PLATFORM_PROVIDER}@default`, data),
+									onProviderEvent: (_provider, data) => quota.record(`${providerId}@default`, data),
 								},
 								timeouts,
 							),

@@ -6,7 +6,7 @@ import {
 	migratePostgresRuntime,
 	PLATFORM_BASE_URL,
 	PLATFORM_MODEL,
-	PLATFORM_PROVIDER,
+	parsePlatformModel,
 } from "@yonder/runtime-adapter/postgres";
 import type { Delivery, EventInput } from "@yonder/sdk";
 import type { Pool } from "pg";
@@ -64,13 +64,14 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 	const version = (
 		JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
 	).version;
-	const modelBaseUrl = options.modelBaseUrl ?? PLATFORM_BASE_URL;
-	const model = options.model ?? PLATFORM_MODEL;
+	// CLOUD_BOT_MODEL may be a bare model id (legacy DeepSeek) or `provider/model` from the installed catalog.
+	const modelRef = options.model ?? PLATFORM_MODEL;
+	const { provider: modelProvider, model: modelId } = parsePlatformModel(modelRef);
 	const runtimeHost = await createPostgresRuntimeServices({
 		pool,
 		apiKey,
-		baseUrl: modelBaseUrl,
-		model,
+		baseUrl: options.modelBaseUrl ?? PLATFORM_BASE_URL,
+		model: modelRef,
 		onReport: report,
 	});
 	type Bot = Awaited<ReturnType<typeof openCloudBot>>;
@@ -275,7 +276,7 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 				pool,
 				deviceBridge: { endpoint: options.endpoint, token },
 				identity,
-				model: `${PLATFORM_PROVIDER}/${model}`,
+				model: `${modelProvider}/${modelId}`,
 				descriptors,
 				channels: card.channels,
 				scheduler: scoped,
