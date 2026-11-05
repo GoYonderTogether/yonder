@@ -48,6 +48,8 @@ MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可�
 
 **已连接提醒只发生一次，且由 Bot 自己说。** Bot 无论在云端由 `POST /api/bots` 创建，还是本机通过 card 渠道登记，平台都为它开好与主人的真实私聊并记下「还没提醒过」。Bot 连上平台时，平台把这条事实变成一条真实的 `channel.connected` 事件（与设备授权完成后同一内核路径：`from: plugin:channel-card`、真实的 `acct:` 主人账号与 `conv:` 私聊、`kind: dm`、带 `target`），由路由按该 Bot 自己的主人私聊绑定唤醒 main，内容由模型决定。平台**不写问候文案、不代发消息**：事件 `data.text` 只陈述「已连接、私聊是哪条」这一事实，模型失败按正常运行错误如实呈现（`error` 消息），不谎称已打过招呼，也不要改写成一句平台代写的问候。派发后该记录删除，重连不再重复；一次成功即不再提醒。
 
+**主人的「我的记忆」页与每日简报（2026-11-05 主人要求）。** 云端 Bot 的记忆库由 memory 插件管理，云端宿主为它开启：`allowedAgents=[本 Bot]`、主人私聊为唯一来源会话、主人私聊自动采集（`capture.enabled`，card 渠道）、自我画像上下文预算 `meChars=5000`。新建 Bot 时 cloud-host 首次激活向该 Bot 的 cron 存储播种两条事件作业（北京时间 08:00 晨报 `memory-morning-brief`、21:00 晚报 `memory-evening-wrap`，事件负载带 skill 名，投递到主人私聊，作业 owner 指向 Bot 的 main 会话）；主人可在任务页停用或删除。主人网页在「我 → 我的记忆」读同一份插件存储：自我画像（`me/now.md`，带更新时间，可手改）与按来源分组的文档（时间线按记录行来源标签，其余按目录；可查看、编辑、删除）。API 属 yonder-cloud（`/api/me/memory`、`/api/me/memory/summary`、`/api/me/memory/documents[/:path]`），owner-only，解析与 `main_bot` 相同——主 Bot 在设备上时云端没有可读记忆，如实 404；`mine/`、`private/`、`.memory/`、`SCHEMA.md`、`log.md` 不暴露。见 decisions 同日条目与 15 §9。
+
 **主 Bot 默认在云端。** 每个账号的主 Bot 默认是云端 Bot，用云端额度。主人可以把它指到自己名下某台设备上的既有 Bot（不新建、不搬会话，只存一个指针，`GET/PUT /api/me/main-bot`），响应如实给出该设备当前是否在线，以及离线时接手的云端 Bot。设备离线时该账号没有本机 Bot 可用：**这个私聊里的消息自动退回云端 Bot 回答**（`findCloudBotForConversation` 的回落规则），所以断电只影响本机能力，不会让消息没人处理。设备在线时由设备 Bot 自己回答，云端不插手。指针指向的 Bot 或设备已不存在时如实退回云端，不留悬空指针。
 
 ## 5 远程设备工具

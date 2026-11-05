@@ -265,7 +265,7 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 | `memory-onboard-legacy` | 对 `legacy` 登记目录逐篇只读审阅，产出提议：可信的事实→`me/`（`inferred`）、项目→`projects/`、可执行事项→周计划提议；不改原目录；记录每篇的去向，便于用户决定是否归档旧库 |
 | `memory-morning-brief` | 汇总当日计划与到期事项，以单条消息发出 |
 
-**调度**交给 cron（14 §2）：每个节律一个 cron 事件作业，经 agent 的绑定进入主人类配置档；作业事件的 data 指明要执行的 skill 名，事件格式见 cron 插件文档。是否开启由用户决定，插件**不**自行创建作业；作业的绑定指向后台 agent `memory-keeper`（若已创建），否则指向日常 agent。默认建议先只开晚间整理和周回顾。节律可以 `NO_REPLY`。
+**调度**交给 cron（14 §2）：每个节律一个 cron 事件作业，经 agent 的绑定进入主人类配置档；作业事件的 data 指明要执行的 skill 名，事件格式见 cron 插件文档。是否开启由用户决定，插件**不**自行创建作业；作业的绑定指向后台 agent `memory-keeper`（若已创建），否则指向日常 agent。默认建议先只开晚间整理和周回顾。节律可以 `NO_REPLY`。云端宿主是例外（2026-11-05 主人要求，见 decisions 同日条目）：新建云端 Bot 由 cloud-host 向该 Bot 的 cron 存储播种晨报（08:00，`memory-morning-brief`）与晚报（21:00，`memory-evening-wrap`）两条事件作业，投递到主人私聊，主人可在任务页停用；宿主播种不改变「插件不建作业」的边界。
 
 ### 9.1 预设 memory-keeper
 
@@ -298,7 +298,7 @@ plugins:
       converter: { command: <绝对路径>, args: [], timeoutSeconds: 120 }   # 可选；缺省时仅文本类文件入库
       roots:
         - { name: <名>, path: <绝对路径>, origin: legacy }
-      context: { meChars: 2000 }
+      context: { meChars: 2000 }   # 云端宿主给每只 Bot 播种 5000（2026-11-05 主人要求）
 ```
 
 旧配置若依赖此前 inbox/bootstrap 自动监控或消息 capture，升级不会自动迁移；管理员须明确配置 `triggers.inbox: true`、`triggers.bootstrap: true` 或 `capture.enabled: true` 才恢复相应行为。开关仅控制自动行为，不限制手动 memory 工具或上下文；未配置 `converter` 永不调用转换器。`plugins/memory/package.json` 继续声明 trigger IDs 供宿主发现，但实际 start 由上述 schema 校验开关门控。
