@@ -62,3 +62,40 @@ test.skipIf(testPostgresUnavailable)(
 		expect(await sources()).toEqual([`conv:card:${owner.id}:dm-1`]);
 	},
 );
+
+test.skipIf(testPostgresUnavailable)(
+	"visitors get the owner's published card text, replaced in place on change",
+	async () => {
+		const owner = { id: "bot-card", ownerId: "owner-card", name: "云端 Bot" };
+		const instructions = async () =>
+			JSON.parse(
+				(
+					await database.pool.query<{ content: string }>(
+						"SELECT content FROM bot_files WHERE tenant_id=$1 AND bot_id=$2 AND path=$3",
+						[owner.ownerId, owner.id, `agents/${owner.id}/agent.yaml`],
+					)
+				).rows[0]!.content,
+			).profiles.outsider.instructions as string;
+		await ensureCloudDefinition(database.pool, owner, "cloud", "zai/glm-5.3-flash");
+		expect(await instructions()).not.toContain("owner-public-card");
+		await ensureCloudDefinition(
+			database.pool,
+			{ ...owner, ownerCard: "姓名：曾子悦\n简介：第一版" },
+			"cloud",
+			"zai/glm-5.3-flash",
+		);
+		expect(await instructions()).toContain("简介：第一版");
+		await ensureCloudDefinition(
+			database.pool,
+			{ ...owner, ownerCard: "姓名：曾子悦\n简介：第二版" },
+			"cloud",
+			"zai/glm-5.3-flash",
+		);
+		const text = await instructions();
+		expect(text).toContain("简介：第二版");
+		expect(text).not.toContain("第一版");
+		expect(text.match(/<owner-public-card>/g)).toHaveLength(1);
+		await ensureCloudDefinition(database.pool, owner, "cloud", "zai/glm-5.3-flash");
+		expect(await instructions()).not.toContain("owner-public-card");
+	},
+);

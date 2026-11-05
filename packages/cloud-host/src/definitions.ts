@@ -15,6 +15,8 @@ export interface CloudBotIdentity {
 	greetConv?: string;
 	/** 主人和这只 Bot 的真实私聊 id（打过招呼之后也一直给出）。 */
 	ownerConv?: string;
+	/** 主人已发布名片上的公开文字，写进访客（outsider）档的指示里。 */
+	ownerCard?: string;
 }
 
 /** Only missing files are seeded; scaffoldWorkspace uses the shipped default-agent templates. */
@@ -120,6 +122,27 @@ export async function ensureCloudDefinition(
 	return parseYonderConfig(row.content, "yonder.yaml");
 }
 
+const CARD_BEGIN = "<owner-public-card>";
+const CARD_END = "</owner-public-card>";
+
+/** 访客能知道的关于主人的全部：已发布名片上的文字。没有名片文字时不留空块。 */
+function ownerCardBlock(text?: string): string {
+	return text
+		? `${CARD_BEGIN}\n以下是主人公开发布的名片内容。访客问到主人是谁、在做什么、怎么合作时，只依据这些回答，没写的就说名片上没有；不要编造，也不要透露名片以外的任何主人信息。\n${text}\n${CARD_END}`
+		: "";
+}
+
+/** 用标记块替换指示里的主人名片，块外的内容原样保留；已是最新时返回原字符串。 */
+function withOwnerCard(instructions: string, block: string): string {
+	const start = instructions.indexOf(CARD_BEGIN);
+	const end = instructions.indexOf(CARD_END);
+	const base =
+		start >= 0 && end > start
+			? (instructions.slice(0, start) + instructions.slice(end + CARD_END.length)).trimEnd()
+			: instructions;
+	return block ? `${base}\n\n${block}` : base;
+}
+
 const memorySource = (bot: CloudBotIdentity) => `conv:card:${bot.id}:${bot.ownerConv ?? bot.greetConv ?? bot.ownerId}`;
 
 /**
@@ -130,6 +153,7 @@ const memorySource = (bot: CloudBotIdentity) => `conv:card:${bot.id}:${bot.owner
  * Files already current are left byte-for-byte.
  */
 async function adoptPlatformFacts(pool: Pool, bot: CloudBotIdentity, model: string): Promise<void> {
+	const publicBlock = ownerCardBlock(bot.ownerCard);
 	const paths = ["yonder.yaml", `agents/${bot.id}/agent.yaml`];
 	const rows = (
 		await pool.query<{ path: string; content: string }>(
@@ -160,6 +184,14 @@ async function adoptPlatformFacts(pool: Pool, bot: CloudBotIdentity, model: stri
 				const sources = config.allowedSourceConversations;
 				if (!Array.isArray(sources) || sources.length !== 1 || sources[0] !== memorySource(bot)) {
 					config.allowedSourceConversations = [memorySource(bot)];
+					changed = true;
+				}
+			}
+			// 访客档（outsider）的指示里放主人名片上的公开文字，这是访客问到主人时唯一可以说的资料。
+			if (row.path !== "yonder.yaml" && typeof record.instructions === "string") {
+				const next = withOwnerCard(record.instructions, publicBlock);
+				if (next !== record.instructions) {
+					record.instructions = next;
 					changed = true;
 				}
 			}
