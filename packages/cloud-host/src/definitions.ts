@@ -108,6 +108,7 @@ export async function ensureCloudDefinition(
 			),
 		],
 	);
+	await adoptPlatformModel(pool, bot, model);
 	const row = (
 		await pool.query<{ content: string }>(
 			"SELECT content FROM bot_files WHERE tenant_id=$1 AND bot_id=$2 AND path='yonder.yaml'",
@@ -115,4 +116,43 @@ export async function ensureCloudDefinition(
 		)
 	).rows[0]!;
 	return parseYonderConfig(row.content, "yonder.yaml");
+}
+
+/**
+ * Cloud Bots have no model choice: the worker serves exactly one platform model. A definition seeded under an
+ * earlier platform model would name a model this worker cannot resolve, so rewrite every model field to the
+ * current one. Fields already on it are left byte-for-byte.
+ */
+async function adoptPlatformModel(pool: Pool, bot: CloudBotIdentity, model: string): Promise<void> {
+	const paths = ["yonder.yaml", `agents/${bot.id}/agent.yaml`];
+	const rows = (
+		await pool.query<{ path: string; content: string }>(
+			"SELECT path, content FROM bot_files WHERE tenant_id=$1 AND bot_id=$2 AND path = ANY($3)",
+			[bot.ownerId, bot.id, paths],
+		)
+	).rows;
+	for (const row of rows) {
+		let changed = false;
+		const value = JSON.parse(row.content) as unknown;
+		const visit = (node: unknown): void => {
+			if (Array.isArray(node)) return node.forEach(visit);
+			if (!node || typeof node !== "object") return;
+			const record = node as Record<string, unknown>;
+			for (const key of ["model", "defaultModel"]) {
+				if (typeof record[key] === "string" && record[key] !== model) {
+					record[key] = model;
+					changed = true;
+				}
+			}
+			Object.values(record).forEach(visit);
+		};
+		visit(value);
+		if (changed)
+			await pool.query("UPDATE bot_files SET content=$4 WHERE tenant_id=$1 AND bot_id=$2 AND path=$3", [
+				bot.ownerId,
+				bot.id,
+				row.path,
+				JSON.stringify(value),
+			]);
+	}
 }
