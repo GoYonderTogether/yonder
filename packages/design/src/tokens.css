@@ -2,14 +2,15 @@
 	color-scheme: light;
 
 	/* 面三层：纸面语义。rail 是竖栏/底栏/页面底，list/ground 是纸，raised 是浮起的纸。
-	   浅色下所有界面面都是纸色，深桌面色只属于暗色与名片页的深色舞台。 */
-	--rail: #f6f3ec;
-	--desk-2: #efeadf;
-	--list: #f6f3ec;
-	--ground: #f6f3ec;
+	   浅色下所有界面面都是白纸，灰面（--tone/--tone-2）只作分组底与输入框，
+	   深桌面色只属于暗色与名片页的深色舞台。 */
+	--rail: #ffffff;
+	--desk-2: #f5f5f4;
+	--list: #ffffff;
+	--ground: #ffffff;
 	--raised: #ffffff;
-	--tone: #efeadf;
-	--tone-2: #e7e2d6;
+	--tone: #f5f5f4;
+	--tone-2: #e7e5e4;
 
 	/* 墨 */
 	--ink: #1a1a19;
@@ -29,7 +30,7 @@
 	--brand-yellow: #ffd928;
 	--accent: #1a1a19;
 	--accent-hover: #33322f;
-	--on-accent: #f6f3ec;
+	--on-accent: #ffffff;
 	--accent-soft: color-mix(in srgb, var(--ink) 8%, var(--ground));
 	--accent-ink: #1767ad;
 	--highlight: var(--brand-yellow);
@@ -49,8 +50,8 @@
 	/* 浅色的名片页深色舞台（card-demo 的 desk）；暗色整页本就是深桌 */
 	--desk: #151515;
 	--desk-glow: #2a2a27;
-	/* 浅色的阴影描边沿用纸边，暗色才有深桌投影 */
-	--paper-edge: #e7e2d6;
+	/* 浅色的阴影描边沿用灰边，暗色才有深桌投影 */
+	--paper-edge: #e7e5e4;
 	--paper-shadow:
 		0 1px 0 rgb(255 255 255 / 0.7) inset, 0 0 0 1px var(--paper-edge), 0 30px 60px -20px rgb(0 0 0 / 0.28),
 		0 12px 24px -12px rgb(0 0 0 / 0.2);

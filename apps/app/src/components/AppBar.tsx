@@ -18,7 +18,7 @@ export function AppBar({
 	headingClassName?: string;
 }) {
 	return (
-		<header className={className ?? "relative z-10 flex h-14 shrink-0 items-center gap-2 px-4"}>
+		<header className={className ?? "app-bar-safe relative z-10 flex min-h-14 shrink-0 items-center gap-2 px-4"}>
 			{headingClassName ? (
 				<div className={headingClassName}>
 					{left}

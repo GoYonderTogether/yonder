@@ -97,7 +97,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 	return (
 		<fieldset
 			aria-label="消息和附件"
-			className={`m-0 min-w-0 border-0 bg-ground px-3 pt-1.5 pb-1 ${dragging ? "ring-2 ring-inset ring-accent" : ""}`}
+			className={`m-0 min-w-0 border-0 bg-ground px-3 pt-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))] ${dragging ? "ring-2 ring-inset ring-accent" : ""}`}
 			onDragOver={(event) => {
 				if (event.dataTransfer.types.includes("Files")) {
 					event.preventDefault();

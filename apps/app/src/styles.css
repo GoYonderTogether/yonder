@@ -192,6 +192,19 @@ time,
 .pb-safe {
 	padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
+/* iOS 顶安全区：状态栏/灵动岛压内容。只给应用栏与全屏页的根用；
+   env() 为 0 的浏览器里 padding 就是 0，不会出现空条，也不会双重加垫。 */
+.pt-safe {
+	padding-top: env(safe-area-inset-top);
+}
+/* 应用栏：顶安全区垫进栏里，栏背景自然延伸到状态栏下面。 */
+.app-bar-safe {
+	padding-top: max(0px, env(safe-area-inset-top));
+}
+/* 全屏页（登录、引导、名片页）：根上垫一次顶安全区，内部 AppBar 不再重复垫。 */
+.full-top-safe {
+	padding-top: env(safe-area-inset-top);
+}
 
 /* 动效：只动 transform / opacity */
 @keyframes rise {

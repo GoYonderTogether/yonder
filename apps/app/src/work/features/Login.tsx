@@ -24,7 +24,7 @@ export function Login({ onDone }: { onDone(): void }) {
 		}
 	};
 	return (
-		<main className="grid app-frame-min place-items-center bg-ground px-6">
+		<main className="full-top-safe grid app-frame-min place-items-center bg-ground px-6">
 			<form onSubmit={submit} className="w-full max-w-sm rounded-card bg-raised p-6 shadow-float" data-testid="login">
 				<img src={mark} alt="" className="mb-4 size-10" />
 				<h1 className="text-title font-semibold">登录 Yonder 控制台</h1>

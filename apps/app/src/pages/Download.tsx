@@ -164,7 +164,7 @@ export function InstallPanel() {
 export function Download() {
 	const back = useAppBack("/");
 	return (
-		<div className="scroll-y h-full">
+		<div className="scroll-y h-full full-top-safe">
 			<div className="mx-auto max-w-2xl px-4 pt-10 pb-16 md:px-6 md:pt-20">
 				<button
 					type="button"

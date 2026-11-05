@@ -78,7 +78,7 @@ export function NewTask({
 			}}
 		>
 			<Dialog.Portal>
-				<Dialog.Overlay className="fixed inset-0 z-50 bg-black/25" />
+				<Dialog.Overlay className="fixed inset-0 z-50 bg-ink/30" />
 				<Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(720px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 rounded-card bg-raised p-4 shadow-float outline-none">
 					<div className="flex items-center justify-between gap-3">
 						<Dialog.Title className="text-title font-semibold">新建会话</Dialog.Title>

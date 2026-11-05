@@ -48,7 +48,7 @@ export function Footer({ v }: { v: SessionView }) {
 		}
 	};
 	return (
-		<footer className="bg-ground px-3 pb-2" data-testid="footer">
+		<footer className="bg-ground px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]" data-testid="footer">
 			<div className="mx-auto max-w-[900px]">
 				<SessionOptions
 					session={id}

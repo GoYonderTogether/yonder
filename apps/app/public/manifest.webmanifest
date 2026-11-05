@@ -5,8 +5,8 @@
 	"start_url": "./",
 	"scope": "./",
 	"display": "standalone",
-	"background_color": "#fbfbfa",
-	"theme_color": "#efeeeb",
+	"background_color": "#ffffff",
+	"theme_color": "#ffffff",
 	"icons": [
 		{
 			"src": "./brand/yonder-tile-ink.svg",

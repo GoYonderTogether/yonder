@@ -250,7 +250,7 @@ export function CardPage() {
 	const [params] = useSearchParams();
 	const back = useAppBack("/");
 	return (
-		<div className="app-frame flex flex-col bg-rail">
+		<div className="app-frame full-top-safe flex flex-col bg-rail">
 			<AppBar
 				title="名片"
 				className="relative z-10 flex h-14 shrink-0 items-center gap-2 px-4 text-[#f6f3ec]"

@@ -208,7 +208,7 @@ export function AddFriendButton({ accountId }: { accountId: string }) {
 				{add.data?.status === "accepted" ? "已添加" : add.data?.status === "pending" ? "等待验证" : "加好友"}
 			</Button>
 			<Dialog.Portal>
-				<Dialog.Overlay className="fixed inset-0 z-40 bg-black/30" />
+				<Dialog.Overlay className="fixed inset-0 z-40 bg-ink/30" />
 				<Dialog.Content
 					aria-describedby={undefined}
 					className="keyboard-center fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-card bg-raised p-6 shadow-float"

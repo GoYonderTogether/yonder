@@ -14,7 +14,7 @@ export function PersonalAgentGate({ children }: { children: ReactNode }) {
 		<>
 			{children}
 			{open && (
-				<div className="fixed inset-0 z-50 bg-ground">
+				<div className="full-top-safe fixed inset-0 z-50 bg-ground">
 					<OnboardingFlow onDone={closeOnboarding} />
 				</div>
 			)}
