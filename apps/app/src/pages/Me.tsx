@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Monitor, Puzzle, Settings } from "lucide-react";
+import { Brain, ChevronRight, Monitor, Puzzle, Settings } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api";

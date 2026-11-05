@@ -230,6 +230,28 @@ export interface MainBot {
 	fallback?: { botId: string; botName: string } | null;
 }
 
+/** 主 Bot 的云端记忆（主人 2026-11-05 要求）：自我画像 + 按来源分组的文档。 */
+export interface MemoryPage {
+	bot: { id: string; name: string };
+	/** 自我画像（me/now.md）；Bot 还没写过时为 null。 */
+	summary: { text: string; updatedAt: string } | null;
+}
+export interface MemoryDocuments {
+	bot: { id: string; name: string };
+	groups: {
+		source: string;
+		label: string;
+		documents: { path: string; updatedAt: string; size: number; preview: string }[];
+	}[];
+}
+export interface MemoryDocument {
+	path: string;
+	text: string;
+	truncated: boolean;
+	updatedAt: string;
+	size: number;
+}
+
 export interface BotDevices {
 	botId: string;
 	mode: "all" | "selected";

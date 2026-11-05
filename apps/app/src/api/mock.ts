@@ -529,6 +529,24 @@ export const mockApi: ApiClient = {
 	async setMainBot() {
 		return { location: "cloud" as const, botId: null, botName: null, device: null };
 	},
+	async memory() {
+		return { bot: { id: "mock", name: "小未" }, summary: null };
+	},
+	async memoryDocuments() {
+		return { bot: { id: "mock", name: "小未" }, groups: [] };
+	},
+	async memoryDocument() {
+		throw new Error("原型没有记忆文档");
+	},
+	async saveMemoryDocument() {
+		throw new Error("原型没有记忆文档");
+	},
+	async deleteMemoryDocument() {
+		throw new Error("原型没有记忆文档");
+	},
+	async saveMemorySummary() {
+		throw new Error("原型没有自我画像");
+	},
 	async botDevices(botId) {
 		const owners = [...actors.values()].filter((a) => a.kind === "agent" && a.ownerId === me.id);
 		if (!owners.some((a) => a.id === botId)) throw new Error("没有这个 Bot");

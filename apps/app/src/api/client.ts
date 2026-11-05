@@ -12,6 +12,9 @@ import type {
 	DeviceKind,
 	GroupPreview,
 	MainBot,
+	MemoryDocument,
+	MemoryDocuments,
+	MemoryPage,
 	Message,
 	MessageContent,
 	Profile,
@@ -124,6 +127,14 @@ export interface ApiClient {
 	/** 主 Bot 的运行位置：默认云端，可指到设备上的既有 Bot；设备离线时由云端接手。 */
 	mainBot(): Promise<MainBot>;
 	setMainBot(input: { location: "cloud" } | { location: "device"; botId: string }): Promise<MainBot>;
+
+	// 我的记忆（主 Bot 的云端记忆库；主 Bot 在设备上时没有云端记忆）
+	memory(): Promise<MemoryPage>;
+	memoryDocuments(): Promise<MemoryDocuments>;
+	memoryDocument(path: string): Promise<MemoryDocument>;
+	saveMemoryDocument(path: string, text: string): Promise<void>;
+	deleteMemoryDocument(path: string): Promise<void>;
+	saveMemorySummary(text: string): Promise<void>;
 
 	// 联系人：Yonder 接入的全部 Agent 自动出现，不需要手动连接
 	contacts(): Promise<Actor[]>;

@@ -28,6 +28,7 @@ const Tasks = lazy(() => import("./pages/Tasks").then((m) => ({ default: m.Tasks
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const ProfileEdit = lazy(() => import("./pages/ProfileEdit").then((m) => ({ default: m.ProfileEdit })));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
+const Memory = lazy(() => import("./pages/Memory").then((m) => ({ default: m.Memory })));
 const ConnectApps = lazy(() => import("./pages/ConnectApps").then((m) => ({ default: m.ConnectApps })));
 
 function Private({ children }: { children: ReactNode }) {
@@ -117,6 +118,7 @@ export function App() {
 						<Route path="/contacts/:id?" element={<Contacts />} />
 						<Route path="/connect" element={<Connect />} />
 						<Route path="/me" element={<MeRoute />} />
+						<Route path="/me/memory" element={<Memory />} />
 						<Route path="/me/devices" element={<MeDevicesRoute />} />
 						<Route path="/me/devices/:id" element={<MeDeviceRoute />} />
 						<Route path="/me/connect-apps" element={<ConnectApps />} />

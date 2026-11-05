@@ -8,6 +8,9 @@ import type {
 	Device,
 	DeviceGrants,
 	MainBot,
+	MemoryDocument,
+	MemoryDocuments,
+	MemoryPage,
 	Message,
 	Session,
 	ShareLink,
@@ -198,6 +201,13 @@ export const httpApi: ApiClient = {
 	botDevices: (botId) => request<BotDevices>(`/bots/${encodeURIComponent(botId)}/devices`),
 	mainBot: () => request<MainBot>("/me/main-bot"),
 	setMainBot: (input) => request<MainBot>("/me/main-bot", json("PUT", input)),
+	memory: () => request<MemoryPage>("/me/memory", {}, true),
+	memoryDocuments: () => request<MemoryDocuments>("/me/memory/documents"),
+	memoryDocument: (path) => request<MemoryDocument>(`/me/memory/documents/${encodeURIComponent(path)}`),
+	saveMemoryDocument: (path, text) =>
+		request(`/me/memory/documents/${encodeURIComponent(path)}`, json("PUT", { text })),
+	deleteMemoryDocument: (path) => request(`/me/memory/documents/${encodeURIComponent(path)}`, { method: "DELETE" }),
+	saveMemorySummary: (text) => request("/me/memory/summary", json("PUT", { text })),
 	setBotDevices: (botId, input) =>
 		request<BotDevices>(`/bots/${encodeURIComponent(botId)}/devices`, json("PUT", input)),
 	contacts: () => request<Actor[]>("/contacts"),
