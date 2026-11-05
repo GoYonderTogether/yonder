@@ -31,6 +31,13 @@ export async function ensureCloudDefinition(
 						root: `/bots/${encodeURIComponent(bot.id)}/memory`,
 						owner: `person:${bot.ownerId}`,
 						timezone: "Asia/Shanghai",
+						// 记忆工具与上下文只对这只 Bot 的 main 会话开放；主人私聊是唯一的来源会话。
+						allowedAgents: [bot.id],
+						allowedSourceConversations: [`conv:card:${bot.id}:${bot.greetConv ?? bot.ownerId}`],
+						// 主人要求：主人私聊里的原话自动记入记忆（context from each source）。
+						capture: { enabled: true, channels: ["card"] },
+						// 主人要求：自我画像的上下文预算是 5000 字符（docs/spec/15 §10 默认 2000）。
+						context: { meChars: 5000 },
 					},
 				}
 			: {}),
@@ -58,7 +65,7 @@ export async function ensureCloudDefinition(
 				model,
 				plugins: cloudPlugins,
 				capabilities: ["read", "write", "network", "message", "admin"],
-				contexts: ["default-agent-soul", "default-agent-work"],
+				contexts: ["default-agent-soul", "default-agent-work", "memory-core", "memory-week"],
 				prompt: { overrides: { "runtime.environment": environment } },
 			},
 		},
@@ -71,6 +78,15 @@ export async function ensureCloudDefinition(
 				wake: "run",
 				reply: "auto",
 				stream: false,
+			},
+			{
+				// 每日晨晚报的节律入口：cron 作业发出 cron.morning-brief，绑定把它接进 main，
+				// 模型按 memory 插件的 memory-morning-brief skill 汇总；cron 作业把结果投递给主人。
+				id: "morning-brief",
+				match: { type: "cron.morning-brief" },
+				session: "main",
+				profile: "default",
+				wake: "run",
 			},
 		],
 	};

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createBot } from "@yonder/bot-core";
 import { createChannelLogin } from "@yonder/bot-core/kernel/channel-login";
 import { configurationErrors } from "@yonder/bot-core/kernel/config-validation";
@@ -158,6 +159,48 @@ export async function openCloudBot(options: CloudBotOptions) {
 		},
 	});
 	const permissions = services.permissions;
+	/**
+	 * 每日晨晚报（主人 2026-11-05 要求）：Bot 建好即带两条 cron 作业（北京时间 08:00 / 21:00），
+	 * 事件负载沿 definitions.ts 的 main 绑定进入主人配置档，模型按 memory 插件的对应 skill 汇总
+	 * （08:00 memory-morning-brief：当日安排；21:00 memory-evening-wrap：整理当日记录并更新自我画像），
+	 * cron 作业把结果投递到主人私聊。作业的 owner 指向 Bot 的 main 会话（云端 Bot 唯一的 main 绑定
+	 * 会话，此处幂等补建）；主人可以在任务页的定时分区停用或删除。只播种一次：已有 jobs.json 不改写。
+	 */
+	async function seedMorningBrief() {
+		if (!descriptors.some((entry) => entry.manifest.id === "cron") || !agents.has(identity.id)) return;
+		const cron = storage("cron").open();
+		if ((await cron.read("jobs.json")) !== undefined) return;
+		const session = await core.sessions.ensureAgent(identity.id, "default", "main", "main");
+		const owner = { session: session.session.id, agent: identity.id, profile: "default" };
+		const job = (name: string, expression: string, skill: string) => ({
+			id: randomUUID(),
+			name,
+			owner,
+			capabilities: ["write", "message", "admin"],
+			schedule: { kind: "cron" as const, expression, timezone: "Asia/Shanghai" },
+			payload: {
+				kind: "event" as const,
+				type: "cron.morning-brief",
+				target: "conv:cron:morning-brief",
+				data: { skill },
+			},
+			delivery: { to: `acct:card:${identity.id}:${identity.ownerId}`, via: "card" },
+			enabled: true,
+			missed: "coalesce" as const,
+			runs: 0,
+			next: null,
+			created: new Date().toISOString(),
+			updated: new Date().toISOString(),
+		});
+		await cron.write(
+			"jobs.json",
+			JSON.stringify(
+				[job("晨报", "0 8 * * *", "memory-morning-brief"), job("晚报", "0 21 * * *", "memory-evening-wrap")],
+				null,
+				2,
+			),
+		);
+	}
 	try {
 		core = await createBot({
 			home,
@@ -288,6 +331,7 @@ export async function openCloudBot(options: CloudBotOptions) {
 			},
 		});
 		await resumeRecovered(core.delivery, core.router, core.sessions, runtime);
+		await seedMorningBrief();
 		await loaded.start(core.router);
 		core.delivery.start();
 		await core.outbound.start(scheduler);
