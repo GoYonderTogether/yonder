@@ -30,7 +30,7 @@ export async function refreshCloudModels(
 		let code: CloudModelIssue["code"] = "not_connected";
 		let message = "尚未连接云端账号，请在名片渠道设置中登录后重试。";
 		try {
-			const endpoint = new URL(configured.endpoint ?? "https://yonder.zethai.cn").origin;
+			const endpoint = new URL(configured.endpoint ?? "https://demo.zethai.cn").origin;
 			const saved = JSON.parse(
 				await readFile(join(home, ".yonder", "plugins", "channel-card", `${instance}.json`), "utf8"),
 			);

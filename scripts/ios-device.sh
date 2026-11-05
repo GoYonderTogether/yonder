@@ -3,7 +3,7 @@
 # 用途：本地高频迭代，替代 TestFlight 分发。不提交、不上传、不触发任何远程流程。
 #
 # 用法：
-#   scripts/ios-device.sh                # 默认 origin https://yonder.zethai.cn
+#   scripts/ios-device.sh                # 默认 origin https://demo.zethai.cn
 #   scripts/ios-device.sh <origin>       # 指定壳内打开的站点（编译期注入 YONDER_MOBILE_ORIGIN）
 #   ORIGIN=... scripts/ios-device.sh     # 同上，环境变量形式
 #   CONFIGURATION=Release scripts/ios-device.sh   # 默认 Debug
@@ -26,7 +26,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$REPO/apps/desktop"
-ORIGIN="${1:-${ORIGIN:-https://yonder.zethai.cn}}"
+ORIGIN="${1:-${ORIGIN:-https://demo.zethai.cn}}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
 TEAM_ID="${IOS_TEAM_ID:-D4UZU32UN9}"   # 与 CI ios-release.yml 的 IOS_TEAM_ID secret 一致
 # 与 TestFlight 同一身份：装上后覆盖手机上的正式版。显示名经 CFBundleDisplayName 写入。

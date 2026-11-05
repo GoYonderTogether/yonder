@@ -3,7 +3,7 @@ import type { Attachment, EventInput, Ref, SocialMessageData } from "@yonder/sdk
 export function cardEndpoint(endpoint?: string): string {
 	let url: URL;
 	try {
-		url = new URL(endpoint ?? "https://yonder.zethai.cn");
+		url = new URL(endpoint ?? "https://demo.zethai.cn");
 	} catch {
 		throw new Error("Card endpoint must be an HTTP(S) origin without credentials");
 	}
