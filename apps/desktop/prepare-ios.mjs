@@ -11,7 +11,7 @@
 //   3. 团队 ID 与 profile 名可用环境变量覆盖（CI 用 secrets）：IOS_TEAM_ID / IOS_PROFILE_NAME。
 //   4. 权限用途说明（Info.plist）：日历、提醒事项、通讯录、照片、位置、健康，各一句中文。
 //      yonder-device 插件在运行时向系统要这些授权，缺 key 会直接崩溃。
-//   5. HealthKit capability：project.yml 追加 com.apple.HealthKit entitlement + SYSTEM_HEADERS 搜索路径，
+//   5. HealthKit capability：project.yml 追加 com.apple.developer.healthkit entitlement + SYSTEM_HEADERS 搜索路径，
 //      之后用 xcodegen 重新生成工程（与 ios-device.sh 的既有重生成顺序一致）。
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -116,9 +116,9 @@ function applyUsageDescriptions() {
 }
 
 /**
- * 5. HealthKit capability：entitlements 加 com.apple.HealthKit，target 加 HealthKit framework。
+ * 5. HealthKit capability：entitlements 加 com.apple.developer.healthkit，target 加 HealthKit framework。
  * App ID 还没在开发者门户启用 HealthKit 时，自动生成的开发 profile 不含这个 entitlement，
- * 本地真机构建会报 "Entitlement com.apple.HealthKit not found"；设 YONDER_SKIP_HEALTHKIT=1
+ * 本地真机构建会报 "Entitlement com.apple.developer.healthkit not found"；设 YONDER_SKIP_HEALTHKIT=1
  * 先不带 HealthKit 跑（位置 / 日历等其余能力不受影响）。正式 TestFlight 构建默认带上，
  * 由维护者在开发者门户启用 capability 后生效。
  */
@@ -129,7 +129,7 @@ function applyHealthKit() {
 	if (skipHealthKit) {
 		const stripped = yml
 			.split("\n")
-			.filter((line) => !line.includes("com.apple.HealthKit") && line.trim() !== "- sdk: HealthKit.framework")
+			.filter((line) => !line.includes("com.apple.developer.healthkit") && line.trim() !== "- sdk: HealthKit.framework")
 			.join("\n");
 		if (stripped !== yml) {
 			writeFileSync(projectYml, stripped);
@@ -140,7 +140,7 @@ function applyHealthKit() {
 	}
 	let changed = false;
 	const healthEntries = yml.split("\n").filter((line) => line.trim() === "- sdk: HealthKit.framework").length;
-	if (!yml.includes("com.apple.HealthKit")) {
+	if (!yml.includes("com.apple.developer.healthkit")) {
 		if (!/^ {4}entitlements:\n {6}path: \S+$/m.test(yml)) {
 			console.error("prepare-ios: unexpected project.yml layout (no entitlements path line)");
 			process.exit(1);
@@ -149,7 +149,7 @@ function applyHealthKit() {
 		// entitlements.properties；xcodegen 会据此生成 .entitlements 文件并接进签名。
 		yml = yml.replace(
 			/^( {4}entitlements:\n {6}path: \S+)$/m,
-			"$1\n      properties:\n        com.apple.HealthKit: true\n",
+			"$1\n      properties:\n        com.apple.developer.healthkit: true\n",
 		);
 		changed = true;
 	}
