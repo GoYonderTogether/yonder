@@ -78,8 +78,10 @@ const SPRING_POP = `linear(
 )`;
 
 export const lightTokens = {
-	"--rail": "#151515",
-	"--desk-2": "#20201e",
+	"--rail": "#f6f3ec",
+	"--desk": "#151515",
+	"--desk-glow": "#2a2a27",
+	"--desk-2": "#efeadf",
 	"--list": "#f6f3ec",
 	"--ground": "#f6f3ec",
 	"--raised": "#ffffff",
@@ -112,7 +114,7 @@ export const lightTokens = {
 	"--shadow-soft": "0 1px 2px rgb(21 21 21 / 0.08), 0 8px 28px -12px rgb(21 21 21 / 0.18)",
 	"--paper-edge": "#e7e2d6",
 	"--paper-shadow":
-		"0 1px 0 rgb(255 255 255 / 0.7) inset, 0 0 0 1px var(--paper-edge), 0 30px 60px -20px rgb(0 0 0 / 0.55), 0 12px 24px -12px rgb(0 0 0 / 0.4)",
+		"0 1px 0 rgb(255 255 255 / 0.7) inset, 0 0 0 1px var(--paper-edge), 0 30px 60px -20px rgb(0 0 0 / 0.28), 0 12px 24px -12px rgb(0 0 0 / 0.2)",
 	"--font-display": '"Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif',
 	"--w-normal": "400",
 	"--w-medium": "500",
@@ -130,6 +132,8 @@ export const lightTokens = {
 export const darkTokens = {
 	...lightTokens,
 	"--rail": "#151515",
+	"--desk": "#151515",
+	"--desk-glow": "#2a2a27",
 	"--desk-2": "#20201e",
 	"--list": "#20201e",
 	"--ground": "#1a1a19",

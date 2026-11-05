@@ -1,9 +1,10 @@
 :root {
 	color-scheme: light;
 
-	/* 面三层：纸面语义。rail 是桌面，list/ground 是纸，raised 是浮起的纸。 */
-	--rail: #151515;
-	--desk-2: #20201e;
+	/* 面三层：纸面语义。rail 是竖栏/底栏/页面底，list/ground 是纸，raised 是浮起的纸。
+	   浅色下所有界面面都是纸色，深桌面色只属于暗色与名片页的深色舞台。 */
+	--rail: #f6f3ec;
+	--desk-2: #efeadf;
 	--list: #f6f3ec;
 	--ground: #f6f3ec;
 	--raised: #ffffff;
@@ -45,11 +46,14 @@
 	--offline: #b3b1ab;
 	--shadow-float: 0 1px 2px rgb(21 21 21 / 0.12), 0 16px 40px -12px rgb(21 21 21 / 0.28);
 	--shadow-soft: 0 1px 2px rgb(21 21 21 / 0.08), 0 8px 28px -12px rgb(21 21 21 / 0.18);
-	/* 纸面压在深桌面上时的投影与描边，名片组件用 */
+	/* 浅色的名片页深色舞台（card-demo 的 desk）；暗色整页本就是深桌 */
+	--desk: #151515;
+	--desk-glow: #2a2a27;
+	/* 浅色的阴影描边沿用纸边，暗色才有深桌投影 */
 	--paper-edge: #e7e2d6;
 	--paper-shadow:
-		0 1px 0 rgb(255 255 255 / 0.7) inset, 0 0 0 1px var(--paper-edge), 0 30px 60px -20px rgb(0 0 0 / 0.55),
-		0 12px 24px -12px rgb(0 0 0 / 0.4);
+		0 1px 0 rgb(255 255 255 / 0.7) inset, 0 0 0 1px var(--paper-edge), 0 30px 60px -20px rgb(0 0 0 / 0.28),
+		0 12px 24px -12px rgb(0 0 0 / 0.2);
 
 	/* 展示字体：宋体系衬线，名片名字与页面大标题 */
 	--font-display: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
@@ -144,6 +148,8 @@
 	:root {
 		color-scheme: dark;
 		--rail: #151515;
+		--desk: #151515;
+		--desk-glow: #2a2a27;
 		--desk-2: #20201e;
 		--list: #20201e;
 		--ground: #1a1a19;

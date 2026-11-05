@@ -21,7 +21,8 @@ import { AddFriendButton } from "./Friends";
 
 /**
  * Public-only query and actions, also embedded as the add-friend result.
- * 页面就是原型的那张纸卡：正面信息，点按翻背面；卡外是「和我的 AI 聊聊」与「详情」。
+ * 页面就是 card-demo 的那张深色舞台 + 纸卡：正面信息，点按翻背面；
+ * 卡下是「和我的 AI 聊聊」（走真实会话流）与「详情」。
  */
 export function PublicIdentity({
 	accountId,
@@ -158,22 +159,9 @@ export function PublicIdentity({
 		}
 	};
 	const chatLabel = profile_?.alias?.trim() ? `和 ${profile_.alias.trim()} 的 AI 聊聊` : "和我的 AI 聊聊";
-	return (
-		<div className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-5">
-			<PaperCard
-				name={actor.name}
-				photoUrl={face?.coverUrl ?? actor.avatarUrl}
-				profile={profile_}
-				headline={card?.tagline ?? profile.card?.tagline ?? actor.summary ?? undefined}
-				tags={face?.tags ?? []}
-				url={shareUrl}
-			/>{" "}
-			{!self && (
-				<Button variant="primary" className="h-12" disabled={busyProfile || starting} onClick={hi}>
-					<span className="inline-block size-[7px] rounded-full bg-online" aria-hidden />
-					{chatLabel}
-				</Button>
-			)}
+	const detail = (
+		<>
+			<PaperIntro profile={profile_} />
 			{!self && !ownedAgent && (
 				<AddFriendButton key={actor.ownerId ?? actor.id} accountId={actor.ownerId ?? actor.id} />
 			)}
@@ -181,10 +169,6 @@ export function PublicIdentity({
 				<Button className="h-11" disabled={collecting || collected} onClick={collect}>
 					{collected ? "已收藏" : "收藏"}
 				</Button>
-			)}
-			<PaperIntro profile={profile_} />
-			{profile_?.intro?.trim() && !self && (
-				<p className="text-center text-small text-faint">扫码看详情，或直接和上面的 AI 聊聊</p>
 			)}
 			{!self && (
 				<Link
@@ -194,6 +178,68 @@ export function PublicIdentity({
 					我也要一张
 				</Link>
 			)}
+		</>
+	);
+	// 公开名片页 = demo 的深色舞台；内嵌（加好友查找结果等）保持页面原本的浅色纸面。
+	if (cardId) {
+		return (
+			<div className="card-stage -mx-4 -my-5 flex min-h-full flex-col items-center px-4 py-5">
+				<div className="flex w-full flex-1 flex-col items-center justify-center gap-4 py-[clamp(20px,5vh,48px)]">
+					<PaperCard
+						name={actor.name}
+						photoUrl={face?.coverUrl ?? actor.avatarUrl}
+						profile={profile_}
+						headline={card?.tagline ?? profile.card?.tagline ?? actor.summary ?? undefined}
+						tags={face?.tags ?? []}
+						url={shareUrl}
+					/>
+					<p className="text-xs text-[rgb(246_243_236/0.38)]">点名片翻面</p>
+				</div>
+				{!self && (
+					<div className="flex flex-wrap justify-center gap-2.5 pb-[clamp(20px,4vh,36px)]">
+						<button
+							type="button"
+							className="paper-btn paper-btn-primary press disabled:opacity-40"
+							disabled={busyProfile || starting}
+							onClick={hi}
+						>
+							<span className="paper-dot" aria-hidden />
+							{chatLabel}
+						</button>
+						<button
+							type="button"
+							className="paper-btn paper-btn-ghost press"
+							onClick={() => {
+								document.getElementById("card-detail")?.scrollIntoView({ behavior: "smooth" });
+							}}
+						>
+							查看详情
+						</button>
+					</div>
+				)}
+				<div id="card-detail" className="w-full max-w-xl rounded-card bg-raised p-5 text-ink shadow-soft">
+					{detail}
+				</div>
+			</div>
+		);
+	}
+	return (
+		<div className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-5">
+			<PaperCard
+				name={actor.name}
+				photoUrl={face?.coverUrl ?? actor.avatarUrl}
+				profile={profile_}
+				headline={card?.tagline ?? profile.card?.tagline ?? actor.summary ?? undefined}
+				tags={face?.tags ?? []}
+				url={shareUrl}
+			/>
+			{!self && (
+				<Button variant="primary" className="h-12" disabled={busyProfile || starting} onClick={hi}>
+					<span className="inline-block size-[7px] rounded-full bg-online" aria-hidden />
+					{chatLabel}
+				</Button>
+			)}
+			{detail}
 		</div>
 	);
 }
@@ -207,12 +253,13 @@ export function CardPage() {
 		<div className="app-frame flex flex-col bg-rail">
 			<AppBar
 				title="名片"
+				className="relative z-10 flex h-14 shrink-0 items-center gap-2 px-4 text-[#f6f3ec]"
 				left={
 					<button
 						type="button"
 						onClick={back}
 						aria-label="返回"
-						className="press -ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-tone"
+						className="press -ml-2 flex h-10 w-10 items-center justify-center rounded-full text-[rgb(246_243_236/0.6)] hover:bg-[rgb(246_243_236/0.08)]"
 					>
 						<ArrowLeft size={20} />
 					</button>

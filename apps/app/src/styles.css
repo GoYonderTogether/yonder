@@ -31,6 +31,8 @@
 	--color-online: var(--online);
 	--color-offline: var(--offline);
 	--color-paper-edge: var(--paper-edge);
+	--color-desk: var(--desk);
+	--color-desk-glow: var(--desk-glow);
 	--color-brand-blue: var(--brand-blue);
 	--font-display: var(--font-display);
 	--font-sans:
@@ -440,9 +442,16 @@ time,
 	color: var(--ink);
 }
 
-/* 名片页：深桌面上的纸卡（card-demo 原型的翻面名片）。 */
+/* 名片页：card-demo 原型的深色舞台与翻面纸卡。
+   舞台（stage / hint / actions）是公开名片页独有的深桌背景；纸卡本体浅暗两色通用。 */
+.card-stage {
+	background: radial-gradient(1200px 700px at 50% 30%, var(--desk-glow) 0%, transparent 60%), var(--desk);
+	color: #f6f3ec;
+}
 .paper-stage {
 	perspective: 1600px;
+	width: min(600px, 92vw);
+	aspect-ratio: 90 / 54;
 }
 .paper-card {
 	position: relative;
@@ -465,6 +474,9 @@ time,
 	box-shadow: var(--paper-shadow);
 	overflow: hidden;
 }
+.paper-photo img {
+	filter: saturate(0.9) contrast(1.02);
+}
 .paper-side-back {
 	transform: rotateY(180deg);
 }
@@ -476,6 +488,85 @@ time,
 	pointer-events: none;
 	opacity: 0.35;
 	background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4  0 0 0 0 0.38  0 0 0 0 0.33  0 0 0 0.09 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+/* 名片页圆角主按钮（demo 的 .btn-primary / .btn-ghost） */
+.paper-btn {
+	border-radius: 999px;
+	padding: 11px 20px;
+	font-size: 14px;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.paper-btn-primary {
+	background: var(--list);
+	color: var(--ink);
+}
+.paper-btn-ghost {
+	color: var(--list);
+	border: 1px solid rgb(246 243 236 / 0.22);
+}
+.paper-btn-ghost:hover {
+	background: rgb(246 243 236 / 0.06);
+}
+.paper-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: #3fbf6f;
+	box-shadow: 0 0 0 3px rgb(63 191 111 / 0.2);
+}
+/* 手机上纸卡转竖版（demo @media max-width 640 的比例与分栏） */
+@media (max-width: 640px) {
+	.paper-stage {
+		width: min(360px, 88vw);
+		aspect-ratio: 54 / 90;
+	}
+	.paper-front {
+		grid-template-columns: 1fr;
+		grid-template-rows: 47% 1fr;
+	}
+	.paper-photo {
+		background: transparent;
+		padding: 9% 9% 0;
+	}
+	.paper-photo img {
+		width: auto;
+		height: 100%;
+		border-radius: 10px;
+		box-shadow: 0 0 0 1px var(--paper-edge);
+	}
+	.paper-front-body {
+		padding: 6% 9% 9%;
+		position: static;
+	}
+	.paper-brand {
+		top: 9%;
+		right: 9%;
+	}
+	.paper-name {
+		margin-top: 0;
+	}
+	.paper-line {
+		margin-top: 14px;
+	}
+	.paper-foot {
+		margin-top: auto;
+	}
+	.paper-back {
+		grid-template-columns: 1fr;
+		grid-template-rows: 1fr auto;
+		padding: 10% 9%;
+		gap: 18px;
+	}
+	.paper-qr-big {
+		flex-direction: row;
+		justify-content: flex-start;
+		gap: 14px;
+	}
+	.paper-qr-big span {
+		text-align: left;
+	}
 }
 @media (prefers-reduced-motion: reduce) {
 	.paper-card {
